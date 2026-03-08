@@ -1,3 +1,10 @@
+import "./globals.css"
+
+export const metadata = {
+  title: "Naysha Educore ERP",
+  description: "Multi School ERP Platform",
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -5,7 +12,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+      </body>
     </html>
   )
 }
