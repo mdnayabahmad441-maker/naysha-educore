@@ -4,25 +4,26 @@ import type { NextRequest } from "next/server"
 export function middleware(request: NextRequest) {
 
   const host = request.headers.get("host") || ""
-
-  // remove localhost or root domain
   const subdomain = host.split(".")[0]
 
-  // if visiting erp.naysha.online
+  const url = request.nextUrl.clone()
+
+  // MAIN ERP DOMAIN
   if (host.startsWith("erp.")) {
-    return NextResponse.rewrite(new URL(`/erp${request.nextUrl.pathname}`, request.url))
+    return NextResponse.next()
   }
 
-  // if visiting school subdomain
+  // SCHOOL SUBDOMAIN
   if (subdomain !== "www" && subdomain !== "naysha" && subdomain !== "erp") {
-    return NextResponse.rewrite(
-      new URL(`/erp${request.nextUrl.pathname}?school=${subdomain}`, request.url)
-    )
+    url.pathname = `/erp${url.pathname}`
+    url.searchParams.set("school", subdomain)
+
+    return NextResponse.rewrite(url)
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ["/((?!_next|api).*)"],
+  matcher: ["/((?!_next|api|favicon.ico).*)"],
 }
