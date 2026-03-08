@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-800 text-white">
@@ -21,13 +23,19 @@ export default function Home() {
 
           <div className="flex gap-6 mt-10">
 
-            <button className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 font-semibold hover:scale-105 transition">
-              Access Dashboard
-            </button>
+            {/* CREATE SCHOOL BUTTON */}
+            <Link href="/create-school">
+              <button className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 font-semibold hover:scale-105 transition">
+                Create School
+              </button>
+            </Link>
 
-            <button className="px-6 py-3 rounded-xl border border-cyan-400 text-cyan-300 hover:bg-white/10 transition">
-              Request Demo
-            </button>
+            {/* LOGIN BUTTON */}
+            <Link href="/erp/login">
+              <button className="px-6 py-3 rounded-xl border border-cyan-400 text-cyan-300 hover:bg-white/10 transition">
+                Access Dashboard
+              </button>
+            </Link>
 
           </div>
 
