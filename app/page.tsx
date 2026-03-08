@@ -1,74 +1,17 @@
-import Link from "next/link";
-
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-800 text-white">
+    <main style={{padding:"40px", fontFamily:"sans-serif"}}>
+      <h1>Naysha Educore ERP</h1>
 
-      <div className="max-w-7xl mx-auto px-8 py-28 grid md:grid-cols-2 gap-16 items-center">
+      <p>Welcome to the ERP system.</p>
 
-        {/* LEFT SIDE */}
-        <div>
-
-          <h1 className="text-6xl font-bold leading-tight bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-            Smart Academic
-            <br />
-            Command Center
-          </h1>
-
-          <p className="mt-6 text-lg text-gray-200 max-w-xl">
-            A complete school ERP platform for admissions, attendance,
-            fees, exams, and analytics — built with precision, trust,
-            and automation.
-          </p>
-
-          <div className="flex gap-6 mt-10">
-
-            {/* CREATE SCHOOL BUTTON */}
-            <Link href="/create-school">
-              <button className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 font-semibold hover:scale-105 transition">
-                Create School
-              </button>
-            </Link>
-
-            {/* LOGIN BUTTON */}
-            <Link href="/erp/login">
-              <button className="px-6 py-3 rounded-xl border border-cyan-400 text-cyan-300 hover:bg-white/10 transition">
-                Access Dashboard
-              </button>
-            </Link>
-
-          </div>
-
-        </div>
-
-        {/* RIGHT SIDE STATS */}
-        <div className="grid grid-cols-3 gap-6">
-
-          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl shadow-lg">
-            <p className="text-gray-300 text-sm">Total Students</p>
-            <h2 className="text-3xl font-bold text-cyan-400 mt-2">
-              1,248
-            </h2>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl shadow-lg">
-            <p className="text-gray-300 text-sm">Attendance Today</p>
-            <h2 className="text-3xl font-bold text-cyan-400 mt-2">
-              96%
-            </h2>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl shadow-lg">
-            <p className="text-gray-300 text-sm">Fees Collected</p>
-            <h2 className="text-3xl font-bold text-cyan-400 mt-2">
-              ₹8.2L
-            </h2>
-          </div>
-
-        </div>
-
+      <div style={{marginTop:"20px"}}>
+        <a href="/create-school">Create School</a>
       </div>
 
+      <div style={{marginTop:"10px"}}>
+        <a href="/erp/login">ERP Login</a>
+      </div>
     </main>
-  );
+  )
 }
