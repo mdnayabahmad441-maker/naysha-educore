@@ -1,9 +1,12 @@
 "use client"
 
-import { useState,useEffect } from "react"
+import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
 export default function StudentsPage(){
+
+  const router = useRouter()
 
   const [name,setName] = useState("")
   const [roll,setRoll] = useState("")
@@ -11,7 +14,7 @@ export default function StudentsPage(){
   const [students,setStudents] = useState<any[]>([])
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
-  // get logged user school
+
   async function getSchool(){
 
     const { data:userData } =
@@ -30,13 +33,13 @@ export default function StudentsPage(){
 
     if(data){
       setSchoolId(data.school_id)
-      fetchStudents(data.school_id)
+      loadStudents(data.school_id)
     }
 
   }
 
-  // load students
-  async function fetchStudents(id:string){
+
+  async function loadStudents(id:string){
 
     const { data } =
       await supabase
@@ -51,7 +54,7 @@ export default function StudentsPage(){
 
   }
 
-  // add student
+
   async function addStudent(){
 
     if(!name || !roll || !studentClass){
@@ -83,13 +86,16 @@ export default function StudentsPage(){
     setRoll("")
     setStudentClass("")
 
-    fetchStudents(schoolId)
+    loadStudents(schoolId)
 
   }
+
 
   useEffect(()=>{
     getSchool()
   },[])
+
+
 
   return(
 
@@ -99,7 +105,8 @@ export default function StudentsPage(){
         Student Management
       </h1>
 
-      {/* ADD STUDENT */}
+
+      {/* ADD STUDENT FORM */}
 
       <div className="bg-white/10 p-6 rounded-xl w-[350px] mb-10">
 
@@ -137,6 +144,7 @@ export default function StudentsPage(){
 
       </div>
 
+
       {/* STUDENTS LIST */}
 
       <div className="bg-white/10 p-6 rounded-xl">
@@ -162,13 +170,19 @@ export default function StudentsPage(){
           <tbody>
 
             {students.map((s)=>(
-              <tr key={s.id} className="border-b border-white/10">
+
+              <tr
+                key={s.id}
+                className="border-b border-white/10 cursor-pointer hover:bg-white/5"
+                onClick={()=>router.push(`/erp/dashboard/students/${s.id}`)}
+              >
 
                 <td className="py-2">{s.name}</td>
                 <td>{s.roll_number}</td>
                 <td>{s.class}</td>
 
               </tr>
+
             ))}
 
           </tbody>
