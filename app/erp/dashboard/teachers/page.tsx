@@ -8,10 +8,14 @@ export default function TeachersPage(){
   const [name,setName] = useState("")
   const [subject,setSubject] = useState("")
   const [phone,setPhone] = useState("")
+  const [email,setEmail] = useState("")
+  const [password,setPassword] = useState("")
+
   const [teachers,setTeachers] = useState<any[]>([])
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
-  // get logged user school
+
+  // GET SCHOOL ID
   async function getSchool(){
 
     const { data:userData } =
@@ -35,7 +39,8 @@ export default function TeachersPage(){
 
   }
 
-  // load teachers
+
+  // FETCH TEACHERS
   async function fetchTeachers(id:string){
 
     const { data } =
@@ -51,10 +56,11 @@ export default function TeachersPage(){
 
   }
 
-  // add teacher
+
+  // ADD TEACHER + CREATE LOGIN
   async function addTeacher(){
 
-    if(!name || !subject || !phone){
+    if(!name || !subject || !phone || !email || !password){
       alert("Fill all fields")
       return
     }
@@ -64,7 +70,30 @@ export default function TeachersPage(){
       return
     }
 
-    const { error } =
+    // CREATE AUTH ACCOUNT
+
+    const { data, error:authError } =
+      await supabase.auth.signUp({
+        email: email,
+        password: password
+      })
+
+    if(authError){
+      alert(authError.message)
+      return
+    }
+
+    const userId = data.user?.id
+
+    if(!userId){
+      alert("User creation failed")
+      return
+    }
+
+
+    // INSERT TEACHER
+
+    const { error:teacherError } =
       await supabase
         .from("teachers")
         .insert({
@@ -74,22 +103,50 @@ export default function TeachersPage(){
           school_id:schoolId
         })
 
-    if(error){
-      alert(error.message)
+    if(teacherError){
+      alert(teacherError.message)
       return
     }
+
+
+    // INSERT ROLE
+
+    const { error:userError } =
+      await supabase
+        .from("users")
+        .insert({
+          id:userId,
+          school_id:schoolId,
+          email:email,
+          role:"teacher"
+        })
+
+    if(userError){
+      alert(userError.message)
+      return
+    }
+
+
+    // RESET FORM
 
     setName("")
     setSubject("")
     setPhone("")
+    setEmail("")
+    setPassword("")
 
     fetchTeachers(schoolId)
 
+    alert("Teacher created successfully")
+
   }
+
 
   useEffect(()=>{
     getSchool()
   },[])
+
+
 
   return(
 
@@ -98,6 +155,8 @@ export default function TeachersPage(){
       <h1 className="text-3xl font-bold mb-8">
         Teacher Management
       </h1>
+
+
 
       {/* ADD TEACHER */}
 
@@ -123,9 +182,24 @@ export default function TeachersPage(){
 
         <input
           placeholder="Phone"
-          className="w-full p-2 mb-4 rounded bg-slate-800"
+          className="w-full p-2 mb-3 rounded bg-slate-800"
           value={phone}
           onChange={(e)=>setPhone(e.target.value)}
+        />
+
+        <input
+          placeholder="Teacher Email"
+          className="w-full p-2 mb-3 rounded bg-slate-800"
+          value={email}
+          onChange={(e)=>setEmail(e.target.value)}
+        />
+
+        <input
+          type="password"
+          placeholder="Teacher Password"
+          className="w-full p-2 mb-4 rounded bg-slate-800"
+          value={password}
+          onChange={(e)=>setPassword(e.target.value)}
         />
 
         <button
@@ -136,6 +210,8 @@ export default function TeachersPage(){
         </button>
 
       </div>
+
+
 
       {/* TEACHERS LIST */}
 
