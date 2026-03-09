@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import Link from "next/link"
 
 export default function TeacherDashboard(){
 
   const [teacher,setTeacher] = useState<any>(null)
   const [school,setSchool] = useState<any>(null)
-  const [studentCount,setStudentCount] = useState(0)
-  const [classesToday,setClassesToday] = useState(0)
+  const [students,setStudents] = useState(0)
+  const [menuOpen,setMenuOpen] = useState(false)
 
   async function loadDashboard(){
 
@@ -17,41 +18,43 @@ export default function TeacherDashboard(){
 
     if(!userId) return
 
-    // get teacher
-    const { data:teacherData } =
+    const { data:user } =
       await supabase
-      .from("teachers")
+      .from("users")
       .select("*")
-      .eq("user_id",userId)
+      .eq("id",userId)
       .single()
 
-    if(!teacherData) return
+    if(!user) return
 
-    setTeacher(teacherData)
+    const schoolId = user.school_id
 
-    // get school
     const { data:schoolData } =
       await supabase
       .from("schools")
       .select("name")
-      .eq("id",teacherData.school_id)
+      .eq("id",schoolId)
       .single()
 
     setSchool(schoolData)
 
-    // count students in teacher class
-    const { data:students } =
+    const { data:teacherData } =
+      await supabase
+      .from("teachers")
+      .select("*")
+      .eq("school_id",schoolId)
+      .limit(1)
+      .single()
+
+    setTeacher(teacherData)
+
+    const { data:studentsData } =
       await supabase
       .from("students")
       .select("*")
-      .eq("school_id",teacherData.school_id)
+      .eq("school_id",schoolId)
 
-    if(students){
-      setStudentCount(students.length)
-    }
-
-    // classes today (temporary logic)
-    setClassesToday(4)
+    setStudents(studentsData?.length || 0)
 
   }
 
@@ -59,66 +62,102 @@ export default function TeacherDashboard(){
     loadDashboard()
   },[])
 
+
   return(
 
-    <div className="p-6 md:p-10 text-white">
-
-      {/* HEADER */}
-
-      <h1 className="text-3xl md:text-4xl font-bold mb-2">
-        Welcome
-      </h1>
-
-      <p className="text-gray-400 mb-8">
-        {school?.name} • Teacher Dashboard
-      </p>
+    <div className="flex min-h-screen bg-[#020617] text-white">
 
 
-      {/* STATS */}
+      {/* SIDEBAR */}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className={`bg-gradient-to-b from-blue-700 to-purple-700 p-6 w-64 space-y-6 fixed md:relative h-full z-50 transition-transform ${menuOpen ? "translate-x-0" : "-translate-x-64 md:translate-x-0"}`}>
 
-        {/* SUBJECT */}
+        <h2 className="text-xl font-bold text-cyan-300">
+          Teacher Panel
+        </h2>
 
-        <div className="bg-white/10 p-6 rounded-xl backdrop-blur">
+        <nav className="space-y-4 text-gray-200">
 
-          <p className="text-gray-400">
-            My Subject
-          </p>
+          <Link href="/erp/teacher/dashboard">Dashboard</Link>
+          <Link href="/erp/teacher/students">My Students</Link>
+          <Link href="/erp/teacher/attendance">Attendance</Link>
+          <Link href="/erp/teacher/marks">Enter Marks</Link>
+          <Link href="/erp/teacher/results">Results</Link>
 
-          <h2 className="text-2xl font-bold text-cyan-400 mt-2">
-            {teacher?.subject || "Not Assigned"}
-          </h2>
+        </nav>
 
-        </div>
-
-
-        {/* CLASSES */}
-
-        <div className="bg-white/10 p-6 rounded-xl backdrop-blur">
-
-          <p className="text-gray-400">
-            Classes Today
-          </p>
-
-          <h2 className="text-2xl font-bold text-cyan-400 mt-2">
-            {classesToday}
-          </h2>
-
-        </div>
+      </div>
 
 
-        {/* STUDENTS */}
+      {/* CONTENT */}
 
-        <div className="bg-white/10 p-6 rounded-xl backdrop-blur">
+      <div className="flex-1 p-6 md:p-10 ml-0 md:ml-0">
 
-          <p className="text-gray-400">
-            Students Assigned
-          </p>
 
-          <h2 className="text-2xl font-bold text-cyan-400 mt-2">
-            {studentCount}
-          </h2>
+        {/* MOBILE MENU BUTTON */}
+
+        <button
+          onClick={()=>setMenuOpen(!menuOpen)}
+          className="md:hidden mb-6 bg-white/10 px-4 py-2 rounded"
+        >
+          ☰ Menu
+        </button>
+
+
+        {/* HEADER */}
+
+        <h1 className="text-4xl font-bold mb-2">
+          Welcome
+        </h1>
+
+        <p className="text-gray-400 mb-10">
+          {school?.name} • Teacher Dashboard
+        </p>
+
+
+        {/* STATS */}
+
+        <div className="grid md:grid-cols-3 gap-6">
+
+
+          <div className="bg-white/10 p-6 rounded-xl">
+
+            <p className="text-gray-400">
+              My Subject
+            </p>
+
+            <h2 className="text-2xl font-bold text-cyan-400 mt-2">
+              {teacher?.subject || "Not Assigned"}
+            </h2>
+
+          </div>
+
+
+          <div className="bg-white/10 p-6 rounded-xl">
+
+            <p className="text-gray-400">
+              Classes Today
+            </p>
+
+            <h2 className="text-2xl font-bold text-cyan-400 mt-2">
+              0
+            </h2>
+
+          </div>
+
+
+          <div className="bg-white/10 p-6 rounded-xl">
+
+            <p className="text-gray-400">
+              Students Assigned
+            </p>
+
+            <h2 className="text-2xl font-bold text-cyan-400 mt-2">
+              {students}
+            </h2>
+
+          </div>
+
 
         </div>
 
