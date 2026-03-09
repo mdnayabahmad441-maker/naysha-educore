@@ -1,25 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState,useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 
 export default function ExamsPage(){
 
 const [schoolId,setSchoolId] = useState("")
 
-const [classes,setClasses] = useState<string[]>([])
-const [selectedClass,setSelectedClass] = useState("")
-
 const [examName,setExamName] = useState("")
-const [subject,setSubject] = useState("")
-const [maxMarks,setMaxMarks] = useState(100)
-const [examDate,setExamDate] = useState("")
+const [examType,setExamType] = useState("")
+const [scope,setScope] = useState("ALL")
 
-const [exams,setExams] = useState<any[]>([])
-
-
-
-/* GET SCHOOL */
+const [sessions,setSessions] = useState<any[]>([])
 
 async function getSchool(){
 
@@ -36,113 +28,66 @@ await supabase
 .single()
 
 if(data){
-
 setSchoolId(data.school_id)
-
-loadClasses(data.school_id)
-loadExams(data.school_id)
-
+loadSessions(data.school_id)
 }
 
 }
 
 
-
-/* LOAD CLASSES */
-
-async function loadClasses(id:string){
+async function loadSessions(id:string){
 
 const {data} =
 await supabase
-.from("students")
-.select("class")
-.eq("school_id",id)
-
-if(data){
-
-const unique =
-[...new Set(data.map((s:any)=>s.class))]
-
-setClasses(unique)
-
-}
-
-}
-
-
-
-/* LOAD EXAMS */
-
-async function loadExams(id:string){
-
-const {data} =
-await supabase
-.from("exams")
+.from("exam_sessions")
 .select("*")
 .eq("school_id",id)
 .order("created_at",{ascending:false})
 
 if(data){
-setExams(data)
+setSessions(data)
 }
 
 }
 
-
-
-/* CREATE EXAM */
 
 async function createExam(){
 
-if(!selectedClass || !examName || !subject){
-
-alert("Fill all fields")
+if(!examName){
+alert("Enter exam name")
 return
-
 }
 
 const {error} =
 await supabase
-.from("exams")
+.from("exam_sessions")
 .insert({
 
 school_id:schoolId,
-
-class:selectedClass,
 exam_name:examName,
-subject:subject,
-
-max_marks:maxMarks,
-exam_date:examDate
+exam_type:examType,
+class_scope:scope
 
 })
 
 if(error){
-
 alert(error.message)
 return
-
 }
 
-alert("Exam Created")
+alert("Exam Session Created")
 
 setExamName("")
-setSubject("")
-setMaxMarks(100)
-setExamDate("")
+setExamType("")
 
-loadExams(schoolId)
+loadSessions(schoolId)
 
 }
 
-
-
-/* INIT */
 
 useEffect(()=>{
 getSchool()
 },[])
-
 
 
 return(
@@ -150,70 +95,45 @@ return(
 <div className="p-10 text-white">
 
 <h1 className="text-3xl font-bold mb-8">
-Exam Management
+Exam Sessions
 </h1>
-
-
-
-{/* CREATE EXAM */}
 
 <div className="bg-white/10 p-6 rounded-xl w-[400px] space-y-4 mb-10">
 
-<h2 className="text-xl font-bold">
-Create Exam
-</h2>
-
-
-<select
-className="w-full p-3 rounded bg-slate-800"
-value={selectedClass}
-onChange={(e)=>setSelectedClass(e.target.value)}
->
-
-<option>Select Class</option>
-
-{classes.map((c)=>(
-<option key={c}>{c}</option>
-))}
-
-</select>
-
-
-
 <input
-placeholder="Exam Name (Midterm / Final)"
+placeholder="Exam Name (Mid Term)"
 className="w-full p-3 rounded bg-slate-800"
 value={examName}
 onChange={(e)=>setExamName(e.target.value)}
 />
 
-
-
-<input
-placeholder="Subject"
+<select
 className="w-full p-3 rounded bg-slate-800"
-value={subject}
-onChange={(e)=>setSubject(e.target.value)}
-/>
+value={examType}
+onChange={(e)=>setExamType(e.target.value)}
+>
+
+<option value="">Exam Type</option>
+<option>Weekly Test</option>
+<option>Unit Test</option>
+<option>Monthly Test</option>
+<option>Mid Term</option>
+<option>Half Yearly</option>
+<option>Final</option>
+
+</select>
 
 
-
-<input
-type="number"
+<select
 className="w-full p-3 rounded bg-slate-800"
-value={maxMarks}
-onChange={(e)=>setMaxMarks(Number(e.target.value))}
-/>
+value={scope}
+onChange={(e)=>setScope(e.target.value)}
+>
 
+<option value="ALL">All Classes</option>
+<option value="CLASS">Specific Class</option>
 
-
-<input
-type="date"
-className="w-full p-3 rounded bg-slate-800"
-value={examDate}
-onChange={(e)=>setExamDate(e.target.value)}
-/>
-
+</select>
 
 
 <button
@@ -221,20 +141,17 @@ onClick={createExam}
 className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
 >
 
-Create Exam
+Create Exam Session
 
 </button>
 
 </div>
 
 
-
-{/* EXAMS LIST */}
-
 <div className="bg-white/10 p-6 rounded-xl">
 
-<h2 className="text-xl font-bold mb-6">
-Exam List
+<h2 className="text-xl mb-4">
+Exam Sessions
 </h2>
 
 <table className="w-full">
@@ -244,10 +161,8 @@ Exam List
 <tr className="border-b border-white/20">
 
 <th className="text-left p-2">Exam</th>
-<th className="text-left p-2">Class</th>
-<th className="text-left p-2">Subject</th>
-<th className="text-left p-2">Max Marks</th>
-<th className="text-left p-2">Date</th>
+<th>Type</th>
+<th>Scope</th>
 
 </tr>
 
@@ -255,15 +170,13 @@ Exam List
 
 <tbody>
 
-{exams.map((e)=>(
+{sessions.map((s)=>(
 
-<tr key={e.id} className="border-b border-white/10">
+<tr key={s.id} className="border-b border-white/10">
 
-<td className="p-2">{e.exam_name}</td>
-<td>{e.class}</td>
-<td>{e.subject}</td>
-<td>{e.max_marks}</td>
-<td>{e.exam_date}</td>
+<td className="p-2">{s.exam_name}</td>
+<td>{s.exam_type}</td>
+<td>{s.class_scope}</td>
 
 </tr>
 
