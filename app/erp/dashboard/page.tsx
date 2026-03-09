@@ -1,172 +1,197 @@
 "use client"
 
-import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
 
-export default function DashboardPage(){
+export default function Dashboard({children}:{children?:React.ReactNode}){
 
-  const [students,setStudents] = useState(0)
-  const [teachers,setTeachers] = useState(0)
-  const [fees,setFees] = useState(0)
+  const router = useRouter()
 
-  async function loadStats(){
+  const [role,setRole] = useState("")
+  const [loading,setLoading] = useState(true)
 
-    const { data:userData } =
-      await supabase.auth.getUser()
+  useEffect(()=>{
+    loadUser()
+  },[])
 
-    const userId = userData.user?.id
+  async function loadUser(){
 
-    if(!userId) return
+    const { data } = await supabase.auth.getSession()
+
+    if(!data.session){
+      router.push("/erp/login")
+      return
+    }
+
+    const userId = data.session.user.id
 
     const { data:user } =
       await supabase
-      .from("users")
-      .select("school_id")
-      .eq("id",userId)
-      .single()
+        .from("users")
+        .select("role")
+        .eq("id",userId)
+        .single()
 
-    if(!user) return
+    if(user){
+      setRole(user.role)
+    }
 
-    const schoolId = user.school_id
+    setLoading(false)
 
-    const { count:studentsCount } =
-      await supabase
-      .from("students")
-      .select("*",{count:"exact",head:true})
-      .eq("school_id",schoolId)
-
-    const { count:teachersCount } =
-      await supabase
-      .from("teachers")
-      .select("*",{count:"exact",head:true})
-      .eq("school_id",schoolId)
-
-    const { data:feesData } =
-      await supabase
-      .from("fees")
-      .select("amount")
-      .eq("school_id",schoolId)
-
-    const totalFees =
-      feesData?.reduce((sum:any,f:any)=>sum+Number(f.amount),0) || 0
-
-    setStudents(studentsCount || 0)
-    setTeachers(teachersCount || 0)
-    setFees(totalFees)
   }
 
-  useEffect(()=>{
-    loadStats()
-  },[])
+  if(loading){
+    return(
+      <div className="p-10 text-white">
+        Loading dashboard...
+      </div>
+    )
+  }
 
   return(
 
-    <div className="flex min-h-screen text-white bg-[#020617]">
+    <div className="min-h-screen flex bg-slate-950 text-white">
 
       {/* SIDEBAR */}
 
-      <div className="w-64 bg-gradient-to-b from-indigo-700 to-purple-800 p-6">
+      <aside className="w-64 bg-gradient-to-b from-blue-900 via-indigo-900 to-purple-900 p-6">
 
-        <h1 className="text-2xl font-bold mb-10">
+        <h1 className="text-2xl font-bold mb-10 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
           NaySha EduCore
         </h1>
 
-        <nav className="flex flex-col gap-6">
+        <nav className="space-y-4">
 
-          <Link href="/erp/dashboard">Dashboard</Link>
-
-          <Link href="/erp/dashboard/students">
-            Students
+          <Link href="/erp/dashboard" className="block px-4 py-2 rounded hover:bg-white/10">
+            Dashboard
           </Link>
 
-          <Link href="/erp/dashboard/teachers">
-            Teachers
-          </Link>
 
-          <Link href="/erp/dashboard/attendance">
-            Attendance
-          </Link>
+          {/* ADMIN + TEACHER */}
 
-          <Link href="/erp/dashboard/fees">
-            Fees
-          </Link>
+          {(role === "admin" || role === "teacher") && (
 
-          <Link href="/erp/dashboard/exams">
-            Exams
-          </Link>
+            <Link href="/erp/dashboard/students" className="block px-4 py-2 rounded hover:bg-white/10">
+              Students
+            </Link>
 
-          <Link href="/erp/dashboard/reports">
-            Reports
-          </Link>
+          )}
 
-          <Link href="/erp/dashboard/settings">
-            Settings
-          </Link>
+
+          {/* ADMIN ONLY */}
+
+          {role === "admin" && (
+
+            <Link href="/erp/dashboard/teachers" className="block px-4 py-2 rounded hover:bg-white/10">
+              Teachers
+            </Link>
+
+          )}
+
+
+          {(role === "admin" || role === "teacher") && (
+
+            <Link href="/erp/dashboard/attendance" className="block px-4 py-2 rounded hover:bg-white/10">
+              Attendance
+            </Link>
+
+          )}
+
+
+          {/* FEES → ADMIN ONLY */}
+
+          {role === "admin" && (
+
+            <Link href="/erp/dashboard/fees" className="block px-4 py-2 rounded hover:bg-white/10">
+              Fees
+            </Link>
+
+          )}
+
+
+          {/* EXAMS */}
+
+          {(role === "admin" || role === "teacher") && (
+
+            <Link href="/erp/dashboard/exams" className="block px-4 py-2 rounded hover:bg-white/10">
+              Exams
+            </Link>
+
+          )}
+
+
+          {(role === "admin" || role === "teacher") && (
+
+            <Link href="/erp/dashboard/exams/results" className="block px-4 py-2 rounded hover:bg-white/10">
+              Results
+            </Link>
+
+          )}
+
+
+          {/* REPORTS */}
+
+          {(role === "admin" || role === "teacher") && (
+
+            <Link href="/erp/dashboard/reports" className="block px-4 py-2 rounded hover:bg-white/10">
+              Reports
+            </Link>
+
+          )}
+
+
+          {/* SETTINGS ADMIN ONLY */}
+
+          {role === "admin" && (
+
+            <Link href="/erp/dashboard/settings" className="block px-4 py-2 rounded hover:bg-white/10">
+              Settings
+            </Link>
+
+          )}
 
         </nav>
 
-      </div>
+      </aside>
 
 
-      {/* MAIN DASHBOARD */}
 
-      <div className="flex-1 p-10">
+      {/* MAIN CONTENT */}
 
-        <h1 className="text-4xl font-bold mb-10">
+      <main className="flex-1 p-10">
+
+        <h2 className="text-3xl font-bold mb-8">
           Dashboard Overview
-        </h1>
+        </h2>
 
+        <div className="grid grid-cols-3 gap-6">
 
-        <div className="flex gap-10">
-
-          {/* STUDENTS */}
-
-          <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl w-52 text-center">
-
-            <p className="text-gray-300">
-              Total Students
-            </p>
-
-            <h2 className="text-3xl font-bold text-cyan-400 mt-2">
-              {students}
-            </h2>
-
+          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
+            <p className="text-gray-400">Total Students</p>
+            <h3 className="text-3xl font-bold text-cyan-400 mt-2">
+              1248
+            </h3>
           </div>
 
-
-          {/* TEACHERS */}
-
-          <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl w-52 text-center">
-
-            <p className="text-gray-300">
-              Teachers
-            </p>
-
-            <h2 className="text-3xl font-bold text-cyan-400 mt-2">
-              {teachers}
-            </h2>
-
+          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
+            <p className="text-gray-400">Teachers</p>
+            <h3 className="text-3xl font-bold text-cyan-400 mt-2">
+              86
+            </h3>
           </div>
 
-
-          {/* FEES */}
-
-          <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl w-52 text-center">
-
-            <p className="text-gray-300">
-              Fees Collected
-            </p>
-
-            <h2 className="text-3xl font-bold text-cyan-400 mt-2">
-              ₹{fees}
-            </h2>
-
+          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
+            <p className="text-gray-400">Fees Collected</p>
+            <h3 className="text-3xl font-bold text-cyan-400 mt-2">
+              ₹8.2L
+            </h3>
           </div>
 
         </div>
 
-      </div>
+      </main>
 
     </div>
 
