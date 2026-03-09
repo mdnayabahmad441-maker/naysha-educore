@@ -1,193 +1,172 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
+import { useState,useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function StudentsPage() {
-
-  const [students,setStudents] = useState<any[]>([])
-  const [classes,setClasses] = useState<string[]>([])
-  const [selectedClass,setSelectedClass] = useState("all")
+export default function StudentsPage(){
 
   const [name,setName] = useState("")
   const [roll,setRoll] = useState("")
-  const [className,setClassName] = useState("")
+  const [studentClass,setStudentClass] = useState("")
+  const [students,setStudents] = useState<any[]>([])
+  const [schoolId,setSchoolId] = useState<string | null>(null)
 
+  // get logged user school
+  async function getSchool(){
 
+    const { data:userData } =
+      await supabase.auth.getUser()
 
-  // FETCH ALL STUDENTS
-  async function fetchStudents(){
+    const userId = userData.user?.id
 
-    const {data} =
-      await supabase.from("students").select("*")
+    if(!userId) return
+
+    const { data } =
+      await supabase
+        .from("users")
+        .select("school_id")
+        .eq("id",userId)
+        .single()
 
     if(data){
-      setStudents(data)
-
-      const uniqueClasses =
-        [...new Set(data.map((s:any)=>s.class))]
-
-      setClasses(uniqueClasses)
-
+      setSchoolId(data.school_id)
+      fetchStudents(data.school_id)
     }
 
   }
 
+  // load students
+  async function fetchStudents(id:string){
 
+    const { data } =
+      await supabase
+        .from("students")
+        .select("*")
+        .eq("school_id",id)
+        .order("created_at",{ascending:false})
 
-  useEffect(()=>{
-    fetchStudents()
-  },[])
-
-
-
-  // ADD STUDENT
-  async function addStudent(){
-
-    await supabase.from("students").insert([
-      {
-        name:name,
-        roll_number:roll,
-        class:className
-      }
-    ])
-
-    setName("")
-    setRoll("")
-    setClassName("")
-
-    fetchStudents()
+    if(data){
+      setStudents(data)
+    }
 
   }
 
+  // add student
+  async function addStudent(){
 
+    if(!name || !roll || !studentClass){
+      alert("Fill all fields")
+      return
+    }
 
-  // FILTER STUDENTS
-  const filteredStudents =
-    selectedClass === "all"
-    ? students
-    : students.filter((s)=>s.class === selectedClass)
+    if(!schoolId){
+      alert("School not found")
+      return
+    }
 
+    const { error } =
+      await supabase
+        .from("students")
+        .insert({
+          name:name,
+          roll_number:roll,
+          class:studentClass,
+          school_id:schoolId
+        })
 
+    if(error){
+      alert(error.message)
+      return
+    }
 
-  return (
+    setName("")
+    setRoll("")
+    setStudentClass("")
+
+    fetchStudents(schoolId)
+
+  }
+
+  useEffect(()=>{
+    getSchool()
+  },[])
+
+  return(
 
     <div className="p-10 text-white">
 
-      <h1 className="text-3xl font-bold mb-6">
+      <h1 className="text-3xl font-bold mb-8">
         Student Management
       </h1>
 
+      {/* ADD STUDENT */}
 
-      {/* ADD STUDENT FORM */}
+      <div className="bg-white/10 p-6 rounded-xl w-[350px] mb-10">
 
-      <div className="bg-white/10 p-6 rounded-xl mb-10 w-[400px]">
-
-        <h2 className="text-xl mb-4">
+        <h2 className="text-xl font-bold mb-4">
           Add Student
         </h2>
 
         <input
-        placeholder="Student Name"
-        className="w-full p-2 mb-3 rounded bg-slate-800"
-        value={name}
-        onChange={(e)=>setName(e.target.value)}
+          placeholder="Student Name"
+          className="w-full p-2 mb-3 rounded bg-slate-800"
+          value={name}
+          onChange={(e)=>setName(e.target.value)}
         />
 
         <input
-        placeholder="Roll Number"
-        className="w-full p-2 mb-3 rounded bg-slate-800"
-        value={roll}
-        onChange={(e)=>setRoll(e.target.value)}
+          placeholder="Roll Number"
+          className="w-full p-2 mb-3 rounded bg-slate-800"
+          value={roll}
+          onChange={(e)=>setRoll(e.target.value)}
         />
 
         <input
-        placeholder="Class"
-        className="w-full p-2 mb-3 rounded bg-slate-800"
-        value={className}
-        onChange={(e)=>setClassName(e.target.value)}
+          placeholder="Class"
+          className="w-full p-2 mb-4 rounded bg-slate-800"
+          value={studentClass}
+          onChange={(e)=>setStudentClass(e.target.value)}
         />
 
         <button
-        onClick={addStudent}
-        className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
+          onClick={addStudent}
+          className="w-full py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
         >
-        Add Student
+          Add Student
         </button>
 
       </div>
 
-
-
-      {/* CLASS FILTER */}
-
-      <div className="mb-6">
-
-        <label className="mr-3 text-gray-400">
-          Filter by Class
-        </label>
-
-        <select
-        className="p-2 rounded bg-slate-800"
-        value={selectedClass}
-        onChange={(e)=>setSelectedClass(e.target.value)}
-        >
-
-          <option value="all">
-            All Students
-          </option>
-
-          {classes.map((c)=>(
-            <option key={c}>
-              {c}
-            </option>
-          ))}
-
-        </select>
-
-      </div>
-
-
-
-      {/* STUDENT TABLE */}
+      {/* STUDENTS LIST */}
 
       <div className="bg-white/10 p-6 rounded-xl">
 
-        <h2 className="text-xl mb-4">
+        <h2 className="text-xl font-bold mb-6">
           Students List
         </h2>
 
         <table className="w-full">
 
           <thead>
-            <tr className="text-left text-gray-300">
-              <th>Name</th>
+
+            <tr className="text-left border-b border-white/20">
+
+              <th className="py-2">Name</th>
               <th>Roll</th>
               <th>Class</th>
+
             </tr>
+
           </thead>
 
           <tbody>
 
-            {filteredStudents.map((student)=>(
-              <tr key={student.id} className="border-t border-gray-700">
+            {students.map((s)=>(
+              <tr key={s.id} className="border-b border-white/10">
 
-                <td className="py-2">
-              <Link
-             href={`/dashboard/students/${student.id}`}
-              className="text-cyan-400 hover:underline"
-  >          {student.name}
-             </Link>
-             </td>
-
-                <td>
-                  {student.roll_number}
-                </td>
-
-                <td>
-                  {student.class}
-                </td>
+                <td className="py-2">{s.name}</td>
+                <td>{s.roll_number}</td>
+                <td>{s.class}</td>
 
               </tr>
             ))}
@@ -199,6 +178,7 @@ export default function StudentsPage() {
       </div>
 
     </div>
+
   )
 
 }
