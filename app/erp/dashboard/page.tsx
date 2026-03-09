@@ -1,126 +1,120 @@
 "use client"
 
-import Link from "next/link"
+import { useEffect, useState } from "react"
+import { supabase } from "@/lib/supabase"
 
-export default function Dashboard() {
+export default function DashboardPage(){
 
-  return (
+  const [students,setStudents] = useState(0)
+  const [teachers,setTeachers] = useState(0)
+  const [fees,setFees] = useState(0)
 
-    <div className="min-h-screen flex bg-slate-950 text-white">
+  async function loadStats(){
 
-      {/* SIDEBAR */}
+    const { data:userData } =
+      await supabase.auth.getUser()
 
-      <aside className="w-64 bg-gradient-to-b from-blue-900 via-indigo-900 to-purple-900 p-6">
+    const userId = userData.user?.id
 
-        <h1 className="text-2xl font-bold mb-10 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-          NaySha EduCore
-        </h1>
+    if(!userId) return
 
-        <nav className="space-y-4">
+    // get school id
 
-          <Link
-            href="/erp/dashboard"
-            className="block px-4 py-2 rounded-lg hover:bg-white/10"
-          >
-            Dashboard
-          </Link>
+    const { data:user } =
+      await supabase
+      .from("users")
+      .select("school_id")
+      .eq("id",userId)
+      .single()
 
-          <Link
-            href="/erp/dashboard/students"
-            className="block px-4 py-2 rounded-lg hover:bg-white/10"
-          >
-            Students
-          </Link>
+    if(!user) return
 
-          <Link
-            href="/erp/dashboard/teachers"
-            className="block px-4 py-2 rounded-lg hover:bg-white/10"
-          >
-            Teachers
-          </Link>
-
-          <Link
-            href="/erp/dashboard/attendance"
-            className="block px-4 py-2 rounded-lg hover:bg-white/10"
-          >
-            Attendance
-          </Link>
-
-          <Link
-            href="/erp/dashboard/fees"
-            className="block px-4 py-2 rounded-lg hover:bg-white/10"
-          >
-            Fees
-          </Link>
-
-          <Link
-            href="/erp/dashboard/exams"
-            className="block px-4 py-2 rounded-lg hover:bg-white/10"
-          >
-            Exams
-          </Link>
-
-          <Link
-            href="/erp/dashboard/reports"
-            className="block px-4 py-2 rounded-lg hover:bg-white/10"
-          >
-            Reports
-          </Link>
-
-          <Link
-            href="/erp/dashboard/settings"
-            className="block px-4 py-2 rounded-lg hover:bg-white/10"
-          >
-            Settings
-          </Link>
-
-        </nav>
-
-      </aside>
+    const schoolId = user.school_id
 
 
-      {/* MAIN CONTENT */}
+    // students count
 
-      <main className="flex-1 p-10">
+    const { count:studentsCount } =
+      await supabase
+      .from("students")
+      .select("*",{count:"exact",head:true})
+      .eq("school_id",schoolId)
 
-        <h2 className="text-3xl font-bold mb-8">
-          Dashboard Overview
-        </h2>
+    // teachers count
 
-        <div className="grid md:grid-cols-3 gap-6">
+    const { count:teachersCount } =
+      await supabase
+      .from("teachers")
+      .select("*",{count:"exact",head:true})
+      .eq("school_id",schoolId)
 
-          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
-            <p className="text-gray-400">
-              Total Students
-            </p>
-            <h3 className="text-3xl font-bold text-cyan-400 mt-2">
-              0
-            </h3>
-          </div>
+    // fees sum
 
-          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
-            <p className="text-gray-400">
-              Teachers
-            </p>
-            <h3 className="text-3xl font-bold text-cyan-400 mt-2">
-              0
-            </h3>
-          </div>
+    const { data:feesData } =
+      await supabase
+      .from("fees")
+      .select("amount")
+      .eq("school_id",schoolId)
 
-          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
-            <p className="text-gray-400">
-              Fees Collected
-            </p>
-            <h3 className="text-3xl font-bold text-cyan-400 mt-2">
-              ₹0
-            </h3>
-          </div>
+    const totalFees =
+      feesData?.reduce((sum:any,f:any)=>sum+Number(f.amount),0) || 0
+
+    setStudents(studentsCount || 0)
+    setTeachers(teachersCount || 0)
+    setFees(totalFees)
+
+  }
+
+  useEffect(()=>{
+    loadStats()
+  },[])
+
+  return(
+
+    <div className="p-10 text-white">
+
+      <h1 className="text-3xl font-bold mb-8">
+        Dashboard Overview
+      </h1>
+
+      <div className="flex gap-8">
+
+        <div className="bg-white/10 p-6 rounded-xl w-44 text-center">
+
+          <p>Total Students</p>
+
+          <h2 className="text-3xl font-bold text-cyan-400">
+            {students}
+          </h2>
 
         </div>
 
-      </main>
+
+        <div className="bg-white/10 p-6 rounded-xl w-44 text-center">
+
+          <p>Teachers</p>
+
+          <h2 className="text-3xl font-bold text-cyan-400">
+            {teachers}
+          </h2>
+
+        </div>
+
+
+        <div className="bg-white/10 p-6 rounded-xl w-44 text-center">
+
+          <p>Fees Collected</p>
+
+          <h2 className="text-3xl font-bold text-cyan-400">
+            ₹{fees}
+          </h2>
+
+        </div>
+
+      </div>
 
     </div>
 
   )
+
 }
