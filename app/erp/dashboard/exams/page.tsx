@@ -1,102 +1,282 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
 export default function ExamsPage(){
 
-  const [exams,setExams] = useState<any[]>([])
-  const [name,setName] = useState("")
-  const [date,setDate] = useState("")
+const [schoolId,setSchoolId] = useState("")
 
-  async function fetchExams(){
-    const {data} = await supabase
-      .from("exams")
-      .select("*")
+const [classes,setClasses] = useState<string[]>([])
+const [selectedClass,setSelectedClass] = useState("")
 
-    if(data) setExams(data)
-  }
+const [examName,setExamName] = useState("")
+const [subject,setSubject] = useState("")
+const [maxMarks,setMaxMarks] = useState(100)
+const [examDate,setExamDate] = useState("")
 
-  useEffect(()=>{
-    fetchExams()
-  },[])
+const [exams,setExams] = useState<any[]>([])
 
-  async function createExam(){
 
-    await supabase.from("exams").insert([
-      {
-        name:name,
-        exam_date:date
-      }
-    ])
 
-    setName("")
-    setDate("")
+/* GET SCHOOL */
 
-    fetchExams()
-  }
+async function getSchool(){
 
-  return(
+const {data:userData} =
+await supabase.auth.getUser()
 
-    <div>
+const userId = userData.user?.id
 
-      <h1 className="text-3xl font-bold mb-6">
-        Exam Management
-      </h1>
+const {data} =
+await supabase
+.from("users")
+.select("school_id")
+.eq("id",userId)
+.single()
 
-      {/* CREATE EXAM */}
+if(data){
 
-      <div className="bg-white/10 p-6 rounded-xl mb-10 w-[400px]">
+setSchoolId(data.school_id)
 
-        <input
-        placeholder="Exam Name"
-        className="w-full p-2 mb-3 rounded bg-slate-800"
-        value={name}
-        onChange={(e)=>setName(e.target.value)}
-        />
+loadClasses(data.school_id)
+loadExams(data.school_id)
 
-        <input
-        type="date"
-        className="w-full p-2 mb-3 rounded bg-slate-800"
-        value={date}
-        onChange={(e)=>setDate(e.target.value)}
-        />
+}
 
-        <button
-        onClick={createExam}
-        className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
-        >
-        Create Exam
-        </button>
+}
 
-      </div>
 
-      {/* EXAM LIST */}
 
-      <table className="w-full">
+/* LOAD CLASSES */
 
-        <thead>
-          <tr className="text-left text-gray-400">
-            <th>Name</th>
-            <th>Date</th>
-          </tr>
-        </thead>
+async function loadClasses(id:string){
 
-        <tbody>
+const {data} =
+await supabase
+.from("students")
+.select("class")
+.eq("school_id",id)
 
-          {exams.map((exam)=>(
-            <tr key={exam.id} className="border-t border-gray-700">
+if(data){
 
-              <td>{exam.name}</td>
-              <td>{exam.exam_date}</td>
+const unique =
+[...new Set(data.map((s:any)=>s.class))]
 
-            </tr>
-          ))}
+setClasses(unique)
 
-        </tbody>
+}
 
-      </table>
+}
 
-    </div>
-  )
+
+
+/* LOAD EXAMS */
+
+async function loadExams(id:string){
+
+const {data} =
+await supabase
+.from("exams")
+.select("*")
+.eq("school_id",id)
+.order("created_at",{ascending:false})
+
+if(data){
+setExams(data)
+}
+
+}
+
+
+
+/* CREATE EXAM */
+
+async function createExam(){
+
+if(!selectedClass || !examName || !subject){
+
+alert("Fill all fields")
+return
+
+}
+
+const {error} =
+await supabase
+.from("exams")
+.insert({
+
+school_id:schoolId,
+
+class:selectedClass,
+exam_name:examName,
+subject:subject,
+
+max_marks:maxMarks,
+exam_date:examDate
+
+})
+
+if(error){
+
+alert(error.message)
+return
+
+}
+
+alert("Exam Created")
+
+setExamName("")
+setSubject("")
+setMaxMarks(100)
+setExamDate("")
+
+loadExams(schoolId)
+
+}
+
+
+
+/* INIT */
+
+useEffect(()=>{
+getSchool()
+},[])
+
+
+
+return(
+
+<div className="p-10 text-white">
+
+<h1 className="text-3xl font-bold mb-8">
+Exam Management
+</h1>
+
+
+
+{/* CREATE EXAM */}
+
+<div className="bg-white/10 p-6 rounded-xl w-[400px] space-y-4 mb-10">
+
+<h2 className="text-xl font-bold">
+Create Exam
+</h2>
+
+
+<select
+className="w-full p-3 rounded bg-slate-800"
+value={selectedClass}
+onChange={(e)=>setSelectedClass(e.target.value)}
+>
+
+<option>Select Class</option>
+
+{classes.map((c)=>(
+<option key={c}>{c}</option>
+))}
+
+</select>
+
+
+
+<input
+placeholder="Exam Name (Midterm / Final)"
+className="w-full p-3 rounded bg-slate-800"
+value={examName}
+onChange={(e)=>setExamName(e.target.value)}
+/>
+
+
+
+<input
+placeholder="Subject"
+className="w-full p-3 rounded bg-slate-800"
+value={subject}
+onChange={(e)=>setSubject(e.target.value)}
+/>
+
+
+
+<input
+type="number"
+className="w-full p-3 rounded bg-slate-800"
+value={maxMarks}
+onChange={(e)=>setMaxMarks(Number(e.target.value))}
+/>
+
+
+
+<input
+type="date"
+className="w-full p-3 rounded bg-slate-800"
+value={examDate}
+onChange={(e)=>setExamDate(e.target.value)}
+/>
+
+
+
+<button
+onClick={createExam}
+className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
+>
+
+Create Exam
+
+</button>
+
+</div>
+
+
+
+{/* EXAMS LIST */}
+
+<div className="bg-white/10 p-6 rounded-xl">
+
+<h2 className="text-xl font-bold mb-6">
+Exam List
+</h2>
+
+<table className="w-full">
+
+<thead>
+
+<tr className="border-b border-white/20">
+
+<th className="text-left p-2">Exam</th>
+<th className="text-left p-2">Class</th>
+<th className="text-left p-2">Subject</th>
+<th className="text-left p-2">Max Marks</th>
+<th className="text-left p-2">Date</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{exams.map((e)=>(
+
+<tr key={e.id} className="border-b border-white/10">
+
+<td className="p-2">{e.exam_name}</td>
+<td>{e.class}</td>
+<td>{e.subject}</td>
+<td>{e.max_marks}</td>
+<td>{e.exam_date}</td>
+
+</tr>
+
+))}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+)
+
 }
