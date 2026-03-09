@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
 export default function FeesPage(){
@@ -39,6 +39,8 @@ const {data:userData} =
 await supabase.auth.getUser()
 
 const userId = userData.user?.id
+
+if(!userId) return
 
 const {data} =
 await supabase
@@ -101,16 +103,14 @@ setStudents(data)
 
 
 
-/* GENERATE INVOICE */
+/* INVOICE NUMBER */
 
 function generateInvoiceNumber(){
 
 const date = new Date()
 
 const year = date.getFullYear()
-
-const month =
-String(date.getMonth()+1).padStart(2,"0")
+const month = String(date.getMonth()+1).padStart(2,"0")
 
 const random =
 Math.floor(Math.random()*9000+1000)
@@ -121,11 +121,15 @@ return `INV-${year}${month}-${random}`
 
 
 
+/* GENERATE INVOICE */
+
 async function generateInvoice(){
 
 if(!studentId){
-alert("Select student")
+
+alert("Please select student")
 return
+
 }
 
 const invoice =
@@ -172,8 +176,10 @@ status:status
 })
 
 if(error){
+
 alert(error.message)
 return
+
 }
 
 alert("Invoice Generated")
@@ -206,10 +212,18 @@ Fee Invoice
 </h1>
 
 
+
 <div className="bg-white/10 p-8 rounded-xl w-[420px] space-y-4">
 
 
+
 {/* CLASS SELECT */}
+
+<div>
+
+<p className="text-sm mb-1 text-gray-300">
+Select Class
+</p>
 
 <select
 className="w-full p-3 rounded bg-slate-800"
@@ -233,9 +247,17 @@ loadStudents(c)
 
 </select>
 
+</div>
+
 
 
 {/* STUDENT SELECT */}
+
+<div>
+
+<p className="text-sm mb-1 text-gray-300">
+Select Student
+</p>
 
 <select
 className="w-full p-3 rounded bg-slate-800"
@@ -265,65 +287,102 @@ setStudentName(s.name)
 
 </select>
 
+</div>
+
 
 
 {/* SCHOOL FEE */}
 
+<div>
+
+<p className="text-sm mb-1 text-gray-300">
+School Fee
+</p>
+
 <input
 type="number"
-placeholder="School Fee"
 className="w-full p-3 rounded bg-slate-800"
 value={schoolFee}
 onChange={(e)=>setSchoolFee(Number(e.target.value))}
 />
 
+</div>
+
 
 
 {/* EXAM FEE */}
 
+<div>
+
+<p className="text-sm mb-1 text-gray-300">
+Exam Fee
+</p>
+
 <input
 type="number"
-placeholder="Exam Fee"
 className="w-full p-3 rounded bg-slate-800"
 value={examFee}
 onChange={(e)=>setExamFee(Number(e.target.value))}
 />
 
+</div>
+
 
 
 {/* HOSTEL FEE */}
 
+<div>
+
+<p className="text-sm mb-1 text-gray-300">
+Hostel Fee
+</p>
+
 <input
 type="number"
-placeholder="Hostel Fee"
 className="w-full p-3 rounded bg-slate-800"
 value={hostelFee}
 onChange={(e)=>setHostelFee(Number(e.target.value))}
 />
 
+</div>
+
 
 
 {/* MISC FEE */}
 
+<div>
+
+<p className="text-sm mb-1 text-gray-300">
+Misc Fee
+</p>
+
 <input
 type="number"
-placeholder="Misc Fee"
 className="w-full p-3 rounded bg-slate-800"
 value={miscFee}
 onChange={(e)=>setMiscFee(Number(e.target.value))}
 />
 
+</div>
+
 
 
 {/* OTHER FEE */}
 
+<div>
+
+<p className="text-sm mb-1 text-gray-300">
+Other Fee
+</p>
+
 <input
 type="number"
-placeholder="Other Fee"
 className="w-full p-3 rounded bg-slate-800"
 value={otherFee}
 onChange={(e)=>setOtherFee(Number(e.target.value))}
 />
+
+</div>
 
 
 
@@ -335,15 +394,22 @@ Total: ₹{total}
 
 
 
-{/* PAID */}
+{/* PAID AMOUNT */}
+
+<div>
+
+<p className="text-sm mb-1 text-gray-300">
+Paid Amount
+</p>
 
 <input
 type="number"
-placeholder="Paid Amount"
 className="w-full p-3 rounded bg-slate-800"
 value={paidAmount}
 onChange={(e)=>setPaidAmount(Number(e.target.value))}
 />
+
+</div>
 
 
 
@@ -361,7 +427,7 @@ className="w-full p-3 rounded bg-slate-800"
 
 
 
-{/* GENERATE */}
+{/* BUTTON */}
 
 <button
 onClick={generateInvoice}
@@ -371,6 +437,7 @@ className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
 Generate Invoice
 
 </button>
+
 
 
 </div>
