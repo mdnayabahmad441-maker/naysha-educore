@@ -1,246 +1,134 @@
-"use client"
+import { headers } from "next/headers"
+import { createClient } from "@supabase/supabase-js"
 
-import { useEffect,useState } from "react"
-import { supabase } from "@/lib/supabase"
-import { getSchool } from "@/lib/school"
-import Link from "next/link"
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
-export default function StudentsPage(){
+export default async function Dashboard() {
 
-  const [students,setStudents] = useState<any[]>([])
-  const [name,setName] = useState("")
-  const [className,setClassName] = useState("")
-  const [roll,setRoll] = useState("")
-  const [filterClass,setFilterClass] = useState("")
-  const [loading,setLoading] = useState(false)
+  /* GET DOMAIN */
 
-  async function fetchStudents(){
+  const host = (await headers()).get("host") || ""
 
-    const school = await getSchool()
+  const rootDomain = "erp.naysha.online"
 
-    if(!school) return
+  let subdomain = ""
 
-    let query = supabase
-      .from("students")
-      .select("*")
-      .eq("school_id",school.id)
-      .order("created_at",{ascending:false})
-
-    if(filterClass){
-      query = query.eq("class",filterClass)
-    }
-
-    const { data } = await query
-
-    if(data){
-      setStudents(data)
-    }
-
+  if (host.includes(rootDomain)) {
+    subdomain = host.replace(`.${rootDomain}`, "")
   }
 
-  useEffect(()=>{
-    fetchStudents()
-  },[filterClass])
+  /* FIND SCHOOL */
 
+  const { data: school, error } = await supabase
+    .from("schools")
+    .select("*")
+    .eq("subdomain", subdomain)
+    .single()
 
-  async function addStudent(){
+  if (error || !school) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
 
-    if(!name || !className || !roll){
-      alert("Fill all fields")
-      return
-    }
+        <div className="text-center">
 
-    setLoading(true)
+          <h1 className="text-3xl font-bold mb-4">
+            School Not Found
+          </h1>
 
-    const school = await getSchool()
-
-    if(!school){
-      alert("School not found")
-      setLoading(false)
-      return
-    }
-
-    // count students for this school
-
-    const { count } = await supabase
-      .from("students")
-      .select("*",{count:"exact",head:true})
-      .eq("school_id",school.id)
-
-    // get school plan
-
-    const { data:schoolData } = await supabase
-      .from("schools")
-      .select("student_limit")
-      .eq("id",school.id)
-      .single()
-
-    const limit = schoolData?.student_limit || 50
-
-    if((count || 0) >= limit){
-      alert("Free plan allows only 50 students. Upgrade required.")
-      setLoading(false)
-      return
-    }
-
-    // insert student
-
-    const { error } = await supabase
-      .from("students")
-      .insert({
-        name:name,
-        class:className,
-        roll_number:roll,
-        school_id:school.id
-      })
-
-    if(error){
-      alert(error.message)
-      setLoading(false)
-      return
-    }
-
-    setName("")
-    setClassName("")
-    setRoll("")
-
-    fetchStudents()
-
-    setLoading(false)
-
-  }
-
-
-  return(
-
-    <div className="p-10 text-white">
-
-      <h1 className="text-3xl font-bold mb-8">
-        Student Management
-      </h1>
-
-
-      {/* ADD STUDENT */}
-
-      <div className="bg-white/10 p-6 rounded-xl mb-10">
-
-        <h2 className="text-xl mb-4">
-          Add Student
-        </h2>
-
-        <div className="grid grid-cols-3 gap-4 mb-4">
-
-          <input
-            placeholder="Student Name"
-            className="p-2 rounded bg-slate-800"
-            value={name}
-            onChange={(e)=>setName(e.target.value)}
-          />
-
-          <input
-            placeholder="Class"
-            className="p-2 rounded bg-slate-800"
-            value={className}
-            onChange={(e)=>setClassName(e.target.value)}
-          />
-
-          <input
-            placeholder="Roll Number"
-            className="p-2 rounded bg-slate-800"
-            value={roll}
-            onChange={(e)=>setRoll(e.target.value)}
-          />
+          <p>
+            This school subdomain is not registered.
+          </p>
 
         </div>
 
-        <button
-          onClick={addStudent}
-          className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
-        >
-          {loading ? "Adding..." : "Add Student"}
-        </button>
-
       </div>
+    )
+  }
+
+  /* DASHBOARD */
+
+  return (
+
+    <div className="min-h-screen bg-slate-950 text-white flex">
+
+      {/* SIDEBAR */}
+
+      <aside className="w-64 bg-gradient-to-b from-blue-900 via-indigo-900 to-purple-900 p-6">
+
+        <h1 className="text-2xl font-bold mb-10 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+          {school.name}
+        </h1>
+
+        <nav className="space-y-4">
+
+          <a className="block px-4 py-2 rounded-lg hover:bg-white/10">
+            Dashboard
+          </a>
+
+          <a className="block px-4 py-2 rounded-lg hover:bg-white/10">
+            Students
+          </a>
+
+          <a className="block px-4 py-2 rounded-lg hover:bg-white/10">
+            Teachers
+          </a>
+
+          <a className="block px-4 py-2 rounded-lg hover:bg-white/10">
+            Attendance
+          </a>
+
+          <a className="block px-4 py-2 rounded-lg hover:bg-white/10">
+            Fees
+          </a>
+
+          <a className="block px-4 py-2 rounded-lg hover:bg-white/10">
+            Exams
+          </a>
+
+        </nav>
+
+      </aside>
 
 
+      {/* MAIN */}
 
-      {/* FILTER */}
+      <main className="flex-1 p-10">
 
-      <div className="mb-6">
-
-        <input
-          placeholder="Filter by Class"
-          className="p-2 rounded bg-slate-800"
-          value={filterClass}
-          onChange={(e)=>setFilterClass(e.target.value)}
-        />
-
-      </div>
-
-
-
-      {/* STUDENT LIST */}
-
-      <div className="bg-white/10 p-6 rounded-xl">
-
-        <h2 className="text-xl mb-4">
-          Students
+        <h2 className="text-3xl font-bold mb-8">
+          {school.name} Dashboard
         </h2>
 
-        <table className="w-full">
+        <div className="grid md:grid-cols-3 gap-6">
 
-          <thead>
+          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
+            <p className="text-gray-400">Total Students</p>
+            <h3 className="text-3xl font-bold text-cyan-400 mt-2">
+              0
+            </h3>
+          </div>
 
-            <tr className="border-b border-white/20 text-left">
+          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
+            <p className="text-gray-400">Teachers</p>
+            <h3 className="text-3xl font-bold text-cyan-400 mt-2">
+              0
+            </h3>
+          </div>
 
-              <th className="py-3">Name</th>
-              <th>Class</th>
-              <th>Roll</th>
-              <th>Profile</th>
+          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
+            <p className="text-gray-400">Fees Collected</p>
+            <h3 className="text-3xl font-bold text-cyan-400 mt-2">
+              ₹0
+            </h3>
+          </div>
 
-            </tr>
+        </div>
 
-          </thead>
-
-          <tbody>
-
-            {students.map((student)=>(
-              <tr key={student.id} className="border-b border-white/10">
-
-                <td className="py-3">
-                  {student.name}
-                </td>
-
-                <td>
-                  {student.class}
-                </td>
-
-                <td>
-                  {student.roll_number}
-                </td>
-
-                <td>
-
-                  <Link
-                    href={`/erp/dashboard/students/${student.id}`}
-                    className="text-cyan-400"
-                  >
-                    View
-                  </Link>
-
-                </td>
-
-              </tr>
-            ))}
-
-          </tbody>
-
-        </table>
-
-      </div>
+      </main>
 
     </div>
 
   )
-
 }

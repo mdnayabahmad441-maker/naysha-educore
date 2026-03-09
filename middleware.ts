@@ -6,23 +6,21 @@ export function middleware(req: NextRequest) {
 
   const url = req.nextUrl.clone()
 
-  // example: greenvalley.erp.naysha.online
-  const parts = host.split(".")
+  const rootDomain = "erp.naysha.online"
 
-  if (parts.length >= 4) {
-
-    const subdomain = parts[0]
-
-    url.pathname = `/erp/dashboard`
-    url.searchParams.set("school", subdomain)
-
-    return NextResponse.rewrite(url)
-
+  if (host === rootDomain || host.includes("vercel.app")) {
+    return NextResponse.next()
   }
 
-  return NextResponse.next()
+  const subdomain = host.replace(`.${rootDomain}`, "")
+
+  url.searchParams.set("school", subdomain)
+
+  return NextResponse.rewrite(url)
 }
 
 export const config = {
-  matcher: ["/((?!_next|api).*)"],
+  matcher: [
+    "/((?!_next|favicon.ico|api).*)",
+  ],
 }
