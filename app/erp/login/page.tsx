@@ -25,50 +25,69 @@ export default function LoginPage(){
       return
     }
 
-    const userId = data.user?.id
+    const userId = data.user.id
 
-    if(!userId){
-      alert("Login failed")
-      setLoading(false)
-      return
-    }
 
-    // get user school
+    // GET USER ROLE + SCHOOL
 
-    const { data:userData, error:userError } =
+    const { data:userData } =
       await supabase
         .from("users")
-        .select("school_id")
+        .select("school_id,role")
         .eq("id",userId)
         .single()
 
-    if(userError || !userData){
+    if(!userData){
       alert("User not linked to school")
       setLoading(false)
       return
     }
 
-    // get school
 
-    const { data:school, error:schoolError } =
+    // GET SCHOOL SUBDOMAIN
+
+    const { data:school } =
       await supabase
         .from("schools")
         .select("subdomain")
         .eq("id",userData.school_id)
         .single()
 
-    if(schoolError || !school){
+    if(!school){
       alert("School not found")
       setLoading(false)
       return
     }
 
-    // redirect to school ERP
 
-    window.location.href =
-      `https://${school.subdomain}.erp.naysha.online/erp/dashboard`
+    const subdomain = school.subdomain
+
+
+    // ROLE BASED REDIRECT
+
+    if(userData.role === "admin"){
+
+      window.location.href =
+      `https://${subdomain}.erp.naysha.online/erp/dashboard`
+
+    }
+
+    if(userData.role === "teacher"){
+
+      window.location.href =
+      `https://${subdomain}.erp.naysha.online/erp/teacher/dashboard`
+
+    }
+
+    if(userData.role === "parent"){
+
+      window.location.href =
+      `https://${subdomain}.erp.naysha.online/parent/dashboard`
+
+    }
 
   }
+
 
   return(
 
@@ -81,7 +100,6 @@ export default function LoginPage(){
         </h1>
 
         <input
-          type="email"
           placeholder="Email"
           className="w-full p-2 mb-4 rounded bg-slate-800"
           value={email}
@@ -98,7 +116,6 @@ export default function LoginPage(){
 
         <button
           onClick={handleLogin}
-          disabled={loading}
           className="w-full py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
         >
           {loading ? "Logging in..." : "Login"}
