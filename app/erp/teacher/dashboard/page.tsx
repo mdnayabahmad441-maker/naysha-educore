@@ -62,37 +62,62 @@ export default function TeacherDashboard(){
     loadDashboard()
   },[])
 
-
   return(
 
     <div className="flex min-h-screen bg-[#020617] text-white">
 
-
       {/* SIDEBAR */}
 
-      <div className={`bg-gradient-to-b from-blue-700 to-purple-700 p-6 w-64 space-y-6 fixed md:relative h-full z-50 transition-transform ${menuOpen ? "translate-x-0" : "-translate-x-64 md:translate-x-0"}`}>
+      <aside className={`bg-gradient-to-b from-blue-700 to-purple-700 w-64 p-6 space-y-8 fixed md:relative h-full transition-transform ${menuOpen ? "translate-x-0" : "-translate-x-64 md:translate-x-0"}`}>
 
         <h2 className="text-xl font-bold text-cyan-300">
           Teacher Panel
         </h2>
 
-        <nav className="space-y-4 text-gray-200">
+        <nav className="flex flex-col space-y-4">
 
-          <Link href="/erp/teacher/dashboard">Dashboard</Link>
-          <Link href="/erp/teacher/students">My Students</Link>
-          <Link href="/erp/teacher/attendance">Attendance</Link>
-          <Link href="/erp/teacher/marks">Enter Marks</Link>
-          <Link href="/erp/teacher/results">Results</Link>
+          <Link
+            href="/erp/teacher/dashboard"
+            className="hover:text-cyan-300 transition"
+          >
+            Dashboard
+          </Link>
+
+          <Link
+            href="/erp/teacher/students"
+            className="hover:text-cyan-300 transition"
+          >
+            My Students
+          </Link>
+
+          <Link
+            href="/erp/teacher/attendance"
+            className="hover:text-cyan-300 transition"
+          >
+            Attendance
+          </Link>
+
+          <Link
+            href="/erp/teacher/marks"
+            className="hover:text-cyan-300 transition"
+          >
+            Enter Marks
+          </Link>
+
+          <Link
+            href="/erp/teacher/results"
+            className="hover:text-cyan-300 transition"
+          >
+            Results
+          </Link>
 
         </nav>
 
-      </div>
+      </aside>
 
+      {/* MAIN */}
 
-      {/* CONTENT */}
-
-      <div className="flex-1 p-6 md:p-10 ml-0 md:ml-0">
-
+      <main className="flex-1 p-6 md:p-10">
 
         {/* MOBILE MENU BUTTON */}
 
@@ -102,7 +127,6 @@ export default function TeacherDashboard(){
         >
           ☰ Menu
         </button>
-
 
         {/* HEADER */}
 
@@ -114,54 +138,34 @@ export default function TeacherDashboard(){
           {school?.name} • Teacher Dashboard
         </p>
 
-
-        {/* STATS */}
+        {/* CARDS */}
 
         <div className="grid md:grid-cols-3 gap-6">
 
-
           <div className="bg-white/10 p-6 rounded-xl">
-
-            <p className="text-gray-400">
-              My Subject
-            </p>
-
+            <p className="text-gray-400">My Subject</p>
             <h2 className="text-2xl font-bold text-cyan-400 mt-2">
               {teacher?.subject || "Not Assigned"}
             </h2>
-
           </div>
 
-
           <div className="bg-white/10 p-6 rounded-xl">
-
-            <p className="text-gray-400">
-              Classes Today
-            </p>
-
+            <p className="text-gray-400">Classes Today</p>
             <h2 className="text-2xl font-bold text-cyan-400 mt-2">
               0
             </h2>
-
           </div>
 
-
           <div className="bg-white/10 p-6 rounded-xl">
-
-            <p className="text-gray-400">
-              Students Assigned
-            </p>
-
+            <p className="text-gray-400">Students Assigned</p>
             <h2 className="text-2xl font-bold text-cyan-400 mt-2">
               {students}
             </h2>
-
           </div>
-
 
         </div>
 
-      </div>
+      </main>
 
     </div>
 
