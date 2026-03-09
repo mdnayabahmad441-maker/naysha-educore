@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 export default function TeacherDashboard(){
+
+  const pathname = usePathname()
 
   const [teacher,setTeacher] = useState<any>(null)
   const [school,setSchool] = useState<any>(null)
@@ -62,64 +65,52 @@ export default function TeacherDashboard(){
     loadDashboard()
   },[])
 
+  const menu = [
+    {name:"Dashboard",path:"/erp/teacher/dashboard"},
+    {name:"My Students",path:"/erp/teacher/students"},
+    {name:"Attendance",path:"/erp/teacher/attendance"},
+    {name:"Enter Marks",path:"/erp/teacher/marks"},
+    {name:"Results",path:"/erp/teacher/results"}
+  ]
+
   return(
 
     <div className="flex min-h-screen bg-[#020617] text-white">
 
       {/* SIDEBAR */}
 
-      <aside className={`bg-gradient-to-b from-blue-700 to-purple-700 w-64 p-6 space-y-8 fixed md:relative h-full transition-transform ${menuOpen ? "translate-x-0" : "-translate-x-64 md:translate-x-0"}`}>
+      <aside className={`bg-gradient-to-b from-blue-700 to-purple-700 w-64 p-6 fixed md:relative h-full transition-transform duration-300 ${menuOpen ? "translate-x-0" : "-translate-x-64 md:translate-x-0"}`}>
 
-        <h2 className="text-xl font-bold text-cyan-300">
+        <h2 className="text-xl font-bold text-cyan-300 mb-8">
           Teacher Panel
         </h2>
 
-        <nav className="flex flex-col space-y-4">
+        <nav className="flex flex-col gap-3">
 
-          <Link
-            href="/erp/teacher/dashboard"
-            className="hover:text-cyan-300 transition"
-          >
-            Dashboard
-          </Link>
-
-          <Link
-            href="/erp/teacher/students"
-            className="hover:text-cyan-300 transition"
-          >
-            My Students
-          </Link>
-
-          <Link
-            href="/erp/teacher/attendance"
-            className="hover:text-cyan-300 transition"
-          >
-            Attendance
-          </Link>
-
-          <Link
-            href="/erp/teacher/marks"
-            className="hover:text-cyan-300 transition"
-          >
-            Enter Marks
-          </Link>
-
-          <Link
-            href="/erp/teacher/results"
-            className="hover:text-cyan-300 transition"
-          >
-            Results
-          </Link>
+          {menu.map((item)=>(
+            <Link
+              key={item.path}
+              href={item.path}
+              className={`px-4 py-2 rounded-lg transition ${
+                pathname === item.path
+                ? "bg-white/20 text-cyan-300"
+                : "hover:bg-white/10"
+              }`}
+            >
+              {item.name}
+            </Link>
+          ))}
 
         </nav>
 
       </aside>
 
-      {/* MAIN */}
+
+      {/* MAIN CONTENT */}
 
       <main className="flex-1 p-6 md:p-10">
 
-        {/* MOBILE MENU BUTTON */}
+        {/* MOBILE MENU */}
 
         <button
           onClick={()=>setMenuOpen(!menuOpen)}
@@ -131,36 +122,54 @@ export default function TeacherDashboard(){
         {/* HEADER */}
 
         <h1 className="text-4xl font-bold mb-2">
-          Welcome
+          Welcome {teacher?.name || ""}
         </h1>
 
         <p className="text-gray-400 mb-10">
           {school?.name} • Teacher Dashboard
         </p>
 
-        {/* CARDS */}
 
-        <div className="grid md:grid-cols-3 gap-6">
+        {/* DASHBOARD CARDS */}
 
-          <div className="bg-white/10 p-6 rounded-xl">
-            <p className="text-gray-400">My Subject</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+          <div className="bg-white/10 p-6 rounded-xl backdrop-blur hover:bg-white/20 transition">
+
+            <p className="text-gray-400">
+              My Subject
+            </p>
+
             <h2 className="text-2xl font-bold text-cyan-400 mt-2">
               {teacher?.subject || "Not Assigned"}
             </h2>
+
           </div>
 
-          <div className="bg-white/10 p-6 rounded-xl">
-            <p className="text-gray-400">Classes Today</p>
+
+          <div className="bg-white/10 p-6 rounded-xl backdrop-blur hover:bg-white/20 transition">
+
+            <p className="text-gray-400">
+              Classes Today
+            </p>
+
             <h2 className="text-2xl font-bold text-cyan-400 mt-2">
               0
             </h2>
+
           </div>
 
-          <div className="bg-white/10 p-6 rounded-xl">
-            <p className="text-gray-400">Students Assigned</p>
+
+          <div className="bg-white/10 p-6 rounded-xl backdrop-blur hover:bg-white/20 transition">
+
+            <p className="text-gray-400">
+              Students Assigned
+            </p>
+
             <h2 className="text-2xl font-bold text-cyan-400 mt-2">
               {students}
             </h2>
+
           </div>
 
         </div>
