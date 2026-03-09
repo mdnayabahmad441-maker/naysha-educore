@@ -1,172 +1,128 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
 
 export default function TeacherDashboard(){
 
-  const router = useRouter()
-
   const [teacher,setTeacher] = useState<any>(null)
-  const [school,setSchool] = useState("")
-  const [loading,setLoading] = useState(true)
+  const [school,setSchool] = useState<any>(null)
+  const [studentCount,setStudentCount] = useState(0)
+  const [classesToday,setClassesToday] = useState(0)
 
-  useEffect(()=>{
-    loadTeacher()
-  },[])
+  async function loadDashboard(){
 
-  async function loadTeacher(){
+    const { data:userData } = await supabase.auth.getUser()
+    const userId = userData.user?.id
 
-    const { data } = await supabase.auth.getSession()
+    if(!userId) return
 
-    if(!data.session){
-      router.push("/erp/login")
-      return
-    }
-
-    const userId = data.session.user.id
-
-    const { data:user } =
-      await supabase
-      .from("users")
-      .select("role,school_id")
-      .eq("id",userId)
-      .single()
-
-    if(user?.role !== "teacher"){
-      router.push("/erp/dashboard")
-      return
-    }
-
+    // get teacher
     const { data:teacherData } =
       await supabase
       .from("teachers")
       .select("*")
-      .eq("school_id",user.school_id)
-      .eq("phone",teacher?.phone)
+      .eq("user_id",userId)
       .single()
 
+    if(!teacherData) return
+
+    setTeacher(teacherData)
+
+    // get school
     const { data:schoolData } =
       await supabase
       .from("schools")
       .select("name")
-      .eq("id",user.school_id)
+      .eq("id",teacherData.school_id)
       .single()
 
-    if(teacherData){
-      setTeacher(teacherData)
+    setSchool(schoolData)
+
+    // count students in teacher class
+    const { data:students } =
+      await supabase
+      .from("students")
+      .select("*")
+      .eq("school_id",teacherData.school_id)
+
+    if(students){
+      setStudentCount(students.length)
     }
 
-    if(schoolData){
-      setSchool(schoolData.name)
-    }
+    // classes today (temporary logic)
+    setClassesToday(4)
 
-    setLoading(false)
   }
 
-  if(loading){
-    return(
-      <div className="p-10 text-white">
-        Loading teacher dashboard...
-      </div>
-    )
-  }
+  useEffect(()=>{
+    loadDashboard()
+  },[])
 
   return(
 
-    <div className="min-h-screen flex bg-slate-950 text-white">
+    <div className="p-6 md:p-10 text-white">
 
-      {/* SIDEBAR */}
+      {/* HEADER */}
 
-      <aside className="w-64 bg-gradient-to-b from-indigo-900 via-blue-900 to-purple-900 p-6">
+      <h1 className="text-3xl md:text-4xl font-bold mb-2">
+        Welcome
+      </h1>
 
-        <h1 className="text-2xl font-bold mb-10 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-          Teacher Panel
-        </h1>
-
-        <nav className="space-y-4">
-
-          <Link
-          href="/erp/teacher/dashboard"
-          className="block px-4 py-2 rounded hover:bg-white/10">
-            Dashboard
-          </Link>
-
-          <Link
-          href="/erp/dashboard/students"
-          className="block px-4 py-2 rounded hover:bg-white/10">
-            My Students
-          </Link>
-
-          <Link
-          href="/erp/dashboard/attendance"
-          className="block px-4 py-2 rounded hover:bg-white/10">
-            Attendance
-          </Link>
-
-          <Link
-          href="/erp/dashboard/exams/marks"
-          className="block px-4 py-2 rounded hover:bg-white/10">
-            Enter Marks
-          </Link>
-
-          <Link
-          href="/erp/dashboard/exams/results"
-          className="block px-4 py-2 rounded hover:bg-white/10">
-            Results
-          </Link>
-
-        </nav>
-
-      </aside>
+      <p className="text-gray-400 mb-8">
+        {school?.name} • Teacher Dashboard
+      </p>
 
 
-      {/* MAIN AREA */}
+      {/* STATS */}
 
-      <main className="flex-1 p-10">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        <h2 className="text-3xl font-bold mb-2">
-          Welcome {teacher?.name}
-        </h2>
+        {/* SUBJECT */}
 
-        <p className="text-gray-400 mb-8">
-          {school} • Teacher Dashboard
-        </p>
+        <div className="bg-white/10 p-6 rounded-xl backdrop-blur">
 
-        <div className="grid grid-cols-3 gap-6">
+          <p className="text-gray-400">
+            My Subject
+          </p>
 
-          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
-            <p className="text-gray-400">
-              My Subject
-            </p>
-            <h3 className="text-2xl text-cyan-400 mt-2">
-              {teacher?.subject}
-            </h3>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
-            <p className="text-gray-400">
-              Classes Today
-            </p>
-            <h3 className="text-2xl text-cyan-400 mt-2">
-              4
-            </h3>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
-            <p className="text-gray-400">
-              Students Assigned
-            </p>
-            <h3 className="text-2xl text-cyan-400 mt-2">
-              120
-            </h3>
-          </div>
+          <h2 className="text-2xl font-bold text-cyan-400 mt-2">
+            {teacher?.subject || "Not Assigned"}
+          </h2>
 
         </div>
 
-      </main>
+
+        {/* CLASSES */}
+
+        <div className="bg-white/10 p-6 rounded-xl backdrop-blur">
+
+          <p className="text-gray-400">
+            Classes Today
+          </p>
+
+          <h2 className="text-2xl font-bold text-cyan-400 mt-2">
+            {classesToday}
+          </h2>
+
+        </div>
+
+
+        {/* STUDENTS */}
+
+        <div className="bg-white/10 p-6 rounded-xl backdrop-blur">
+
+          <p className="text-gray-400">
+            Students Assigned
+          </p>
+
+          <h2 className="text-2xl font-bold text-cyan-400 mt-2">
+            {studentCount}
+          </h2>
+
+        </div>
+
+      </div>
 
     </div>
 
