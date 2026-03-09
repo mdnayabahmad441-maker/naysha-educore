@@ -1,24 +1,17 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useState,useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function MarksPage(){
+export default function ExamsPage(){
 
 const [schoolId,setSchoolId] = useState("")
 
+const [examName,setExamName] = useState("")
+const [examType,setExamType] = useState("")
+const [scope,setScope] = useState("ALL")
+
 const [sessions,setSessions] = useState<any[]>([])
-const [selectedExam,setSelectedExam] = useState("")
-
-const [classes,setClasses] = useState<string[]>([])
-const [selectedClass,setSelectedClass] = useState("")
-
-const [students,setStudents] = useState<any[]>([])
-const [subject,setSubject] = useState("")
-
-const [marks,setMarks] = useState<{[key:string]:number}>({})
-
-
 
 async function getSchool(){
 
@@ -35,16 +28,11 @@ await supabase
 .single()
 
 if(data){
-
 setSchoolId(data.school_id)
-
 loadSessions(data.school_id)
-loadClasses(data.school_id)
-
 }
 
 }
-
 
 
 async function loadSessions(id:string){
@@ -54,6 +42,7 @@ await supabase
 .from("exam_sessions")
 .select("*")
 .eq("school_id",id)
+.order("created_at",{ascending:false})
 
 if(data){
 setSessions(data)
@@ -62,82 +51,43 @@ setSessions(data)
 }
 
 
+async function createExam(){
 
-async function loadClasses(id:string){
+if(!examName){
+alert("Enter exam name")
+return
+}
 
-const {data} =
+const {error} =
 await supabase
-.from("students")
-.select("class")
-.eq("school_id",id)
-
-if(data){
-
-const unique =
-[...new Set(data.map((s:any)=>s.class))]
-
-setClasses(unique)
-
-}
-
-}
-
-
-
-async function loadStudents(){
-
-if(!selectedClass) return
-
-const {data} =
-await supabase
-.from("students")
-.select("*")
-.eq("class",selectedClass)
-.eq("school_id",schoolId)
-
-if(data){
-setStudents(data)
-}
-
-}
-
-
-
-async function saveMarks(){
-
-for(const student of students){
-
-const studentMarks =
-marks[student.id] || 0
-
-await supabase
-.from("exam_marks")
+.from("exam_sessions")
 .insert({
 
 school_id:schoolId,
-exam_id:selectedExam,
-student_id:student.id,
-subject:subject,
-marks:studentMarks
+exam_name:examName,
+exam_type:examType,
+class_scope:scope
 
 })
 
+if(error){
+alert(error.message)
+return
 }
 
-alert("Marks Saved")
+alert("Exam Session Created")
+
+setExamName("")
+setExamType("")
+
+loadSessions(schoolId)
 
 }
-
 
 
 useEffect(()=>{
 getSchool()
 },[])
-
-useEffect(()=>{
-loadStudents()
-},[selectedClass])
-
 
 
 return(
@@ -145,64 +95,63 @@ return(
 <div className="p-10 text-white">
 
 <h1 className="text-3xl font-bold mb-8">
-Marks Entry
+Exam Sessions
 </h1>
 
-
-
-<div className="bg-white/10 p-6 rounded-xl w-[500px] space-y-4 mb-10">
-
-
-<select
-className="w-full p-3 rounded bg-slate-800"
-value={selectedExam}
-onChange={(e)=>setSelectedExam(e.target.value)}
->
-
-<option>Select Exam</option>
-
-{sessions.map((s)=>(
-<option key={s.id} value={s.id}>
-{s.exam_name}
-</option>
-))}
-
-</select>
-
-
-
-<select
-className="w-full p-3 rounded bg-slate-800"
-value={selectedClass}
-onChange={(e)=>setSelectedClass(e.target.value)}
->
-
-<option>Select Class</option>
-
-{classes.map((c)=>(
-<option key={c}>{c}</option>
-))}
-
-</select>
-
-
+<div className="bg-white/10 p-6 rounded-xl w-[400px] space-y-4 mb-10">
 
 <input
-placeholder="Subject"
+placeholder="Exam Name (Mid Term)"
 className="w-full p-3 rounded bg-slate-800"
-value={subject}
-onChange={(e)=>setSubject(e.target.value)}
+value={examName}
+onChange={(e)=>setExamName(e.target.value)}
 />
 
+<select
+className="w-full p-3 rounded bg-slate-800"
+value={examType}
+onChange={(e)=>setExamType(e.target.value)}
+>
+
+<option value="">Exam Type</option>
+<option>Weekly Test</option>
+<option>Unit Test</option>
+<option>Monthly Test</option>
+<option>Mid Term</option>
+<option>Half Yearly</option>
+<option>Final</option>
+
+</select>
+
+
+<select
+className="w-full p-3 rounded bg-slate-800"
+value={scope}
+onChange={(e)=>setScope(e.target.value)}
+>
+
+<option value="ALL">All Classes</option>
+<option value="CLASS">Specific Class</option>
+
+</select>
+
+
+<button
+onClick={createExam}
+className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
+>
+
+Create Exam Session
+
+</button>
 
 </div>
-
 
 
 <div className="bg-white/10 p-6 rounded-xl">
 
 <h2 className="text-xl mb-4">
-Enter Marks
+Exam Sessions
 </h2>
 
 <table className="w-full">
@@ -211,8 +160,9 @@ Enter Marks
 
 <tr className="border-b border-white/20">
 
-<th className="text-left p-2">Student</th>
-<th>Marks</th>
+<th className="text-left p-2">Exam</th>
+<th>Type</th>
+<th>Scope</th>
 
 </tr>
 
@@ -220,30 +170,13 @@ Enter Marks
 
 <tbody>
 
-{students.map((s)=>(
+{sessions.map((s)=>(
 
 <tr key={s.id} className="border-b border-white/10">
 
-<td className="p-2">{s.name}</td>
-
-<td>
-
-<input
-type="number"
-className="p-2 rounded bg-slate-800 w-24"
-onChange={(e)=>
-
-setMarks({
-
-...marks,
-[s.id]:Number(e.target.value)
-
-})
-
-}
-/>
-
-</td>
+<td className="p-2">{s.exam_name}</td>
+<td>{s.exam_type}</td>
+<td>{s.class_scope}</td>
 
 </tr>
 
@@ -252,17 +185,6 @@ setMarks({
 </tbody>
 
 </table>
-
-
-<button
-onClick={saveMarks}
-className="mt-6 px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
->
-
-Save Marks
-
-</button>
-
 
 </div>
 
