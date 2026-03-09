@@ -25,18 +25,24 @@ export default function LoginPage(){
       return
     }
 
-    const userId = data.user.id
+    const userId = data.user?.id
+
+    if(!userId){
+      alert("Login failed")
+      setLoading(false)
+      return
+    }
 
     // get user school
 
-    const { data:userData } =
+    const { data:userData, error:userError } =
       await supabase
         .from("users")
         .select("school_id")
         .eq("id",userId)
         .single()
 
-    if(!userData){
+    if(userError || !userData){
       alert("User not linked to school")
       setLoading(false)
       return
@@ -44,14 +50,14 @@ export default function LoginPage(){
 
     // get school
 
-    const { data:school } =
+    const { data:school, error:schoolError } =
       await supabase
         .from("schools")
         .select("subdomain")
         .eq("id",userData.school_id)
         .single()
 
-    if(!school){
+    if(schoolError || !school){
       alert("School not found")
       setLoading(false)
       return
@@ -60,7 +66,7 @@ export default function LoginPage(){
     // redirect to school ERP
 
     window.location.href =
-      `http://${school.subdomain}.naysha.online/erp/dashboard`
+      `https://${school.subdomain}.erp.naysha.online/erp/dashboard`
 
   }
 
@@ -75,6 +81,7 @@ export default function LoginPage(){
         </h1>
 
         <input
+          type="email"
           placeholder="Email"
           className="w-full p-2 mb-4 rounded bg-slate-800"
           value={email}
@@ -91,6 +98,7 @@ export default function LoginPage(){
 
         <button
           onClick={handleLogin}
+          disabled={loading}
           className="w-full py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
         >
           {loading ? "Logging in..." : "Login"}
