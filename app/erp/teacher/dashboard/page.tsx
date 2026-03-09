@@ -9,8 +9,9 @@ export default function TeacherDashboard(){
 
   const router = useRouter()
 
-  const [loading,setLoading] = useState(true)
   const [teacher,setTeacher] = useState<any>(null)
+  const [school,setSchool] = useState("")
+  const [loading,setLoading] = useState(true)
 
   useEffect(()=>{
     loadTeacher()
@@ -30,7 +31,7 @@ export default function TeacherDashboard(){
     const { data:user } =
       await supabase
       .from("users")
-      .select("role")
+      .select("role,school_id")
       .eq("id",userId)
       .single()
 
@@ -43,15 +44,26 @@ export default function TeacherDashboard(){
       await supabase
       .from("teachers")
       .select("*")
-      .eq("email",data.session.user.email)
+      .eq("school_id",user.school_id)
+      .eq("phone",teacher?.phone)
+      .single()
+
+    const { data:schoolData } =
+      await supabase
+      .from("schools")
+      .select("name")
+      .eq("id",user.school_id)
       .single()
 
     if(teacherData){
       setTeacher(teacherData)
     }
 
-    setLoading(false)
+    if(schoolData){
+      setSchool(schoolData.name)
+    }
 
+    setLoading(false)
   }
 
   if(loading){
@@ -68,7 +80,7 @@ export default function TeacherDashboard(){
 
       {/* SIDEBAR */}
 
-      <aside className="w-64 bg-gradient-to-b from-blue-900 via-indigo-900 to-purple-900 p-6">
+      <aside className="w-64 bg-gradient-to-b from-indigo-900 via-blue-900 to-purple-900 p-6">
 
         <h1 className="text-2xl font-bold mb-10 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
           Teacher Panel
@@ -111,53 +123,45 @@ export default function TeacherDashboard(){
       </aside>
 
 
-
       {/* MAIN AREA */}
 
       <main className="flex-1 p-10">
 
-        <h2 className="text-3xl font-bold mb-8">
+        <h2 className="text-3xl font-bold mb-2">
           Welcome {teacher?.name}
         </h2>
 
+        <p className="text-gray-400 mb-8">
+          {school} • Teacher Dashboard
+        </p>
+
         <div className="grid grid-cols-3 gap-6">
 
-          <div className="bg-white/10 p-6 rounded-xl">
-
+          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
             <p className="text-gray-400">
               My Subject
             </p>
-
             <h3 className="text-2xl text-cyan-400 mt-2">
               {teacher?.subject}
             </h3>
-
           </div>
 
-
-          <div className="bg-white/10 p-6 rounded-xl">
-
+          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
             <p className="text-gray-400">
               Classes Today
             </p>
-
             <h3 className="text-2xl text-cyan-400 mt-2">
-              5
+              4
             </h3>
-
           </div>
 
-
-          <div className="bg-white/10 p-6 rounded-xl">
-
+          <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
             <p className="text-gray-400">
-              Students
+              Students Assigned
             </p>
-
             <h3 className="text-2xl text-cyan-400 mt-2">
               120
             </h3>
-
           </div>
 
         </div>
