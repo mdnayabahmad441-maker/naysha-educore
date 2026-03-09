@@ -1,31 +1,37 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
 export default function FeesPage(){
 
+const [schoolId,setSchoolId] = useState("")
+
+const [classes,setClasses] = useState<string[]>([])
+const [selectedClass,setSelectedClass] = useState("")
+
 const [students,setStudents] = useState<any[]>([])
 const [studentId,setStudentId] = useState("")
 const [studentName,setStudentName] = useState("")
-const [schoolId,setSchoolId] = useState("")
 
-const [tuition,setTuition] = useState(0)
-const [exam,setExam] = useState(0)
-const [hostel,setHostel] = useState(0)
-const [misc,setMisc] = useState(0)
-const [other,setOther] = useState(0)
+const [schoolFee,setSchoolFee] = useState(0)
+const [examFee,setExamFee] = useState(0)
+const [hostelFee,setHostelFee] = useState(0)
+const [miscFee,setMiscFee] = useState(0)
+const [otherFee,setOtherFee] = useState(0)
 
 const [paidAmount,setPaidAmount] = useState(0)
-const [status,setStatus] = useState("Paid")
 
 const total =
-tuition + exam + hostel + misc + other
+schoolFee +
+examFee +
+hostelFee +
+miscFee +
+otherFee
 
 
-/* -------------------------------- */
+
 /* GET SCHOOL */
-/* -------------------------------- */
 
 async function getSchool(){
 
@@ -42,24 +48,50 @@ await supabase
 .single()
 
 if(data){
+
 setSchoolId(data.school_id)
-loadStudents(data.school_id)
+
+loadClasses(data.school_id)
+
+}
+
+}
+
+
+
+/* LOAD CLASSES */
+
+async function loadClasses(id:string){
+
+const {data} =
+await supabase
+.from("students")
+.select("class")
+.eq("school_id",id)
+
+if(data){
+
+const unique =
+[...new Set(data.map((s:any)=>s.class))]
+
+setClasses(unique)
+
 }
 
 }
 
 
-/* -------------------------------- */
-/* LOAD STUDENTS */
-/* -------------------------------- */
 
-async function loadStudents(id:string){
+/* LOAD STUDENTS OF CLASS */
+
+async function loadStudents(className:string){
 
 const {data} =
 await supabase
 .from("students")
 .select("*")
-.eq("school_id",id)
+.eq("class",className)
+.eq("school_id",schoolId)
 
 if(data){
 setStudents(data)
@@ -68,9 +100,26 @@ setStudents(data)
 }
 
 
-/* -------------------------------- */
+
 /* GENERATE INVOICE */
-/* -------------------------------- */
+
+function generateInvoiceNumber(){
+
+const date = new Date()
+
+const year = date.getFullYear()
+
+const month =
+String(date.getMonth()+1).padStart(2,"0")
+
+const random =
+Math.floor(Math.random()*9000+1000)
+
+return `INV-${year}${month}-${random}`
+
+}
+
+
 
 async function generateInvoice(){
 
@@ -79,23 +128,45 @@ alert("Select student")
 return
 }
 
+const invoice =
+generateInvoiceNumber()
+
+const balance =
+total - paidAmount
+
+let status = "Pending"
+
+if(balance === 0){
+status = "Paid"
+}
+
+if(balance > 0 && paidAmount > 0){
+status = "Partial"
+}
+
 const {error} =
 await supabase
 .from("fees")
 .insert({
 
-student_id:studentId,
-student_name:studentName,
+invoice_number:invoice,
+
 school_id:schoolId,
 
-tuition_fee:tuition,
-exam_fee:exam,
-hostel_fee:hostel,
-misc_fee:misc,
-other_fee:other,
+student_id:studentId,
+student_name:studentName,
+class:selectedClass,
+
+school_fee:schoolFee,
+exam_fee:examFee,
+hostel_fee:hostelFee,
+misc_fee:miscFee,
+other_fee:otherFee,
 
 total:total,
 paid_amount:paidAmount,
+balance:balance,
+
 status:status
 
 })
@@ -107,19 +178,18 @@ return
 
 alert("Invoice Generated")
 
-setTuition(0)
-setExam(0)
-setHostel(0)
-setMisc(0)
-setOther(0)
+setSchoolFee(0)
+setExamFee(0)
+setHostelFee(0)
+setMiscFee(0)
+setOtherFee(0)
 setPaidAmount(0)
 
 }
 
 
-/* -------------------------------- */
+
 /* INIT */
-/* -------------------------------- */
 
 useEffect(()=>{
 getSchool()
@@ -138,26 +208,49 @@ Fee Invoice
 
 <div className="bg-white/10 p-8 rounded-xl w-[420px] space-y-4">
 
-{/* CLASS */}
+
+{/* CLASS SELECT */}
+
 <select
 className="w-full p-3 rounded bg-slate-800"
+value={selectedClass}
+onChange={(e)=>{
+
+const c = e.target.value
+
+setSelectedClass(c)
+
+loadStudents(c)
+
+}}
 >
 
-<option>01</option>
+<option>Select Class</option>
+
+{classes.map((c)=>(
+<option key={c}>{c}</option>
+))}
 
 </select>
 
 
-{/* STUDENT */}
+
+{/* STUDENT SELECT */}
+
 <select
 className="w-full p-3 rounded bg-slate-800"
 onChange={(e)=>{
 
 const id = e.target.value
+
 setStudentId(id)
 
-const s = students.find(x=>x.id===id)
-if(s) setStudentName(s.name)
+const s =
+students.find(x=>x.id===id)
+
+if(s){
+setStudentName(s.name)
+}
 
 }}
 >
@@ -173,59 +266,65 @@ if(s) setStudentName(s.name)
 </select>
 
 
-{/* TUITION */}
+
+{/* SCHOOL FEE */}
 
 <input
 type="number"
-placeholder="Tuition Fee"
+placeholder="School Fee"
 className="w-full p-3 rounded bg-slate-800"
-value={tuition}
-onChange={(e)=>setTuition(Number(e.target.value))}
+value={schoolFee}
+onChange={(e)=>setSchoolFee(Number(e.target.value))}
 />
 
 
-{/* EXAM */}
+
+{/* EXAM FEE */}
 
 <input
 type="number"
 placeholder="Exam Fee"
 className="w-full p-3 rounded bg-slate-800"
-value={exam}
-onChange={(e)=>setExam(Number(e.target.value))}
+value={examFee}
+onChange={(e)=>setExamFee(Number(e.target.value))}
 />
 
 
-{/* HOSTEL */}
+
+{/* HOSTEL FEE */}
 
 <input
 type="number"
 placeholder="Hostel Fee"
 className="w-full p-3 rounded bg-slate-800"
-value={hostel}
-onChange={(e)=>setHostel(Number(e.target.value))}
+value={hostelFee}
+onChange={(e)=>setHostelFee(Number(e.target.value))}
 />
 
 
-{/* MISC */}
+
+{/* MISC FEE */}
 
 <input
 type="number"
 placeholder="Misc Fee"
 className="w-full p-3 rounded bg-slate-800"
-value={misc}
-onChange={(e)=>setMisc(Number(e.target.value))}
+value={miscFee}
+onChange={(e)=>setMiscFee(Number(e.target.value))}
 />
 
 
-{/* OTHER */}
+
+{/* OTHER FEE */}
 
 <input
 type="number"
 placeholder="Other Fee"
 className="w-full p-3 rounded bg-slate-800"
-value={other}
-onChange={(e)=>setOther(Number(e.target.value))}
+value={otherFee}
+onChange={(e)=>setOtherFee(Number(e.target.value))}
 />
+
 
 
 {/* TOTAL */}
@@ -235,7 +334,8 @@ Total: ₹{total}
 </h2>
 
 
-{/* PAID AMOUNT */}
+
+{/* PAID */}
 
 <input
 type="number"
@@ -246,12 +346,11 @@ onChange={(e)=>setPaidAmount(Number(e.target.value))}
 />
 
 
+
 {/* STATUS */}
 
 <select
 className="w-full p-3 rounded bg-slate-800"
-value={status}
-onChange={(e)=>setStatus(e.target.value)}
 >
 
 <option>Paid</option>
@@ -261,7 +360,8 @@ onChange={(e)=>setStatus(e.target.value)}
 </select>
 
 
-{/* BUTTON */}
+
+{/* GENERATE */}
 
 <button
 onClick={generateInvoice}
