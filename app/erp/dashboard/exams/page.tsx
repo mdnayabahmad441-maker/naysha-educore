@@ -2,15 +2,14 @@
 
 import { useState,useEffect } from "react"
 import { supabase } from "@/lib/supabase"
+import Link from "next/link"
 
 export default function ExamsPage(){
 
 const [schoolId,setSchoolId] = useState("")
-
 const [examName,setExamName] = useState("")
 const [examType,setExamType] = useState("")
 const [scope,setScope] = useState("ALL")
-
 const [sessions,setSessions] = useState<any[]>([])
 
 async function getSchool(){
@@ -34,7 +33,6 @@ loadSessions(data.school_id)
 
 }
 
-
 async function loadSessions(id:string){
 
 const {data} =
@@ -49,7 +47,6 @@ setSessions(data)
 }
 
 }
-
 
 async function createExam(){
 
@@ -84,7 +81,6 @@ loadSessions(schoolId)
 
 }
 
-
 useEffect(()=>{
 getSchool()
 },[])
@@ -95,8 +91,40 @@ return(
 <div className="p-10 text-white">
 
 <h1 className="text-3xl font-bold mb-8">
-Exam Sessions
+Exam Management
 </h1>
+
+
+{/* EXAM MODULE NAVIGATION */}
+
+<div className="flex gap-4 mb-8">
+
+<Link
+href="/erp/dashboard/exams"
+className="px-4 py-2 bg-blue-600 rounded"
+>
+Create Exam
+</Link>
+
+<Link
+href="/erp/dashboard/exams/marks"
+className="px-4 py-2 bg-purple-600 rounded"
+>
+Marks Entry
+</Link>
+
+<Link
+href="/erp/dashboard/exams/results"
+className="px-4 py-2 bg-green-600 rounded"
+>
+Results
+</Link>
+
+</div>
+
+
+
+{/* CREATE EXAM */}
 
 <div className="bg-white/10 p-6 rounded-xl w-[400px] space-y-4 mb-10">
 
@@ -147,6 +175,9 @@ Create Exam Session
 
 </div>
 
+
+
+{/* EXAM LIST */}
 
 <div className="bg-white/10 p-6 rounded-xl">
 
