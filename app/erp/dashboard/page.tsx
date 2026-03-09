@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
@@ -18,8 +19,6 @@ export default function DashboardPage(){
 
     if(!userId) return
 
-    // get school id
-
     const { data:user } =
       await supabase
       .from("users")
@@ -31,24 +30,17 @@ export default function DashboardPage(){
 
     const schoolId = user.school_id
 
-
-    // students count
-
     const { count:studentsCount } =
       await supabase
       .from("students")
       .select("*",{count:"exact",head:true})
       .eq("school_id",schoolId)
 
-    // teachers count
-
     const { count:teachersCount } =
       await supabase
       .from("teachers")
       .select("*",{count:"exact",head:true})
       .eq("school_id",schoolId)
-
-    // fees sum
 
     const { data:feesData } =
       await supabase
@@ -62,7 +54,6 @@ export default function DashboardPage(){
     setStudents(studentsCount || 0)
     setTeachers(teachersCount || 0)
     setFees(totalFees)
-
   }
 
   useEffect(()=>{
@@ -71,43 +62,107 @@ export default function DashboardPage(){
 
   return(
 
-    <div className="p-10 text-white">
+    <div className="flex min-h-screen text-white bg-[#020617]">
 
-      <h1 className="text-3xl font-bold mb-8">
-        Dashboard Overview
-      </h1>
+      {/* SIDEBAR */}
 
-      <div className="flex gap-8">
+      <div className="w-64 bg-gradient-to-b from-indigo-700 to-purple-800 p-6">
 
-        <div className="bg-white/10 p-6 rounded-xl w-44 text-center">
+        <h1 className="text-2xl font-bold mb-10">
+          NaySha EduCore
+        </h1>
 
-          <p>Total Students</p>
+        <nav className="flex flex-col gap-6">
 
-          <h2 className="text-3xl font-bold text-cyan-400">
-            {students}
-          </h2>
+          <Link href="/erp/dashboard">Dashboard</Link>
 
-        </div>
+          <Link href="/erp/dashboard/students">
+            Students
+          </Link>
+
+          <Link href="/erp/dashboard/teachers">
+            Teachers
+          </Link>
+
+          <Link href="/erp/dashboard/attendance">
+            Attendance
+          </Link>
+
+          <Link href="/erp/dashboard/fees">
+            Fees
+          </Link>
+
+          <Link href="/erp/dashboard/exams">
+            Exams
+          </Link>
+
+          <Link href="/erp/dashboard/reports">
+            Reports
+          </Link>
+
+          <Link href="/erp/dashboard/settings">
+            Settings
+          </Link>
+
+        </nav>
+
+      </div>
 
 
-        <div className="bg-white/10 p-6 rounded-xl w-44 text-center">
+      {/* MAIN DASHBOARD */}
 
-          <p>Teachers</p>
+      <div className="flex-1 p-10">
 
-          <h2 className="text-3xl font-bold text-cyan-400">
-            {teachers}
-          </h2>
-
-        </div>
+        <h1 className="text-4xl font-bold mb-10">
+          Dashboard Overview
+        </h1>
 
 
-        <div className="bg-white/10 p-6 rounded-xl w-44 text-center">
+        <div className="flex gap-10">
 
-          <p>Fees Collected</p>
+          {/* STUDENTS */}
 
-          <h2 className="text-3xl font-bold text-cyan-400">
-            ₹{fees}
-          </h2>
+          <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl w-52 text-center">
+
+            <p className="text-gray-300">
+              Total Students
+            </p>
+
+            <h2 className="text-3xl font-bold text-cyan-400 mt-2">
+              {students}
+            </h2>
+
+          </div>
+
+
+          {/* TEACHERS */}
+
+          <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl w-52 text-center">
+
+            <p className="text-gray-300">
+              Teachers
+            </p>
+
+            <h2 className="text-3xl font-bold text-cyan-400 mt-2">
+              {teachers}
+            </h2>
+
+          </div>
+
+
+          {/* FEES */}
+
+          <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl w-52 text-center">
+
+            <p className="text-gray-300">
+              Fees Collected
+            </p>
+
+            <h2 className="text-3xl font-bold text-cyan-400 mt-2">
+              ₹{fees}
+            </h2>
+
+          </div>
 
         </div>
 
