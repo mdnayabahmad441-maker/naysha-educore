@@ -49,57 +49,100 @@ export default function ParentDashboard(){
 
   return(
 
-    <div className="p-6 text-white">
+    <div className="min-h-screen bg-black text-white pb-20">
 
       {/* Header */}
 
-      <h1 className="text-3xl font-bold mb-6">
-        Parent Dashboard
-      </h1>
+      <div className="p-6">
 
-      {/* Student Info Card */}
-
-      <div className="bg-white/10 p-6 rounded-xl mb-6">
-
-        <h2 className="text-xl font-semibold mb-2">
-          {student.name}
-        </h2>
-
-        <p>Class: {student.class}</p>
-        <p>Roll: {student.roll_number}</p>
+        <h1 className="text-2xl font-bold">
+          Parent Dashboard
+        </h1>
 
       </div>
 
-      {/* Quick Stats */}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      {/* Student Card */}
 
-        <div className="bg-white/10 p-5 rounded-xl">
-          <p className="text-gray-400 text-sm">Attendance</p>
-          <p className="text-2xl font-bold">
+      <div className="px-6 mb-6">
+
+        <div className="bg-white/10 p-6 rounded-xl">
+
+          <h2 className="text-xl font-semibold mb-2">
+            {student.name}
+          </h2>
+
+          <p className="text-gray-300">
+            Class: {student.class}
+          </p>
+
+          <p className="text-gray-300">
+            Roll: {student.roll_number}
+          </p>
+
+        </div>
+
+      </div>
+
+
+      {/* Stats */}
+
+      <div className="grid grid-cols-2 gap-4 px-6 mb-6">
+
+        <div className="bg-white/10 p-4 rounded-xl">
+
+          <p className="text-sm text-gray-400">
+            Attendance
+          </p>
+
+          <p className="text-xl font-bold">
             92%
           </p>
+
         </div>
 
-        <div className="bg-white/10 p-5 rounded-xl">
-          <p className="text-gray-400 text-sm">Fees Due</p>
-          <p className="text-2xl font-bold">
+        <div className="bg-white/10 p-4 rounded-xl">
+
+          <p className="text-sm text-gray-400">
+            Fees Due
+          </p>
+
+          <p className="text-xl font-bold">
             ₹1200
           </p>
+
         </div>
 
-        <div className="bg-white/10 p-5 rounded-xl">
-          <p className="text-gray-400 text-sm">Latest Result</p>
-          <p className="text-2xl font-bold">
+        <div className="bg-white/10 p-4 rounded-xl">
+
+          <p className="text-sm text-gray-400">
+            Latest Result
+          </p>
+
+          <p className="text-xl font-bold">
             A Grade
           </p>
+
+        </div>
+
+        <div className="bg-white/10 p-4 rounded-xl">
+
+          <p className="text-sm text-gray-400">
+            Notifications
+          </p>
+
+          <p className="text-xl font-bold">
+            2
+          </p>
+
         </div>
 
       </div>
+
 
       {/* Quick Actions */}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 px-6">
 
         <button className="bg-blue-600 p-4 rounded-xl">
           Attendance
@@ -116,6 +159,35 @@ export default function ParentDashboard(){
         <button className="bg-orange-600 p-4 rounded-xl">
           Report Card
         </button>
+
+      </div>
+
+
+      {/* Bottom Navigation */}
+
+      <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-gray-800">
+
+        <div className="grid grid-cols-5 text-center text-sm">
+
+          <button className="p-3">Home</button>
+
+          <button className="p-3">
+            Attendance
+          </button>
+
+          <button className="p-3">
+            Fees
+          </button>
+
+          <button className="p-3">
+            Results
+          </button>
+
+          <button className="p-3">
+            Profile
+          </button>
+
+        </div>
 
       </div>
 
