@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import Link from "next/link"
 
 export default function ExamsPage(){
 
@@ -93,10 +94,20 @@ export default function ExamsPage(){
 
     <div className="p-10 text-white">
 
-      <h1 className="text-3xl font-bold mb-8">
-        Exams
-      </h1>
+      <div className="flex items-center justify-between mb-8">
 
+  <h1 className="text-3xl font-bold">
+    Exams
+  </h1>
+
+  <Link
+    href="/admin/exams/marks"
+    className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-lg"
+  >
+    Enter Marks
+  </Link>
+
+</div>
 
 
       {/* CREATE EXAM */}
