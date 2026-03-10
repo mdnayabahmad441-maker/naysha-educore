@@ -1,42 +1,33 @@
 "use client"
 
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
 
 export default function ParentLogin(){
 
   const router = useRouter()
 
-  const [phone,setPhone] = useState("")
-  const [otp,setOtp] = useState("")
-  const [step,setStep] = useState(1)
+  const [email,setEmail] = useState("")
+  const [password,setPassword] = useState("")
+  const [loading,setLoading] = useState(false)
+  const [error,setError] = useState("")
 
-  async function sendOTP(){
+  async function handleLogin(e:any){
 
-    const { error } = await supabase.auth.signInWithOtp({
-      phone: phone
+    e.preventDefault()
+
+    setLoading(true)
+    setError("")
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
     })
 
     if(error){
-      alert(error.message)
-      return
-    }
-
-    setStep(2)
-
-  }
-
-  async function verifyOTP(){
-
-    const { error } = await supabase.auth.verifyOtp({
-      phone: phone,
-      token: otp,
-      type: "sms"
-    })
-
-    if(error){
-      alert(error.message)
+      setError(error.message)
+      setLoading(false)
       return
     }
 
@@ -46,55 +37,49 @@ export default function ParentLogin(){
 
   return(
 
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+    <div className="min-h-screen flex items-center justify-center bg-black text-white">
 
-      <div className="bg-white/10 p-8 rounded-xl w-[350px]">
+      <form
+        onSubmit={handleLogin}
+        className="bg-white/10 p-8 rounded-xl w-full max-w-md space-y-4"
+      >
 
-        <h1 className="text-2xl font-bold mb-6">
+        <h1 className="text-2xl font-bold">
           Parent Login
         </h1>
 
-        {step === 1 && (
+        <input
+          type="email"
+          placeholder="Parent Email"
+          value={email}
+          onChange={(e)=>setEmail(e.target.value)}
+          className="w-full p-3 rounded bg-black border border-gray-700"
+          required
+        />
 
-          <>
-            <input
-              placeholder="Phone Number"
-              className="w-full p-2 mb-4 rounded bg-slate-800"
-              value={phone}
-              onChange={(e)=>setPhone(e.target.value)}
-            />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e)=>setPassword(e.target.value)}
+          className="w-full p-3 rounded bg-black border border-gray-700"
+          required
+        />
 
-            <button
-              onClick={sendOTP}
-              className="w-full py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
-            >
-              Send OTP
-            </button>
-          </>
-
+        {error && (
+          <p className="text-red-400 text-sm">
+            {error}
+          </p>
         )}
 
-        {step === 2 && (
+        <button
+          disabled={loading}
+          className="w-full bg-blue-600 p-3 rounded font-semibold"
+        >
+          {loading ? "Logging in..." : "Login"}
+        </button>
 
-          <>
-            <input
-              placeholder="Enter OTP"
-              className="w-full p-2 mb-4 rounded bg-slate-800"
-              value={otp}
-              onChange={(e)=>setOtp(e.target.value)}
-            />
-
-            <button
-              onClick={verifyOTP}
-              className="w-full py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
-            >
-              Verify OTP
-            </button>
-          </>
-
-        )}
-
-      </div>
+      </form>
 
     </div>
 

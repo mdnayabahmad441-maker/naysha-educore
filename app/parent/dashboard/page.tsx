@@ -1,28 +1,36 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
 export default function ParentDashboard(){
 
   const [student,setStudent] = useState<any>(null)
+  const [loading,setLoading] = useState(true)
 
   async function loadStudent(){
 
-    const { data:user } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    const phone = user.user?.phone
+    const email = user?.email
 
-    if(!phone) return
+    if(!email){
+      setLoading(false)
+      return
+    }
 
-    const { data } =
+    const { data, error } =
       await supabase
       .from("students")
       .select("*")
-      .eq("parent_phone",phone)
+      .eq("parent_email", email)
       .single()
 
-    setStudent(data)
+    if(!error){
+      setStudent(data)
+    }
+
+    setLoading(false)
 
   }
 
@@ -30,8 +38,18 @@ export default function ParentDashboard(){
     loadStudent()
   },[])
 
-  if(!student){
+  if(loading){
     return <p className="p-10 text-white">Loading...</p>
+  }
+
+  if(!student){
+    return (
+      <div className="p-10 text-white">
+        <h1 className="text-2xl font-bold">
+          No student linked to this parent account
+        </h1>
+      </div>
+    )
   }
 
   return(
@@ -44,9 +62,17 @@ export default function ParentDashboard(){
 
       <div className="bg-white/10 p-6 rounded-xl mb-6">
 
-        <p>Student: {student.name}</p>
-        <p>Class: {student.class}</p>
-        <p>Roll: {student.roll_number}</p>
+        <p className="text-lg">
+          Student: <span className="font-semibold">{student.name}</span>
+        </p>
+
+        <p>
+          Class: {student.class}
+        </p>
+
+        <p>
+          Roll: {student.roll_number}
+        </p>
 
       </div>
 
