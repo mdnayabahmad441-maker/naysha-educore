@@ -16,11 +16,12 @@ export default function HomePage(){
         <div className="flex items-center gap-4">
 
           <Image
-            src="/logo.png"
-            alt="NaySha Logo"
-            width={50}
-            height={50}
-          />
+         src="/logo.png"
+          alt="NaySha Automation Logo"
+          width={60}
+          height={60}
+          priority
+        />
 
           <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
             NaySha Automation
