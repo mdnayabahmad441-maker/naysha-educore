@@ -9,7 +9,6 @@ export default function TeachersPage(){
   const [subject,setSubject] = useState("")
   const [phone,setPhone] = useState("")
   const [email,setEmail] = useState("")
-  const [password,setPassword] = useState("")
 
   const [teachers,setTeachers] = useState<any[]>([])
   const [schoolId,setSchoolId] = useState<string | null>(null)
@@ -57,10 +56,10 @@ export default function TeachersPage(){
   }
 
 
-  // ADD TEACHER + CREATE LOGIN
+  // ADD TEACHER
   async function addTeacher(){
 
-    if(!name || !subject || !phone || !email || !password){
+    if(!name || !subject || !phone || !email){
       alert("Fill all fields")
       return
     }
@@ -70,12 +69,11 @@ export default function TeachersPage(){
       return
     }
 
-    // CREATE AUTH ACCOUNT
+    // CREATE AUTH ACCOUNT (OTP LOGIN)
 
     const { data, error:authError } =
       await supabase.auth.signUp({
-        email: email,
-        password: password
+        email: email
       })
 
     if(authError){
@@ -100,6 +98,7 @@ export default function TeachersPage(){
           name:name,
           subject:subject,
           phone:phone,
+          email:email,
           school_id:schoolId
         })
 
@@ -133,11 +132,10 @@ export default function TeachersPage(){
     setSubject("")
     setPhone("")
     setEmail("")
-    setPassword("")
 
     fetchTeachers(schoolId)
 
-    alert("Teacher created successfully")
+    alert("Teacher created successfully. Teacher can now login using OTP.")
 
   }
 
@@ -189,17 +187,9 @@ export default function TeachersPage(){
 
         <input
           placeholder="Teacher Email"
-          className="w-full p-2 mb-3 rounded bg-slate-800"
+          className="w-full p-2 mb-4 rounded bg-slate-800"
           value={email}
           onChange={(e)=>setEmail(e.target.value)}
-        />
-
-        <input
-          type="password"
-          placeholder="Teacher Password"
-          className="w-full p-2 mb-4 rounded bg-slate-800"
-          value={password}
-          onChange={(e)=>setPassword(e.target.value)}
         />
 
         <button
