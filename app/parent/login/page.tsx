@@ -1,88 +1,75 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
 export default function ParentLogin(){
 
-  const router = useRouter()
+const [email,setEmail] = useState("")
+const [loading,setLoading] = useState(false)
+const router = useRouter()
 
-  const [email,setEmail] = useState("")
-  const [password,setPassword] = useState("")
-  const [loading,setLoading] = useState(false)
-  const [error,setError] = useState("")
+async function sendOtp(){
 
-  async function handleLogin(e:any){
+setLoading(true)
 
-    e.preventDefault()
+const { error } = await supabase.auth.signInWithOtp({
 
-    setLoading(true)
-    setError("")
+email: email,
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
+options: {
+emailRedirectTo: `${window.location.origin}/parent/dashboard`
+}
 
-    if(error){
-      setError(error.message)
-      setLoading(false)
-      return
-    }
+})
 
-    router.push("/parent/dashboard")
+setLoading(false)
 
-  }
+if(error){
 
-  return(
+alert(error.message)
 
-    <div className="min-h-screen flex items-center justify-center bg-black text-white">
+}else{
 
-      <form
-        onSubmit={handleLogin}
-        className="bg-white/10 p-8 rounded-xl w-full max-w-md space-y-4"
-      >
+alert("OTP sent to your email")
 
-        <h1 className="text-2xl font-bold">
-          Parent Login
-        </h1>
+}
 
-        <input
-          type="email"
-          placeholder="Parent Email"
-          value={email}
-          onChange={(e)=>setEmail(e.target.value)}
-          className="w-full p-3 rounded bg-black border border-gray-700"
-          required
-        />
+}
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e)=>setPassword(e.target.value)}
-          className="w-full p-3 rounded bg-black border border-gray-700"
-          required
-        />
+return(
 
-        {error && (
-          <p className="text-red-400 text-sm">
-            {error}
-          </p>
-        )}
+<div className="min-h-screen flex items-center justify-center bg-black text-white">
 
-        <button
-          disabled={loading}
-          className="w-full bg-blue-600 p-3 rounded font-semibold"
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
+<div className="bg-white/10 p-8 rounded-xl w-96">
 
-      </form>
+<h1 className="text-2xl font-bold mb-6">
+Parent Login
+</h1>
 
-    </div>
+<input
+type="email"
+placeholder="Enter Parent Email"
+className="w-full p-3 rounded bg-slate-800 mb-4"
+value={email}
+onChange={(e)=>setEmail(e.target.value)}
+/>
 
-  )
+<button
+onClick={sendOtp}
+className="w-full p-3 bg-blue-600 rounded"
+disabled={loading}
+>
+
+{loading ? "Sending OTP..." : "Send OTP"}
+
+</button>
+
+</div>
+
+</div>
+
+)
 
 }
