@@ -4,72 +4,135 @@ import { useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 
-export default function ParentLogin(){
+export default function ParentLogin() {
 
-const [email,setEmail] = useState("")
-const [loading,setLoading] = useState(false)
-const router = useRouter()
+  const [email,setEmail] = useState("")
+  const [otp,setOtp] = useState("")
+  const [step,setStep] = useState("email")
+  const [loading,setLoading] = useState(false)
 
-async function sendOtp(){
+  const router = useRouter()
 
-setLoading(true)
+  async function sendOtp(){
 
-const { error } = await supabase.auth.signInWithOtp({
+    if(!email){
+      alert("Enter email")
+      return
+    }
 
-email: email,
+    setLoading(true)
 
-options: {
-emailRedirectTo: `${window.location.origin}/parent/dashboard`
-}
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email
+    })
 
-})
+    setLoading(false)
 
-setLoading(false)
+    if(error){
+      alert(error.message)
+      return
+    }
 
-if(error){
+    alert("OTP sent to your email")
 
-alert(error.message)
+    setStep("otp")
 
-}else{
+  }
 
-alert("OTP sent to your email")
+  async function verifyOtp(){
 
-}
+    if(!otp){
+      alert("Enter OTP")
+      return
+    }
 
-}
+    setLoading(true)
 
-return(
+    const { error } = await supabase.auth.verifyOtp({
+      email: email,
+      token: otp,
+      type: "email"
+    })
 
-<div className="min-h-screen flex items-center justify-center bg-black text-white">
+    setLoading(false)
 
-<div className="bg-white/10 p-8 rounded-xl w-96">
+    if(error){
+      alert(error.message)
+      return
+    }
 
-<h1 className="text-2xl font-bold mb-6">
-Parent Login
-</h1>
+    router.push("/parent/dashboard")
 
-<input
-type="email"
-placeholder="Enter Parent Email"
-className="w-full p-3 rounded bg-slate-800 mb-4"
-value={email}
-onChange={(e)=>setEmail(e.target.value)}
-/>
+  }
 
-<button
-onClick={sendOtp}
-className="w-full p-3 bg-blue-600 rounded"
-disabled={loading}
->
+  return(
 
-{loading ? "Sending OTP..." : "Send OTP"}
+    <div className="min-h-screen flex items-center justify-center bg-black text-white">
 
-</button>
+      <div className="bg-white/10 p-8 rounded-xl w-[350px]">
 
-</div>
+        <h1 className="text-2xl font-bold mb-6">
+          Parent Login
+        </h1>
 
-</div>
 
-)
+        {step === "email" && (
+
+          <div className="space-y-4">
+
+            <input
+              type="email"
+              placeholder="Enter parent email"
+              className="w-full p-3 rounded bg-slate-800"
+              value={email}
+              onChange={(e)=>setEmail(e.target.value)}
+            />
+
+            <button
+              onClick={sendOtp}
+              disabled={loading}
+              className="w-full p-3 bg-blue-600 rounded"
+            >
+              {loading ? "Sending OTP..." : "Send OTP"}
+            </button>
+
+          </div>
+
+        )}
+
+
+        {step === "otp" && (
+
+          <div className="space-y-4">
+
+            <p className="text-sm text-gray-300">
+              Enter the OTP sent to {email}
+            </p>
+
+            <input
+              type="text"
+              placeholder="Enter OTP"
+              className="w-full p-3 rounded bg-slate-800"
+              value={otp}
+              onChange={(e)=>setOtp(e.target.value)}
+            />
+
+            <button
+              onClick={verifyOtp}
+              disabled={loading}
+              className="w-full p-3 bg-green-600 rounded"
+            >
+              {loading ? "Verifying..." : "Verify OTP"}
+            </button>
+
+          </div>
+
+        )}
+
+      </div>
+
+    </div>
+
+  )
 
 }
