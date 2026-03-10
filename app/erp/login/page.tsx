@@ -56,23 +56,23 @@ export default function LoginPage(){
       return
     }
 
-       if (!data?.user) {
+    if (!data?.user) {
       alert("Login failed")
-     setLoading(false)
-     return
+      setLoading(false)
+      return
     }
- 
-     const userId = data.user.id
+
+    const userId = data.user.id
 
 
     // GET USER ROLE + SCHOOL
 
     const { data:userData } =
       await supabase
-        .from("users")
-        .select("school_id,role")
-        .eq("id",userId)
-        .single()
+      .from("users")
+      .select("school_id,role")
+      .eq("id",userId)
+      .single()
 
     if(!userData){
       alert("User not linked to school")
@@ -85,10 +85,10 @@ export default function LoginPage(){
 
     const { data:school } =
       await supabase
-        .from("schools")
-        .select("subdomain")
-        .eq("id",userData.school_id)
-        .single()
+      .from("schools")
+      .select("subdomain")
+      .eq("id",userData.school_id)
+      .single()
 
     if(!school){
       alert("School not found")
@@ -97,6 +97,10 @@ export default function LoginPage(){
     }
 
     const subdomain = school.subdomain
+
+
+    // STORE ROLE COOKIE FOR MIDDLEWARE
+    document.cookie = `role=${userData.role}; path=/`
 
 
     // ROLE BASED REDIRECT
