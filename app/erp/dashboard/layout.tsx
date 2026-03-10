@@ -12,9 +12,7 @@ export default function DashboardLayout({children}:{children:React.ReactNode}){
   const [loading,setLoading] = useState(true)
 
   useEffect(()=>{
-
     checkUser()
-
   },[])
 
   async function checkUser(){
@@ -22,10 +20,8 @@ export default function DashboardLayout({children}:{children:React.ReactNode}){
     const { data } = await supabase.auth.getSession()
 
     if(!data.session){
-
       router.push("/erp/login")
       return
-
     }
 
     const userId = data.session.user.id
@@ -38,33 +34,41 @@ export default function DashboardLayout({children}:{children:React.ReactNode}){
         .single()
 
     if(!user){
-
       router.push("/erp/login")
       return
-
     }
 
     const role = user.role
 
 
-    // TEACHER RESTRICTIONS
+    // =========================
+    // TEACHER ACCESS CONTROL
+    // =========================
 
     if(role === "teacher"){
 
+      // If teacher tries to access admin pages
       if(
         pathname.includes("/teachers") ||
         pathname.includes("/fees") ||
         pathname.includes("/settings")
       ){
-
-        router.push("/erp/dashboard")
+        router.push("/erp/teacher/dashboard")
         return
+      }
 
+      // If teacher opens admin dashboard
+      if(pathname === "/erp/dashboard"){
+        router.push("/erp/teacher/dashboard")
+        return
       }
 
     }
 
-    // PARENT RESTRICTIONS
+
+    // =========================
+    // PARENT ACCESS CONTROL
+    // =========================
 
     if(role === "parent"){
 
@@ -72,12 +76,12 @@ export default function DashboardLayout({children}:{children:React.ReactNode}){
         pathname.includes("/teachers") ||
         pathname.includes("/fees") ||
         pathname.includes("/settings") ||
-        pathname.includes("/students")
+        pathname.includes("/students") ||
+        pathname.includes("/attendance") ||
+        pathname.includes("/reports")
       ){
-
         router.push("/parent/dashboard")
         return
-
       }
 
     }
@@ -87,13 +91,11 @@ export default function DashboardLayout({children}:{children:React.ReactNode}){
   }
 
   if(loading){
-
     return(
       <div className="p-10 text-white">
         Checking access...
       </div>
     )
-
   }
 
   return <>{children}</>
