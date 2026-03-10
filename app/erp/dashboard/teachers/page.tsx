@@ -73,9 +73,9 @@ export default function TeachersPage(){
 
     const { data, error:authError } =
       await supabase.auth.signUp({
-        email: email
-      })
-
+       email: email,
+       password: Math.random().toString(36).slice(-10)
+     })
     if(authError){
       alert(authError.message)
       return
