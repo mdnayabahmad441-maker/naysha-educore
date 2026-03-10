@@ -6,18 +6,49 @@ import { supabase } from "@/lib/supabase"
 export default function LoginPage(){
 
   const [email,setEmail] = useState("")
-  const [password,setPassword] = useState("")
+  const [otp,setOtp] = useState("")
+  const [step,setStep] = useState("email")
   const [loading,setLoading] = useState(false)
 
-  async function handleLogin(){
+  async function sendOtp(){
+
+    if(!email){
+      alert("Enter email")
+      return
+    }
 
     setLoading(true)
 
-    const { data, error } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
+    const { error } = await supabase.auth.signInWithOtp({
+      email
+    })
+
+    setLoading(false)
+
+    if(error){
+      alert(error.message)
+      return
+    }
+
+    alert("OTP sent to your email")
+
+    setStep("otp")
+  }
+
+  async function verifyOtp(){
+
+    if(!otp){
+      alert("Enter OTP")
+      return
+    }
+
+    setLoading(true)
+
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: otp,
+      type: "email"
+    })
 
     if(error){
       alert(error.message)
@@ -59,7 +90,6 @@ export default function LoginPage(){
       return
     }
 
-
     const subdomain = school.subdomain
 
 
@@ -99,27 +129,46 @@ export default function LoginPage(){
           ERP Login
         </h1>
 
-        <input
-          placeholder="Email"
-          className="w-full p-2 mb-4 rounded bg-slate-800"
-          value={email}
-          onChange={(e)=>setEmail(e.target.value)}
-        />
+        {step === "email" && (
 
-        <input
-          type="password"
-          placeholder="Password"
-          className="w-full p-2 mb-6 rounded bg-slate-800"
-          value={password}
-          onChange={(e)=>setPassword(e.target.value)}
-        />
+          <>
+            <input
+              placeholder="Email"
+              className="w-full p-2 mb-6 rounded bg-slate-800"
+              value={email}
+              onChange={(e)=>setEmail(e.target.value)}
+            />
 
-        <button
-          onClick={handleLogin}
-          className="w-full py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
+            <button
+              onClick={sendOtp}
+              className="w-full py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
+            >
+              {loading ? "Sending OTP..." : "Send OTP"}
+            </button>
+          </>
+
+        )}
+
+
+        {step === "otp" && (
+
+          <>
+            <input
+              placeholder="Enter OTP"
+              className="w-full p-2 mb-6 rounded bg-slate-800"
+              value={otp}
+              onChange={(e)=>setOtp(e.target.value)}
+            />
+
+            <button
+              onClick={verifyOtp}
+              className="w-full py-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded"
+            >
+              {loading ? "Verifying..." : "Verify OTP"}
+            </button>
+          </>
+
+        )}
 
       </div>
 
