@@ -56,7 +56,13 @@ export default function LoginPage(){
       return
     }
 
-    const userId = data.user.id
+       if (!data?.user) {
+      alert("Login failed")
+     setLoading(false)
+     return
+    }
+ 
+     const userId = data.user.id
 
 
     // GET USER ROLE + SCHOOL
