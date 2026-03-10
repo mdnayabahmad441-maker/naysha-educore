@@ -6,533 +6,450 @@ import { supabase } from "@/lib/supabase"
 
 export default function StudentProfile() {
 
-  const params = useParams()
+const params = useParams()
 
-  const [student,setStudent] = useState<any>(null)
-  const [attendance,setAttendance] = useState<any[]>([])
-  const [fees,setFees] = useState<any[]>([])
-  const [results,setResults] = useState<any[]>([])
-  const [activity,setActivity] = useState<any[]>([])
-  const [photo,setPhoto] = useState<File | null>(null)
-  const [editMode,setEditMode] = useState(false)
-  const [tab,setTab] = useState("profile")
+const [student,setStudent] = useState<any>(null)
+const [attendance,setAttendance] = useState<any[]>([])
+const [fees,setFees] = useState<any[]>([])
+const [results,setResults] = useState<any[]>([])
+const [activity,setActivity] = useState<any[]>([])
 
+const [photo,setPhoto] = useState<File | null>(null)
+const [document,setDocument] = useState<File | null>(null)
+const [docType,setDocType] = useState("")
 
+const [editMode,setEditMode] = useState(false)
+const [tab,setTab] = useState("profile")
 
-  async function loadStudent(){
+async function loadStudent(){
 
-    const {data} = await supabase
-      .from("students")
-      .select("*")
-      .eq("id",params.id)
-      .single()
+const {data} = await supabase
+.from("students")
+.select("*")
+.eq("id",params.id)
+.single()
 
-    if(data){
-      setStudent(data)
-    }
+if(data){
+setStudent(data)
+}
 
-  }
+}
 
+async function loadAttendance(){
 
-  async function loadAttendance(){
+const {data} = await supabase
+.from("attendance")
+.select("*")
+.eq("student_id",params.id)
 
-    const {data} = await supabase
-      .from("attendance")
-      .select("*")
-      .eq("student_id",params.id)
+if(data){
+setAttendance(data)
 
-    if(data){
-      setAttendance(data)
+const events = data.map((a:any)=>({
+type:"attendance",
+date:a.date,
+text:`Attendance marked ${a.status}`
+}))
 
-      const events = data.map((a:any)=>({
-        type:"attendance",
-        date:a.date,
-        text:`Attendance marked ${a.status}`
-      }))
+setActivity(prev => [...prev,...events])
 
-      setActivity(prev => [...prev,...events])
+}
 
-    }
+}
 
-  }
+async function loadFees(){
 
+const {data} = await supabase
+.from("fees")
+.select("*")
+.eq("student_id",params.id)
 
-  async function loadFees(){
+if(data){
+setFees(data)
 
-    const {data} = await supabase
-      .from("fees")
-      .select("*")
-      .eq("student_id",params.id)
+const events = data.map((f:any)=>({
+type:"fee",
+date:f.paid_date,
+text:`Fee paid ₹${f.total}`
+}))
 
-    if(data){
-      setFees(data)
+setActivity(prev => [...prev,...events])
 
-      const events = data.map((f:any)=>({
-        type:"fee",
-        date:f.paid_date,
-        text:`Fee paid ₹${f.total}`
-      }))
+}
 
-      setActivity(prev => [...prev,...events])
+}
 
-    }
+async function loadResults(){
 
-  }
+const {data} = await supabase
+.from("results")
+.select("*")
+.eq("student_id",params.id)
 
+if(data){
+setResults(data)
 
-  async function loadResults(){
+const events = data.map((r:any)=>({
+type:"result",
+date:new Date(),
+text:`Result added ${r.subject} (${r.marks})`
+}))
 
-    const {data} = await supabase
-      .from("results")
-      .select("*")
-      .eq("student_id",params.id)
+setActivity(prev => [...prev,...events])
 
-    if(data){
-      setResults(data)
+}
 
-      const events = data.map((r:any)=>({
-        type:"result",
-        date:new Date(),
-        text:`Result added ${r.subject} (${r.marks})`
-      }))
+}
 
-      setActivity(prev => [...prev,...events])
+async function uploadPhoto(){
 
-    }
+if(!photo) return
 
-  }
+const fileName = Date.now()+"-"+photo.name
 
+const {error} = await supabase.storage
+.from("student-photos")
+.upload(fileName,photo)
 
+if(error){
+alert("Upload failed")
+return
+}
 
-  async function uploadPhoto(){
+const url = supabase.storage
+.from("student-photos")
+.getPublicUrl(fileName).data.publicUrl
 
-    if(!photo) return
+await supabase
+.from("students")
+.update({photo_url:url})
+.eq("id",params.id)
 
-    const fileName = Date.now() + "-" + photo.name
+alert("Photo uploaded")
 
-    const {error} = await supabase.storage
-      .from("student-photos")
-      .upload(fileName,photo)
+loadStudent()
 
-    if(error){
-      alert("Upload failed")
-      return
-    }
+}
 
-    const url =
-      supabase.storage
-      .from("student-photos")
-      .getPublicUrl(fileName).data.publicUrl
+async function uploadDocument(){
 
+if(!document) return
 
-    await supabase
-      .from("students")
-      .update({photo_url:url})
-      .eq("id",params.id)
+const fileName = Date.now()+"-"+document.name
 
-    alert("Photo Uploaded")
+const {error} = await supabase.storage
+.from("student-documents")
+.upload(fileName,document)
 
-    loadStudent()
+if(error){
+alert("Upload failed")
+return
+}
 
-  }
+const url = supabase.storage
+.from("student-documents")
+.getPublicUrl(fileName).data.publicUrl
 
+await supabase
+.from("student_documents")
+.insert({
 
+student_id:params.id,
+document_type:docType,
+file_url:url
 
-  async function saveStudent(){
+})
 
-    await supabase
-      .from("students")
-      .update(student)
-      .eq("id",params.id)
+alert("Document uploaded")
 
-    setEditMode(false)
+}
 
-    alert("Student Updated")
+async function saveStudent(){
 
-    loadStudent()
+await supabase
+.from("students")
+.update(student)
+.eq("id",params.id)
 
-  }
+setEditMode(false)
 
+alert("Student Updated")
 
+loadStudent()
 
-  async function transferStudent(){
+}
 
-    await supabase
-      .from("students")
-      .update({status:"transferred"})
-      .eq("id",params.id)
+async function transferStudent(){
 
-    alert("Student transferred")
+await supabase
+.from("students")
+.update({status:"transferred"})
+.eq("id",params.id)
 
-  }
+alert("Student transferred")
 
+}
 
+useEffect(()=>{
 
-  useEffect(()=>{
+loadStudent()
+loadAttendance()
+loadFees()
+loadResults()
 
-    loadStudent()
-    loadAttendance()
-    loadFees()
-    loadResults()
+},[])
 
-  },[])
+if(!student){
+return <p className="p-10">Loading...</p>
+}
 
+const sortedActivity=[...activity].sort(
+(a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime()
+)
 
+return(
 
-  if(!student){
-    return <p className="p-10">Loading...</p>
-  }
+<div className="p-10 text-white">
 
+{/* HEADER */}
 
+<div className="bg-white/10 p-8 rounded-xl mb-8 flex items-center gap-6">
 
-  const sortedActivity = [...activity].sort(
-    (a,b)=>new Date(b.date).getTime() - new Date(a.date).getTime()
-  )
+{student.photo_url ? (
 
+<img
+src={student.photo_url}
+className="w-28 h-28 rounded object-cover"
+/>
 
+) : (
 
-  return(
+<div className="w-28 h-28 bg-slate-700 rounded flex items-center justify-center">
+No Photo
+</div>
 
-    <div className="p-10 text-white">
+)}
 
+<div>
 
-      {/* HEADER */}
+<h1 className="text-2xl font-bold">
+{student.name}
+</h1>
 
-      <div className="bg-white/10 p-8 rounded-xl mb-8 flex items-center gap-6">
+<p className="text-gray-300">
+Class {student.class} • Roll {student.roll_number}
+</p>
 
-        {student.photo_url ? (
-          <img
-            src={student.photo_url}
-            className="w-28 h-28 rounded object-cover"
-          />
-        ) : (
-          <div className="w-28 h-28 bg-slate-700 rounded flex items-center justify-center">
-            No Photo
-          </div>
-        )}
+<p className="text-sm mt-2">
+Father: {student.father_name || "—"}
+</p>
 
-        <div>
+<p className="text-sm">
+Phone: {student.parent_phone || "—"}
+</p>
 
-          <h1 className="text-2xl font-bold">
-            {student.name}
-          </h1>
+</div>
 
-          <p className="text-gray-300">
-            Class {student.class} • Roll {student.roll_number}
-          </p>
+</div>
 
-          <p className="text-sm mt-2">
-            Father: {student.father_name || "—"}
-          </p>
+{/* TABS */}
 
-          <p className="text-sm">
-            Phone: {student.parent_phone || "—"}
-          </p>
+<div className="flex gap-4 mb-6">
 
-        </div>
+<button onClick={()=>setTab("profile")} className={`px-4 py-2 rounded ${tab==="profile" ? "bg-blue-600" : "bg-slate-700"}`}>Profile</button>
 
-      </div>
+<button onClick={()=>setTab("attendance")} className={`px-4 py-2 rounded ${tab==="attendance" ? "bg-blue-600" : "bg-slate-700"}`}>Attendance</button>
 
+<button onClick={()=>setTab("fees")} className={`px-4 py-2 rounded ${tab==="fees" ? "bg-blue-600" : "bg-slate-700"}`}>Fees</button>
 
+<button onClick={()=>setTab("results")} className={`px-4 py-2 rounded ${tab==="results" ? "bg-blue-600" : "bg-slate-700"}`}>Results</button>
 
-      {/* TABS */}
+<button onClick={()=>setTab("activity")} className={`px-4 py-2 rounded ${tab==="activity" ? "bg-blue-600" : "bg-slate-700"}`}>Activity</button>
 
-      <div className="flex gap-4 mb-6">
+</div>
 
-        <button
-          onClick={()=>setTab("profile")}
-          className={`px-4 py-2 rounded ${tab==="profile" ? "bg-blue-600" : "bg-slate-700"}`}
-        >
-          Profile
-        </button>
+{/* PROFILE */}
 
-        <button
-          onClick={()=>setTab("attendance")}
-          className={`px-4 py-2 rounded ${tab==="attendance" ? "bg-blue-600" : "bg-slate-700"}`}
-        >
-          Attendance
-        </button>
+{tab==="profile" && (
 
-        <button
-          onClick={()=>setTab("fees")}
-          className={`px-4 py-2 rounded ${tab==="fees" ? "bg-blue-600" : "bg-slate-700"}`}
-        >
-          Fees
-        </button>
+<div className="space-y-6">
 
-        <button
-          onClick={()=>setTab("results")}
-          className={`px-4 py-2 rounded ${tab==="results" ? "bg-blue-600" : "bg-slate-700"}`}
-        >
-          Results
-        </button>
+{/* PHOTO */}
 
-        <button
-          onClick={()=>setTab("activity")}
-          className={`px-4 py-2 rounded ${tab==="activity" ? "bg-blue-600" : "bg-slate-700"}`}
-        >
-          Activity
-        </button>
+<div className="bg-white/10 p-6 rounded-xl">
 
-      </div>
+<h2 className="text-xl mb-4">Upload Student Photo</h2>
 
+<input type="file" onChange={(e)=>setPhoto(e.target.files?.[0] || null)} />
 
+<button
+onClick={uploadPhoto}
+className="ml-3 px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
+>
+Upload Photo
+</button>
 
-      {/* PROFILE TAB */}
+</div>
 
-      {tab === "profile" && (
+{/* PERSONAL */}
 
-        <div className="space-y-6">
+<div className="bg-white/10 p-6 rounded-xl">
 
-          <div className="bg-white/10 p-6 rounded-xl">
+<h2 className="text-xl mb-4">Personal Details</h2>
 
-            <h2 className="text-xl mb-4">
-              Upload Student Photo
-            </h2>
+{editMode ? (
 
-            <input
-              type="file"
-              onChange={(e)=>setPhoto(e.target.files?.[0] || null)}
-            />
+<div className="space-y-3">
 
-            <button
-              onClick={uploadPhoto}
-              className="ml-3 px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
-            >
-              Upload Photo
-            </button>
+<input className="w-full p-2 rounded bg-slate-800" value={student.name||""} onChange={(e)=>setStudent({...student,name:e.target.value})}/>
 
-          </div>
+<input className="w-full p-2 rounded bg-slate-800" value={student.class||""} onChange={(e)=>setStudent({...student,class:e.target.value})}/>
 
+<input className="w-full p-2 rounded bg-slate-800" value={student.roll_number||""} onChange={(e)=>setStudent({...student,roll_number:e.target.value})}/>
 
+<input className="w-full p-2 rounded bg-slate-800" value={student.address||""} onChange={(e)=>setStudent({...student,address:e.target.value})}/>
 
-          <div className="bg-white/10 p-6 rounded-xl">
+</div>
 
-            <h2 className="text-xl mb-4">
-              Personal Details
-            </h2>
+) : (
 
-            {editMode ? (
+<div>
 
-              <div className="space-y-3">
+<p>Name: {student.name}</p>
+<p>Class: {student.class}</p>
+<p>Roll: {student.roll_number}</p>
+<p>Address: {student.address}</p>
 
-                <input
-                  className="w-full p-2 rounded bg-slate-800"
-                  value={student.name || ""}
-                  onChange={(e)=>setStudent({...student,name:e.target.value})}
-                />
+</div>
 
-                <input
-                  className="w-full p-2 rounded bg-slate-800"
-                  value={student.class || ""}
-                  onChange={(e)=>setStudent({...student,class:e.target.value})}
-                />
+)}
 
-                <input
-                  className="w-full p-2 rounded bg-slate-800"
-                  value={student.roll_number || ""}
-                  onChange={(e)=>setStudent({...student,roll_number:e.target.value})}
-                />
+</div>
 
-                <input
-                  className="w-full p-2 rounded bg-slate-800"
-                  value={student.address || ""}
-                  onChange={(e)=>setStudent({...student,address:e.target.value})}
-                />
+{/* PARENT */}
 
-              </div>
+<div className="bg-white/10 p-6 rounded-xl">
 
-            ) : (
+<h2 className="text-xl mb-4">Parent Details</h2>
 
-              <div>
+{editMode ? (
 
-                <p>Name: {student.name}</p>
-                <p>Class: {student.class}</p>
-                <p>Roll: {student.roll_number}</p>
-                <p>Address: {student.address}</p>
+<div className="space-y-3">
 
-              </div>
+<input className="w-full p-2 rounded bg-slate-800" value={student.father_name||""} onChange={(e)=>setStudent({...student,father_name:e.target.value})}/>
 
-            )}
+<input className="w-full p-2 rounded bg-slate-800" value={student.mother_name||""} onChange={(e)=>setStudent({...student,mother_name:e.target.value})}/>
 
-          </div>
+<input className="w-full p-2 rounded bg-slate-800" value={student.parent_phone||""} onChange={(e)=>setStudent({...student,parent_phone:e.target.value})}/>
 
+<input className="w-full p-2 rounded bg-slate-800" value={student.parent_email||""} onChange={(e)=>setStudent({...student,parent_email:e.target.value})}/>
 
+<input className="w-full p-2 rounded bg-slate-800" value={student.parent_aadhar||""} onChange={(e)=>setStudent({...student,parent_aadhar:e.target.value})}/>
 
-          <div className="bg-white/10 p-6 rounded-xl">
+</div>
 
-            <h2 className="text-xl mb-4">
-              Parent Details
-            </h2>
+) : (
 
-            {editMode ? (
+<div>
 
-              <div className="space-y-3">
+<p>Father: {student.father_name}</p>
+<p>Mother: {student.mother_name}</p>
+<p>Phone: {student.parent_phone}</p>
+<p>Email: {student.parent_email}</p>
+<p>Parent Aadhar: {student.parent_aadhar}</p>
 
-                <input
-                  className="w-full p-2 rounded bg-slate-800"
-                  value={student.father_name || ""}
-                  onChange={(e)=>setStudent({...student,father_name:e.target.value})}
-                />
+</div>
 
-                <input
-                  className="w-full p-2 rounded bg-slate-800"
-                  value={student.mother_name || ""}
-                  onChange={(e)=>setStudent({...student,mother_name:e.target.value})}
-                />
+)}
 
-                <input
-                  className="w-full p-2 rounded bg-slate-800"
-                  value={student.parent_phone || ""}
-                  onChange={(e)=>setStudent({...student,parent_phone:e.target.value})}
-                />
+</div>
 
-              </div>
+{/* STUDENT ID */}
 
-            ) : (
+<div className="bg-white/10 p-6 rounded-xl">
 
-              <div>
+<h2 className="text-xl mb-4">Student Identity</h2>
 
-                <p>Father: {student.father_name}</p>
-                <p>Mother: {student.mother_name}</p>
-                <p>Phone: {student.parent_phone}</p>
+{editMode ? (
 
-              </div>
+<div className="space-y-3">
 
-            )}
+<input className="w-full p-2 rounded bg-slate-800" value={student.student_aadhar||""} onChange={(e)=>setStudent({...student,student_aadhar:e.target.value})}/>
 
-          </div>
+<input className="w-full p-2 rounded bg-slate-800" value={student.blood_group||""} onChange={(e)=>setStudent({...student,blood_group:e.target.value})}/>
 
+</div>
 
+) : (
 
-          <div className="bg-white/10 p-6 rounded-xl">
+<div>
 
-            {editMode ? (
+<p>Student Aadhar: {student.student_aadhar}</p>
+<p>Blood Group: {student.blood_group}</p>
 
-              <button
-                onClick={saveStudent}
-                className="px-4 py-2 bg-green-600 rounded mr-3"
-              >
-                Save
-              </button>
+</div>
 
-            ) : (
+)}
 
-              <button
-                onClick={()=>setEditMode(true)}
-                className="px-4 py-2 bg-blue-600 rounded mr-3"
-              >
-                Edit Details
-              </button>
+</div>
 
-            )}
+{/* DOCUMENT UPLOAD */}
 
-            <button
-              onClick={transferStudent}
-              className="px-4 py-2 bg-red-500 rounded"
-            >
-              Transfer Student
-            </button>
+<div className="bg-white/10 p-6 rounded-xl">
 
-          </div>
+<h2 className="text-xl mb-4">Upload Student Document</h2>
 
-        </div>
+<select className="p-2 rounded bg-slate-800 mr-3" onChange={(e)=>setDocType(e.target.value)}>
 
-      )}
+<option>Select Document</option>
+<option value="aadhar">Aadhar Card</option>
+<option value="blood">Blood Report</option>
+<option value="birth">Birth Certificate</option>
+<option value="tc">Transfer Certificate</option>
 
+</select>
 
+<input type="file" onChange={(e)=>setDocument(e.target.files?.[0] || null)} />
 
-      {/* ATTENDANCE */}
+<button
+onClick={uploadDocument}
+className="ml-3 px-4 py-2 bg-purple-600 rounded"
+>
+Upload Document
+</button>
 
-      {tab === "attendance" && (
+</div>
 
-        <div className="bg-white/10 p-6 rounded-xl">
+{/* ACTIONS */}
 
-          <h2 className="text-xl mb-4">Attendance</h2>
+<div className="bg-white/10 p-6 rounded-xl">
 
-          {attendance.length === 0 && <p>No attendance records</p>}
+{editMode ? (
 
-          {attendance.map((a)=>(
-            <p key={a.id}>
-              {a.date} — {a.status}
-            </p>
-          ))}
+<button onClick={saveStudent} className="px-4 py-2 bg-green-600 rounded mr-3">
+Save
+</button>
 
-        </div>
+) : (
 
-      )}
+<button onClick={()=>setEditMode(true)} className="px-4 py-2 bg-blue-600 rounded mr-3">
+Edit Details
+</button>
 
+)}
 
+<button onClick={transferStudent} className="px-4 py-2 bg-red-500 rounded">
+Transfer Student
+</button>
 
-      {/* FEES */}
+</div>
 
-      {tab === "fees" && (
+</div>
 
-        <div className="bg-white/10 p-6 rounded-xl">
+)}
 
-          <h2 className="text-xl mb-4">Fee Payments</h2>
+</div>
 
-          {fees.map((f)=>(
-            <p key={f.id}>
-              {f.invoice_number} — ₹{f.total}
-            </p>
-          ))}
-
-        </div>
-
-      )}
-
-
-
-      {/* RESULTS */}
-
-      {tab === "results" && (
-
-        <div className="bg-white/10 p-6 rounded-xl">
-
-          <h2 className="text-xl mb-4">Exam Results</h2>
-
-          {results.map((r)=>(
-            <p key={r.id}>
-              {r.subject} — {r.marks}
-            </p>
-          ))}
-
-        </div>
-
-      )}
-
-
-
-      {/* ACTIVITY TIMELINE */}
-
-      {tab === "activity" && (
-
-        <div className="bg-white/10 p-6 rounded-xl">
-
-          <h2 className="text-xl mb-4">
-            Student Activity Timeline
-          </h2>
-
-          {sortedActivity.length === 0 && (
-            <p>No activity yet</p>
-          )}
-
-          {sortedActivity.map((a,i)=>(
-            <div key={i} className="border-l-2 border-blue-500 pl-4 mb-3">
-              <p className="text-sm text-gray-400">
-                {new Date(a.date).toLocaleDateString()}
-              </p>
-              <p>{a.text}</p>
-            </div>
-          ))}
-
-        </div>
-
-      )}
-
-    </div>
-
-  )
+)
 
 }
