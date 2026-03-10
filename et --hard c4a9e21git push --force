@@ -1,0 +1,341 @@
+[33mcommit 40d11c202289650eaa2f197d3a752233c86d7118[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 11:17:08 2026 +0530
+
+    Added teacher email OTP login system
+
+[33mcommit 923af3b6ffa5fb3689be5006d9f63370ffd9d098[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 11:08:44 2026 +0530
+
+    Added parent email OTP login system
+
+[33mcommit 04e9cf24a3b0cd8a94d1453e9f6cbed73e5ce2de[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 10:46:04 2026 +0530
+
+    Added parent email OTP login system
+
+[33mcommit 62dc9f4d112fd4928023b0b2121a4506e633a60e[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 10:30:58 2026 +0530
+
+    Added parent email, aadhar, student identity and document upload system
+
+[33mcommit dbb48a1bb3e5e9d617da7f72436f7a6e73ccf8ab[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 10:09:15 2026 +0530
+
+    Mobile friendly parent dashboard with bottom navigation
+
+[33mcommit a968076d9196f9498a5e03b49e533a6a22a7c642[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 10:06:46 2026 +0530
+
+    Improved parent dashboard UI
+
+[33mcommit aeb4026d0d7443ad322cbb4b44721f4b886f602e[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 10:04:33 2026 +0530
+
+    Updated parent dashboard to use email login instead of phone
+
+[33mcommit 11d76d99a0750ca358f5d30df277e5209b99acda[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 01:48:20 2026 +0530
+
+    added parent portal + otp login system
+
+[33mcommit 32c0119673d68cfc1b1c4abf30e74cffc74553d0[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 01:18:46 2026 +0530
+
+    modern teacher dashboard UI
+
+[33mcommit e538c372b39302009cc784d19537d0cde530f133[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 01:13:08 2026 +0530
+
+    fix teacher sidebar layout
+
+[33mcommit 9613bf7bf296abb54e4eff170b58f0116cc56d1b[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 01:05:30 2026 +0530
+
+    teacher dashboard fix sidebar + mobile
+
+[33mcommit 690fc8fab0094c8c1dbbff8fa2f9cbd23bc529a3[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 00:55:25 2026 +0530
+
+    teacher dashboard real data
+
+[33mcommit a28338727ca6de15fa4e34e48e0050ac2f517eaa[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 00:34:46 2026 +0530
+
+    teacher dashboard UI fix
+
+[33mcommit 30d367deea8e1b5462c0edf4bf334886240e6c2f[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 00:25:20 2026 +0530
+
+    teacher dashboard and role based login redirect
+
+[33mcommit 8ebedcc7b8efc37559d811df224d454873037840[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 00:14:44 2026 +0530
+
+    teacher dashboard and role based login redirect
+
+[33mcommit 9aa58b4c1c392914926e5216046a01a24a2c4e16[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Tue Mar 10 00:02:27 2026 +0530
+
+    role based sidebar
+
+[33mcommit 65e4b609b6c44da9ac077fbd2eea496955354aa8[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 23:56:26 2026 +0530
+
+    role based dashboard access
+
+[33mcommit db338832bf58f162c052cf95ea1b9be997cba067[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 23:44:54 2026 +0530
+
+    fix school subdomain redirect
+
+[33mcommit 48dde4f26592daadc6c9f402f6f56a13b5bef613[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 23:25:38 2026 +0530
+
+    teacher login system added
+
+[33mcommit e5f9e7d8ad1957b94a126e648232f6bf80ba93e7[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 20:19:23 2026 +0530
+
+    results page and report card generator
+
+[33mcommit 70226a129cdf02617532ef3cc6826823f18f3abe[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 20:09:07 2026 +0530
+
+    exam module navigation added
+
+[33mcommit 59801097d407dc213be53583ca5c0f27211ad6f3[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 20:02:45 2026 +0530
+
+    marks entry system added
+
+[33mcommit 2c822bfcc24b64d77030fc964d62fa88aaf6064c[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 20:00:11 2026 +0530
+
+    exam sessions module
+
+[33mcommit deec3d72f365910aa6822d415ea953133d708368[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 19:57:37 2026 +0530
+
+    marks entry system added
+
+[33mcommit 2950aeb1f089f413ca61631203c7d76e049ea69f[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 19:53:08 2026 +0530
+
+    exam sessions module
+
+[33mcommit 7647ac3315cc590425d584c1e33c6abcb6f7cf6e[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 19:35:59 2026 +0530
+
+    exam management fixed
+
+[33mcommit c9892a053d6c5f5cc967e3a6d8c80733382fd3bc[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 19:00:42 2026 +0530
+
+    complete finance system added (invoice, history, download)
+
+[33mcommit 363930a1958a54371907d50d7b19c62623811b75[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 18:44:46 2026 +0530
+
+    fees module fixed
+
+[33mcommit 0058115400db920e84f279f75b6fce856a57d562[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 18:36:01 2026 +0530
+
+    fees module fixed class student logic
+
+[33mcommit f654a83133f245970d208a1fe89b79263428316c[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 18:27:20 2026 +0530
+
+    fees invoice system upgrade
+
+[33mcommit 19bc9019aabd5e1a02df09f7da48dafcfc4e1bd4[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 18:14:27 2026 +0530
+
+    students page fixed with profile navigation
+
+[33mcommit 05bc0fe9bdefdfd90e0ddcc5f432ef9112db7d95[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 16:44:00 2026 +0530
+
+    dashboard stats working
+
+[33mcommit be471f205a9b4143165983acafca288c9160bf3b[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 16:37:39 2026 +0530
+
+    dashboard stats working
+
+[33mcommit d294a648db9cdfec8e0672a8d6098d01670647e3[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 13:35:26 2026 +0530
+
+    teachers page working
+
+[33mcommit 64250981f553dcfee4520e5a429fcef07e125eaf[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 13:25:17 2026 +0530
+
+    production students page
+
+[33mcommit 1ec5135b2414a72cf02e6ffa0aba36e39486b9d0[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 13:13:13 2026 +0530
+
+    dashboard navigation fixed
+
+[33mcommit 68924996ebfb880aa8f787ad69fb0c11bf0cc803[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 12:54:39 2026 +0530
+
+    production create school logic
+
+[33mcommit 32b592791bcd52cf599602db8272472fe3075a91[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 12:23:03 2026 +0530
+
+    added ERP login page
+
+[33mcommit 546962c7820bd590964ad22dc885ab5693c12424[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 12:14:58 2026 +0530
+
+    fix login redirect for SaaS
+
+[33mcommit 048581008b2a39e2e788b1182354e9ff851b1fe0[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 11:57:23 2026 +0530
+
+    added SaaS subdomain middleware and dashboard logic
+
+[33mcommit 3a1f5dc7e058f9c061978c0db241d1434d32b279[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 09:58:44 2026 +0530
+
+    added middleware and SaaS routing
+
+[33mcommit 987de4c358fa0e3252b34517a193ca1f477744db[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Mon Mar 9 09:09:48 2026 +0530
+
+    update responsive homepage
+
+[33mcommit 48bc91775a9331610f5ab49c641ec28f495e72cf[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 15:21:40 2026 +0530
+
+    responsive homepage
+
+[33mcommit 6ba39f70ca078b1b6a9b9cdc6afa7cc09bea4354[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 15:17:25 2026 +0530
+
+    responsive homepage fix
+
+[33mcommit d69b9f87e51031580fa910db321a3c356e5753ec[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 14:46:30 2026 +0530
+
+    restore ERP homepage UI
+
+[33mcommit facf600695b1f3a5ecdc55b8863833b567cd71e8[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 14:21:15 2026 +0530
+
+    fix app router layout and homepage
+
+[33mcommit 0adbfe0f9de1793677ead746715d3c386fdde2c2[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 13:29:31 2026 +0530
+
+    fix homepage
+
+[33mcommit 475114380ee33b0c6599315b9439e7d9b66df60b[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 13:18:05 2026 +0530
+
+    remove proxy
+
+[33mcommit ca8641251f91ff130bc80e4991d15113e5e37398[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 13:12:27 2026 +0530
+
+    remove middleware
+
+[33mcommit 7a4fbbaf7b6738c5c55a66d0fb28c1770b6e8e08[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 13:03:50 2026 +0530
+
+    fix middleware routing
+
+[33mcommit fcd006d8aaed801530bf2b2d113e33eebcfa62c5[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 12:58:06 2026 +0530
+
+    disable middleware
+
+[33mcommit a322e4785c219962ea6d590e31b499d452f3cf06[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 12:53:55 2026 +0530
+
+    disable middleware test
+
+[33mcommit 449023e6b00115850de568153a0cb361b2fb3601[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 12:30:15 2026 +0530
+
+    add create school button
+
+[33mcommit cf8b56c7c6649dd3831f8e3fac6fafa838da31dd[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 12:24:47 2026 +0530
+
+    fix middleware routing
+
+[33mcommit 10e6f4005aa8ef50545718b57c9b724fa5de1e24[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 12:22:00 2026 +0530
+
+    add subdomain middleware
+
+[33mcommit 88cfbdf50de42062f0f0437f15bcbe0f0e69674f[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sun Mar 8 11:46:21 2026 +0530
+
+    Initial commit
+
+[33mcommit 1befce4bf4772fe8e6c4c2d63181071dba2a1b70[m
+Author: Nayab Ahmad <mdnayabahmad441@gmail.com>
+Date:   Sat Mar 7 18:33:01 2026 +0530
+
+    Initial commit from Create Next App
