@@ -16,21 +16,44 @@ export default function TeacherDashboard(){
 
   async function loadDashboard(){
 
-    const { data:userData } = await supabase.auth.getUser()
-    const userId = userData.user?.id
+    const { data:{ user } } = await supabase.auth.getUser()
 
-    if(!userId) return
+    if(!user){
+      window.location.href = "/login"
+      return
+    }
 
-    const { data:user } =
+    const userId = user.id
+
+
+    // GET USER ROLE + SCHOOL
+
+    const { data:userData } =
       await supabase
       .from("users")
-      .select("*")
+      .select("school_id,role,email")
       .eq("id",userId)
       .single()
 
-    if(!user) return
+    if(!userData){
+      window.location.href = "/login"
+      return
+    }
 
-    const schoolId = user.school_id
+
+    // ROLE PROTECTION
+
+    if(userData.role !== "teacher"){
+      alert("Access denied")
+      window.location.href = "/login"
+      return
+    }
+
+
+    const schoolId = userData.school_id
+
+
+    // LOAD SCHOOL
 
     const { data:schoolData } =
       await supabase
@@ -41,29 +64,41 @@ export default function TeacherDashboard(){
 
     setSchool(schoolData)
 
+
+    // LOAD CURRENT TEACHER
+
     const { data:teacherData } =
       await supabase
       .from("teachers")
       .select("*")
+      .eq("email",userData.email)
       .eq("school_id",schoolId)
-      .limit(1)
       .single()
 
     setTeacher(teacherData)
 
-    const { data:studentsData } =
-      await supabase
-      .from("students")
-      .select("*")
-      .eq("school_id",schoolId)
 
-    setStudents(studentsData?.length || 0)
+    // LOAD STUDENTS FOR TEACHER CLASS
+
+    if(teacherData?.class){
+
+      const { data:studentsData } =
+        await supabase
+        .from("students")
+        .select("*")
+        .eq("class",teacherData.class)
+        .eq("school_id",schoolId)
+
+      setStudents(studentsData?.length || 0)
+
+    }
 
   }
 
   useEffect(()=>{
     loadDashboard()
   },[])
+
 
   const menu = [
     {name:"Dashboard",path:"/erp/teacher/dashboard"},
@@ -73,9 +108,11 @@ export default function TeacherDashboard(){
     {name:"Results",path:"/erp/teacher/results"}
   ]
 
+
   return(
 
     <div className="flex min-h-screen bg-[#020617] text-white">
+
 
       {/* SIDEBAR */}
 
@@ -106,11 +143,10 @@ export default function TeacherDashboard(){
       </aside>
 
 
-      {/* MAIN CONTENT */}
+      {/* MAIN */}
 
       <main className="flex-1 p-6 md:p-10">
 
-        {/* MOBILE MENU */}
 
         <button
           onClick={()=>setMenuOpen(!menuOpen)}
@@ -119,7 +155,6 @@ export default function TeacherDashboard(){
           ☰ Menu
         </button>
 
-        {/* HEADER */}
 
         <h1 className="text-4xl font-bold mb-2">
           Welcome {teacher?.name || ""}
@@ -130,9 +165,10 @@ export default function TeacherDashboard(){
         </p>
 
 
-        {/* DASHBOARD CARDS */}
+        {/* CARDS */}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
 
           <div className="bg-white/10 p-6 rounded-xl backdrop-blur hover:bg-white/20 transition">
 
