@@ -20,7 +20,40 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/erp/login", req.url))
   }
 
-  // Pass school to app
+  // PROTECT ADMIN DASHBOARD
+  if (url.pathname.startsWith("/erp/dashboard")) {
+
+    const role = req.cookies.get("role")?.value
+
+    if (role !== "admin") {
+      return NextResponse.redirect(new URL("/erp/login", req.url))
+    }
+
+  }
+
+  // PROTECT TEACHER DASHBOARD
+  if (url.pathname.startsWith("/erp/teacher")) {
+
+    const role = req.cookies.get("role")?.value
+
+    if (role !== "teacher") {
+      return NextResponse.redirect(new URL("/erp/login", req.url))
+    }
+
+  }
+
+  // PROTECT PARENT DASHBOARD
+  if (url.pathname.startsWith("/parent")) {
+
+    const role = req.cookies.get("role")?.value
+
+    if (role !== "parent") {
+      return NextResponse.redirect(new URL("/erp/login", req.url))
+    }
+
+  }
+
+  // PASS SCHOOL TO APP
   url.searchParams.set("school", subdomain)
 
   return NextResponse.rewrite(url)
