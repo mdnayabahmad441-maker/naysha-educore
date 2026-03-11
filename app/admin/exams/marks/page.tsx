@@ -3,264 +3,275 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function MarksPage(){
+export default function MarksPage() {
 
-const [schoolId,setSchoolId] = useState("")
-const [exams,setExams] = useState<any[]>([])
-const [classes,setClasses] = useState<string[]>([])
-const [students,setStudents] = useState<any[]>([])
+  const [schoolId, setSchoolId] = useState("")
+  const [exams, setExams] = useState<any[]>([])
+  const [classes, setClasses] = useState<string[]>([])
+  const [students, setStudents] = useState<any[]>([])
 
-const [selectedExam,setSelectedExam] = useState("")
-const [selectedClass,setSelectedClass] = useState("")
+  const [selectedExam, setSelectedExam] = useState("")
+  const [selectedClass, setSelectedClass] = useState("")
 
-const [marks,setMarks] = useState<{[key:string]:number}>({})
+  const [marks, setMarks] = useState<{ [key: string]: number }>({})
 
 
-useEffect(()=>{
-loadSchool()
-},[])
+  useEffect(() => {
+    loadSchool()
+  }, [])
 
 
-async function loadSchool(){
+  async function loadSchool() {
 
-const { data } = await supabase.auth.getSession()
+    const { data } = await supabase.auth.getSession()
 
-const userId = data.session?.user.id
+    const userId = data.session?.user.id
 
-const { data:user } =
-await supabase
-.from("users")
-.select("school_id")
-.eq("id",userId)
-.single()
+    const { data: user } = await supabase
+      .from("users")
+      .select("school_id")
+      .eq("id", userId)
+      .single()
 
-if(user){
+    if (user) {
 
-setSchoolId(user.school_id)
+      setSchoolId(user.school_id)
 
-loadExams(user.school_id)
-loadClasses(user.school_id)
+      loadExams(user.school_id)
+      loadClasses(user.school_id)
 
-}
+    }
 
-}
+  }
 
 
 
-async function loadExams(school:string){
+  async function loadExams(school: string) {
 
-const { data } =
-await supabase
-.from("exams")
-.select("*")
-.eq("school_id",school)
+    const { data, error } = await supabase
+      .from("exams")
+      .select("*")
+      .eq("school_id", school)
+      .order("created_at", { ascending: false })
 
-setExams(data || [])
+    if (error) {
+      console.log("Exam load error:", error)
+    }
 
-}
+    setExams(data || [])
 
+  }
 
 
-async function loadClasses(school:string){
 
-const { data } =
-await supabase
-.from("students")
-.select("class")
-.eq("school_id",school)
+  async function loadClasses(school: string) {
 
-const uniqueClasses =
-[...new Set(data?.map((s:any)=>s.class))]
+    const { data } = await supabase
+      .from("students")
+      .select("class")
+      .eq("school_id", school)
 
-setClasses(uniqueClasses)
+    const uniqueClasses = [...new Set(data?.map((s: any) => s.class))]
 
-}
+    setClasses(uniqueClasses as string[])
 
+  }
 
 
-async function loadStudents(){
 
-if(!selectedClass){
-alert("Select class")
-return
-}
+  async function loadStudents() {
 
-const { data } =
-await supabase
-.from("students")
-.select("*")
-.eq("class",selectedClass)
+    if (!selectedClass) {
+      alert("Select class first")
+      return
+    }
 
-setStudents(data || [])
+    const { data } = await supabase
+      .from("students")
+      .select("*")
+      .eq("class", selectedClass)
 
-}
+    setStudents(data || [])
 
+  }
 
 
-function updateMarks(studentId:string,value:number){
 
-setMarks({
-...marks,
-[studentId]:value
-})
+  function updateMarks(studentId: string, value: number) {
 
-}
+    setMarks({
+      ...marks,
+      [studentId]: value
+    })
 
+  }
 
 
-async function saveMarks(){
 
-if(!selectedExam){
-alert("Select exam first")
-return
-}
+  async function saveMarks() {
 
-for(const studentId in marks){
+    if (!selectedExam) {
+      alert("Select exam first")
+      return
+    }
 
-await supabase
-.from("marks")
-.upsert({
-student_id:studentId,
-exam_id:selectedExam,
-marks:marks[studentId]
-})
+    for (const studentId in marks) {
 
-}
+      await supabase
+        .from("marks")
+        .upsert({
+          student_id: studentId,
+          exam_id: selectedExam,
+          marks: marks[studentId]
+        })
 
-alert("Marks saved")
+    }
 
-}
+    alert("Marks saved successfully")
 
+  }
 
 
-return(
 
-<div className="p-10 text-white">
+  return (
 
-<h1 className="text-3xl font-bold mb-8">
-Marks Entry
-</h1>
+    <div className="p-10 text-white">
 
+      <h1 className="text-3xl font-bold mb-8">
+        Marks Entry
+      </h1>
 
-{/* EXAM SELECT */}
 
-<select
-className="bg-slate-800 p-2 rounded mr-4"
-value={selectedExam}
-onChange={(e)=>setSelectedExam(e.target.value)}
->
 
-<option value="">
-Select Exam
-</option>
+      {/* SELECT EXAM */}
 
-{exams.map((exam)=>(
-<option key={exam.id} value={exam.id}>
-{exam.name} - Class {exam.class}
-</option>
-))}
+      <select
+        value={selectedExam}
+        onChange={(e) => setSelectedExam(e.target.value)}
+        className="bg-slate-800 p-2 rounded mr-4"
+      >
 
-</select>
+        <option value="">
+          Select Exam
+        </option>
 
+        {exams.map((exam) => (
 
-{/* CLASS SELECT */}
+          <option key={exam.id} value={exam.id}>
+            {exam.name} - Class {exam.class}
+          </option>
 
-<select
-className="bg-slate-800 p-2 rounded mr-4"
-value={selectedClass}
-onChange={(e)=>setSelectedClass(e.target.value)}
->
+        ))}
 
-<option value="">
-Select Class
-</option>
+      </select>
 
-{classes.map((c)=>(
-<option key={c}>{c}</option>
-))}
 
-</select>
 
+      {/* SELECT CLASS */}
 
-<button
-onClick={loadStudents}
-className="bg-cyan-600 px-4 py-2 rounded"
->
-Load Students
-</button>
+      <select
+        value={selectedClass}
+        onChange={(e) => setSelectedClass(e.target.value)}
+        className="bg-slate-800 p-2 rounded mr-4"
+      >
 
+        <option value="">
+          Select Class
+        </option>
 
+        {classes.map((c) => (
+          <option key={c}>
+            {c}
+          </option>
+        ))}
 
-{/* MARKS TABLE */}
+      </select>
 
-{students.length > 0 && (
 
-<table className="w-full mt-10 border border-white/20">
 
-<thead>
+      <button
+        onClick={loadStudents}
+        className="bg-cyan-600 px-4 py-2 rounded"
+      >
+        Load Students
+      </button>
 
-<tr className="bg-white/10">
 
-<th className="p-2 text-left">
-Student
-</th>
 
-<th className="p-2">
-Marks
-</th>
+      {/* STUDENT TABLE */}
 
-</tr>
+      {students.length > 0 && (
 
-</thead>
+        <table className="w-full mt-10 border border-white/20">
 
-<tbody>
+          <thead>
 
-{students.map((student)=>(
-<tr key={student.id}>
+            <tr className="bg-white/10">
 
-<td className="p-2">
-{student.name}
-</td>
+              <th className="p-2 text-left">
+                Student
+              </th>
 
-<td className="p-2">
+              <th className="p-2">
+                Marks
+              </th>
 
-<input
-type="number"
-className="bg-slate-800 p-1 rounded w-24"
-onChange={(e)=>
-updateMarks(
-student.id,
-Number(e.target.value)
-)
-}
-/>
+            </tr>
 
-</td>
+          </thead>
 
-</tr>
-))}
+          <tbody>
 
-</tbody>
+            {students.map((student) => (
 
-</table>
+              <tr key={student.id}>
 
-)}
+                <td className="p-2">
+                  {student.name}
+                </td>
 
+                <td className="p-2">
 
+                  <input
+                    type="number"
+                    className="bg-slate-800 p-1 rounded w-24"
+                    onChange={(e) =>
+                      updateMarks(
+                        student.id,
+                        Number(e.target.value)
+                      )
+                    }
+                  />
 
-{students.length > 0 && (
+                </td>
 
-<button
-onClick={saveMarks}
-className="mt-6 bg-green-600 px-6 py-2 rounded"
->
-Save Marks
-</button>
+              </tr>
 
-)}
+            ))}
 
-</div>
+          </tbody>
 
-)
+        </table>
+
+      )}
+
+
+
+      {/* SAVE BUTTON */}
+
+      {students.length > 0 && (
+
+        <button
+          onClick={saveMarks}
+          className="mt-6 bg-green-600 px-6 py-2 rounded"
+        >
+          Save Marks
+        </button>
+
+      )}
+
+    </div>
+
+  )
 
 }
