@@ -49,11 +49,10 @@ export default function MarksPage() {
   async function loadExams(school: string) {
 
     const { data, error } = await supabase
-      .from("exams")
-      .select("*")
-      .eq("school_id", school)
-      .order("created_at", { ascending: false })
-
+.from("exams")
+.select("*")
+.eq("school_id", school)
+.order("id", { ascending: false })
     if (error) {
       console.log("Exam load error:", error)
     }
