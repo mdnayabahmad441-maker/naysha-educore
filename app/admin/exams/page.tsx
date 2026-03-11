@@ -4,48 +4,69 @@ import Link from "next/link"
 
 export default function ExamsDashboard(){
 
-return(
+  const cards = [
+    {
+      title: "Create Exam",
+      href: "/admin/exams/create"
+    },
+    {
+      title: "Enter Marks",
+      href: "/admin/exams/marks"
+    },
+    {
+      title: "Results",
+      href: "/admin/exams/results"
+    },
+    {
+      title: "Report Cards",
+      href: "/admin/exams/reportcards"
+    }
+  ]
 
-<div className="p-10 text-white">
+  return(
 
-<h1 className="text-3xl font-bold mb-8">
-Exam Management
-</h1>
+    <div className="p-10 text-white">
 
-<div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <h1 className="text-4xl font-bold mb-12">
+        Exam Management
+      </h1>
 
-<Link
-href="/admin/exams/create"
-className="bg-white/10 p-6 rounded-xl text-center hover:bg-white/20"
->
-Create Exam
-</Link>
 
-<Link
-href="/admin/exams/marks"
-className="bg-white/10 p-6 rounded-xl text-center hover:bg-white/20"
->
-Enter Marks
-</Link>
+      <div className="grid 
+        grid-cols-1 
+        sm:grid-cols-2 
+        lg:grid-cols-3 
+        xl:grid-cols-4 
+        gap-8
+      ">
 
-<Link
-href="/admin/exams/results"
-className="bg-white/10 p-6 rounded-xl text-center hover:bg-white/20"
->
-Results
-</Link>
+        {cards.map((card)=>(
+          
+          <Link
+            key={card.href}
+            href={card.href}
+            className="bg-white/10 
+            hover:bg-white/20 
+            transition 
+            rounded-2xl 
+            p-10 
+            text-center 
+            text-lg 
+            font-semibold 
+            shadow-lg
+            backdrop-blur-lg"
+          >
 
-<Link
-href="/admin/exams/reportcards"
-className="bg-white/10 p-6 rounded-xl text-center hover:bg-white/20"
->
-Report Cards
-</Link>
+            {card.title}
 
-</div>
+          </Link>
 
-</div>
+        ))}
 
-)
+      </div>
+
+    </div>
+
+  )
 
 }
