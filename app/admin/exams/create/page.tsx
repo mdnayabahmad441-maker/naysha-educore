@@ -5,10 +5,12 @@ import { supabase } from "@/lib/supabase"
 
 export default function CreateExam(){
 
-const [name,setName] = useState("")
-const [classId,setClassId] = useState("")
-const [classes,setClasses] = useState<any[]>([])
 const [schoolId,setSchoolId] = useState("")
+const [classes,setClasses] = useState<any[]>([])
+const [subjects,setSubjects] = useState<any[]>([])
+
+const [className,setClassName] = useState("")
+const [examName,setExamName] = useState("")
 
 useEffect(()=>{
 loadSchool()
@@ -16,33 +18,45 @@ loadSchool()
 
 async function loadSchool(){
 
-  const { data:sessionData } = await supabase.auth.getSession()
+const { data } = await supabase.auth.getSession()
 
-  const userId = sessionData.session?.user.id
+const userId = data.session?.user.id
 
-  if(!userId) return
+const { data:user } =
+await supabase
+.from("users")
+.select("school_id")
+.eq("id",userId)
+.single()
 
-  const { data:userData, error } =
-    await supabase
-      .from("users")
-      .select("school_id")
-      .eq("id",userId)
-      .single()
+if(user){
 
-  if(error || !userData){
-    console.error("User not found")
-    return
-  }
+setSchoolId(user.school_id)
 
-  setSchoolId(userData.school_id)
+const { data:classData } =
+await supabase
+.from("students")
+.select("class")
+.eq("school_id",user.school_id)
 
-  const { data:classData } =
-    await supabase
-      .from("classes")
-      .select("*")
-      .eq("school_id",userData.school_id)
+const uniqueClasses = [...new Set(classData?.map(c=>c.class))]
+setClasses(uniqueClasses)
 
-  setClasses(classData || [])
+}
+
+}
+
+async function loadSubjects(selectedClass:string){
+
+setClassName(selectedClass)
+
+const { data } =
+await supabase
+.from("subjects")
+.select("*")
+.eq("class",selectedClass)
+
+setSubjects(data || [])
 
 }
 
@@ -51,15 +65,12 @@ async function createExam(){
 await supabase
 .from("exams")
 .insert({
-name:name,
-class_id:classId,
+name:examName,
+class:className,
 school_id:schoolId
 })
 
-alert("Exam created")
-
-setName("")
-setClassId("")
+alert("Exam Created")
 
 }
 
@@ -67,36 +78,41 @@ return(
 
 <div className="p-10 text-white">
 
-<h1 className="text-2xl mb-6">
-Create Exam
-</h1>
+<h1 className="text-3xl mb-6">Create Exam</h1>
 
 <input
 placeholder="Exam Name"
-className="w-full p-2 mb-4 bg-slate-800 rounded"
-value={name}
-onChange={(e)=>setName(e.target.value)}
+className="p-2 mb-4 bg-slate-800 rounded"
+value={examName}
+onChange={(e)=>setExamName(e.target.value)}
 />
 
 <select
-className="w-full p-2 mb-6 bg-slate-800 rounded"
-value={classId}
-onChange={(e)=>setClassId(e.target.value)}
+className="p-2 mb-6 bg-slate-800 rounded"
+onChange={(e)=>loadSubjects(e.target.value)}
 >
 
 <option>Select Class</option>
 
-{classes.map(c=>(
-<option key={c.id} value={c.id}>
-{c.name}
-</option>
+{classes.map((c)=>(
+<option key={c}>{c}</option>
 ))}
 
 </select>
 
+<h3 className="mb-2">Subjects</h3>
+
+<ul className="mb-6">
+
+{subjects.map((s)=>(
+<li key={s.id}>{s.name}</li>
+))}
+
+</ul>
+
 <button
 onClick={createExam}
-className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
+className="bg-green-600 px-6 py-2 rounded"
 >
 Create Exam
 </button>
