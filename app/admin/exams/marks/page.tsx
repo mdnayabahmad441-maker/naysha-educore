@@ -47,7 +47,7 @@ subjects(id,name)
 `)
 .eq("exam_id",selectedExam)
 
-setSubjects(subjectData.map((s:any)=>s.subjects))
+setSubjects((subjectData || []).map((s:any)=>s.subjects))
 
 }
 
