@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function ResultsPage(){
+export default function Results(){
 
 const [results,setResults] = useState<any[]>([])
 
@@ -13,67 +13,49 @@ loadResults()
 
 async function loadResults(){
 
-const { data:marks } = await supabase
-.from("marks")
+const {data:students} = await supabase
+.from("students")
 .select("*")
 
-if(!marks) return
+let final:any[]=[]
 
-let studentMap:any = {}
+for(const st of students||[]){
 
-for(const m of marks){
+const {data:marks} = await supabase
+.from("marks")
+.select("marks")
 
-const { data:student } = await supabase
-.from("students")
-.select("name")
-.eq("id",m.student_id)
-.single()
+.eq("student_id",st.id)
 
-if(!student) continue
+let total=0
 
-if(!studentMap[m.student_id]){
+marks?.forEach((m:any)=>total+=m.marks)
 
-studentMap[m.student_id] = {
-student: student.name,
-total:0,
-subjects:0
-}
+const percentage = marks?.length ? total/marks.length : 0
 
-}
-
-studentMap[m.student_id].total += m.marks
-studentMap[m.student_id].subjects += 1
-
-}
-
-let arr = Object.values(studentMap).map((s:any)=>{
-
-let percentage = s.total / s.subjects
-
-let grade = "D"
-
-if(percentage >= 90) grade="A+"
-else if(percentage >= 80) grade="A"
-else if(percentage >= 70) grade="B"
-else if(percentage >= 60) grade="C"
-
-return {
-student:s.student,
-total:s.total,
-percentage:percentage.toFixed(2),
-grade
-}
-
+final.push({
+name:st.name,
+class:st.class,
+total,
+percentage
 })
 
-arr.sort((a,b)=>b.total-a.total)
+}
 
-arr = arr.map((s:any,i)=>({
-...s,
-rank:i+1
-}))
+final.sort((a,b)=>b.percentage-a.percentage)
 
-setResults(arr)
+final.forEach((s,i)=>s.rank=i+1)
+
+setResults(final)
+
+}
+
+function getColor(p:any){
+
+if(p<33) return "bg-red-500"
+if(p<=60) return "bg-yellow-400"
+if(p<=80) return "bg-green-300"
+return "bg-green-600"
 
 }
 
@@ -81,21 +63,21 @@ return(
 
 <div className="p-10 text-white">
 
-<h1 className="text-3xl font-bold mb-6">
+<h1 className="text-3xl mb-6">
 Exam Results
 </h1>
 
-<table className="w-full border border-white/20">
+<table className="w-full">
 
-<thead>
+<thead className="bg-white/10">
 
-<tr className="bg-white/10">
+<tr>
 
-<th className="p-2">Student</th>
-<th className="p-2">Total</th>
-<th className="p-2">%</th>
-<th className="p-2">Grade</th>
-<th className="p-2">Rank</th>
+<th>Rank</th>
+<th>Student</th>
+<th>Class</th>
+<th>Total</th>
+<th>%</th>
 
 </tr>
 
@@ -103,18 +85,16 @@ Exam Results
 
 <tbody>
 
-{results.map((r:any,i)=>(
+{results.map(r=>(
+<tr key={r.name} className={getColor(r.percentage)}>
 
-<tr key={i}>
-
-<td className="p-2">{r.student}</td>
-<td className="p-2">{r.total}</td>
-<td className="p-2">{r.percentage}</td>
-<td className="p-2">{r.grade}</td>
-<td className="p-2">{r.rank}</td>
+<td>{r.rank}</td>
+<td>{r.name}</td>
+<td>{r.class}</td>
+<td>{r.total}</td>
+<td>{r.percentage.toFixed(1)}%</td>
 
 </tr>
-
 ))}
 
 </tbody>

@@ -1,23 +1,26 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
 export default function MarksEntry(){
 
 const [exams,setExams] = useState<any[]>([])
+const [classes,setClasses] = useState<string[]>([])
 const [students,setStudents] = useState<any[]>([])
 const [subjects,setSubjects] = useState<any[]>([])
 const [selectedExam,setSelectedExam] = useState("")
+const [selectedClass,setSelectedClass] = useState("")
 const [marks,setMarks] = useState<any>({})
 
 useEffect(()=>{
 loadExams()
+loadClasses()
 },[])
 
 async function loadExams(){
 
-const { data } = await supabase
+const {data} = await supabase
 .from("exams")
 .select("*")
 
@@ -25,29 +28,33 @@ setExams(data || [])
 
 }
 
+async function loadClasses(){
+
+const {data} = await supabase
+.from("students")
+.select("class")
+
+const unique = [...new Set((data||[]).map((s:any)=>s.class))]
+
+setClasses(unique)
+
+}
+
 async function loadStudents(){
 
-const { data:exam } = await supabase
-.from("exams")
-.select("*")
-.eq("id",selectedExam)
-.single()
-
-const { data:studentsData } = await supabase
+const {data:studentData} = await supabase
 .from("students")
 .select("*")
-.eq("class",exam.class)
+.eq("class",selectedClass)
 
-setStudents(studentsData || [])
+setStudents(studentData || [])
 
-const { data:subjectData } = await supabase
-.from("exam_subjects")
-.select(`
-subjects(id,name)
-`)
-.eq("exam_id",selectedExam)
+const {data:subjectData} = await supabase
+.from("subjects")
+.select("*")
+.eq("class",selectedClass)
 
-setSubjects((subjectData || []).map((s:any)=>s.subjects))
+setSubjects(subjectData || [])
 
 }
 
@@ -68,16 +75,14 @@ for(const subject of subjects){
 
 const key = `${student.id}_${subject.id}`
 
-const mark = marks[key]
-
-if(mark === undefined) continue
+if(!marks[key]) continue
 
 await supabase.from("marks").insert({
 
 student_id: student.id,
 exam_id: selectedExam,
 subject_id: subject.id,
-marks: Number(mark)
+marks: Number(marks[key])
 
 })
 
@@ -97,8 +102,10 @@ return(
 Marks Entry
 </h1>
 
+<div className="flex gap-3 mb-6">
+
 <select
-className="bg-slate-800 p-2 rounded mb-4"
+className="bg-slate-800 p-2 rounded"
 value={selectedExam}
 onChange={(e)=>setSelectedExam(e.target.value)}
 >
@@ -107,7 +114,23 @@ onChange={(e)=>setSelectedExam(e.target.value)}
 
 {exams.map(e=>(
 <option key={e.id} value={e.id}>
-{e.name} - Class {e.class}
+{e.name}
+</option>
+))}
+
+</select>
+
+<select
+className="bg-slate-800 p-2 rounded"
+value={selectedClass}
+onChange={(e)=>setSelectedClass(e.target.value)}
+>
+
+<option>Select Class</option>
+
+{classes.map(c=>(
+<option key={c}>
+{c}
 </option>
 ))}
 
@@ -115,21 +138,25 @@ onChange={(e)=>setSelectedExam(e.target.value)}
 
 <button
 onClick={loadStudents}
-className="bg-blue-500 px-4 py-2 ml-3 rounded"
+className="bg-blue-500 px-4 py-2 rounded"
 >
 Load Students
 </button>
 
-<table className="w-full mt-6 border border-white/20">
+</div>
 
-<thead>
+<table className="w-full border border-white/20">
 
-<tr className="bg-white/10">
+<thead className="bg-white/10">
+
+<tr>
 
 <th className="p-2">Student</th>
 
 {subjects.map(s=>(
-<th key={s.id}>{s.name}</th>
+<th key={s.id}>
+{s.name}
+</th>
 ))}
 
 </tr>
@@ -144,6 +171,7 @@ Load Students
 <td className="p-2">{st.name}</td>
 
 {subjects.map(sub=>(
+
 <td key={sub.id}>
 
 <input
@@ -153,6 +181,7 @@ onChange={(e)=>handleMark(st.id,sub.id,e.target.value)}
 />
 
 </td>
+
 ))}
 
 </tr>
