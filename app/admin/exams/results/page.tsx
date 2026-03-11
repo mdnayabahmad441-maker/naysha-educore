@@ -5,74 +5,85 @@ import { supabase } from "@/lib/supabase"
 
 export default function ResultsPage(){
 
-  const [results,setResults] = useState<any[]>([])
+const [results,setResults] = useState<any[]>([])
 
-  useEffect(()=>{
-    loadResults()
-  },[])
+useEffect(()=>{
+loadResults()
+},[])
 
-  async function loadResults(){
+async function loadResults(){
 
-    const { data } = await supabase
-      .from("marks")
-      .select(`
-        *,
-        students(name),
-        exams(name)
-      `)
+const { data:marks } = await supabase
+.from("marks")
+.select("*")
 
-    setResults(data || [])
+if(!marks) return
 
-  }
+let final:any[] = []
 
-  return(
+for(const m of marks){
 
-    <div className="p-10 text-white">
+const { data:student } = await supabase
+.from("students")
+.select("name")
+.eq("id",m.student_id)
+.single()
 
-      <h1 className="text-3xl font-bold mb-6">
-        Exam Results
-      </h1>
+const { data:exam } = await supabase
+.from("exams")
+.select("name")
+.eq("id",m.exam_id)
+.single()
 
-      <table className="w-full border border-white/20">
+final.push({
+id:m.id,
+student:student?.name,
+exam:exam?.name,
+marks:m.marks
+})
 
-        <thead>
+}
 
-          <tr className="bg-white/10">
+setResults(final)
 
-            <th className="p-2">Student</th>
-            <th className="p-2">Exam</th>
-            <th className="p-2">Marks</th>
+}
 
-          </tr>
+return(
 
-        </thead>
+<div className="p-10 text-white">
 
-        <tbody>
+<h1 className="text-3xl font-bold mb-6">
+Exam Results
+</h1>
 
-          {results.map((r)=>(
-            <tr key={r.id}>
+<table className="w-full border border-white/20">
 
-              <td className="p-2">
-                {r.students?.name}
-              </td>
+<thead>
 
-              <td className="p-2 text-center">
-                {r.exams?.name}
-              </td>
+<tr className="bg-white/10">
+<th className="p-2">Student</th>
+<th className="p-2">Exam</th>
+<th className="p-2">Marks</th>
+</tr>
 
-              <td className="p-2 text-center">
-                {r.marks}
-              </td>
+</thead>
 
-            </tr>
-          ))}
+<tbody>
 
-        </tbody>
+{results.map(r=>(
+<tr key={r.id}>
+<td className="p-2">{r.student}</td>
+<td className="p-2">{r.exam}</td>
+<td className="p-2">{r.marks}</td>
+</tr>
+))}
 
-      </table>
+</tbody>
 
-    </div>
+</table>
 
-  )
+</div>
+
+)
 
 }
