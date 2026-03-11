@@ -51,6 +51,9 @@ export default function AdminLayout({
           <Link href="/admin/settings" className="block hover:text-cyan-400">
             Settings
           </Link>
+          
+          <Link href="/admin/subjects">Subjects</Link>
+          
 
         </nav>
 

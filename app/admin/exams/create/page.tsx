@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
 export default function CreateExam(){
@@ -11,8 +11,7 @@ const [selectedClass,setSelectedClass] = useState("")
 const [classes,setClasses] = useState<string[]>([])
 const [subjects,setSubjects] = useState<any[]>([])
 const [selectedSubjects,setSelectedSubjects] = useState<string[]>([])
-const [selectAll,setSelectAll] = useState(false)
-const [exams,setExams] = useState<any[]>([])
+const [createAll,setCreateAll] = useState(false)
 
 useEffect(()=>{
 loadSchool()
@@ -35,7 +34,6 @@ if(user){
 setSchoolId(user.school_id)
 
 loadClasses(user.school_id)
-loadExams(user.school_id)
 
 }
 
@@ -65,18 +63,6 @@ setSubjects(data || [])
 
 }
 
-async function loadExams(school:string){
-
-const { data } = await supabase
-.from("exams")
-.select("*")
-.eq("school_id",school)
-.order("created_at",{ascending:false})
-
-setExams(data || [])
-
-}
-
 function toggleSubject(id:string){
 
 if(selectedSubjects.includes(id)){
@@ -91,30 +77,55 @@ setSelectedSubjects([...selectedSubjects,id])
 
 }
 
-function toggleAll(){
-
-if(selectAll){
-
-setSelectedSubjects([])
-setSelectAll(false)
-
-}else{
-
-setSelectedSubjects(subjects.map(s=>s.id))
-setSelectAll(true)
-
-}
-
-}
-
 async function createExam(){
 
-if(!examName || !selectedClass){
-alert("Fill exam name and class")
+if(!examName){
+alert("Enter exam name")
 return
 }
 
-const { data, error } = await supabase
+if(createAll){
+
+for(const className of classes){
+
+const { data:exam } = await supabase
+.from("exams")
+.insert({
+name: examName,
+class: className,
+school_id: schoolId
+})
+.select()
+.single()
+
+const { data:sub } = await supabase
+.from("subjects")
+.select("*")
+.eq("class",className)
+
+for(const s of sub || []){
+
+await supabase.from("exam_subjects").insert({
+
+exam_id: exam.id,
+subject_id: s.id
+
+})
+
+}
+
+}
+
+alert("Exam created for ALL classes")
+
+}else{
+
+if(!selectedClass){
+alert("Select class")
+return
+}
+
+const { data:exam } = await supabase
 .from("exams")
 .insert({
 name: examName,
@@ -124,18 +135,11 @@ school_id: schoolId
 .select()
 .single()
 
-if(error){
-alert("Exam creation failed")
-return
-}
-
-const examId = data.id
-
 for(const subjectId of selectedSubjects){
 
 await supabase.from("exam_subjects").insert({
 
-exam_id: examId,
+exam_id: exam.id,
 subject_id: subjectId
 
 })
@@ -144,10 +148,7 @@ subject_id: subjectId
 
 alert("Exam Created")
 
-setExamName("")
-setSelectedSubjects([])
-
-loadExams(schoolId)
+}
 
 }
 
@@ -155,11 +156,11 @@ return(
 
 <div className="p-10 text-white">
 
-<h1 className="text-3xl font-bold mb-8">
+<h1 className="text-3xl font-bold mb-6">
 Create Exam
 </h1>
 
-<div className="flex gap-4 mb-6">
+<div className="flex gap-4 mb-4">
 
 <input
 value={examName}
@@ -196,23 +197,21 @@ Create Exam
 
 </div>
 
-<h2 className="mb-3 text-xl">
-Subjects
-</h2>
-
-<div className="mb-8">
-
-<label className="flex gap-2 mb-2">
+<label className="flex gap-2 mb-6">
 
 <input
 type="checkbox"
-checked={selectAll}
-onChange={toggleAll}
+checked={createAll}
+onChange={()=>setCreateAll(!createAll)}
 />
 
-Select All Subjects
+Create Exam For All Classes
 
 </label>
+
+<h2 className="text-xl mb-3">
+Subjects
+</h2>
 
 {subjects.map(s=>(
 
@@ -229,60 +228,6 @@ onChange={()=>toggleSubject(s.id)}
 </label>
 
 ))}
-
-</div>
-
-<h2 className="text-xl mb-3">
-Created Exams
-</h2>
-
-<table className="w-full border border-white/20">
-
-<thead>
-
-<tr className="bg-white/10">
-
-<th className="p-2 text-left">
-Exam
-</th>
-
-<th className="p-2">
-Class
-</th>
-
-<th className="p-2">
-Created
-</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-{exams.map(exam=>(
-
-<tr key={exam.id}>
-
-<td className="p-2">
-{exam.name}
-</td>
-
-<td className="p-2 text-center">
-{exam.class}
-</td>
-
-<td className="p-2 text-center">
-{new Date(exam.created_at).toLocaleDateString()}
-</td>
-
-</tr>
-
-))}
-
-</tbody>
-
-</table>
 
 </div>
 
