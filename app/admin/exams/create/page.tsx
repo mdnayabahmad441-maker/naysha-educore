@@ -3,218 +3,289 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function CreateExam() {
+export default function CreateExam(){
 
-  const [schoolId,setSchoolId] = useState("")
-  const [examName,setExamName] = useState("")
-  const [selectedClass,setSelectedClass] = useState("")
-  const [classes,setClasses] = useState<string[]>([])
-  const [exams,setExams] = useState<any[]>([])
+const [schoolId,setSchoolId] = useState("")
+const [examName,setExamName] = useState("")
+const [selectedClass,setSelectedClass] = useState("")
+const [classes,setClasses] = useState<string[]>([])
+const [subjects,setSubjects] = useState<any[]>([])
+const [selectedSubjects,setSelectedSubjects] = useState<string[]>([])
+const [selectAll,setSelectAll] = useState(false)
+const [exams,setExams] = useState<any[]>([])
 
+useEffect(()=>{
+loadSchool()
+},[])
 
+async function loadSchool(){
 
-  useEffect(()=>{
-    loadSchool()
-  },[])
+const { data } = await supabase.auth.getSession()
 
+const userId = data.session?.user.id
 
+const { data:user } = await supabase
+.from("users")
+.select("school_id")
+.eq("id",userId)
+.single()
 
-  async function loadSchool(){
+if(user){
 
-    const { data } = await supabase.auth.getSession()
+setSchoolId(user.school_id)
 
-    const userId = data.session?.user.id
+loadClasses(user.school_id)
+loadExams(user.school_id)
 
-    const { data:user } = await supabase
-      .from("users")
-      .select("school_id")
-      .eq("id",userId)
-      .single()
+}
 
-    if(user){
+}
 
-      setSchoolId(user.school_id)
+async function loadClasses(school:string){
 
-      loadClasses(user.school_id)
-      loadExams(user.school_id)
+const { data } = await supabase
+.from("students")
+.select("class")
+.eq("school_id",school)
 
-    }
+const unique = [...new Set(data?.map((s:any)=>s.class))]
 
-  }
+setClasses(unique as string[])
 
+}
 
+async function loadSubjects(className:string){
 
-  async function loadClasses(school:string){
+const { data } = await supabase
+.from("subjects")
+.select("*")
+.eq("class",className)
 
-    const { data } = await supabase
-      .from("students")
-      .select("class")
-      .eq("school_id",school)
+setSubjects(data || [])
 
-    const unique = [...new Set(data?.map((s:any)=>s.class))]
+}
 
-    setClasses(unique as string[])
+async function loadExams(school:string){
 
-  }
+const { data } = await supabase
+.from("exams")
+.select("*")
+.eq("school_id",school)
+.order("created_at",{ascending:false})
 
+setExams(data || [])
 
+}
 
-  async function loadExams(school:string){
+function toggleSubject(id:string){
 
-    const { data } = await supabase
-      .from("exams")
-      .select("*")
-      .eq("school_id",school)
-      .order("created_at",{ascending:false})
+if(selectedSubjects.includes(id)){
 
-    setExams(data || [])
+setSelectedSubjects(selectedSubjects.filter(s=>s!==id))
 
-  }
+}else{
 
+setSelectedSubjects([...selectedSubjects,id])
 
+}
 
-  async function createExam(){
+}
 
-    if(!examName || !selectedClass){
-      alert("Fill exam name and class")
-      return
-    }
+function toggleAll(){
 
-    const { error } = await supabase
-      .from("exams")
-      .insert({
-        name: examName,
-        class: selectedClass,
-        school_id: schoolId
-      })
+if(selectAll){
 
-    if(error){
-      console.log(error)
-      alert("Exam creation failed")
-      return
-    }
+setSelectedSubjects([])
+setSelectAll(false)
 
-    alert("Exam Created Successfully")
+}else{
 
-    setExamName("")
-    setSelectedClass("")
+setSelectedSubjects(subjects.map(s=>s.id))
+setSelectAll(true)
 
-    loadExams(schoolId)
+}
 
-  }
+}
 
+async function createExam(){
 
+if(!examName || !selectedClass){
+alert("Fill exam name and class")
+return
+}
 
-  return(
+const { data, error } = await supabase
+.from("exams")
+.insert({
+name: examName,
+class: selectedClass,
+school_id: schoolId
+})
+.select()
+.single()
 
-    <div className="p-10 text-white">
+if(error){
+alert("Exam creation failed")
+return
+}
 
-      <h1 className="text-3xl font-bold mb-8">
-        Create Exam
-      </h1>
+const examId = data.id
 
+for(const subjectId of selectedSubjects){
 
+await supabase.from("exam_subjects").insert({
 
-      {/* FORM */}
+exam_id: examId,
+subject_id: subjectId
 
-      <div className="flex gap-4 mb-10">
+})
 
-        <input
-          value={examName}
-          onChange={(e)=>setExamName(e.target.value)}
-          placeholder="Exam Name"
-          className="bg-slate-800 p-2 rounded"
-        />
+}
 
+alert("Exam Created")
 
+setExamName("")
+setSelectedSubjects([])
 
-        <select
-          value={selectedClass}
-          onChange={(e)=>setSelectedClass(e.target.value)}
-          className="bg-slate-800 p-2 rounded"
-        >
+loadExams(schoolId)
 
-          <option value="">
-            Select Class
-          </option>
+}
 
-          {classes.map((c)=>(
-            <option key={c}>
-              {c}
-            </option>
-          ))}
+return(
 
-        </select>
+<div className="p-10 text-white">
 
+<h1 className="text-3xl font-bold mb-8">
+Create Exam
+</h1>
 
+<div className="flex gap-4 mb-6">
 
-        <button
-          onClick={createExam}
-          className="bg-green-600 px-6 py-2 rounded"
-        >
-          Create Exam
-        </button>
+<input
+value={examName}
+onChange={(e)=>setExamName(e.target.value)}
+placeholder="Exam Name"
+className="bg-slate-800 p-2 rounded"
+/>
 
-      </div>
+<select
+value={selectedClass}
+onChange={(e)=>{
+setSelectedClass(e.target.value)
+loadSubjects(e.target.value)
+}}
+className="bg-slate-800 p-2 rounded"
+>
 
+<option value="">
+Select Class
+</option>
 
+{classes.map(c=>(
+<option key={c}>{c}</option>
+))}
 
-      {/* EXAM LIST */}
+</select>
 
-      <h2 className="text-xl mb-4">
-        Created Exams
-      </h2>
+<button
+onClick={createExam}
+className="bg-green-600 px-6 py-2 rounded"
+>
+Create Exam
+</button>
 
-      <table className="w-full border border-white/20">
+</div>
 
-        <thead>
+<h2 className="mb-3 text-xl">
+Subjects
+</h2>
 
-          <tr className="bg-white/10">
+<div className="mb-8">
 
-            <th className="p-2 text-left">
-              Exam
-            </th>
+<label className="flex gap-2 mb-2">
 
-            <th className="p-2">
-              Class
-            </th>
+<input
+type="checkbox"
+checked={selectAll}
+onChange={toggleAll}
+/>
 
-            <th className="p-2">
-              Created
-            </th>
+Select All Subjects
 
-          </tr>
+</label>
 
-        </thead>
+{subjects.map(s=>(
 
+<label key={s.id} className="flex gap-2 mb-1">
 
+<input
+type="checkbox"
+checked={selectedSubjects.includes(s.id)}
+onChange={()=>toggleSubject(s.id)}
+/>
 
-        <tbody>
+{s.name}
 
-          {exams.map((exam)=>(
-            <tr key={exam.id}>
+</label>
 
-              <td className="p-2">
-                {exam.name}
-              </td>
+))}
 
-              <td className="p-2 text-center">
-                {exam.class}
-              </td>
+</div>
 
-              <td className="p-2 text-center">
-                {new Date(exam.created_at).toLocaleDateString()}
-              </td>
+<h2 className="text-xl mb-3">
+Created Exams
+</h2>
 
-            </tr>
-          ))}
+<table className="w-full border border-white/20">
 
-        </tbody>
+<thead>
 
-      </table>
+<tr className="bg-white/10">
 
-    </div>
+<th className="p-2 text-left">
+Exam
+</th>
 
-  )
+<th className="p-2">
+Class
+</th>
+
+<th className="p-2">
+Created
+</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{exams.map(exam=>(
+
+<tr key={exam.id}>
+
+<td className="p-2">
+{exam.name}
+</td>
+
+<td className="p-2 text-center">
+{exam.class}
+</td>
+
+<td className="p-2 text-center">
+{new Date(exam.created_at).toLocaleDateString()}
+</td>
+
+</tr>
+
+))}
+
+</tbody>
+
+</table>
+
+</div>
+
+)
 
 }
