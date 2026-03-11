@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import Link from "next/link"
 
 export default function ExamsPage(){
 
@@ -169,6 +170,13 @@ return(
 <h1 className="text-3xl font-bold mb-8">
 Exam Management
 </h1>
+
+ <Link
+    href="/admin/exams/marks"
+    className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-lg"
+  >
+    Enter Marks
+  </Link>
 
 
 
