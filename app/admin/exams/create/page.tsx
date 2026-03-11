@@ -1,124 +1,191 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function CreateExam(){
+export default function CreateExam() {
 
-const [schoolId,setSchoolId] = useState("")
-const [classes,setClasses] = useState<any[]>([])
-const [subjects,setSubjects] = useState<any[]>([])
+  const [schoolId, setSchoolId] = useState("")
+  const [classes, setClasses] = useState<string[]>([])
+  const [subjects, setSubjects] = useState<any[]>([])
 
-const [className,setClassName] = useState("")
-const [examName,setExamName] = useState("")
+  const [examName, setExamName] = useState("")
+  const [selectedClass, setSelectedClass] = useState("")
 
-useEffect(()=>{
-loadSchool()
-},[])
 
-async function loadSchool(){
 
-const { data } = await supabase.auth.getSession()
+  useEffect(() => {
+    loadSchool()
+  }, [])
 
-const userId = data.session?.user.id
 
-const { data:user } =
-await supabase
-.from("users")
-.select("school_id")
-.eq("id",userId)
-.single()
 
-if(user){
+  async function loadSchool() {
 
-setSchoolId(user.school_id)
+    const { data } = await supabase.auth.getSession()
 
-const { data:classData } =
-await supabase
-.from("students")
-.select("class")
-.eq("school_id",user.school_id)
+    const userId = data.session?.user.id
 
-const uniqueClasses = [...new Set(classData?.map(c=>c.class))]
-setClasses(uniqueClasses)
+    const { data: user } = await supabase
+      .from("users")
+      .select("school_id")
+      .eq("id", userId)
+      .single()
 
-}
+    if (user) {
 
-}
+      setSchoolId(user.school_id)
 
-async function loadSubjects(selectedClass:string){
+      loadClasses(user.school_id)
 
-setClassName(selectedClass)
+    }
 
-const { data } =
-await supabase
-.from("subjects")
-.select("*")
-.eq("class",selectedClass)
+  }
 
-setSubjects(data || [])
 
-}
 
-async function createExam(){
+  async function loadClasses(school: string) {
 
-await supabase
-.from("exams")
-.insert({
-name:examName,
-class:className,
-school_id:schoolId
-})
+    const { data } = await supabase
+      .from("students")
+      .select("class")
+      .eq("school_id", school)
 
-alert("Exam Created")
+    const uniqueClasses = [...new Set(data?.map((s: any) => s.class))]
 
-}
+    setClasses(uniqueClasses as string[])
 
-return(
+  }
 
-<div className="p-10 text-white">
 
-<h1 className="text-3xl mb-6">Create Exam</h1>
 
-<input
-placeholder="Exam Name"
-className="p-2 mb-4 bg-slate-800 rounded"
-value={examName}
-onChange={(e)=>setExamName(e.target.value)}
-/>
+  async function loadSubjects(className: string) {
 
-<select
-className="p-2 mb-6 bg-slate-800 rounded"
-onChange={(e)=>loadSubjects(e.target.value)}
->
+    const { data } = await supabase
+      .from("subjects")
+      .select("*")
+      .eq("class", className)
 
-<option>Select Class</option>
+    setSubjects(data || [])
 
-{classes.map((c)=>(
-<option key={c}>{c}</option>
-))}
+  }
 
-</select>
 
-<h3 className="mb-2">Subjects</h3>
 
-<ul className="mb-6">
+  async function createExam() {
 
-{subjects.map((s)=>(
-<li key={s.id}>{s.name}</li>
-))}
+    if (!examName || !selectedClass) {
+      alert("Fill exam name and class")
+      return
+    }
 
-</ul>
+    const { error } = await supabase
+      .from("exams")
+      .insert({
+        name: examName,
+        class: selectedClass,
+        school_id: schoolId
+      })
 
-<button
-onClick={createExam}
-className="bg-green-600 px-6 py-2 rounded"
->
-Create Exam
-</button>
+    if (error) {
+      console.log(error)
+      alert("Exam creation failed")
+      return
+    }
 
-</div>
+    alert("Exam Created Successfully")
 
-)
+    setExamName("")
+    setSelectedClass("")
+    setSubjects([])
+
+  }
+
+
+
+  return (
+
+    <div className="p-10 text-white">
+
+      <h1 className="text-3xl font-bold mb-8">
+        Create Exam
+      </h1>
+
+
+
+      {/* Exam Name */}
+
+      <input
+        value={examName}
+        onChange={(e) => setExamName(e.target.value)}
+        placeholder="Exam Name"
+        className="bg-slate-800 p-2 rounded mr-4"
+      />
+
+
+
+      {/* Class Selection */}
+
+      <select
+        value={selectedClass}
+        onChange={(e) => {
+          setSelectedClass(e.target.value)
+          loadSubjects(e.target.value)
+        }}
+        className="bg-slate-800 p-2 rounded"
+      >
+
+        <option value="">
+          Select Class
+        </option>
+
+        {classes.map((c) => (
+          <option key={c}>
+            {c}
+          </option>
+        ))}
+
+      </select>
+
+
+
+      {/* Subjects Preview */}
+
+      {subjects.length > 0 && (
+
+        <div className="mt-6">
+
+          <h3 className="text-lg mb-2">
+            Subjects
+          </h3>
+
+          <ul className="list-disc ml-6">
+
+            {subjects.map((s) => (
+              <li key={s.id}>
+                {s.name}
+              </li>
+            ))}
+
+          </ul>
+
+        </div>
+
+      )}
+
+
+
+      {/* Create Button */}
+
+      <button
+        onClick={createExam}
+        className="mt-6 bg-green-600 px-6 py-2 rounded"
+      >
+        Create Exam
+      </button>
+
+    </div>
+
+  )
 
 }
