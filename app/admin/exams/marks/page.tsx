@@ -9,8 +9,10 @@ const [exams,setExams] = useState<any[]>([])
 const [classes,setClasses] = useState<string[]>([])
 const [students,setStudents] = useState<any[]>([])
 const [subjects,setSubjects] = useState<any[]>([])
+
 const [selectedExam,setSelectedExam] = useState("")
 const [selectedClass,setSelectedClass] = useState("")
+
 const [marks,setMarks] = useState<any>({})
 
 useEffect(()=>{
@@ -79,10 +81,10 @@ if(!marks[key]) continue
 
 await supabase.from("marks").insert({
 
-student_id: student.id,
-exam_id: selectedExam,
-subject_id: subject.id,
-marks: Number(marks[key])
+student_id:student.id,
+exam_id:selectedExam,
+subject_id:subject.id,
+marks:Number(marks[key])
 
 })
 
@@ -90,22 +92,22 @@ marks: Number(marks[key])
 
 }
 
-alert("Marks saved")
+alert("Marks Saved Successfully")
 
 }
 
 return(
 
-<div className="p-10 text-white">
+<div className="p-4 md:p-10 text-white">
 
-<h1 className="text-3xl mb-6">
+<h1 className="text-2xl md:text-3xl mb-6">
 Marks Entry
 </h1>
 
-<div className="flex gap-3 mb-6">
+<div className="flex flex-col md:flex-row gap-3 mb-6">
 
 <select
-className="bg-slate-800 p-2 rounded"
+className="bg-slate-800 p-2 rounded w-full md:w-auto"
 value={selectedExam}
 onChange={(e)=>setSelectedExam(e.target.value)}
 >
@@ -121,7 +123,7 @@ onChange={(e)=>setSelectedExam(e.target.value)}
 </select>
 
 <select
-className="bg-slate-800 p-2 rounded"
+className="bg-slate-800 p-2 rounded w-full md:w-auto"
 value={selectedClass}
 onChange={(e)=>setSelectedClass(e.target.value)}
 >
@@ -129,32 +131,32 @@ onChange={(e)=>setSelectedClass(e.target.value)}
 <option>Select Class</option>
 
 {classes.map(c=>(
-<option key={c}>
-{c}
-</option>
+<option key={c}>{c}</option>
 ))}
 
 </select>
 
 <button
 onClick={loadStudents}
-className="bg-blue-500 px-4 py-2 rounded"
+className="bg-blue-500 px-4 py-2 rounded w-full md:w-auto"
 >
 Load Students
 </button>
 
 </div>
 
-<table className="w-full border border-white/20">
+<div className="overflow-x-auto">
+
+<table className="min-w-full border border-white/20 text-sm">
 
 <thead className="bg-white/10">
 
 <tr>
 
-<th className="p-2">Student</th>
+<th className="p-2 text-left">Student</th>
 
 {subjects.map(s=>(
-<th key={s.id}>
+<th key={s.id} className="p-2 text-center">
 {s.name}
 </th>
 ))}
@@ -166,22 +168,20 @@ Load Students
 <tbody>
 
 {students.map(st=>(
-<tr key={st.id}>
+<tr key={st.id} className="border-t border-white/10">
 
 <td className="p-2">{st.name}</td>
 
 {subjects.map(sub=>(
-
-<td key={sub.id}>
+<td key={sub.id} className="p-2">
 
 <input
 type="number"
-className="bg-slate-800 w-16 p-1 rounded"
+className="bg-slate-800 w-full p-1 rounded text-center"
 onChange={(e)=>handleMark(st.id,sub.id,e.target.value)}
 />
 
 </td>
-
 ))}
 
 </tr>
@@ -190,6 +190,8 @@ onChange={(e)=>handleMark(st.id,sub.id,e.target.value)}
 </tbody>
 
 </table>
+
+</div>
 
 <button
 onClick={saveMarks}
