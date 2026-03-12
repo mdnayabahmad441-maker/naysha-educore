@@ -3,8 +3,13 @@ import { NextRequest, NextResponse } from "next/server"
 export function middleware(req: NextRequest){
 
   const pathname = req.nextUrl.pathname
-  const role = req.cookies.get("role")?.value
 
+  // allow login pages
+  if(pathname.startsWith("/auth")){
+    return NextResponse.next()
+  }
+
+  const role = req.cookies.get("role")?.value
 
   if(pathname.startsWith("/admin") && role !== "admin"){
     return NextResponse.redirect(new URL("/auth/login",req.url))
@@ -19,7 +24,6 @@ export function middleware(req: NextRequest){
   }
 
   return NextResponse.next()
-
 }
 
 export const config = {

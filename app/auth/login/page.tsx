@@ -84,7 +84,7 @@ export default function LoginPage(){
 
     // SET ROLE COOKIE (IMPORTANT FIX)
 
-   document.cookie = `role=${role}; path=/; domain=.erp.naysha.online; secure; samesite=lax`
+   document.cookie = `role=${role}; path=/; domain=.erp.naysha.online; SameSite=None; Secure`
 
 
     // GET SCHOOL SUBDOMAIN
