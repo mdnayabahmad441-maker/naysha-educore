@@ -60,11 +60,19 @@ fetchStudents(data.school_id)
 
 async function fetchStudents(id:string){
 
-const { data } = await supabase
+const { data,error } = await supabase
 .from("students")
 .select("*")
 .eq("school_id",id)
 .order("class",{ascending:true})
+
+if(error){
+
+console.log(error)
+
+return
+
+}
 
 if(data){
 
@@ -138,19 +146,25 @@ if(!confirmDelete) return
 const { error } = await supabase
 .from("students")
 .delete()
-.eq("id", id)
+.eq("id",id)
+.eq("school_id",schoolId)
 
 if(error){
+
 alert(error.message)
+
 console.log(error)
+
 return
-}
-
-alert("Student deleted")
-
-fetchStudents(schoolId!)
 
 }
+
+/* instant UI update */
+
+setStudents(prev=>prev.filter(s=>s.id!==id))
+
+}
+
 
 
 /* ---------------- EDIT STUDENT ---------------- */
@@ -185,6 +199,7 @@ parent_phone:phone
 
 })
 .eq("id",editId)
+.eq("school_id",schoolId)
 
 if(error){
 
@@ -215,13 +230,13 @@ function handleKeys(e:KeyboardEvent){
 
 if(e.key==="ArrowDown"){
 
-setSelectedIndex((prev)=>Math.min(prev+1,students.length-1))
+setSelectedIndex(prev=>Math.min(prev+1,students.length-1))
 
 }
 
 if(e.key==="ArrowUp"){
 
-setSelectedIndex((prev)=>Math.max(prev-1,0))
+setSelectedIndex(prev=>Math.max(prev-1,0))
 
 }
 
@@ -247,13 +262,11 @@ return ()=>window.removeEventListener("keydown",handleKeys)
 
 
 
-/* ---------------- GROUP BY CLASS ---------------- */
+/* ---------------- GROUP CLASSES ---------------- */
 
 const classes = [...new Set(students.map((s:any)=>s.class))]
 
 
-
-/* ---------------- UI ---------------- */
 
 return(
 
@@ -267,7 +280,7 @@ Students
 
 
 
-{/* ADD / EDIT FORM */}
+{/* ADD / EDIT STUDENT FORM */}
 
 <div className="bg-white/10 p-6 rounded-xl w-full md:w-[380px] mb-10">
 
@@ -370,7 +383,7 @@ Add Student
 
 {classStudents.map((s:any)=>{
 
-const globalIndex = students.findIndex((x:any)=>x.id === s.id)
+const globalIndex = students.findIndex((x:any)=>x.id===s.id)
 
 return(
 
@@ -378,7 +391,7 @@ return(
 key={s.id}
 ref={(el)=>{rowsRef.current[globalIndex]=el}}
 className={`border-b border-white/10 cursor-pointer hover:bg-white/10 ${
-selectedIndex === globalIndex ? "bg-purple-700/40" : ""
+selectedIndex===globalIndex ? "bg-purple-700/40" : ""
 }`}
 onClick={()=>router.push(`/admin/students/${s.id}`)}
 >
@@ -398,7 +411,7 @@ onClick={(e)=>{
 e.stopPropagation()
 startEdit(s)
 }}
-className="px-3 py-1 text-sm bg-yellow-500 rounded hover:bg-yellow-600"
+className="px-3 py-1 text-sm bg-blue-500 rounded hover:bg-blue-600"
 >
 
 Edit
