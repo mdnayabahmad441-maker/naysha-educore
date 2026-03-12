@@ -82,6 +82,11 @@ export default function LoginPage(){
     const role = user.role
 
 
+    // SET ROLE COOKIE (IMPORTANT FIX)
+
+    document.cookie = `role=${role}; path=/`
+
+
     // GET SCHOOL SUBDOMAIN
 
     const { data:school } =
@@ -97,6 +102,11 @@ export default function LoginPage(){
     }
 
     const subdomain = school.subdomain
+
+
+    // small delay to allow cookie write
+
+    await new Promise(res => setTimeout(res,200))
 
 
     // ROLE REDIRECT
