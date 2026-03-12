@@ -138,20 +138,19 @@ if(!confirmDelete) return
 const { error } = await supabase
 .from("students")
 .delete()
-.eq("id",id)
+.eq("id", id)
 
 if(error){
-
 alert(error.message)
-
+console.log(error)
 return
-
 }
+
+alert("Student deleted")
 
 fetchStudents(schoolId!)
 
 }
-
 
 
 /* ---------------- EDIT STUDENT ---------------- */
