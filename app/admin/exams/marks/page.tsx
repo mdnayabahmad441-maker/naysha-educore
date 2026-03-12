@@ -1,24 +1,27 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
 export default function MarksPage(){
 
-const [exams,setExams] = useState<any[]>([])
-const [students,setStudents] = useState<any[]>([])
-const [subjects,setSubjects] = useState<any[]>([])
-const [selectedExam,setSelectedExam] = useState("")
-const [selectedClass,setSelectedClass] = useState("")
-const [marks,setMarks] = useState<any>({})
+const [exams,setExams]=useState<any[]>([])
+const [students,setStudents]=useState<any[]>([])
+const [subjects,setSubjects]=useState<any[]>([])
+const [marks,setMarks]=useState<any>({})
+
+const [selectedExam,setSelectedExam]=useState("")
+const [selectedClass,setSelectedClass]=useState("")
 
 useEffect(()=>{
+
 loadExams()
+
 },[])
 
 async function loadExams(){
 
-const {data} = await supabase
+const {data}=await supabase
 .from("exams")
 .select("*")
 
@@ -28,55 +31,101 @@ setExams(data || [])
 
 async function loadStudents(){
 
-if(!selectedClass) return
+if(!selectedExam || !selectedClass){
 
-const {data:studentData} = await supabase
+alert("Select exam and class")
+return
+
+}
+
+const {data:status}=await supabase
+.from("exam_results_status")
+.select("*")
+.eq("exam_id",selectedExam)
+.eq("class",selectedClass)
+.single()
+
+if(status?.published){
+
+alert("Result already published. Marks locked.")
+return
+
+}
+
+const {data:studentsData}=await supabase
 .from("students")
 .select("*")
 .eq("class",selectedClass)
 
-setStudents(studentData || [])
+setStudents(studentsData || [])
 
-const {data:subjectData} = await supabase
-.from("subjects")
-.select("*")
-.eq("class",selectedClass)
+const {data:subjectData}=await supabase
+.from("exam_subjects")
+.select(`
+subject_id,
+subjects(name)
+`)
+.eq("exam_id",selectedExam)
 
 setSubjects(subjectData || [])
 
 }
 
-function updateMark(studentId:any,subjectId:any,value:any){
+function updateMarks(studentId:string,subjectId:string,value:string){
 
-setMarks({
-...marks,
-[`${studentId}_${subjectId}`]:value
-})
+setMarks((prev:any)=>({
+
+...prev,
+[studentId]:{
+
+...prev[studentId],
+[subjectId]:value
+
+}
+
+}))
 
 }
 
 async function saveMarks(){
 
+if(!selectedExam){
+
+alert("Select exam")
+return
+
+}
+
+const {data:status}=await supabase
+.from("exam_results_status")
+.select("*")
+.eq("exam_id",selectedExam)
+.eq("class",selectedClass)
+.single()
+
+if(status?.published){
+
+alert("Result already published. Marks locked.")
+return
+
+}
+
 for(const student of students){
 
 for(const subject of subjects){
 
-let mark = marks[`${student.id}_${subject.id}`]
+let value=marks?.[student.id]?.[subject.subject_id]
 
-if(!mark || mark === ""){
-mark = "ABSENT"
-}
+if(!value) continue
 
-if(mark.toLowerCase?.() === "a"){
-mark = "ABSENT"
-}
-
-await supabase.from("marks").upsert({
+await supabase
+.from("marks")
+.upsert({
 
 student_id:student.id,
 exam_id:selectedExam,
-subject_id:subject.id,
-marks:mark
+subject_id:subject.subject_id,
+marks:value
 
 })
 
@@ -84,70 +133,39 @@ marks:mark
 
 }
 
-alert("Marks Saved")
+alert("Marks saved successfully")
 
 }
 
-async function createResults(){
+async function createResult(){
 
-const confirmCreate = confirm("Are you sure you want to generate results for this exam?")
+const confirmCreate=confirm("Create result for this exam?")
 
 if(!confirmCreate) return
 
-const {data:studentsData} = await supabase
-.from("students")
-.select("*")
-.eq("class",selectedClass)
+await supabase
+.from("exam_results_status")
+.insert({
 
-for(const student of studentsData || []){
-
-const {data:marksData} = await supabase
-.from("marks")
-.select("*")
-.eq("student_id",student.id)
-.eq("exam_id",selectedExam)
-
-let total = 0
-let subjectsCount = 0
-
-for(const m of marksData || []){
-
-if(m.marks !== "ABSENT"){
-total += Number(m.marks)
-}
-
-subjectsCount++
-
-}
-
-const percentage = subjectsCount
-? (total / (subjectsCount * 100)) * 100
-: 0
-
-await supabase.from("results").upsert({
-
-student_id:student.id,
 exam_id:selectedExam,
-total_marks:total,
-percentage
+class:selectedClass,
+status:"created"
 
 })
 
-}
-
-alert("Results Generated")
+alert("Result Created Successfully")
 
 }
 
 return(
 
-<div className="p-10 text-white">
+<div className="p-8 text-white">
 
 <h1 className="text-3xl mb-6">
 Marks Entry
 </h1>
 
-<div className="flex gap-3 mb-6">
+<div className="flex gap-3 mb-6 flex-wrap">
 
 <select
 className="bg-slate-800 p-2 rounded"
@@ -156,9 +174,9 @@ onChange={(e)=>setSelectedExam(e.target.value)}
 
 <option>Select Exam</option>
 
-{exams.map(e=>(
-<option key={e.id} value={e.id}>
-{e.name}
+{exams.map((exam:any)=>(
+<option key={exam.id} value={exam.id}>
+{exam.name}
 </option>
 ))}
 
@@ -170,7 +188,6 @@ onChange={(e)=>setSelectedClass(e.target.value)}
 >
 
 <option>Select Class</option>
-
 <option>01</option>
 <option>02</option>
 <option>03</option>
@@ -181,7 +198,9 @@ onChange={(e)=>setSelectedClass(e.target.value)}
 onClick={loadStudents}
 className="bg-blue-500 px-4 py-2 rounded"
 >
+
 Load Students
+
 </button>
 
 </div>
@@ -194,13 +213,11 @@ Load Students
 
 <tr>
 
-<th className="p-2">
-Student
-</th>
+<th className="p-2">Student</th>
 
-{subjects.map(s=>(
-<th key={s.id} className="p-2">
-{s.name}
+{subjects.map((s:any)=>(
+<th key={s.subject_id} className="p-2">
+{s.subjects.name}
 </th>
 ))}
 
@@ -210,25 +227,33 @@ Student
 
 <tbody>
 
-{students.map(student=>(
+{students.map((student:any)=>(
 
-<tr key={student.id} className="border-t border-white/10">
+<tr key={student.id} className="border-t">
 
 <td className="p-2">
 {student.name}
 </td>
 
-{subjects.map(sub=>(
-<td key={sub.id} className="p-2">
+{subjects.map((subject:any)=>{
+
+const value=marks?.[student.id]?.[subject.subject_id] || ""
+
+return(
+
+<td key={subject.subject_id} className="p-2">
 
 <input
-className="bg-slate-800 p-1 rounded w-16"
-onChange={(e)=>updateMark(student.id,sub.id,e.target.value)}
-placeholder="0"
+value={value}
+onChange={(e)=>updateMarks(student.id,subject.subject_id,e.target.value)}
+className="bg-slate-800 w-20 p-1 rounded text-center"
 />
 
 </td>
-))}
+
+)
+
+})}
 
 </tr>
 
@@ -240,20 +265,24 @@ placeholder="0"
 
 </div>
 
-<div className="flex gap-4 mt-6">
+<div className="mt-6 flex gap-3">
 
 <button
 onClick={saveMarks}
-className="bg-green-600 px-6 py-2 rounded"
+className="bg-green-500 px-4 py-2 rounded"
 >
+
 Save Marks
+
 </button>
 
 <button
-onClick={createResults}
-className="bg-purple-600 px-6 py-2 rounded"
+onClick={createResult}
+className="bg-purple-600 px-4 py-2 rounded"
 >
-Create Results
+
+Create Result
+
 </button>
 
 </div>

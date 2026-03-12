@@ -1,40 +1,96 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
 export default function ResultsPage(){
 
-const [exams,setExams]=useState<any[]>([])
-const [subjects,setSubjects]=useState<any[]>([])
+const [status,setStatus]=useState<any>(null)
 const [results,setResults]=useState<any[]>([])
+const [subjects,setSubjects]=useState<any[]>([])
 const [selectedExam,setSelectedExam]=useState("")
 const [selectedClass,setSelectedClass]=useState("")
+const [exams,setExams]=useState<any[]>([])
 
 useEffect(()=>{
-
 loadExams()
-
 },[])
 
 async function loadExams(){
+const {data}=await supabase.from("exams").select("*")
+setExams(data || [])
+}
+
+async function loadStatus(){
 
 const {data}=await supabase
-.from("exams")
+.from("exam_results_status")
 .select("*")
+.eq("exam_id",selectedExam)
+.eq("class",selectedClass)
+.single()
 
-setExams(data || [])
+setStatus(data)
+}
+
+async function createResult(){
+
+const confirmCreate=confirm("Create result for this exam?")
+
+if(!confirmCreate) return
+
+await supabase
+.from("exam_results_status")
+.insert({
+exam_id:selectedExam,
+class:selectedClass,
+status:"created"
+})
+
+alert("Result Created Successfully")
+
+loadStatus()
+
+}
+
+async function verifyResult(){
+
+await supabase
+.from("exam_results_status")
+.update({verified:true,status:"verified"})
+.eq("exam_id",selectedExam)
+.eq("class",selectedClass)
+
+alert("Result Verified")
+
+loadStatus()
+
+}
+
+async function publishResult(){
+
+const confirmPublish=confirm("Publish result? After publishing marks cannot be edited.")
+
+if(!confirmPublish) return
+
+await supabase
+.from("exam_results_status")
+.update({
+published:true,
+status:"published"
+})
+.eq("exam_id",selectedExam)
+.eq("class",selectedClass)
+
+alert("Result Published")
+
+loadStatus()
 
 }
 
 async function loadResults(){
 
-if(!selectedExam || !selectedClass){
-
-alert("Select exam and class")
-return
-
-}
+await loadStatus()
 
 const {data:students}=await supabase
 .from("students")
@@ -63,89 +119,76 @@ const {data:marksData}=await supabase
 .eq("exam_id",selectedExam)
 
 let total=0
-let totalFullMarks=0
+let fullTotal=0
 let subjectMarks:any={}
 
 for(const subject of examSubjects || []){
 
-totalFullMarks += subject.full_marks
+const subjectName=(subject as any)?.subjects?.name || "Subject"
 
-const subjectName =
-(subject as any)?.subjects?.name || "Subject"
+fullTotal+=subject.full_marks
 
-const markRow = marksData?.find(
-(m:any)=>String(m.subject_id) === String(subject.subject_id)
+const markRow=marksData?.find(
+(m:any)=>String(m.subject_id)===String(subject.subject_id)
 )
 
-let mark = markRow?.marks
+let mark=markRow?.marks
 
-if(mark === null || mark === undefined || mark === ""){
-mark="ABSENT"
+if(!mark) mark="ABSENT"
+
+subjectMarks[subjectName]=mark
+
+if(mark!=="ABSENT"){
+total+=Number(mark)
 }
 
-subjectMarks[subjectName] = mark
-
-if(mark !== "ABSENT"){
-total += Number(mark)
 }
 
-}
-
-const percentage = totalFullMarks
-? (total/totalFullMarks)*100
-:0
+const percentage=(total/fullTotal)*100
 
 resultRows.push({
-
 student:student.name,
 class:student.class,
 marks:subjectMarks,
 total,
 percentage
-
 })
 
 }
 
-resultRows.sort((a:any,b:any)=>b.percentage-a.percentage)
+resultRows.sort((a,b)=>b.percentage-a.percentage)
 
-let rank=1
-
-resultRows=resultRows.map((r:any,i:number)=>{
-
-if(i>0 && r.percentage < resultRows[i-1].percentage){
-
-rank=i+1
-
-}
-
-return{
-
+resultRows=resultRows.map((r,i)=>({
 ...r,
-rank
-
-}
-
-})
+rank:i+1,
+grade:getGrade(r.percentage)
+}))
 
 setResults(resultRows)
 
 }
 
-function getRowColor(rank:number,percentage:number){
+function getGrade(p:number){
 
-if(percentage < 33) return "bg-red-500"
+if(p>=90) return "A+"
+if(p>=80) return "A"
+if(p>=70) return "B"
+if(p>=60) return "C"
+if(p>=50) return "D"
+return "F"
+
+}
+
+function getColor(rank:number,percentage:number){
+
+if(percentage<33) return "bg-red-500"
 
 if(rank===1) return "bg-yellow-400 text-black"
-
 if(rank===2) return "bg-gray-300 text-black"
-
 if(rank===3) return "bg-orange-300 text-black"
 
 if(percentage>=81) return "bg-green-600"
-
 if(percentage>=61) return "bg-green-400 text-black"
-
 if(percentage>=33) return "bg-yellow-300 text-black"
 
 return ""
@@ -154,52 +197,61 @@ return ""
 
 return(
 
-<div className="p-6 text-white">
+<div className="p-8 text-white">
 
-<h1 className="text-3xl mb-6">
-Exam Results
-</h1>
+<h1 className="text-3xl mb-6">Exam Results</h1>
 
-<div className="flex gap-3 flex-wrap mb-6">
+<div className="flex gap-3 mb-6 flex-wrap">
 
-<select
-className="bg-slate-800 p-2 rounded"
-onChange={(e)=>setSelectedExam(e.target.value)}
->
-
-<option value="">Select Exam</option>
-
-{exams.map((exam:any)=>(
-<option key={exam.id} value={exam.id}>
-{exam.name}
-</option>
+<select onChange={(e)=>setSelectedExam(e.target.value)} className="bg-slate-800 p-2 rounded">
+<option>Select Exam</option>
+{exams.map((e:any)=>(
+<option key={e.id} value={e.id}>{e.name}</option>
 ))}
-
 </select>
 
-<select
-className="bg-slate-800 p-2 rounded"
-onChange={(e)=>setSelectedClass(e.target.value)}
->
-
-<option value="">Select Class</option>
-
+<select onChange={(e)=>setSelectedClass(e.target.value)} className="bg-slate-800 p-2 rounded">
+<option>Select Class</option>
 <option>01</option>
 <option>02</option>
 <option>03</option>
-
 </select>
 
-<button
-onClick={loadResults}
-className="bg-blue-500 px-4 py-2 rounded"
->
-
+<button onClick={loadResults} className="bg-blue-500 px-4 py-2 rounded">
 Load Results
-
 </button>
 
 </div>
+
+{status?.status==="created" && (
+
+<div className="mb-6 bg-yellow-700 p-3 rounded">
+Result created. Please verify before publishing.
+<button onClick={verifyResult} className="ml-4 bg-blue-500 px-3 py-1 rounded">
+Verify
+</button>
+</div>
+
+)}
+
+{status?.verified && !status?.published && (
+
+<div className="mb-6 bg-blue-700 p-3 rounded">
+Result verified. Ready to publish.
+<button onClick={publishResult} className="ml-4 bg-green-500 px-3 py-1 rounded">
+Publish
+</button>
+</div>
+
+)}
+
+{!status && (
+
+<button onClick={createResult} className="bg-purple-600 px-4 py-2 rounded mb-6">
+Create Result
+</button>
+
+)}
 
 <div className="overflow-x-auto">
 
@@ -209,26 +261,17 @@ Load Results
 
 <tr>
 
-<th className="p-2">Rank</th>
-<th className="p-2">Student</th>
-<th className="p-2">Class</th>
+<th>Rank</th>
+<th>Student</th>
+<th>Class</th>
 
-{subjects.map((s:any)=>{
+{subjects.map((s:any)=>(
+<th key={s.subject_id}>{s.subjects.name}</th>
+))}
 
-const subjectName = s?.subjects?.name || "Subject"
-
-return(
-
-<th key={s.subject_id} className="p-2">
-{subjectName}
-</th>
-
-)
-
-})}
-
-<th className="p-2">Total</th>
-<th className="p-2">%</th>
+<th>Total</th>
+<th>%</th>
+<th>Grade</th>
 
 </tr>
 
@@ -236,37 +279,27 @@ return(
 
 <tbody>
 
-{results.map((r:any,index:number)=>{
+{results.map((r:any,i:number)=>{
 
-const rowColor=getRowColor(r.rank,r.percentage)
-
-return(
-
-<tr key={index} className={`${rowColor} border-t`}>
-
-<td className="p-2">{r.rank}</td>
-<td className="p-2">{r.student}</td>
-<td className="p-2">{r.class}</td>
-
-{subjects.map((s:any)=>{
-
-const subjectName=s?.subjects?.name || "Subject"
+const rowColor=getColor(r.rank,r.percentage)
 
 return(
 
-<td key={s.subject_id} className="p-2 text-center">
-{r.marks[subjectName]}
+<tr key={i} className={rowColor}>
+
+<td>{r.rank}</td>
+<td>{r.student}</td>
+<td>{r.class}</td>
+
+{subjects.map((s:any)=>(
+<td key={s.subject_id}>
+{r.marks[s.subjects.name]}
 </td>
+))}
 
-)
-
-})}
-
-<td className="p-2">{r.total}</td>
-
-<td className="p-2">
-{r.percentage.toFixed(2)}%
-</td>
+<td>{r.total}</td>
+<td>{r.percentage.toFixed(2)}%</td>
+<td>{r.grade}</td>
 
 </tr>
 
