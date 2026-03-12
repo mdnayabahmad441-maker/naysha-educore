@@ -1,15 +1,30 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
-import { generateSession } from "@/lib/session"
+import { useSearchParams } from "next/navigation"
 
 export default function LoginPage(){
 
-const [email,setEmail]=useState("")
-const [otp,setOtp]=useState("")
-const [step,setStep]=useState("email")
-const [loading,setLoading]=useState(false)
+const searchParams = useSearchParams()
+
+const [email,setEmail] = useState("")
+const [otp,setOtp] = useState("")
+const [step,setStep] = useState("email")
+const [loading,setLoading] = useState(false)
+
+useEffect(()=>{
+
+const emailFromUrl = searchParams.get("email")
+
+if(emailFromUrl){
+setEmail(emailFromUrl)
+setStep("otp")
+}
+
+},[])
+
+
 
 async function sendOtp(){
 
@@ -20,20 +35,67 @@ return
 
 setLoading(true)
 
-const {error}=await supabase.auth.signInWithOtp({
-email
-})
+/* FIND USER SCHOOL */
 
+const {data:user,error:userError} = await supabase
+.from("users")
+.select("school_id")
+.eq("email",email)
+.single()
+
+if(userError || !user){
+alert("User not found")
 setLoading(false)
-
-if(error){
-alert(error.message)
 return
 }
 
+/* FIND SCHOOL DOMAIN */
+
+const {data:school,error:schoolError} = await supabase
+.from("schools")
+.select("subdomain")
+.eq("id",user.school_id)
+.single()
+
+if(schoolError || !school){
+alert("School not found")
+setLoading(false)
+return
+}
+
+/* SEND OTP */
+
+const {error:otpError} = await supabase.auth.signInWithOtp({
+email
+})
+
+if(otpError){
+alert(otpError.message)
+setLoading(false)
+return
+}
+
+/* IF ALREADY ON SCHOOL DOMAIN → JUST SHOW OTP */
+
+const currentHost = window.location.hostname
+const schoolDomain = `${school.subdomain}.erp.naysha.online`
+
+if(currentHost === schoolDomain){
+
 setStep("otp")
+setLoading(false)
+return
 
 }
+
+/* OTHERWISE REDIRECT TO SCHOOL DOMAIN */
+
+window.location.href =
+`https://${school.subdomain}.erp.naysha.online/auth/login?email=${email}`
+
+}
+
+
 
 async function verifyOtp(){
 
@@ -44,7 +106,7 @@ return
 
 setLoading(true)
 
-const {data,error}=await supabase.auth.verifyOtp({
+const {data,error} = await supabase.auth.verifyOtp({
 email,
 token:otp,
 type:"email"
@@ -56,75 +118,46 @@ setLoading(false)
 return
 }
 
-const userId=data.user?.id
+const userId = data.user?.id
 
 if(!userId){
 alert("Login failed")
+setLoading(false)
 return
 }
 
-const {data:user}=await supabase
+/* GET USER ROLE */
+
+const {data:user} = await supabase
 .from("users")
 .select("role,school_id")
 .eq("id",userId)
 .single()
 
 if(!user){
-alert("User not linked to school")
+alert("User record missing")
 return
 }
 
-const role=user.role
-const schoolId=user.school_id
+const role = user.role
 
-const {data:school}=await supabase
-.from("schools")
-.select("subdomain")
-.eq("id",schoolId)
-.single()
+/* REDIRECT BASED ON ROLE */
 
-if(!school){
-alert("School not found")
-return
+if(role === "admin"){
+window.location.href = "/admin/dashboard"
 }
 
-const subdomain=school.subdomain
-
-const session=generateSession()
-
-// STORE SESSION
-
-await supabase
-.from("login_sessions")
-.insert({
-user_id:userId,
-school_id:schoolId,
-device:navigator.userAgent,
-login_time:new Date()
-})
-
-// COOKIES FOR MIDDLEWARE
-
-document.cookie=`role=${role}; path=/; domain=.erp.naysha.online`
-document.cookie=`uid=${userId}; path=/; domain=.erp.naysha.online`
-document.cookie=`school=${schoolId}; path=/; domain=.erp.naysha.online`
-document.cookie=`session=${session}; path=/; domain=.erp.naysha.online`
-
-// REDIRECT
-
-if(role==="admin"){
-window.location.href=`https://${subdomain}.erp.naysha.online/admin/dashboard`
+if(role === "teacher"){
+window.location.href = "/teacher/dashboard"
 }
 
-if(role==="teacher"){
-window.location.href=`https://${subdomain}.erp.naysha.online/teacher/dashboard`
-}
-
-if(role==="parent"){
-window.location.href=`https://${subdomain}.erp.naysha.online/parent/dashboard`
+if(role === "parent"){
+window.location.href = "/parent/dashboard"
 }
 
 }
+
+
 
 return(
 
@@ -136,7 +169,7 @@ return(
 ERP Login
 </h1>
 
-{step==="email" && (
+{step === "email" && (
 
 <>
 
@@ -158,7 +191,9 @@ className="w-full py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
 
 )}
 
-{step==="otp" && (
+
+
+{step === "otp" && (
 
 <>
 
