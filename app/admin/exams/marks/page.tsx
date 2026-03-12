@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
 export default function MarksPage(){
 
 const [exams,setExams]=useState<any[]>([])
-const [subjects,setSubjects]=useState<any[]>([])
 const [students,setStudents]=useState<any[]>([])
+const [subjects,setSubjects]=useState<any[]>([])
 const [marks,setMarks]=useState<any>({})
 
 const [selectedExam,setSelectedExam]=useState("")
@@ -28,6 +28,21 @@ setExams(data||[])
 
 }
 
+async function checkPublish(){
+
+const {data}=await supabase
+.from("exam_results_status")
+.select("*")
+.eq("exam_id",selectedExam)
+.eq("class",selectedClass)
+.single()
+
+if(data?.published){
+setPublished(true)
+}
+
+}
+
 async function loadStudents(){
 
 if(!selectedExam || !selectedClass){
@@ -35,40 +50,80 @@ alert("Select exam and class")
 return
 }
 
-const {data:studentsData}=await supabase
+await checkPublish()
+
+const {data:studentData}=await supabase
 .from("students")
 .select("*")
 .eq("class",selectedClass)
 
-setStudents(studentsData||[])
+setStudents(studentData||[])
 
 const {data:subjectData}=await supabase
 .from("exam_subjects")
-.select("*")
+.select(`
+subject_id,
+subjects(name)
+`)
 .eq("exam_id",selectedExam)
 
 setSubjects(subjectData||[])
 
-const {data:status}=await supabase
-.from("exam_results_status")
+loadExistingMarks(studentData,subjectData)
+
+}
+
+async function loadExistingMarks(studentData:any,subjectData:any){
+
+let newMarks:any={}
+
+for(const student of studentData){
+
+for(const subject of subjectData){
+
+const {data}=await supabase
+.from("marks")
 .select("*")
 .eq("exam_id",selectedExam)
-.eq("class",selectedClass)
+.eq("student_id",student.id)
+.eq("subject_id",subject.subject_id)
 .single()
 
-if(status?.published){
-setPublished(true)
-}else{
-setPublished(false)
-}
+const key=`${student.id}_${subject.subject_id}`
+
+newMarks[key]=data?.marks || ""
 
 }
 
-function handleMark(studentId:any,subjectId:any,value:any){
+}
+
+setMarks(newMarks)
+
+}
+
+function normalizeMark(value:string){
+
+if(!value || value===""){
+return "ABSENT"
+}
+
+if(value.toUpperCase()==="A"){
+return "ABSENT"
+}
+
+return value
+
+}
+
+function handleMark(studentId:number,subjectId:number,value:string){
+
+const key=`${studentId}_${subjectId}`
 
 setMarks((prev:any)=>({
+
 ...prev,
-[`${studentId}_${subjectId}`]:value
+[key]:value
+
 }))
 
 }
@@ -76,22 +131,26 @@ setMarks((prev:any)=>({
 async function saveMarks(){
 
 if(published){
-alert("Result already published. Marks locked.")
+alert("Results already published. Editing locked.")
 return
 }
 
 for(const key in marks){
 
-const [student,subject]=key.split("_")
+const [studentId,subjectId]=key.split("_")
+
+const mark=normalizeMark(marks[key])
 
 await supabase
 .from("marks")
 .upsert({
+
 exam_id:selectedExam,
 class:selectedClass,
-student_id:student,
-subject_id:subject,
-marks:marks[key]
+student_id:Number(studentId),
+subject_id:Number(subjectId),
+marks:mark
+
 })
 
 }
@@ -105,70 +164,82 @@ async function verifyMarks(){
 await supabase
 .from("exam_results_status")
 .upsert({
+
 exam_id:selectedExam,
 class:selectedClass,
-verified:true
+verified:true,
+published:false
+
 })
 
 alert("Marks verified")
 
 }
 
-async function createResult(){
+async function createResults(){
 
-const confirmCreate=confirm("Create results now?")
+if(!confirm("Create results now?")) return
 
-if(!confirmCreate)return
-
-await supabase
-.from("exam_results_status")
-.upsert({
-exam_id:selectedExam,
-class:selectedClass,
-results_created:true
-})
-
-alert("Results created")
+alert("Results created. Go to results page.")
 
 }
 
-async function publishResult(){
+async function publishResults(){
 
-const confirmPublish=confirm("Publish results? This will lock marks.")
-
-if(!confirmPublish)return
+if(!confirm("Publish results? This locks marks.")) return
 
 await supabase
 .from("exam_results_status")
 .update({
-published:true,
-published_at:new Date()
+published:true
 })
 .eq("exam_id",selectedExam)
 .eq("class",selectedClass)
 
 setPublished(true)
 
-alert("Results published successfully")
+alert("Results published")
+
+}
+
+function handleKey(e:any){
+
+if(e.key==="Enter"){
+
+const form=(e.currentTarget as HTMLInputElement).form
+
+if(!form) return
+
+const elements=Array.from(form.elements)
+
+const index=elements.indexOf(e.target as Element)
+
+const next=elements[index+1] as HTMLElement
+
+if(next) next.focus()
+
+}
 
 }
 
 return(
 
-<div className="p-8 text-white">
+<div className="p-10 text-white">
 
-<h1 className="text-3xl font-bold mb-6">
+<h1 className="text-4xl font-bold mb-10">
+
 Result Creation
+
 </h1>
 
-<div className="flex flex-wrap gap-4 mb-6">
+<div className="flex gap-4 mb-6 flex-wrap">
 
 <select
-className="bg-gray-800 p-2"
+className="bg-gray-800 p-2 rounded"
 onChange={(e)=>setSelectedExam(e.target.value)}
 >
 
-<option value="">Select Exam</option>
+<option>Select Exam</option>
 
 {exams.map((exam)=>(
 <option key={exam.id} value={exam.id}>
@@ -179,11 +250,11 @@ onChange={(e)=>setSelectedExam(e.target.value)}
 </select>
 
 <select
-className="bg-gray-800 p-2"
+className="bg-gray-800 p-2 rounded"
 onChange={(e)=>setSelectedClass(e.target.value)}
 >
 
-<option value="">Select Class</option>
+<option>Select Class</option>
 <option value="01">01</option>
 <option value="02">02</option>
 <option value="03">03</option>
@@ -194,12 +265,14 @@ onChange={(e)=>setSelectedClass(e.target.value)}
 className="bg-blue-600 px-4 py-2 rounded"
 onClick={loadStudents}
 >
+
 Load Students
+
 </button>
 
 </div>
 
-<div className="overflow-auto">
+<div className="overflow-x-auto">
 
 <table className="min-w-full text-sm">
 
@@ -207,13 +280,11 @@ Load Students
 
 <tr className="bg-gray-700">
 
-<th className="p-2 text-left">
-Student
-</th>
+<th className="p-2">Student</th>
 
-{subjects.map((subject)=>(
-<th key={subject.id} className="p-2">
-{subject.subject_name}
+{subjects.map((s)=>(
+<th key={s.subject_id} className="p-2">
+{s.subjects.name}
 </th>
 ))}
 
@@ -224,44 +295,31 @@ Student
 <tbody>
 
 {students.map((student)=>(
-<tr key={student.id} className="border-b">
+<tr key={student.id}>
 
-<td className="p-2">
-{student.name}
-</td>
+<td className="p-2">{student.name}</td>
 
-{subjects.map((subject)=>(
-<td key={subject.id} className="p-2">
+{subjects.map((sub)=>{
+
+const key=`${student.id}_${sub.subject_id}`
+
+return(
+
+<td key={sub.subject_id} className="p-2">
 
 <input
-type="text"
-placeholder="0 / A"
+className="bg-gray-800 p-1 w-20 rounded"
+value={marks[key]||""}
 disabled={published}
-className="bg-gray-800 p-1 w-16 text-center"
-onChange={(e)=>
-handleMark(
-student.id,
-subject.id,
-e.target.value
-)
-}
-
-onKeyDown={(e)=>{
-
-if(e.key==="Enter"){
-
-const form=e.currentTarget.form
-const index=Array.prototype.indexOf.call(form,e.target)
-form.elements[index+1]?.focus()
-
-}
-
-}}
-
- />
+onChange={(e)=>handleMark(student.id,sub.subject_id,e.target.value)}
+onKeyDown={handleKey}
+/>
 
 </td>
-))}
+
+)
+
+})}
 
 </tr>
 ))}
@@ -272,34 +330,42 @@ form.elements[index+1]?.focus()
 
 </div>
 
-<div className="flex gap-4 mt-6 flex-wrap">
+<div className="flex gap-4 mt-8 flex-wrap">
 
 <button
 className="bg-green-600 px-4 py-2 rounded"
 onClick={saveMarks}
 >
+
 Save Marks
+
 </button>
 
 <button
 className="bg-yellow-500 px-4 py-2 rounded"
 onClick={verifyMarks}
 >
-Verify
-</button>
 
-<button
-className="bg-indigo-600 px-4 py-2 rounded"
-onClick={createResult}
->
-Create Result
+Verify
+
 </button>
 
 <button
 className="bg-purple-600 px-4 py-2 rounded"
-onClick={publishResult}
+onClick={createResults}
 >
-Publish Result
+
+Create Results
+
+</button>
+
+<button
+className="bg-red-600 px-4 py-2 rounded"
+onClick={publishResults}
+>
+
+Publish Results
+
 </button>
 
 </div>
