@@ -10,9 +10,11 @@ const [classes,setClasses] = useState<string[]>([])
 const [subjects,setSubjects] = useState<any[]>([])
 const [selectedClass,setSelectedClass] = useState("")
 const [selectedSubjects,setSelectedSubjects] = useState<any>({})
+const [exams,setExams] = useState<any[]>([])
 
 useEffect(()=>{
 loadClasses()
+loadExams()
 },[])
 
 async function loadClasses(){
@@ -22,6 +24,7 @@ const {data} = await supabase
 .select("class")
 
 const unique = [...new Set((data||[]).map((s:any)=>s.class))]
+
 setClasses(unique)
 
 }
@@ -39,11 +42,28 @@ setSubjects(data || [])
 
 }
 
+async function loadExams(){
+
+const {data} = await supabase
+.from("exams")
+.select("*")
+.order("created_at",{ascending:false})
+
+setExams(data || [])
+
+}
+
 function toggleSubject(id:any){
+
+if(selectedSubjects[id]){
+const copy={...selectedSubjects}
+delete copy[id]
+setSelectedSubjects(copy)
+}else{
 
 setSelectedSubjects({
 ...selectedSubjects,
-[id]: selectedSubjects[id] || {
+[id]:{
 full:100,
 pass:33
 }
@@ -51,13 +71,18 @@ pass:33
 
 }
 
-function updateMarks(id:any,type:any,value:any){
+}
+
+function updateFullMarks(id:any,value:any){
+
+const full = Number(value)
+const pass = Math.round(full * 0.33)
 
 setSelectedSubjects({
 ...selectedSubjects,
 [id]:{
-...selectedSubjects[id],
-[type]:Number(value)
+full,
+pass
 }
 })
 
@@ -99,10 +124,35 @@ pass_marks:config.pass
 
 }
 
-alert("Exam Created Successfully")
+alert("Exam Created")
 
 setExamName("")
 setSelectedSubjects({})
+loadExams()
+
+}
+
+async function deleteExam(id:any){
+
+if(!confirm("Delete this exam?")) return
+
+await supabase.from("exam_subjects")
+.delete()
+.eq("exam_id",id)
+
+await supabase.from("exams")
+.delete()
+.eq("id",id)
+
+loadExams()
+
+}
+
+function editExam(exam:any){
+
+setExamName(exam.name)
+setSelectedClass(exam.class)
+loadSubjects(exam.class)
 
 }
 
@@ -159,7 +209,7 @@ Subjects
 <th className="p-2">Select</th>
 <th className="p-2">Subject</th>
 <th className="p-2">Full Marks</th>
-<th className="p-2">Pass Marks</th>
+<th className="p-2">Pass Marks (Auto)</th>
 </tr>
 
 </thead>
@@ -178,8 +228,8 @@ return(
 
 <input
 type="checkbox"
-onChange={()=>toggleSubject(sub.id)}
 checked={!!active}
+onChange={()=>toggleSubject(sub.id)}
 />
 
 </td>
@@ -193,9 +243,9 @@ checked={!!active}
 <input
 type="number"
 className="bg-slate-800 p-1 rounded w-20"
-value={active?.full || 100}
 disabled={!active}
-onChange={(e)=>updateMarks(sub.id,"full",e.target.value)}
+value={active?.full || ""}
+onChange={(e)=>updateFullMarks(sub.id,e.target.value)}
 />
 
 </td>
@@ -205,9 +255,8 @@ onChange={(e)=>updateMarks(sub.id,"full",e.target.value)}
 <input
 type="number"
 className="bg-slate-800 p-1 rounded w-20"
-value={active?.pass || 33}
-disabled={!active}
-onChange={(e)=>updateMarks(sub.id,"pass",e.target.value)}
+disabled
+value={active?.pass || ""}
 />
 
 </td>
@@ -217,6 +266,61 @@ onChange={(e)=>updateMarks(sub.id,"pass",e.target.value)}
 )
 
 })}
+
+</tbody>
+
+</table>
+
+</div>
+
+<h2 className="text-xl mt-10 mb-4">
+Existing Exams
+</h2>
+
+<div className="overflow-x-auto">
+
+<table className="min-w-full text-sm">
+
+<thead className="bg-white/10">
+
+<tr>
+<th className="p-2">Exam</th>
+<th className="p-2">Class</th>
+<th className="p-2">Actions</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+{exams.map(e=>(
+
+<tr key={e.id} className="border-t border-white/10">
+
+<td className="p-2">{e.name}</td>
+<td className="p-2">{e.class}</td>
+
+<td className="p-2 flex gap-2">
+
+<button
+onClick={()=>editExam(e)}
+className="bg-yellow-500 px-3 py-1 rounded"
+>
+Edit
+</button>
+
+<button
+onClick={()=>deleteExam(e.id)}
+className="bg-red-600 px-3 py-1 rounded"
+>
+Delete
+</button>
+
+</td>
+
+</tr>
+
+))}
 
 </tbody>
 
