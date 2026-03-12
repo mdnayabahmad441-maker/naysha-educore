@@ -10,8 +10,8 @@ const [classes,setClasses] = useState<string[]>([])
 const [subjects,setSubjects] = useState<any[]>([])
 const [selectedClass,setSelectedClass] = useState("")
 const [selectedSubjects,setSelectedSubjects] = useState<any>({})
+const [schedule,setSchedule] = useState<any>({})
 const [exams,setExams] = useState<any[]>([])
-const [editingExamId,setEditingExamId] = useState<string | null>(null)
 
 useEffect(()=>{
 loadClasses()
@@ -25,6 +25,7 @@ const {data} = await supabase
 .select("class")
 
 const unique = [...new Set((data||[]).map((s:any)=>s.class))]
+
 setClasses(unique)
 
 }
@@ -56,9 +57,11 @@ setExams(data || [])
 function toggleSubject(id:any){
 
 if(selectedSubjects[id]){
+
 const copy={...selectedSubjects}
 delete copy[id]
 setSelectedSubjects(copy)
+
 }else{
 
 setSelectedSubjects({
@@ -84,6 +87,15 @@ setSelectedSubjects({
 full,
 pass
 }
+})
+
+}
+
+function updateSchedule(subjectId:any,date:any){
+
+setSchedule({
+...schedule,
+[subjectId]:date
 })
 
 }
@@ -122,90 +134,22 @@ pass_marks:config.pass
 
 })
 
+await supabase.from("exam_schedule").insert({
+
+exam_id:exam.id,
+subject_id:subjectId,
+exam_date:schedule[subjectId] || null
+
+})
+
 }
 
 alert("Exam Created")
 
-resetForm()
-loadExams()
-
-}
-
-async function updateExam(){
-
-if(!editingExamId) return
-
-await supabase
-.from("exams")
-.update({
-name:examName,
-class:selectedClass
-})
-.eq("id",editingExamId)
-
-await supabase
-.from("exam_subjects")
-.delete()
-.eq("exam_id",editingExamId)
-
-for(const subjectId in selectedSubjects){
-
-const config = selectedSubjects[subjectId]
-
-await supabase.from("exam_subjects").insert({
-
-exam_id:editingExamId,
-subject_id:subjectId,
-full_marks:config.full,
-pass_marks:config.pass
-
-})
-
-}
-
-alert("Exam Updated")
-
-resetForm()
-loadExams()
-
-}
-
-async function deleteExam(id:any){
-
-const confirmDelete = confirm("Are you sure you want to delete this exam?")
-
-if(!confirmDelete) return
-
-await supabase
-.from("exam_subjects")
-.delete()
-.eq("exam_id",id)
-
-await supabase
-.from("exams")
-.delete()
-.eq("id",id)
-
-loadExams()
-
-}
-
-function editExam(exam:any){
-
-setExamName(exam.name)
-setSelectedClass(exam.class)
-setEditingExamId(exam.id)
-
-loadSubjects(exam.class)
-
-}
-
-function resetForm(){
-
 setExamName("")
-setSelectedClass("")
 setSelectedSubjects({})
-setEditingExamId(null)
+setSchedule({})
+loadExams()
 
 }
 
@@ -228,28 +172,16 @@ onChange={(e)=>setExamName(e.target.value)}
 
 <select
 className="bg-slate-800 p-2 rounded w-full md:w-40"
-value={selectedClass}
 onChange={(e)=>loadSubjects(e.target.value)}
 >
 
-<option value="">Select Class</option>
+<option>Select Class</option>
 
 {classes.map(c=>(
 <option key={c}>{c}</option>
 ))}
 
 </select>
-
-{editingExamId ? (
-
-<button
-onClick={updateExam}
-className="bg-yellow-500 px-5 py-2 rounded"
->
-Save Changes
-</button>
-
-) : (
 
 <button
 onClick={createExam}
@@ -258,12 +190,10 @@ className="bg-green-600 px-5 py-2 rounded"
 Create Exam
 </button>
 
-)}
-
 </div>
 
 <h2 className="text-xl mb-4">
-Subjects
+Subjects & Schedule
 </h2>
 
 <div className="overflow-x-auto">
@@ -277,6 +207,7 @@ Subjects
 <th className="p-2">Subject</th>
 <th className="p-2">Full Marks</th>
 <th className="p-2">Pass Marks</th>
+<th className="p-2">Exam Date</th>
 </tr>
 
 </thead>
@@ -328,6 +259,17 @@ value={active?.pass || ""}
 
 </td>
 
+<td className="p-2">
+
+<input
+type="date"
+className="bg-slate-800 p-1 rounded"
+disabled={!active}
+onChange={(e)=>updateSchedule(sub.id,e.target.value)}
+/>
+
+</td>
+
 </tr>
 
 )
@@ -353,7 +295,6 @@ Existing Exams
 <tr>
 <th className="p-2">Exam</th>
 <th className="p-2">Class</th>
-<th className="p-2">Actions</th>
 </tr>
 
 </thead>
@@ -366,24 +307,6 @@ Existing Exams
 
 <td className="p-2">{e.name}</td>
 <td className="p-2">{e.class}</td>
-
-<td className="p-2 flex gap-2">
-
-<button
-onClick={()=>editExam(e)}
-className="bg-yellow-500 px-3 py-1 rounded"
->
-Edit
-</button>
-
-<button
-onClick={()=>deleteExam(e.id)}
-className="bg-red-600 px-3 py-1 rounded"
->
-Delete
-</button>
-
-</td>
 
 </tr>
 
