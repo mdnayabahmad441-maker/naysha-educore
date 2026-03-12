@@ -1,186 +1,134 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
 export default function CreateExam(){
 
-const [schoolId,setSchoolId] = useState("")
 const [examName,setExamName] = useState("")
-const [selectedClass,setSelectedClass] = useState("")
 const [classes,setClasses] = useState<string[]>([])
 const [subjects,setSubjects] = useState<any[]>([])
-const [selectedSubjects,setSelectedSubjects] = useState<string[]>([])
-const [createAll,setCreateAll] = useState(false)
+const [selectedClass,setSelectedClass] = useState("")
+const [selectedSubjects,setSelectedSubjects] = useState<any>({})
 
 useEffect(()=>{
-loadSchool()
+loadClasses()
 },[])
 
-async function loadSchool(){
+async function loadClasses(){
 
-const { data } = await supabase.auth.getSession()
-
-const userId = data.session?.user.id
-
-const { data:user } = await supabase
-.from("users")
-.select("school_id")
-.eq("id",userId)
-.single()
-
-if(user){
-
-setSchoolId(user.school_id)
-
-loadClasses(user.school_id)
-
-}
-
-}
-
-async function loadClasses(school:string){
-
-const { data } = await supabase
+const {data} = await supabase
 .from("students")
 .select("class")
-.eq("school_id",school)
 
-const unique = [...new Set(data?.map((s:any)=>s.class))]
-
-setClasses(unique as string[])
+const unique = [...new Set((data||[]).map((s:any)=>s.class))]
+setClasses(unique)
 
 }
 
-async function loadSubjects(className:string){
+async function loadSubjects(cls:any){
 
-const { data } = await supabase
+setSelectedClass(cls)
+
+const {data} = await supabase
 .from("subjects")
 .select("*")
-.eq("class",className)
+.eq("class",cls)
 
 setSubjects(data || [])
 
 }
 
-function toggleSubject(id:string){
+function toggleSubject(id:any){
 
-if(selectedSubjects.includes(id)){
-
-setSelectedSubjects(selectedSubjects.filter(s=>s!==id))
-
-}else{
-
-setSelectedSubjects([...selectedSubjects,id])
+setSelectedSubjects({
+...selectedSubjects,
+[id]: selectedSubjects[id] || {
+full:100,
+pass:33
+}
+})
 
 }
+
+function updateMarks(id:any,type:any,value:any){
+
+setSelectedSubjects({
+...selectedSubjects,
+[id]:{
+...selectedSubjects[id],
+[type]:Number(value)
+}
+})
 
 }
 
 async function createExam(){
 
-if(!examName){
-alert("Enter exam name")
+if(!examName || !selectedClass){
+alert("Enter exam name and class")
 return
 }
 
-if(createAll){
-
-for(const className of classes){
-
-const { data:exam } = await supabase
+const {data:exam} = await supabase
 .from("exams")
 .insert({
-name: examName,
-class: className,
-school_id: schoolId
+name:examName,
+class:selectedClass
 })
 .select()
 .single()
 
-const { data:sub } = await supabase
-.from("subjects")
-.select("*")
-.eq("class",className)
-
-for(const s of sub || []){
-
-await supabase.from("exam_subjects").insert({
-
-exam_id: exam.id,
-subject_id: s.id
-
-})
-
-}
-
-}
-
-alert("Exam created for ALL classes")
-
-}else{
-
-if(!selectedClass){
-alert("Select class")
+if(!exam){
+alert("Exam creation failed")
 return
 }
 
-const { data:exam } = await supabase
-.from("exams")
-.insert({
-name: examName,
-class: selectedClass,
-school_id: schoolId
-})
-.select()
-.single()
+for(const subjectId in selectedSubjects){
 
-for(const subjectId of selectedSubjects){
+const config = selectedSubjects[subjectId]
 
 await supabase.from("exam_subjects").insert({
 
-exam_id: exam.id,
-subject_id: subjectId
+exam_id:exam.id,
+subject_id:subjectId,
+full_marks:config.full,
+pass_marks:config.pass
 
 })
 
 }
 
-alert("Exam Created")
+alert("Exam Created Successfully")
 
-}
+setExamName("")
+setSelectedSubjects({})
 
 }
 
 return(
 
-<div className="p-10 text-white">
+<div className="p-4 md:p-10 text-white">
 
-<h1 className="text-3xl font-bold mb-6">
+<h1 className="text-2xl md:text-3xl mb-6">
 Create Exam
 </h1>
 
-<div className="flex gap-4 mb-4">
+<div className="flex flex-col md:flex-row gap-3 mb-6">
 
 <input
+placeholder="Exam Name"
+className="bg-slate-800 p-2 rounded w-full md:w-64"
 value={examName}
 onChange={(e)=>setExamName(e.target.value)}
-placeholder="Exam Name"
-className="bg-slate-800 p-2 rounded"
 />
 
 <select
-value={selectedClass}
-onChange={(e)=>{
-setSelectedClass(e.target.value)
-loadSubjects(e.target.value)
-}}
-className="bg-slate-800 p-2 rounded"
+className="bg-slate-800 p-2 rounded w-full md:w-40"
+onChange={(e)=>loadSubjects(e.target.value)}
 >
 
-<option value="">
-Select Class
-</option>
+<option>Select Class</option>
 
 {classes.map(c=>(
 <option key={c}>{c}</option>
@@ -190,44 +138,91 @@ Select Class
 
 <button
 onClick={createExam}
-className="bg-green-600 px-6 py-2 rounded"
+className="bg-green-600 px-5 py-2 rounded"
 >
 Create Exam
 </button>
 
 </div>
 
-<label className="flex gap-2 mb-6">
-
-<input
-type="checkbox"
-checked={createAll}
-onChange={()=>setCreateAll(!createAll)}
-/>
-
-Create Exam For All Classes
-
-</label>
-
-<h2 className="text-xl mb-3">
+<h2 className="text-xl mb-4">
 Subjects
 </h2>
 
-{subjects.map(s=>(
+<div className="overflow-x-auto">
 
-<label key={s.id} className="flex gap-2 mb-1">
+<table className="min-w-full text-sm">
+
+<thead className="bg-white/10">
+
+<tr>
+<th className="p-2">Select</th>
+<th className="p-2">Subject</th>
+<th className="p-2">Full Marks</th>
+<th className="p-2">Pass Marks</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+{subjects.map(sub=>{
+
+const active = selectedSubjects[sub.id]
+
+return(
+
+<tr key={sub.id} className="border-t border-white/10">
+
+<td className="p-2 text-center">
 
 <input
 type="checkbox"
-checked={selectedSubjects.includes(s.id)}
-onChange={()=>toggleSubject(s.id)}
+onChange={()=>toggleSubject(sub.id)}
+checked={!!active}
 />
 
-{s.name}
+</td>
 
-</label>
+<td className="p-2">
+{sub.name}
+</td>
 
-))}
+<td className="p-2">
+
+<input
+type="number"
+className="bg-slate-800 p-1 rounded w-20"
+value={active?.full || 100}
+disabled={!active}
+onChange={(e)=>updateMarks(sub.id,"full",e.target.value)}
+/>
+
+</td>
+
+<td className="p-2">
+
+<input
+type="number"
+className="bg-slate-800 p-1 rounded w-20"
+value={active?.pass || 33}
+disabled={!active}
+onChange={(e)=>updateMarks(sub.id,"pass",e.target.value)}
+/>
+
+</td>
+
+</tr>
+
+)
+
+})}
+
+</tbody>
+
+</table>
+
+</div>
 
 </div>
 
