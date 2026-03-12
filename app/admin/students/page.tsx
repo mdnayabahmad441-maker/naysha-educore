@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState,useEffect,useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 
@@ -131,14 +131,22 @@ fetchStudents(schoolId)
 
 async function deleteStudent(id:string){
 
-const confirmDelete = confirm("Delete student?")
+const confirmDelete = confirm("Delete this student?")
 
 if(!confirmDelete) return
 
-await supabase
+const { error } = await supabase
 .from("students")
 .delete()
 .eq("id",id)
+
+if(error){
+
+alert(error.message)
+
+return
+
+}
 
 fetchStudents(schoolId!)
 
@@ -167,7 +175,7 @@ async function updateStudent(){
 
 if(!editId) return
 
-await supabase
+const { error } = await supabase
 .from("students")
 .update({
 
@@ -178,6 +186,14 @@ parent_phone:phone
 
 })
 .eq("id",editId)
+
+if(error){
+
+alert(error.message)
+
+return
+
+}
 
 setEditId(null)
 
@@ -232,7 +248,7 @@ return ()=>window.removeEventListener("keydown",handleKeys)
 
 
 
-/* ---------------- GROUP CLASSES ---------------- */
+/* ---------------- GROUP BY CLASS ---------------- */
 
 const classes = [...new Set(students.map((s:any)=>s.class))]
 
@@ -242,9 +258,9 @@ const classes = [...new Set(students.map((s:any)=>s.class))]
 
 return(
 
-<div>
+<div className="p-4 md:p-8">
 
-<h1 className="text-3xl font-bold mb-8">
+<h1 className="text-2xl md:text-3xl font-bold mb-8">
 
 Students
 
@@ -252,11 +268,11 @@ Students
 
 
 
-{/* ADD / EDIT STUDENT FORM */}
+{/* ADD / EDIT FORM */}
 
-<div className="bg-white/10 p-6 rounded-xl w-[350px] mb-10">
+<div className="bg-white/10 p-6 rounded-xl w-full md:w-[380px] mb-10">
 
-<h2 className="text-xl font-bold mb-4">
+<h2 className="text-lg font-bold mb-4">
 
 {editId ? "Edit Student" : "Add Student"}
 
@@ -292,7 +308,7 @@ onChange={(e)=>setPhone(e.target.value)}
 
 <button
 onClick={editId ? updateStudent : addStudent}
-className="w-full py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
+className="w-full py-2 rounded bg-gradient-to-r from-cyan-500 to-purple-600"
 >
 
 {editId ? "Update Student" : "Add Student"}
@@ -311,11 +327,11 @@ const classStudents = students.filter((s:any)=>s.class === cls)
 
 return(
 
-<div key={cls} className="bg-white/10 p-6 rounded-xl mb-10">
+<div key={cls} className="bg-white/10 p-4 md:p-6 rounded-xl mb-8 overflow-x-auto">
 
 <div className="flex justify-between items-center mb-4">
 
-<h2 className="text-xl font-bold">
+<h2 className="text-lg md:text-xl font-bold">
 
 Class {cls}
 
@@ -323,7 +339,7 @@ Class {cls}
 
 <button
 onClick={()=>setClassName(cls)}
-className="px-4 py-1 bg-green-600 rounded"
+className="px-4 py-1 text-sm rounded bg-green-600 hover:bg-green-700"
 >
 
 Add Student
@@ -334,7 +350,7 @@ Add Student
 
 
 
-<table className="w-full">
+<table className="w-full text-sm md:text-base">
 
 <thead>
 
@@ -361,11 +377,8 @@ return(
 
 <tr
 key={s.id}
-ref={(el) => {
-  rowsRef.current[globalIndex] = el
-}}
-
-className={`border-b border-white/10 cursor-pointer ${
+ref={(el)=>{rowsRef.current[globalIndex]=el}}
+className={`border-b border-white/10 cursor-pointer hover:bg-white/10 ${
 selectedIndex === globalIndex ? "bg-purple-700/40" : ""
 }`}
 onClick={()=>router.push(`/admin/students/${s.id}`)}
@@ -377,14 +390,16 @@ onClick={()=>router.push(`/admin/students/${s.id}`)}
 
 <td>{s.parent_phone}</td>
 
-<td className="space-x-2">
+<td>
+
+<div className="flex gap-2">
 
 <button
 onClick={(e)=>{
 e.stopPropagation()
 startEdit(s)
 }}
-className="px-2 py-1 bg-yellow-500 rounded"
+className="px-3 py-1 text-sm bg-yellow-500 rounded hover:bg-yellow-600"
 >
 
 Edit
@@ -396,12 +411,14 @@ onClick={(e)=>{
 e.stopPropagation()
 deleteStudent(s.id)
 }}
-className="px-2 py-1 bg-red-600 rounded"
+className="px-3 py-1 text-sm bg-red-600 rounded hover:bg-red-700"
 >
 
 Delete
 
 </button>
+
+</div>
 
 </td>
 
@@ -420,8 +437,6 @@ Delete
 )
 
 })}
-
-
 
 </div>
 
