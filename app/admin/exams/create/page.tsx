@@ -11,6 +11,7 @@ const [subjects,setSubjects] = useState<any[]>([])
 const [selectedClass,setSelectedClass] = useState("")
 const [selectedSubjects,setSelectedSubjects] = useState<any>({})
 const [exams,setExams] = useState<any[]>([])
+const [editingExamId,setEditingExamId] = useState<string | null>(null)
 
 useEffect(()=>{
 loadClasses()
@@ -24,7 +25,6 @@ const {data} = await supabase
 .select("class")
 
 const unique = [...new Set((data||[]).map((s:any)=>s.class))]
-
 setClasses(unique)
 
 }
@@ -126,21 +126,63 @@ pass_marks:config.pass
 
 alert("Exam Created")
 
-setExamName("")
-setSelectedSubjects({})
+resetForm()
+loadExams()
+
+}
+
+async function updateExam(){
+
+if(!editingExamId) return
+
+await supabase
+.from("exams")
+.update({
+name:examName,
+class:selectedClass
+})
+.eq("id",editingExamId)
+
+await supabase
+.from("exam_subjects")
+.delete()
+.eq("exam_id",editingExamId)
+
+for(const subjectId in selectedSubjects){
+
+const config = selectedSubjects[subjectId]
+
+await supabase.from("exam_subjects").insert({
+
+exam_id:editingExamId,
+subject_id:subjectId,
+full_marks:config.full,
+pass_marks:config.pass
+
+})
+
+}
+
+alert("Exam Updated")
+
+resetForm()
 loadExams()
 
 }
 
 async function deleteExam(id:any){
 
-if(!confirm("Delete this exam?")) return
+const confirmDelete = confirm("Are you sure you want to delete this exam?")
 
-await supabase.from("exam_subjects")
+if(!confirmDelete) return
+
+await supabase
+.from("exam_subjects")
 .delete()
 .eq("exam_id",id)
 
-await supabase.from("exams")
+await supabase
+.from("exams")
 .delete()
 .eq("id",id)
 
@@ -152,7 +194,18 @@ function editExam(exam:any){
 
 setExamName(exam.name)
 setSelectedClass(exam.class)
+setEditingExamId(exam.id)
+
 loadSubjects(exam.class)
+
+}
+
+function resetForm(){
+
+setExamName("")
+setSelectedClass("")
+setSelectedSubjects({})
+setEditingExamId(null)
 
 }
 
@@ -160,7 +213,7 @@ return(
 
 <div className="p-4 md:p-10 text-white">
 
-<h1 className="text-2xl md:text-3xl mb-6">
+<h1 className="text-3xl mb-6">
 Create Exam
 </h1>
 
@@ -175,10 +228,11 @@ onChange={(e)=>setExamName(e.target.value)}
 
 <select
 className="bg-slate-800 p-2 rounded w-full md:w-40"
+value={selectedClass}
 onChange={(e)=>loadSubjects(e.target.value)}
 >
 
-<option>Select Class</option>
+<option value="">Select Class</option>
 
 {classes.map(c=>(
 <option key={c}>{c}</option>
@@ -186,12 +240,25 @@ onChange={(e)=>loadSubjects(e.target.value)}
 
 </select>
 
+{editingExamId ? (
+
+<button
+onClick={updateExam}
+className="bg-yellow-500 px-5 py-2 rounded"
+>
+Save Changes
+</button>
+
+) : (
+
 <button
 onClick={createExam}
 className="bg-green-600 px-5 py-2 rounded"
 >
 Create Exam
 </button>
+
+)}
 
 </div>
 
@@ -209,7 +276,7 @@ Subjects
 <th className="p-2">Select</th>
 <th className="p-2">Subject</th>
 <th className="p-2">Full Marks</th>
-<th className="p-2">Pass Marks (Auto)</th>
+<th className="p-2">Pass Marks</th>
 </tr>
 
 </thead>
