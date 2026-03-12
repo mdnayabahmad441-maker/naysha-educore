@@ -20,6 +20,10 @@ export default function ExamsDashboard(){
     {
       title: "Report Cards",
       href: "/admin/exams/reportcards"
+    },
+    {
+      title: "Subjects",
+      href: "/admin/subjects"
     }
   ]
 
@@ -31,30 +35,34 @@ export default function ExamsDashboard(){
         Exam Management
       </h1>
 
-
-      <div className="grid 
-        grid-cols-1 
-        sm:grid-cols-2 
-        lg:grid-cols-3 
-        xl:grid-cols-4 
+      <div
+        className="
+        grid
+        grid-cols-1
+        sm:grid-cols-2
+        lg:grid-cols-3
+        xl:grid-cols-4
         gap-8
-      ">
+        "
+      >
 
         {cards.map((card)=>(
-          
+
           <Link
             key={card.href}
             href={card.href}
-            className="bg-white/10 
-            hover:bg-white/20 
-            transition 
-            rounded-2xl 
-            p-10 
-            text-center 
-            text-lg 
-            font-semibold 
+            className="
+            bg-white/10
+            hover:bg-white/20
+            transition
+            rounded-2xl
+            p-10
+            text-center
+            text-lg
+            font-semibold
             shadow-lg
-            backdrop-blur-lg"
+            backdrop-blur-lg
+            "
           >
 
             {card.title}
