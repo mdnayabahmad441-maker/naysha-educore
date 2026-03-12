@@ -1,22 +1,21 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
 export default function MarksPage(){
 
 const [exams,setExams]=useState<any[]>([])
-const [students,setStudents]=useState<any[]>([])
 const [subjects,setSubjects]=useState<any[]>([])
+const [students,setStudents]=useState<any[]>([])
 const [marks,setMarks]=useState<any>({})
 
 const [selectedExam,setSelectedExam]=useState("")
 const [selectedClass,setSelectedClass]=useState("")
+const [published,setPublished]=useState(false)
 
 useEffect(()=>{
-
 loadExams()
-
 },[])
 
 async function loadExams(){
@@ -25,31 +24,15 @@ const {data}=await supabase
 .from("exams")
 .select("*")
 
-setExams(data || [])
+setExams(data||[])
 
 }
 
 async function loadStudents(){
 
 if(!selectedExam || !selectedClass){
-
 alert("Select exam and class")
 return
-
-}
-
-const {data:status}=await supabase
-.from("exam_results_status")
-.select("*")
-.eq("exam_id",selectedExam)
-.eq("class",selectedClass)
-.single()
-
-if(status?.published){
-
-alert("Result already published. Marks locked.")
-return
-
 }
 
 const {data:studentsData}=await supabase
@@ -57,44 +40,14 @@ const {data:studentsData}=await supabase
 .select("*")
 .eq("class",selectedClass)
 
-setStudents(studentsData || [])
+setStudents(studentsData||[])
 
 const {data:subjectData}=await supabase
 .from("exam_subjects")
-.select(`
-subject_id,
-subjects(name)
-`)
+.select("*")
 .eq("exam_id",selectedExam)
 
-setSubjects(subjectData || [])
-
-}
-
-function updateMarks(studentId:string,subjectId:string,value:string){
-
-setMarks((prev:any)=>({
-
-...prev,
-[studentId]:{
-
-...prev[studentId],
-[subjectId]:value
-
-}
-
-}))
-
-}
-
-async function saveMarks(){
-
-if(!selectedExam){
-
-alert("Select exam")
-return
-
-}
+setSubjects(subjectData||[])
 
 const {data:status}=await supabase
 .from("exam_results_status")
@@ -104,32 +57,42 @@ const {data:status}=await supabase
 .single()
 
 if(status?.published){
-
-alert("Result already published. Marks locked.")
-return
+setPublished(true)
+}else{
+setPublished(false)
+}
 
 }
 
-for(const student of students){
+function handleMark(studentId:any,subjectId:any,value:any){
 
-for(const subject of subjects){
+setMarks((prev:any)=>({
+...prev,
+[`${studentId}_${subjectId}`]:value
+}))
 
-let value=marks?.[student.id]?.[subject.subject_id]
+}
 
-if(!value) continue
+async function saveMarks(){
+
+if(published){
+alert("Result already published. Marks locked.")
+return
+}
+
+for(const key in marks){
+
+const [student,subject]=key.split("_")
 
 await supabase
 .from("marks")
 .upsert({
-
-student_id:student.id,
 exam_id:selectedExam,
-subject_id:subject.subject_id,
-marks:value
-
+class:selectedClass,
+student_id:student,
+subject_id:subject,
+marks:marks[key]
 })
-
-}
 
 }
 
@@ -137,23 +100,56 @@ alert("Marks saved successfully")
 
 }
 
-async function createResult(){
-
-const confirmCreate=confirm("Create result for this exam?")
-
-if(!confirmCreate) return
+async function verifyMarks(){
 
 await supabase
 .from("exam_results_status")
-.insert({
-
+.upsert({
 exam_id:selectedExam,
 class:selectedClass,
-status:"created"
-
+verified:true
 })
 
-alert("Result Created Successfully")
+alert("Marks verified")
+
+}
+
+async function createResult(){
+
+const confirmCreate=confirm("Create results now?")
+
+if(!confirmCreate)return
+
+await supabase
+.from("exam_results_status")
+.upsert({
+exam_id:selectedExam,
+class:selectedClass,
+results_created:true
+})
+
+alert("Results created")
+
+}
+
+async function publishResult(){
+
+const confirmPublish=confirm("Publish results? This will lock marks.")
+
+if(!confirmPublish)return
+
+await supabase
+.from("exam_results_status")
+.update({
+published:true,
+published_at:new Date()
+})
+.eq("exam_id",selectedExam)
+.eq("class",selectedClass)
+
+setPublished(true)
+
+alert("Results published successfully")
 
 }
 
@@ -161,20 +157,20 @@ return(
 
 <div className="p-8 text-white">
 
-<h1 className="text-3xl mb-6">
-Marks Entry
+<h1 className="text-3xl font-bold mb-6">
+Result Creation
 </h1>
 
-<div className="flex gap-3 mb-6 flex-wrap">
+<div className="flex flex-wrap gap-4 mb-6">
 
 <select
-className="bg-slate-800 p-2 rounded"
+className="bg-gray-800 p-2"
 onChange={(e)=>setSelectedExam(e.target.value)}
 >
 
-<option>Select Exam</option>
+<option value="">Select Exam</option>
 
-{exams.map((exam:any)=>(
+{exams.map((exam)=>(
 <option key={exam.id} value={exam.id}>
 {exam.name}
 </option>
@@ -183,41 +179,41 @@ onChange={(e)=>setSelectedExam(e.target.value)}
 </select>
 
 <select
-className="bg-slate-800 p-2 rounded"
+className="bg-gray-800 p-2"
 onChange={(e)=>setSelectedClass(e.target.value)}
 >
 
-<option>Select Class</option>
-<option>01</option>
-<option>02</option>
-<option>03</option>
+<option value="">Select Class</option>
+<option value="01">01</option>
+<option value="02">02</option>
+<option value="03">03</option>
 
 </select>
 
 <button
+className="bg-blue-600 px-4 py-2 rounded"
 onClick={loadStudents}
-className="bg-blue-500 px-4 py-2 rounded"
 >
-
 Load Students
-
 </button>
 
 </div>
 
-<div className="overflow-x-auto">
+<div className="overflow-auto">
 
 <table className="min-w-full text-sm">
 
-<thead className="bg-white/10">
+<thead>
 
-<tr>
+<tr className="bg-gray-700">
 
-<th className="p-2">Student</th>
+<th className="p-2 text-left">
+Student
+</th>
 
-{subjects.map((s:any)=>(
-<th key={s.subject_id} className="p-2">
-{s.subjects.name}
+{subjects.map((subject)=>(
+<th key={subject.id} className="p-2">
+{subject.subject_name}
 </th>
 ))}
 
@@ -227,36 +223,47 @@ Load Students
 
 <tbody>
 
-{students.map((student:any)=>(
-
-<tr key={student.id} className="border-t">
+{students.map((student)=>(
+<tr key={student.id} className="border-b">
 
 <td className="p-2">
 {student.name}
 </td>
 
-{subjects.map((subject:any)=>{
-
-const value=marks?.[student.id]?.[subject.subject_id] || ""
-
-return(
-
-<td key={subject.subject_id} className="p-2">
+{subjects.map((subject)=>(
+<td key={subject.id} className="p-2">
 
 <input
-value={value}
-onChange={(e)=>updateMarks(student.id,subject.subject_id,e.target.value)}
-className="bg-slate-800 w-20 p-1 rounded text-center"
-/>
+type="text"
+placeholder="0 / A"
+disabled={published}
+className="bg-gray-800 p-1 w-16 text-center"
+onChange={(e)=>
+handleMark(
+student.id,
+subject.id,
+e.target.value
+)
+}
+
+onKeyDown={(e)=>{
+
+if(e.key==="Enter"){
+
+const form=e.currentTarget.form
+const index=Array.prototype.indexOf.call(form,e.target)
+form.elements[index+1]?.focus()
+
+}
+
+}}
+
+ />
 
 </td>
-
-)
-
-})}
+))}
 
 </tr>
-
 ))}
 
 </tbody>
@@ -265,24 +272,34 @@ className="bg-slate-800 w-20 p-1 rounded text-center"
 
 </div>
 
-<div className="mt-6 flex gap-3">
+<div className="flex gap-4 mt-6 flex-wrap">
 
 <button
+className="bg-green-600 px-4 py-2 rounded"
 onClick={saveMarks}
-className="bg-green-500 px-4 py-2 rounded"
 >
-
 Save Marks
-
 </button>
 
 <button
-onClick={createResult}
-className="bg-purple-600 px-4 py-2 rounded"
+className="bg-yellow-500 px-4 py-2 rounded"
+onClick={verifyMarks}
 >
+Verify
+</button>
 
+<button
+className="bg-indigo-600 px-4 py-2 rounded"
+onClick={createResult}
+>
 Create Result
+</button>
 
+<button
+className="bg-purple-600 px-4 py-2 rounded"
+onClick={publishResult}
+>
+Publish Result
 </button>
 
 </div>
