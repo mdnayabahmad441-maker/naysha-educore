@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { generateSession } from "@/lib/session"
 
 export default function LoginPage(){
 
@@ -89,9 +90,27 @@ return
 
 const subdomain=school.subdomain
 
-document.cookie=`role=${role}; path=/; domain=.erp.naysha.online; secure; samesite=lax`
-document.cookie=`uid=${userId}; path=/; domain=.erp.naysha.online; secure; samesite=lax`
-document.cookie=`school=${schoolId}; path=/; domain=.erp.naysha.online; secure; samesite=lax`
+const session=generateSession()
+
+// STORE SESSION
+
+await supabase
+.from("login_sessions")
+.insert({
+user_id:userId,
+school_id:schoolId,
+device:navigator.userAgent,
+login_time:new Date()
+})
+
+// COOKIES FOR MIDDLEWARE
+
+document.cookie=`role=${role}; path=/; domain=.erp.naysha.online`
+document.cookie=`uid=${userId}; path=/; domain=.erp.naysha.online`
+document.cookie=`school=${schoolId}; path=/; domain=.erp.naysha.online`
+document.cookie=`session=${session}; path=/; domain=.erp.naysha.online`
+
+// REDIRECT
 
 if(role==="admin"){
 window.location.href=`https://${subdomain}.erp.naysha.online/admin/dashboard`
