@@ -135,7 +135,7 @@ fetchStudents(schoolId)
 
 
 
-/* ---------------- DELETE STUDENT ---------------- */
+/* ---------------- DELETE STUDENT (FIXED) ---------------- */
 
 async function deleteStudent(id:string){
 
@@ -143,25 +143,34 @@ const confirmDelete = confirm("Delete this student?")
 
 if(!confirmDelete) return
 
-const { error } = await supabase
+const { data, error } = await supabase
 .from("students")
 .delete()
 .eq("id",id)
 .eq("school_id",schoolId)
+.select()
 
 if(error){
 
 alert(error.message)
-
 console.log(error)
 
 return
 
 }
 
-/* instant UI update */
+/* if nothing deleted */
 
-setStudents(prev=>prev.filter(s=>s.id!==id))
+if(!data || data.length===0){
+
+alert("Delete blocked by security policy or student not found.")
+return
+
+}
+
+/* reload students from database */
+
+await fetchStudents(schoolId!)
 
 }
 
