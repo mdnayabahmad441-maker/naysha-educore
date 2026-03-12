@@ -3,21 +3,23 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function ResultsPage() {
+export default function ResultsPage(){
 
-const [exams,setExams] = useState<any[]>([])
-const [subjects,setSubjects] = useState<any[]>([])
-const [results,setResults] = useState<any[]>([])
-const [selectedExam,setSelectedExam] = useState("")
-const [selectedClass,setSelectedClass] = useState("")
+const [exams,setExams]=useState<any[]>([])
+const [subjects,setSubjects]=useState<any[]>([])
+const [results,setResults]=useState<any[]>([])
+const [selectedExam,setSelectedExam]=useState("")
+const [selectedClass,setSelectedClass]=useState("")
 
 useEffect(()=>{
+
 loadExams()
+
 },[])
 
 async function loadExams(){
 
-const {data} = await supabase
+const {data}=await supabase
 .from("exams")
 .select("*")
 
@@ -34,44 +36,54 @@ return
 
 }
 
-const {data:students} = await supabase
+const {data:students}=await supabase
 .from("students")
 .select("*")
 .eq("class",selectedClass)
 
-const {data:subjectData} = await supabase
-.from("subjects")
-.select("*")
-.eq("class",selectedClass)
+const {data:examSubjects}=await supabase
+.from("exam_subjects")
+.select(`
+subject_id,
+full_marks,
+subjects(name)
+`)
+.eq("exam_id",selectedExam)
 
-setSubjects(subjectData || [])
+setSubjects(examSubjects || [])
 
-let resultRows:any[] = []
+let resultRows:any[]=[]
 
 for(const student of students || []){
 
-const {data:marksData} = await supabase
+const {data:marksData}=await supabase
 .from("marks")
 .select("*")
 .eq("student_id",student.id)
 .eq("exam_id",selectedExam)
 
-let total = 0
-let subjectMarks:any = {}
+let total=0
+let totalFullMarks=0
+let subjectMarks:any={}
 
-for(const sub of subjectData || []){
+for(const subject of examSubjects || []){
+
+totalFullMarks += subject.full_marks
+
+const subjectName =
+(subject as any)?.subjects?.name || "Subject"
 
 const markRow = marksData?.find(
-(m:any)=>m.subject_id === sub.id
+(m:any)=>String(m.subject_id) === String(subject.subject_id)
 )
 
 let mark = markRow?.marks
 
 if(mark === null || mark === undefined || mark === ""){
-mark = "ABSENT"
+mark="ABSENT"
 }
 
-subjectMarks[sub.name] = mark
+subjectMarks[subjectName] = mark
 
 if(mark !== "ABSENT"){
 total += Number(mark)
@@ -79,28 +91,42 @@ total += Number(mark)
 
 }
 
+const percentage = totalFullMarks
+? (total/totalFullMarks)*100
+:0
+
 resultRows.push({
 
 student:student.name,
 class:student.class,
 marks:subjectMarks,
-total
+total,
+percentage
 
 })
 
 }
 
-resultRows.sort((a:any,b:any)=>b.total-a.total)
+resultRows.sort((a:any,b:any)=>b.percentage-a.percentage)
 
-resultRows = resultRows.map((r:any,i:number)=>({
+let rank=1
+
+resultRows=resultRows.map((r:any,i:number)=>{
+
+if(i>0 && r.percentage < resultRows[i-1].percentage){
+
+rank=i+1
+
+}
+
+return{
 
 ...r,
-rank:i+1,
-percentage: subjects.length
-? (r.total/(subjects.length*100))*100
-: 0
+rank
 
-}))
+}
+
+})
 
 setResults(resultRows)
 
@@ -110,17 +136,17 @@ function getRowColor(rank:number,percentage:number){
 
 if(percentage < 33) return "bg-red-500"
 
-if(rank === 1) return "bg-yellow-400 text-black"
+if(rank===1) return "bg-yellow-400 text-black"
 
-if(rank === 2) return "bg-gray-300 text-black"
+if(rank===2) return "bg-gray-300 text-black"
 
-if(rank === 3) return "bg-orange-300 text-black"
+if(rank===3) return "bg-orange-300 text-black"
 
-if(percentage >= 81) return "bg-green-600"
+if(percentage>=81) return "bg-green-600"
 
-if(percentage >= 61) return "bg-green-400 text-black"
+if(percentage>=61) return "bg-green-400 text-black"
 
-if(percentage >= 33) return "bg-yellow-300 text-black"
+if(percentage>=33) return "bg-yellow-300 text-black"
 
 return ""
 
@@ -134,7 +160,7 @@ return(
 Exam Results
 </h1>
 
-<div className="flex flex-wrap gap-3 mb-6">
+<div className="flex gap-3 flex-wrap mb-6">
 
 <select
 className="bg-slate-800 p-2 rounded"
@@ -143,7 +169,7 @@ onChange={(e)=>setSelectedExam(e.target.value)}
 
 <option value="">Select Exam</option>
 
-{exams.map((exam)=>(
+{exams.map((exam:any)=>(
 <option key={exam.id} value={exam.id}>
 {exam.name}
 </option>
@@ -187,11 +213,19 @@ Load Results
 <th className="p-2">Student</th>
 <th className="p-2">Class</th>
 
-{subjects.map((s:any)=>(
-<th key={s.id} className="p-2">
-{s.name}
+{subjects.map((s:any)=>{
+
+const subjectName = s?.subjects?.name || "Subject"
+
+return(
+
+<th key={s.subject_id} className="p-2">
+{subjectName}
 </th>
-))}
+
+)
+
+})}
 
 <th className="p-2">Total</th>
 <th className="p-2">%</th>
@@ -204,7 +238,7 @@ Load Results
 
 {results.map((r:any,index:number)=>{
 
-const rowColor = getRowColor(r.rank,r.percentage)
+const rowColor=getRowColor(r.rank,r.percentage)
 
 return(
 
@@ -214,14 +248,25 @@ return(
 <td className="p-2">{r.student}</td>
 <td className="p-2">{r.class}</td>
 
-{subjects.map((s:any)=>(
-<td key={s.id} className="p-2 text-center">
-{r.marks[s.name]}
+{subjects.map((s:any)=>{
+
+const subjectName=s?.subjects?.name || "Subject"
+
+return(
+
+<td key={s.subject_id} className="p-2 text-center">
+{r.marks[subjectName]}
 </td>
-))}
+
+)
+
+})}
 
 <td className="p-2">{r.total}</td>
-<td className="p-2">{r.percentage.toFixed(2)}%</td>
+
+<td className="p-2">
+{r.percentage.toFixed(2)}%
+</td>
 
 </tr>
 
