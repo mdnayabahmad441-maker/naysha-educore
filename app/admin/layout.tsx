@@ -1,70 +1,106 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 
 export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return (
-    <div className="min-h-screen flex bg-slate-950 text-white">
+children
+}:{
+children:React.ReactNode
+}){
 
-      {/* SIDEBAR */}
+const [open,setOpen] = useState(false)
 
-      <aside className="w-64 bg-gradient-to-b from-blue-900 via-indigo-900 to-purple-900 p-6">
+return(
 
-        <h1 className="text-2xl font-bold mb-10 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-          NaySha EduCore
-        </h1>
+<div className="flex min-h-screen bg-slate-950 text-white">
 
-        <nav className="space-y-4">
+{/* MOBILE MENU BUTTON */}
 
-          <Link href="/admin/dashboard" className="block hover:text-cyan-400">
-            Dashboard
-          </Link>
+<button
+onClick={()=>setOpen(true)}
+className="md:hidden fixed top-4 left-4 z-50 bg-purple-600 px-3 py-2 rounded"
+>
+☰
+</button>
 
-          <Link href="/admin/students" className="block hover:text-cyan-400">
-            Students
-          </Link>
 
-          <Link href="/admin/teachers" className="block hover:text-cyan-400">
-            Teachers
-          </Link>
+{/* SIDEBAR */}
 
-          <Link href="/admin/attendance" className="block hover:text-cyan-400">
-            Attendance
-          </Link>
+<div className={`
+fixed md:relative
+top-0 left-0
+h-screen
+w-64
+bg-gradient-to-b from-purple-800 to-indigo-900
+p-6
+transform
+${open ? "translate-x-0" : "-translate-x-full"}
+md:translate-x-0
+transition-transform
+z-40
+`}>
 
-          <Link href="/admin/exams" className="block hover:text-cyan-400">
-            Exams
-          </Link>
+<div className="flex justify-between items-center mb-10">
 
-          <Link href="/admin/fees" className="block hover:text-cyan-400">
-            Fees
-          </Link>
+<h1 className="text-xl font-bold">
+NaySha EduCore
+</h1>
 
-          <Link href="/admin/reports" className="block hover:text-cyan-400">
-            Reports
-          </Link>
+<button
+onClick={()=>setOpen(false)}
+className="md:hidden"
+>
+✕
+</button>
 
-          <Link href="/admin/settings" className="block hover:text-cyan-400">
-            Settings
-          </Link>
-          
-          <Link href="/admin/subjects">Subjects</Link>
-          
+</div>
 
-        </nav>
+<nav className="flex flex-col gap-4 text-sm">
 
-      </aside>
+<Link href="/admin/dashboard">Dashboard</Link>
 
-      {/* MAIN */}
+<Link href="/admin/students">Students</Link>
 
-      <main className="flex-1 p-10">
-        {children}
-      </main>
+<Link href="/admin/teachers">Teachers</Link>
 
-    </div>
-  )
+<Link href="/admin/attendance">Attendance</Link>
+
+<Link href="/admin/exams">Exams</Link>
+
+<Link href="/admin/fees">Fees</Link>
+
+<Link href="/admin/reports">Reports</Link>
+
+<Link href="/admin/settings">Settings</Link>
+
+<Link href="/admin/subjects">Subjects</Link>
+
+</nav>
+
+</div>
+
+
+{/* BACKDROP FOR MOBILE */}
+
+{open && (
+<div
+onClick={()=>setOpen(false)}
+className="fixed inset-0 bg-black/50 md:hidden"
+/>
+)}
+
+
+{/* CONTENT AREA */}
+
+<div className="flex-1 p-4 md:p-10 overflow-x-hidden">
+
+{children}
+
+</div>
+
+</div>
+
+)
+
 }
