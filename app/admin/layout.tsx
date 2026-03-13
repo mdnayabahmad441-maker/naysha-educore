@@ -4,103 +4,109 @@ import { useState } from "react"
 import Link from "next/link"
 
 export default function AdminLayout({
-children
-}:{
-children:React.ReactNode
-}){
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
 
-const [open,setOpen] = useState(false)
+  return (
+    <div className="flex min-h-screen bg-slate-950 text-white">
 
-return(
+      {/* MOBILE MENU BUTTON */}
 
-<div className="flex min-h-screen bg-slate-950 text-white">
-
-{/* MOBILE MENU BUTTON */}
-
-<button
-onClick={()=>setOpen(true)}
-className="md:hidden fixed top-4 left-4 z-50 bg-purple-600 px-3 py-2 rounded"
->
-☰
-</button>
+      <button
+        onClick={() => setOpen(true)}
+        className="md:hidden fixed top-4 left-4 z-50 bg-gradient-to-r from-purple-600 to-pink-600 p-3 rounded-lg shadow-lg"
+      >
+        ☰
+      </button>
 
 
-{/* SIDEBAR */}
+      {/* SIDEBAR */}
 
-<div className={`
-fixed md:relative
-top-0 left-0
-h-screen
-w-64
-bg-gradient-to-b from-purple-800 to-indigo-900
-p-6
-transform
-${open ? "translate-x-0" : "-translate-x-full"}
-md:translate-x-0
-transition-transform
-z-40
-`}>
+      <div
+        className={`
+        fixed md:relative
+        top-0 left-0
+        h-screen
+        w-64
+        bg-gradient-to-b from-purple-800 to-indigo-900
+        p-6
+        transform
+        ${open ? "translate-x-0" : "-translate-x-full"}
+        md:translate-x-0
+        transition-transform duration-300
+        z-40
+      `}
+      >
+        {/* HEADER */}
 
-<div className="flex justify-between items-center mb-10">
+        <div className="flex justify-between items-center mb-10">
 
-<h1 className="text-xl font-bold">
-NaySha EduCore
-</h1>
+          <h1 className="text-xl font-bold">
+            NaySha EduCore
+          </h1>
 
-<button
-onClick={()=>setOpen(false)}
-className="md:hidden"
->
-✕
-</button>
+          <button
+            onClick={() => setOpen(false)}
+            className="md:hidden text-xl"
+          >
+            ✕
+          </button>
 
-</div>
+        </div>
 
-<nav className="flex flex-col gap-4 text-sm">
+        {/* NAVIGATION */}
 
-<Link href="/admin/dashboard">Dashboard</Link>
+        <nav className="flex flex-col gap-4 text-sm">
 
-<Link href="/admin/students">Students</Link>
+          <Link href="/admin/dashboard">Dashboard</Link>
 
-<Link href="/admin/teachers">Teachers</Link>
+          <Link href="/admin/students">Students</Link>
 
-<Link href="/admin/attendance">Attendance</Link>
+          <Link href="/admin/teachers">Teachers</Link>
 
-<Link href="/admin/exams">Exams</Link>
+          <Link href="/admin/attendance">Attendance</Link>
 
-<Link href="/admin/fees">Fees</Link>
+          <Link href="/admin/exams">Exams</Link>
 
-<Link href="/admin/reports">Reports</Link>
+          <Link href="/admin/fees">Fees</Link>
 
-<Link href="/admin/settings">Settings</Link>
+          <Link href="/admin/reports">Reports</Link>
 
-<Link href="/admin/subjects">Subjects</Link>
+          <Link href="/admin/settings">Settings</Link>
 
-</nav>
+          <Link href="/admin/subjects">Subjects</Link>
 
-</div>
-
-
-{/* BACKDROP FOR MOBILE */}
-
-{open && (
-<div
-onClick={()=>setOpen(false)}
-className="fixed inset-0 bg-black/50 md:hidden"
-/>
-)}
+        </nav>
+      </div>
 
 
-{/* CONTENT AREA */}
+      {/* BACKDROP (when sidebar open on mobile) */}
 
-<div className="flex-1 p-4 md:p-10 overflow-x-hidden">
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 bg-black/50 md:hidden z-30"
+        />
+      )}
 
-{children}
 
-</div>
+      {/* CONTENT AREA */}
 
-</div>
+      <div className="flex-1 overflow-x-hidden">
 
-)
+        {/* SPACING HEADER FOR MOBILE */}
 
+        <div className="pt-16 md:pt-0 p-4 md:p-10">
+
+          {children}
+
+        </div>
+
+      </div>
+
+    </div>
+  )
 }
