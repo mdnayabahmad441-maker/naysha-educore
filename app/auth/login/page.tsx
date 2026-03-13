@@ -19,7 +19,7 @@ return
 
 setLoading(true)
 
-const { error } = await supabase.auth.signInWithOtp({
+const {error} = await supabase.auth.signInWithOtp({
 email
 })
 
@@ -43,9 +43,9 @@ return
 
 setLoading(true)
 
-const { data,error } = await supabase.auth.verifyOtp({
+const {data,error} = await supabase.auth.verifyOtp({
 email,
-token: otp,
+token:otp,
 type:"email"
 })
 
@@ -59,62 +59,58 @@ const userId = data.user?.id
 
 if(!userId){
 alert("Login failed")
-setLoading(false)
 return
 }
 
 /* GET USER ROLE */
 
-const { data:user, error:userError } = await supabase
+const {data:user} = await supabase
 .from("users")
 .select("role,school_id")
 .eq("id",userId)
 .single()
 
-if(userError || !user){
-alert("User record not found")
-setLoading(false)
+if(!user){
+alert("User not linked")
 return
 }
 
 /* GET SCHOOL */
 
-const { data:school, error:schoolError } = await supabase
+const {data:school} = await supabase
 .from("schools")
 .select("subdomain")
 .eq("id",user.school_id)
 .single()
 
-if(schoolError || !school){
+if(!school){
 alert("School not found")
-setLoading(false)
 return
 }
 
 const role = user.role
 const subdomain = school.subdomain
 
+/* SET ROLE COOKIE */
+
+document.cookie = `role=${role}; path=/`
+
 /* REDIRECT */
 
 if(role==="admin"){
 window.location.href =
 `https://${subdomain}.erp.naysha.online/admin/dashboard`
-return
 }
 
 if(role==="teacher"){
 window.location.href =
 `https://${subdomain}.erp.naysha.online/teacher/dashboard`
-return
 }
 
 if(role==="parent"){
 window.location.href =
 `https://${subdomain}.erp.naysha.online/parent/dashboard`
-return
 }
-
-alert("Invalid role")
 
 }
 
