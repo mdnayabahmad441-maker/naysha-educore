@@ -2,233 +2,323 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
 export default function SettingsPage(){
 
-  const [schoolId,setSchoolId] = useState<string | null>(null)
+const router = useRouter()
 
-  const [name,setName] = useState("")
-  const [address,setAddress] = useState("")
-  const [phone,setPhone] = useState("")
-  const [logo,setLogo] = useState("")
-  const [loading,setLoading] = useState(false)
+const [schoolId,setSchoolId] = useState<string | null>(null)
 
-  useEffect(()=>{
-    loadSchool()
-  },[])
+const [name,setName] = useState("")
+const [address,setAddress] = useState("")
+const [phone,setPhone] = useState("")
+const [logo,setLogo] = useState("")
 
-  async function loadSchool(){
+const [userEmail,setUserEmail] = useState("")
+const [role,setRole] = useState("")
 
-    const { data:userData } = await supabase.auth.getUser()
+const [loading,setLoading] = useState(false)
 
-    const userId = userData.user?.id
 
-    if(!userId) return
 
+/* LOAD SCHOOL + USER */
 
-    const { data:user } =
-      await supabase
-      .from("users")
-      .select("school_id")
-      .eq("id",userId)
-      .single()
+useEffect(()=>{
+loadSchool()
+},[])
 
-    if(!user) return
+async function loadSchool(){
 
+const { data:userData } = await supabase.auth.getUser()
 
-    setSchoolId(user.school_id)
+const userId = userData.user?.id
 
+if(!userId) return
 
-    const { data:school } =
-      await supabase
-      .from("schools")
-      .select("*")
-      .eq("id",user.school_id)
-      .single()
 
-    if(school){
+setUserEmail(userData.user?.email || "")
 
-      setName(school.name || "")
-      setAddress(school.address || "")
-      setPhone(school.phone || "")
-      setLogo(school.logo_url || "")
 
-    }
+const { data:user } =
+await supabase
+.from("users")
+.select("school_id,role")
+.eq("id",userId)
+.single()
 
-  }
+if(!user) return
 
+setRole(user.role)
 
+setSchoolId(user.school_id)
 
-  async function uploadLogo(e:any){
 
-    const file = e.target.files[0]
+const { data:school } =
+await supabase
+.from("schools")
+.select("*")
+.eq("id",user.school_id)
+.single()
 
-    if(!file || !schoolId) return
+if(school){
 
-    const fileName = Date.now()+"_"+file.name
+setName(school.name || "")
+setAddress(school.address || "")
+setPhone(school.phone || "")
+setLogo(school.logo_url || "")
 
-    setLoading(true)
+}
 
-    const { error } =
-      await supabase.storage
-      .from("school-logos")
-      .upload(fileName,file)
+}
 
-    if(error){
-      alert(error.message)
-      setLoading(false)
-      return
-    }
 
-    const publicUrl =
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/school-logos/${fileName}`
 
+/* UPLOAD LOGO */
 
-    const { error:updateError } =
-      await supabase
-      .from("schools")
-      .update({
-        logo_url:publicUrl
-      })
-      .eq("id",schoolId)
+async function uploadLogo(e:any){
 
-    if(updateError){
-      alert(updateError.message)
-      setLoading(false)
-      return
-    }
+const file = e.target.files[0]
 
-    setLogo(publicUrl)
+if(!file || !schoolId) return
 
-    alert("Logo uploaded successfully")
+const fileName = Date.now()+"_"+file.name
 
-    setLoading(false)
+setLoading(true)
 
-  }
+const { error } =
+await supabase.storage
+.from("school-logos")
+.upload(fileName,file)
 
+if(error){
 
+alert(error.message)
 
-  async function saveSettings(){
+setLoading(false)
 
-    if(!schoolId) return
+return
 
-    setLoading(true)
+}
 
-    const { error } =
-      await supabase
-      .from("schools")
-      .update({
-        name,
-        address,
-        phone
-      })
-      .eq("id",schoolId)
+const publicUrl =
+`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/school-logos/${fileName}`
 
-    if(error){
-      alert(error.message)
-      setLoading(false)
-      return
-    }
 
-    alert("Settings updated successfully")
+const { error:updateError } =
+await supabase
+.from("schools")
+.update({
+logo_url:publicUrl
+})
+.eq("id",schoolId)
 
-    setLoading(false)
+if(updateError){
 
-  }
+alert(updateError.message)
 
+setLoading(false)
 
+return
 
-  return(
+}
 
-    <div className="p-10 text-white">
+setLogo(publicUrl)
 
-      <h1 className="text-3xl font-bold mb-8">
-        School Settings
-      </h1>
+alert("Logo uploaded successfully")
 
+setLoading(false)
 
-      <div className="grid md:grid-cols-2 gap-10">
+}
 
 
-        {/* SCHOOL INFO */}
 
-        <div className="bg-white/10 p-6 rounded-xl">
+/* SAVE SCHOOL SETTINGS */
 
-          <h2 className="text-xl font-bold mb-6">
-            School Information
-          </h2>
+async function saveSettings(){
 
+if(!schoolId) return
 
-          <input
-            placeholder="School Name"
-            value={name}
-            onChange={(e)=>setName(e.target.value)}
-            className="w-full p-2 mb-4 rounded bg-slate-800"
-          />
+setLoading(true)
 
+const { error } =
+await supabase
+.from("schools")
+.update({
+name,
+address,
+phone
+})
+.eq("id",schoolId)
 
-          <input
-            placeholder="School Address"
-            value={address}
-            onChange={(e)=>setAddress(e.target.value)}
-            className="w-full p-2 mb-4 rounded bg-slate-800"
-          />
+if(error){
 
+alert(error.message)
 
-          <input
-            placeholder="Phone"
-            value={phone}
-            onChange={(e)=>setPhone(e.target.value)}
-            className="w-full p-2 mb-6 rounded bg-slate-800"
-          />
+setLoading(false)
 
+return
 
-          <button
-            onClick={saveSettings}
-            className="w-full py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
-          >
-            {loading ? "Saving..." : "Save Settings"}
-          </button>
+}
 
-        </div>
+alert("Settings updated successfully")
 
+setLoading(false)
 
+}
 
-        {/* LOGO SECTION */}
 
-        <div className="bg-white/10 p-6 rounded-xl">
 
-          <h2 className="text-xl font-bold mb-6">
-            School Logo
-          </h2>
+/* LOGOUT */
 
-          {logo && (
+async function logout(){
 
-            <img
-              src={logo}
-              className="h-24 mb-6 rounded"
-            />
+const confirmLogout = confirm("Are you sure you want to logout?")
 
-          )}
+if(!confirmLogout) return
 
+await supabase.auth.signOut()
 
-          <input
-            type="file"
-            onChange={uploadLogo}
-            className="mb-4"
-          />
+router.push("/auth/login")
 
-          <p className="text-gray-400 text-sm">
-            Recommended size: 300x300 PNG
-          </p>
+}
 
-        </div>
 
 
-      </div>
+/* UI */
 
-    </div>
+return(
 
-  )
+<div className="p-4 md:p-10 text-white">
+
+<h1 className="text-3xl font-bold mb-8">
+School Settings
+</h1>
+
+
+
+<div className="grid md:grid-cols-2 gap-10">
+
+
+{/* SCHOOL INFO */}
+
+<div className="bg-white/10 p-6 rounded-xl">
+
+<h2 className="text-xl font-bold mb-6">
+School Information
+</h2>
+
+<input
+placeholder="School Name"
+value={name}
+onChange={(e)=>setName(e.target.value)}
+className="w-full p-2 mb-4 rounded bg-slate-800"
+/>
+
+<input
+placeholder="School Address"
+value={address}
+onChange={(e)=>setAddress(e.target.value)}
+className="w-full p-2 mb-4 rounded bg-slate-800"
+/>
+
+<input
+placeholder="Phone"
+value={phone}
+onChange={(e)=>setPhone(e.target.value)}
+className="w-full p-2 mb-6 rounded bg-slate-800"
+/>
+
+<button
+onClick={saveSettings}
+className="w-full py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded"
+>
+{loading ? "Saving..." : "Save Settings"}
+</button>
+
+</div>
+
+
+
+{/* LOGO */}
+
+<div className="bg-white/10 p-6 rounded-xl">
+
+<h2 className="text-xl font-bold mb-6">
+School Logo
+</h2>
+
+{logo && (
+
+<img
+src={logo}
+className="h-24 mb-6 rounded"
+/>
+
+)}
+
+<input
+type="file"
+onChange={uploadLogo}
+className="mb-4"
+/>
+
+<p className="text-gray-400 text-sm">
+Recommended size: 300x300 PNG
+</p>
+
+</div>
+
+
+</div>
+
+
+
+{/* USER ACCOUNT SECTION */}
+
+<div className="mt-10 bg-white/10 p-6 rounded-xl">
+
+<h2 className="text-xl font-bold mb-6">
+User Account
+</h2>
+
+<div className="space-y-2 text-gray-300">
+
+<p>
+<b>Email:</b> {userEmail}
+</p>
+
+<p>
+<b>Role:</b> {role}
+</p>
+
+</div>
+
+</div>
+
+
+
+{/* LOGOUT */}
+
+<div className="mt-6 bg-red-500/10 border border-red-500/20 p-6 rounded-xl">
+
+<h2 className="text-xl font-bold mb-4 text-red-400">
+Account
+</h2>
+
+<button
+onClick={logout}
+className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded"
+>
+Logout
+</button>
+
+</div>
+
+
+
+</div>
+
+)
 
 }
