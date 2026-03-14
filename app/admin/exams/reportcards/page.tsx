@@ -1,132 +1,348 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect,useState,useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import jsPDF from "jspdf"
-import autoTable from "jspdf-autotable"
+import html2canvas from "html2canvas"
 
-export default function ReportCards(){
+export default function ReportCardsPage(){
 
 const [students,setStudents] = useState<any[]>([])
+const [subjects,setSubjects] = useState<any[]>([])
+const [marks,setMarks] = useState<any[]>([])
+const [school,setSchool] = useState<any>(null)
+
+const [exam,setExam] = useState("")
+const [className,setClassName] = useState("")
+
+const reportRef = useRef<HTMLDivElement>(null)
 
 useEffect(()=>{
-loadStudents()
+loadSchool()
 },[])
 
-async function loadStudents(){
+/* LOAD SCHOOL */
 
-const { data } = await supabase
-.from("students")
-.select("*")
+async function loadSchool(){
 
-setStudents(data || [])
+const {data:userData}=await supabase.auth.getUser()
 
-}
+const userId=userData.user?.id
 
-async function generateReport(student:any){
+if(!userId) return
 
-const { data:marks } = await supabase
-.from("marks")
-.select("*")
-.eq("student_id",student.id)
-
-if(!marks) return
-
-let total = 0
-let rows:any[] = []
-
-for(const m of marks){
-
-const { data:subject } = await supabase
-.from("subjects")
-.select("name")
-.eq("id",m.subject_id)
+const {data:user}=await supabase
+.from("users")
+.select("school_id")
+.eq("id",userId)
 .single()
 
-total += m.marks
+if(!user) return
 
-rows.push([
-subject?.name,
-m.marks
-])
+const {data:schoolData}=await supabase
+.from("schools")
+.select("*")
+.eq("id",user.school_id)
+.single()
+
+setSchool(schoolData)
 
 }
 
-const percentage = total / marks.length
+/* LOAD DATA */
 
-let grade = "D"
+async function loadData(){
 
-if(percentage >= 90) grade="A+"
-else if(percentage >= 80) grade="A"
-else if(percentage >= 70) grade="B"
-else if(percentage >= 60) grade="C"
+const {data:studentsData}=await supabase
+.from("students")
+.select("*")
+.eq("class",className)
 
-const doc = new jsPDF()
+const {data:subjectsData}=await supabase
+.from("subjects")
+.select("*")
+.eq("class",className)
 
-doc.setFontSize(18)
-doc.text("School Report Card", 70, 20)
+const {data:marksData}=await supabase
+.from("marks")
+.select("*")
+.eq("exam_id",exam)
 
-doc.setFontSize(12)
-doc.text(`Student: ${student.name}`, 20, 40)
-doc.text(`Class: ${student.class}`, 20, 50)
+setStudents(studentsData || [])
+setSubjects(subjectsData || [])
+setMarks(marksData || [])
 
-autoTable(doc,{
-startY:60,
-head:[["Subject","Marks"]],
-body:rows
+}
+
+/* MARKS */
+
+function getMarks(studentId:string,subjectId:string){
+
+const m=marks.find(
+(x:any)=>x.student_id===studentId && x.subject_id===subjectId
+)
+
+if(!m) return "Absent"
+
+return m.marks
+
+}
+
+/* TOTAL */
+
+function totalMarks(studentId:string){
+
+let total=0
+
+subjects.forEach((s:any)=>{
+
+const m=marks.find(
+(x:any)=>x.student_id===studentId && x.subject_id===s.id
+)
+
+if(m && m.marks!=="Absent"){
+total+=Number(m.marks)
+}
+
 })
 
-doc.text(`Total: ${total}`,20,140)
-doc.text(`Percentage: ${percentage.toFixed(2)}%`,20,150)
-doc.text(`Grade: ${grade}`,20,160)
+return total
 
-doc.save(`${student.name}-report-card.pdf`)
+}
+
+/* PERCENTAGE */
+
+function percentage(studentId:string){
+
+const total=totalMarks(studentId)
+
+const max=subjects.length*100
+
+if(max===0) return 0
+
+return Number(((total/max)*100).toFixed(2))
+
+}
+
+/* GRADE */
+
+function grade(p:number){
+
+if(p>=90) return "A+"
+if(p>=80) return "A"
+if(p>=70) return "B"
+if(p>=60) return "C"
+if(p>=33) return "D"
+
+return "F"
+
+}
+
+/* RANK */
+
+function calculateRanks(){
+
+const list=students.map((s:any)=>{
+
+return{
+student:s,
+percent:percentage(s.id)
+}
+
+})
+
+list.sort((a,b)=>b.percent-a.percent)
+
+return list
+
+}
+
+const rankedStudents=calculateRanks()
+
+/* PDF */
+
+async function downloadPDF(){
+
+const input=reportRef.current
+
+if(!input) return
+
+const canvas=await html2canvas(input)
+
+const img=canvas.toDataURL("image/png")
+
+const pdf=new jsPDF()
+
+const width=210
+const height=canvas.height*width/canvas.width
+
+pdf.addImage(img,"PNG",0,0,width,height)
+
+pdf.save("reportcards.pdf")
 
 }
 
 return(
 
-<div className="p-10 text-white">
+<div className="p-6 text-white">
 
-<h1 className="text-3xl font-bold mb-6">
+<h1 className="text-3xl font-bold mb-8">
 Report Cards
 </h1>
 
-<table className="w-full border border-white/20">
+
+{/* CONTROLS */}
+
+<div className="flex flex-col md:flex-row gap-4 mb-8">
+
+<input
+placeholder="Exam ID"
+value={exam}
+onChange={(e)=>setExam(e.target.value)}
+className="p-2 rounded bg-slate-800"
+/>
+
+<input
+placeholder="Class"
+value={className}
+onChange={(e)=>setClassName(e.target.value)}
+className="p-2 rounded bg-slate-800"
+/>
+
+<button
+onClick={loadData}
+className="px-4 py-2 bg-purple-600 rounded"
+>
+Load Data
+</button>
+
+</div>
+
+
+{/* REPORT */}
+
+<div ref={reportRef} className="bg-white text-black p-6 rounded-xl overflow-x-auto">
+
+{/* SCHOOL */}
+
+<div className="flex items-center gap-4 mb-6">
+
+{school?.logo_url && (
+
+<img
+src={school.logo_url}
+className="h-16"
+/>
+
+)}
+
+<div>
+
+<h2 className="text-2xl font-bold">
+{school?.name}
+</h2>
+
+<p>{school?.address}</p>
+
+</div>
+
+</div>
+
+
+<table className="w-full border border-black text-sm">
 
 <thead>
 
-<tr className="bg-white/10">
-<th className="p-2">Student</th>
-<th className="p-2">Class</th>
-<th className="p-2">Action</th>
+<tr className="border-b border-black">
+
+<th className="p-2">Rank</th>
+<th>Student</th>
+
+{subjects.map((s:any)=>(
+<th key={s.id}>{s.name}</th>
+))}
+
+<th>Total</th>
+<th>%</th>
+<th>Grade</th>
+
 </tr>
 
 </thead>
 
+
 <tbody>
 
-{students.map(s=>(
-<tr key={s.id}>
+{rankedStudents.map((item:any,index:number)=>{
 
-<td className="p-2">{s.name}</td>
-<td className="p-2">{s.class}</td>
+const s=item.student
+const p=item.percent
+const total=totalMarks(s.id)
+const g=grade(p)
+
+let medal=""
+
+if(index===0) medal="🥇"
+if(index===1) medal="🥈"
+if(index===2) medal="🥉"
+
+return(
+
+<tr
+key={s.id}
+className={
+p<33
+?"bg-red-200"
+:""
+}
+>
+
+<td className="text-center">
+{index+1} {medal}
+</td>
 
 <td className="p-2">
-<button
-onClick={()=>generateReport(s)}
-className="bg-green-600 px-4 py-2 rounded"
->
-Download
-</button>
+{s.name}
+</td>
+
+{subjects.map((sub:any)=>(
+<td key={sub.id} className="text-center">
+{getMarks(s.id,sub.id)}
+</td>
+))}
+
+<td className="text-center">
+{total}
+</td>
+
+<td className="text-center">
+{p}%
+</td>
+
+<td className="text-center">
+{g}
 </td>
 
 </tr>
-))}
+
+)
+
+})}
 
 </tbody>
 
 </table>
+
+</div>
+
+
+<button
+onClick={downloadPDF}
+className="mt-6 px-6 py-2 bg-green-600 rounded"
+>
+Download PDF
+</button>
+
 
 </div>
 
