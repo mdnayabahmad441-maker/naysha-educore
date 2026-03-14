@@ -3,6 +3,7 @@
 import { useState,useEffect,useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
+import ResponsiveTable from "@/components/ResponsiveTable"
 
 export default function StudentsPage(){
 
@@ -135,7 +136,7 @@ fetchStudents(schoolId)
 
 
 
-/* ---------------- DELETE STUDENT (FIXED) ---------------- */
+/* ---------------- DELETE STUDENT ---------------- */
 
 async function deleteStudent(id:string){
 
@@ -143,7 +144,7 @@ const confirmDelete = confirm("Delete this student?")
 
 if(!confirmDelete) return
 
-const { data, error } = await supabase
+const { data,error } = await supabase
 .from("students")
 .delete()
 .eq("id",id)
@@ -159,16 +160,12 @@ return
 
 }
 
-/* if nothing deleted */
-
 if(!data || data.length===0){
 
 alert("Delete blocked by security policy or student not found.")
 return
 
 }
-
-/* reload students from database */
 
 await fetchStudents(schoolId!)
 
@@ -371,50 +368,23 @@ Add Student
 
 
 
-<table className="w-full text-sm md:text-base">
+{/* RESPONSIVE TABLE */}
 
-<thead>
+<ResponsiveTable
 
-<tr className="border-b border-white/20">
+columns={["Name","Roll Number","Parent Phone"]}
 
-<th className="text-left py-2">Name</th>
-<th>Roll</th>
-<th>Phone</th>
-<th>Actions</th>
+data={classStudents.map((s:any)=>({
+id:s.id,
+name:s.name,
+roll_number:s.roll_number,
+parent_phone:s.parent_phone
+}))}
 
-</tr>
+onRowClick={(s)=>router.push(`/admin/students/${s.id}`)}
 
-</thead>
-
-
-
-<tbody>
-
-{classStudents.map((s:any)=>{
-
-const globalIndex = students.findIndex((x:any)=>x.id===s.id)
-
-return(
-
-<tr
-key={s.id}
-ref={(el)=>{rowsRef.current[globalIndex]=el}}
-className={`border-b border-white/10 cursor-pointer hover:bg-white/10 ${
-selectedIndex===globalIndex ? "bg-purple-700/40" : ""
-}`}
-onClick={()=>router.push(`/admin/students/${s.id}`)}
->
-
-<td className="py-2">{s.name}</td>
-
-<td>{s.roll_number}</td>
-
-<td>{s.parent_phone}</td>
-
-<td>
-
-<div className="flex gap-2">
-
+renderActions={(s)=>(
+<>
 <button
 onClick={(e)=>{
 e.stopPropagation()
@@ -438,20 +408,10 @@ className="px-3 py-1 text-sm bg-red-600 rounded hover:bg-red-700"
 Delete
 
 </button>
+</>
+)}
 
-</div>
-
-</td>
-
-</tr>
-
-)
-
-})}
-
-</tbody>
-
-</table>
+/>
 
 </div>
 
