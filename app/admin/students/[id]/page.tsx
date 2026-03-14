@@ -3,14 +3,13 @@
 import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useParams } from "next/navigation"
+import DocumentUploader from "@/components/DocumentUploader"
 
 export default function StudentProfile(){
 
 const params = useParams()
 
 const [student,setStudent] = useState<any>(null)
-const [attendance,setAttendance] = useState<any[]>([])
-const [fees,setFees] = useState<any[]>([])
 
 useEffect(()=>{
 loadStudent()
@@ -27,40 +26,31 @@ await supabase
 
 setStudent(data)
 
-const { data:att } =
-await supabase
-.from("attendance")
-.select("*")
-.eq("student_id",params.id)
-
-setAttendance(att || [])
-
-const { data:feesData } =
-await supabase
-.from("fees")
-.select("*")
-.eq("student_id",params.id)
-
-setFees(feesData || [])
-
 }
 
-if(!student){
-return <p className="p-10 text-white">Loading...</p>
-}
+if(!student) return <p>Loading...</p>
 
 return(
 
-<div className="p-10 text-white">
+<div className="p-6">
 
-<h1 className="text-3xl font-bold mb-8">
+<h1 className="text-3xl font-bold mb-6">
 {student.name}
 </h1>
 
-<div className="bg-white/10 p-6 rounded-xl mb-6">
+<div className="grid md:grid-cols-2 gap-6">
+
+<div className="bg-white/10 p-6 rounded-xl">
 
 <p>Class: {student.class}</p>
 <p>Roll: {student.roll_number}</p>
+<p>Father: {student.father_name}</p>
+<p>Mother: {student.mother_name}</p>
+<p>Phone: {student.parent_phone}</p>
+
+</div>
+
+<DocumentUploader studentId={student.id}/>
 
 </div>
 
