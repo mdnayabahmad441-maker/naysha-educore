@@ -2,6 +2,7 @@
 
 import { useState,useEffect } from "react"
 import { supabase } from "@/lib/supabase"
+import ResponsiveTable from "@/components/ResponsiveTable"
 
 export default function TeachersPage(){
 
@@ -213,39 +214,16 @@ export default function TeachersPage(){
           Teachers List
         </h2>
 
-        <table className="w-full">
-
-          <thead>
-
-            <tr className="border-b border-white/20">
-
-              <th className="text-left py-2">Name</th>
-              <th className="text-left">Subject</th>
-              <th className="text-left">Phone</th>
-              <th className="text-left">Email</th>
-
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            {teachers.map((t)=>(
-
-              <tr key={t.id} className="border-b border-white/10">
-
-                <td className="py-2">{t.name}</td>
-                <td>{t.subject}</td>
-                <td>{t.phone}</td>
-                <td>{t.email}</td>
-
-              </tr>
-
-            ))}
-
-          </tbody>
-
-        </table>
+       <ResponsiveTable
+  columns={["Name","Subject","Phone","Email"]}
+  data={teachers.map((t:any)=>({
+    id:t.id,
+    name:t.name,
+    subject:t.subject,
+    phone:t.phone,
+    email:t.email
+  }))}
+/>
 
       </div>
 
