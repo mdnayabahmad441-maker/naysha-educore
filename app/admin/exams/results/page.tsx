@@ -95,7 +95,7 @@ export default function ResultsPage() {
 
       for(const subject of subjectsList){
 
-const subjectName = subject?.subjects?.[0]?.name || "Subject"
+        const subjectName = subject?.subjects?.[0]?.name || "Subject"
 
         const {data:markRow} = await supabase
           .from("marks")
@@ -103,6 +103,7 @@ const subjectName = subject?.subjects?.[0]?.name || "Subject"
           .eq("exam_id",selectedExam)
           .eq("student_id",student.id)
           .eq("subject_id",subject.subject_id)
+          .limit(1)
           .maybeSingle()
 
         let mark:any = markRow?.marks
@@ -213,7 +214,7 @@ const subjectName = subject?.subjects?.[0]?.name || "Subject"
 
               {subjects.map((s:any)=>{
 
-                const name = s?.subjects?.name || "Subject"
+                const name = s?.subjects?.[0]?.name || "Subject"
 
                 return(
                   <th key={s.subject_id} className="p-2">
@@ -251,7 +252,7 @@ const subjectName = subject?.subjects?.[0]?.name || "Subject"
 
                   {subjects.map((s:any)=>{
 
-                    const name = s?.subjects?.name || "Subject"
+                    const name = s?.subjects?.[0]?.name || "Subject"
 
                     return(
                       <td key={s.subject_id} className="p-2">
