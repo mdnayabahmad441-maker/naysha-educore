@@ -3,21 +3,45 @@
 import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function Page(){
+export default function MarksPage(){
+
+const selectedExam="1"
+const selectedClass="1"
 
 const [students,setStudents]=useState<any[]>([])
 const [subjects,setSubjects]=useState<any[]>([])
-const [marks,setMarks]=useState<Record<string,string>>({})
+const [marks,setMarks]=useState<any[]>([])
 
 useEffect(()=>{
 
 async function load(){
 
-const {data:st}=await supabase.from("students").select("*")
-const {data:sub}=await supabase.from("subjects").select("*")
+const {data:st} = await supabase
+.from("students")
+.select("*")
+.eq("class",selectedClass)
 
-setStudents(st||[])
-setSubjects(sub||[])
+setStudents(st || [])
+
+const {data:sub} = await supabase
+.from("exam_subjects")
+.select(`
+subject_id,
+full_marks,
+pass_marks,
+subjects(name)
+`)
+.eq("exam_id",selectedExam)
+
+setSubjects(sub || [])
+
+const {data:mk} = await supabase
+.from("marks")
+.select("*")
+.eq("exam_id",selectedExam)
+.eq("class",selectedClass)
+
+setMarks(mk || [])
 
 }
 
@@ -25,54 +49,36 @@ load()
 
 },[])
 
-function update(student:string,subject:string,value:string){
+const markMap:Record<string,any>={}
 
-const key=`${student}-${subject}`
-
-setMarks(prev=>({...prev,[key]:value}))
-
-}
-
-function total(student:string){
-
-let t=0
-
-subjects.forEach(s=>{
-
-const v=marks[`${student}-${s.id}`]
-
-if(Number(v)) t+=Number(v)
-
+marks.forEach(m=>{
+markMap[`${m.student_id}-${m.subject_id}`]=m
 })
-
-return t
-
-}
 
 return(
 
-<div className="p-10 text-white">
+<div className="p-10 text-white max-w-6xl mx-auto">
 
 <h1 className="text-2xl mb-6">Marks Entry</h1>
 
-<div className="overflow-auto bg-white/10 border border-white/20 rounded-xl">
+<div className="overflow-x-auto">
 
-<table className="min-w-full">
+<table className="min-w-[900px] w-full text-sm">
 
 <thead>
 
-<tr>
+<tr className="bg-white/10">
 
-<th>Student</th>
+<th className="p-2 text-left">Student</th>
 
-{subjects.map(s=>(
-
-<th key={s.id}>{s.name}</th>
-
+{subjects.map((s:any)=>(
+<th key={s.subject_id} className="p-2 text-left">
+{s.subjects?.name}
+</th>
 ))}
 
-<th>Total</th>
-<th>%</th>
+<th className="p-2 text-left">Total</th>
+<th className="p-2 text-left">%</th>
 
 </tr>
 
@@ -80,34 +86,31 @@ return(
 
 <tbody>
 
-{students.map(st=>{
+{students.map(student=>{
 
-const t=total(st.id)
-const max=subjects.length*100
-const p=((t/max)*100).toFixed(2)
+let total=0
 
 return(
 
-<tr key={st.id}>
+<tr key={student.id}>
 
-<td>{st.name}</td>
+<td className="p-2">{student.name}</td>
 
-{subjects.map(s=>{
+{subjects.map((s:any)=>{
 
-const key=`${st.id}-${s.id}`
+const key=`${student.id}-${s.subject_id}`
+
+const value=markMap[key]?.marks || ""
+
+if(Number(value)) total+=Number(value)
 
 return(
 
-<td key={s.id}>
+<td key={s.subject_id} className="p-2">
 
 <input
-
-value={marks[key]||""}
-
-onChange={e=>update(st.id,s.id,e.target.value)}
-
-className="w-16 text-black text-center"
-
+defaultValue={value}
+className="bg-gray-800 w-20 p-1 rounded text-center focus:ring-2 focus:ring-blue-500"
 />
 
 </td>
@@ -116,8 +119,10 @@ className="w-16 text-black text-center"
 
 })}
 
-<td>{t}</td>
-<td>{p}</td>
+<td className="p-2">{total}</td>
+<td className="p-2">
+{subjects.length ? ((total/(subjects.length*100))*100).toFixed(2) : 0}
+</td>
 
 </tr>
 
@@ -131,19 +136,17 @@ className="w-16 text-black text-center"
 
 </div>
 
-<div className="flex gap-4 mt-6">
+<div className="flex gap-4 mt-6 flex-wrap">
 
-<button className="bg-green-600 px-4 py-2 rounded">Save Marks</button>
-
-<button className="bg-yellow-500 px-4 py-2 rounded">Verify Marks</button>
-
+<button className="bg-green-600 px-4 py-2 rounded">Save</button>
+<button className="bg-yellow-500 px-4 py-2 rounded">Verify</button>
 <button className="bg-purple-600 px-4 py-2 rounded">Create Results</button>
-
-<button className="bg-red-600 px-4 py-2 rounded">Publish Results</button>
+<button className="bg-red-600 px-4 py-2 rounded">Publish</button>
 
 </div>
 
 </div>
 
 )
+
 }

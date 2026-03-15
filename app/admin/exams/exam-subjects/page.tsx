@@ -3,57 +3,29 @@
 import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function SubjectsPage(){
+export default function ExamSubjects(){
 
 const [rows,setRows]=useState<any[]>([])
 
 useEffect(()=>{
 
-async function load(){
-
-const {data} = await supabase
-.from("class_subjects")
+supabase
+.from("exam_subjects")
 .select(`
-id,
-class,
-max_marks,
+subject_id,
+full_marks,
 pass_marks,
 subjects(name)
 `)
-.order("class")
-
-setRows(data || [])
-
-}
-
-load()
+.then(res=>setRows(res.data || []))
 
 },[])
 
-const grouped = rows.reduce((acc:any,row)=>{
-
-if(!acc[row.class]) acc[row.class]=[]
-
-acc[row.class].push(row)
-
-return acc
-
-},{})
-  
 return(
 
 <div className="p-10 text-white max-w-6xl mx-auto">
 
-<h1 className="text-2xl mb-6">Subjects by Class</h1>
-
-{Object.keys(grouped).map(cls => (
-
-<div
-key={cls}
-className="bg-white/10 border border-white/20 rounded-xl p-6 mb-6"
->
-
-<h2 className="text-lg mb-4">Class {cls}</h2>
+<h1 className="text-2xl mb-6">Exam Subjects</h1>
 
 <div className="overflow-x-auto">
 
@@ -73,11 +45,11 @@ className="bg-white/10 border border-white/20 rounded-xl p-6 mb-6"
 
 <tbody>
 
-{grouped[cls].map((r:any)=>(
-<tr key={r.id}>
+{rows.map(r=>(
+<tr key={r.subject_id}>
 
 <td className="p-2">{r.subjects?.name}</td>
-<td className="p-2">{r.max_marks}</td>
+<td className="p-2">{r.full_marks}</td>
 <td className="p-2">{r.pass_marks}</td>
 
 </tr>
@@ -88,10 +60,6 @@ className="bg-white/10 border border-white/20 rounded-xl p-6 mb-6"
 </table>
 
 </div>
-
-</div>
-
-))}
 
 </div>
 

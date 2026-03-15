@@ -3,117 +3,47 @@
 import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function ClassSubjects(){
+export default function ClassSubjectsPage(){
 
-const [rows,setRows]=useState<any[]>([])
+const schoolId = "1"
+
 const [subjects,setSubjects]=useState<any[]>([])
-const [className,setClass]=useState("")
-const [subject,setSubject]=useState("")
-const [max,setMax]=useState("")
-const [pass,setPass]=useState("")
 
-async function load(){
+useEffect(()=>{
 
-const {data}=await supabase
-.from("class_subjects")
-.select("*,subjects(name)")
+supabase
+.from("subjects")
+.select("*")
+.eq("school_id",schoolId)
+.order("name")
+.then(res=>setSubjects(res.data || []))
 
-setRows(data||[])
-
-const {data:subs}=await supabase.from("subjects").select("*")
-setSubjects(subs||[])
-
-}
-
-useEffect(()=>{load()},[])
-
-async function add(){
-
-await supabase.from("class_subjects").insert({
-class:className,
-subject_id:subject,
-max_marks:max,
-pass_marks:pass
-})
-
-load()
-}
+},[])
 
 return(
 
-<div className="p-8 space-y-6">
+<div className="p-10 text-white max-w-6xl mx-auto">
 
-<h1 className="text-xl font-bold">Class Subjects</h1>
+<h1 className="text-2xl mb-6">Class Subject Mapping</h1>
 
-<div className="flex gap-3">
+<div className="bg-white/10 border border-white/20 rounded-xl p-6">
 
-<input
-placeholder="Class"
-onChange={(e)=>setClass(e.target.value)}
-className="border p-2"
-/>
-
-<select
-onChange={(e)=>setSubject(e.target.value)}
-className="border p-2">
+<select className="text-black p-2 rounded">
 
 <option>Select Subject</option>
 
-{subjects.map((s)=>(
-<option key={s.id} value={s.id}>
-{s.name}
+{subjects.map(sub=>(
+<option key={sub.id} value={sub.id}>
+{sub.name}
 </option>
 ))}
 
 </select>
 
-<input
-placeholder="Max"
-onChange={(e)=>setMax(e.target.value)}
-className="border p-2"
-/>
-
-<input
-placeholder="Pass"
-onChange={(e)=>setPass(e.target.value)}
-className="border p-2"
-/>
-
-<button
-onClick={add}
-className="bg-blue-600 text-white px-4 py-2 rounded">
-Add
-</button>
-
 </div>
-
-<table className="w-full border">
-
-<thead>
-<tr className="bg-gray-100">
-<th>Class</th>
-<th>Subject</th>
-<th>Max</th>
-<th>Pass</th>
-</tr>
-</thead>
-
-<tbody>
-
-{rows.map((r)=>(
-<tr key={r.id} className="border-t">
-<td>{r.class}</td>
-<td>{r.subjects?.name}</td>
-<td>{r.max_marks}</td>
-<td>{r.pass_marks}</td>
-</tr>
-))}
-
-</tbody>
-
-</table>
 
 </div>
 
 )
+
 }
