@@ -1,325 +1,372 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 
-type Subject = {
-  id: string
-  name: string
+export default function MarksPage(){
+
+const classes = [
+"Nursery","LKG","UKG",
+"01","02","03","04","05","06","07","08","09","10"
+]
+
+const [exams,setExams] = useState<any[]>([])
+const [selectedExam,setSelectedExam] = useState("")
+const [selectedClass,setSelectedClass] = useState("")
+
+const [students,setStudents] = useState<any[]>([])
+const [subjects,setSubjects] = useState<any[]>([])
+
+const [marks,setMarks] = useState<Record<string,string>>({})
+
+const inputRefs = useRef<any>({})
+
+useEffect(()=>{
+loadExams()
+},[])
+
+async function loadExams(){
+
+const {data} = await supabase
+.from("exams")
+.select("*")
+.order("exam_date",{ascending:false})
+
+setExams(data || [])
+
 }
 
-type Exam = {
-  id: string
-  name: string
-  exam_date: string
-  class: string
+async function loadGrid(){
+
+if(!selectedExam || !selectedClass){
+alert("Select exam and class")
+return
 }
 
-export default function CreateExamPage() {
+const {data:studentsData} = await supabase
+.from("students")
+.select("*")
+.eq("class",selectedClass)
+.order("roll_no")
 
-  const schoolId = "1"
+setStudents(studentsData || [])
 
-  const [name,setName] = useState("")
-  const [date,setDate] = useState("")
-  const [scope,setScope] = useState("ALL")
-  const [selectedClass,setSelectedClass] = useState("")
+const {data:subjectsData} = await supabase
+.from("class_subjects")
+.select(`
+subject_id,
+max_marks,
+pass_marks,
+subjects(name)
+`)
+.eq("class",selectedClass)
 
-  const [subjects,setSubjects] = useState<Subject[]>([])
-  const [selectedSubjects,setSelectedSubjects] = useState<string[]>([])
+setSubjects(subjectsData || [])
 
-  const [exams,setExams] = useState<Exam[]>([])
+const {data:marksData} = await supabase
+.from("marks")
+.select("*")
+.eq("exam_id",selectedExam)
+.eq("class",selectedClass)
 
- const classes = ["Nursery","LKG","UKG","Class 1","Class 2","Class 3","Class 4","Class 5","Class 6","Class 7","Class 8","Class 9","Class 10"]
+const map:any = {}
 
-  useEffect(()=>{
-    loadSubjects()
-    loadExams()
-  },[])
+marksData?.forEach((m:any)=>{
+map[`${m.student_id}-${m.subject_id}`] = m.marks
+})
 
-  async function loadSubjects(){
+setMarks(map)
 
-    const { data } = await supabase
-      .from("subjects")
-      .select("*")
-      .eq("school_id",schoolId)
-      .order("name")
+}
 
-    setSubjects(data || [])
-  }
+function updateMark(studentId:string,subjectId:string,value:string){
 
-  async function loadExams(){
+const key = `${studentId}-${subjectId}`
 
-    const { data } = await supabase
-      .from("exams")
-      .select("*")
-      .eq("school_id",schoolId)
-      .order("exam_date",{ascending:false})
+setMarks(prev=>({
+...prev,
+[key]:value
+}))
 
-    setExams(data || [])
+}
 
-  }
+function total(studentId:string){
 
-  function toggleSubject(id:string){
+let t = 0
 
-    if(selectedSubjects.includes(id)){
-      setSelectedSubjects(selectedSubjects.filter(s=>s!==id))
-    }else{
-      setSelectedSubjects([...selectedSubjects,id])
-    }
+subjects.forEach((s:any)=>{
+const val = marks[`${studentId}-${s.subject_id}`]
+if(Number(val)) t += Number(val)
+})
 
-  }
+return t
 
-  async function createExam(){
+}
 
-    if(!name || !date){
-      alert("Enter exam name and date")
-      return
-    }
+function percentage(total:number){
 
-    const examClass = scope === "ALL" ? "ALL" : selectedClass
+if(subjects.length===0) return 0
 
-    const { data, error } = await supabase
-      .from("exams")
-      .insert({
-        school_id: schoolId,
-        name: name,
-        exam_date: date,
-        class: examClass
-      })
-      .select()
-      .single()
+return ((total/(subjects.length*100))*100).toFixed(2)
 
-    if(error){
-      console.error(error)
-      alert(error.message)
-      return
-    }
+}
 
-    const examId = data.id
+function handleKey(e:any,row:number,col:number){
 
-    for(const subjectId of selectedSubjects){
+if(e.key==="ArrowRight"){
+focusCell(row,col+1)
+}
 
-      await supabase
-        .from("exam_subjects")
-        .insert({
-          exam_id: examId,
-          subject_id: subjectId,
-          full_marks: 100,
-          pass_marks: 40
-        })
+if(e.key==="ArrowLeft"){
+focusCell(row,col-1)
+}
 
-    }
+if(e.key==="ArrowDown"){
+focusCell(row+1,col)
+}
 
-    setName("")
-    setDate("")
-    setSelectedSubjects([])
-    setSelectedClass("")
-    setScope("ALL")
+if(e.key==="ArrowUp"){
+focusCell(row-1,col)
+}
 
-    loadExams()
+if(e.key==="Enter"){
+focusCell(row+1,col)
+}
 
-  }
+}
 
-  async function deleteExam(id:string){
+function focusCell(r:number,c:number){
 
-    await supabase
-      .from("exams")
-      .delete()
-      .eq("id",id)
+const key = `${r}-${c}`
 
-    loadExams()
+if(inputRefs.current[key]){
+inputRefs.current[key].focus()
+}
 
-  }
+}
 
-  return (
+function handlePaste(e:any,row:number,col:number){
 
-    <div className="p-10 text-white max-w-6xl mx-auto">
+const paste = e.clipboardData.getData("text")
 
-      <h1 className="text-2xl font-semibold mb-6">
-        Create Exam
-      </h1>
+const rows = paste.split("\n")
 
-      {/* FORM CARD */}
+rows.forEach((r,rowIndex)=>{
 
-      <div className="bg-white/10 border border-white/20 rounded-xl backdrop-blur p-6 mb-8">
+const cols = r.split(/\t|,/)
 
-        <div className="flex gap-4 flex-wrap mb-4">
+cols.forEach((cell,colIndex)=>{
 
-          <input
-            value={name}
-            onChange={(e)=>setName(e.target.value)}
-            placeholder="Exam Name"
-            className="bg-gray-800 text-white px-3 py-2 rounded"
-          />
+const student = students[row + rowIndex]
+const subject = subjects[col + colIndex]
 
-          <input
-            type="date"
-            value={date}
-            onChange={(e)=>setDate(e.target.value)}
-            className="bg-gray-800 text-white px-3 py-2 rounded"
-          />
+if(student && subject){
 
-        </div>
+const key = `${student.id}-${subject.subject_id}`
 
-        {/* EXAM TYPE */}
+marks[key] = cell
 
-        <div className="flex gap-6 mb-4">
+}
 
-          <label className="flex gap-2 items-center">
+})
 
-            <input
-              type="radio"
-              checked={scope==="ALL"}
-              onChange={()=>setScope("ALL")}
-            />
+})
 
-            All Classes
+setMarks({...marks})
 
-          </label>
+}
 
-          <label className="flex gap-2 items-center">
+async function saveMarks(){
 
-            <input
-              type="radio"
-              checked={scope==="CLASS"}
-              onChange={()=>setScope("CLASS")}
-            />
+const rows:any = []
 
-            Specific Class
+Object.keys(marks).forEach(key=>{
 
-          </label>
+const [studentId,subjectId] = key.split("-")
 
-        </div>
+rows.push({
+exam_id:selectedExam,
+student_id:studentId,
+subject_id:subjectId,
+class:selectedClass,
+marks:marks[key],
+status:"entered"
+})
 
-        {/* CLASS SELECT */}
+})
 
-        {scope==="CLASS" && (
+await supabase.from("marks").upsert(rows)
 
-          <select
-            value={selectedClass}
-            onChange={(e)=>setSelectedClass(e.target.value)}
-            className="bg-gray-800 text-white px-3 py-2 rounded mb-4"
-          >
+alert("Marks saved")
 
-            <option value="">Select Class</option>
+}
 
-            {classes.map(c=>(
-              <option key={c}>{c}</option>
-            ))}
+return(
 
-          </select>
+<div className="p-10 text-white max-w-6xl mx-auto">
 
-        )}
+<h1 className="text-2xl mb-6 font-semibold">
+Marks Entry
+</h1>
 
-        {/* SUBJECT SELECT */}
+{/* FILTER CARD */}
 
-        <div className="mb-4">
+<div className="bg-white/10 border border-white/20 rounded-xl backdrop-blur p-6 mb-8">
 
-          <h3 className="mb-2 font-medium">
-            Select Subjects
-          </h3>
+<div className="flex gap-4 flex-wrap">
 
-          <div className="flex flex-wrap gap-2">
+<select
+value={selectedExam}
+onChange={(e)=>setSelectedExam(e.target.value)}
+className="bg-gray-800 px-3 py-2 rounded"
+>
 
-            {subjects.map(sub=>{
+<option value="">Select Exam</option>
 
-              const active = selectedSubjects.includes(sub.id)
+{exams.map(exam=>(
+<option key={exam.id} value={exam.id}>
+{exam.name}
+</option>
+))}
 
-              return(
+</select>
 
-                <button
-                  key={sub.id}
-                  onClick={()=>toggleSubject(sub.id)}
-                  className={`px-3 py-1 rounded border text-sm ${
-                    active
-                      ? "bg-blue-600 border-blue-600"
-                      : "border-white/30"
-                  }`}
-                >
+<select
+value={selectedClass}
+onChange={(e)=>setSelectedClass(e.target.value)}
+className="bg-gray-800 px-3 py-2 rounded"
+>
 
-                  {sub.name}
+<option value="">Select Class</option>
 
-                </button>
+{classes.map(c=>(
+<option key={c}>{c}</option>
+))}
 
-              )
+</select>
 
-            })}
+<button
+onClick={loadGrid}
+className="bg-white/10 border border-white/20 rounded-xl px-4 py-2 hover:bg-white/20"
+>
+Load
+</button>
 
-          </div>
+</div>
 
-        </div>
+</div>
 
-        <button
-          onClick={createExam}
-          className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded font-medium"
-        >
-          Save Exam
-        </button>
+{/* GRID */}
 
-      </div>
+<div className="bg-white/10 border border-white/20 rounded-xl backdrop-blur p-6">
 
-      {/* EXAMS TABLE */}
+<div className="overflow-x-auto">
 
-      <div className="overflow-x-auto">
+<table className="min-w-[900px] w-full text-sm">
 
-        <table className="min-w-[900px] w-full text-sm">
+<thead>
 
-          <thead>
+<tr className="bg-white/10">
 
-            <tr className="bg-white/10">
+<th className="p-2 text-left">Student</th>
 
-              <th className="p-2 text-left">Exam</th>
-              <th className="p-2 text-left">Class</th>
-              <th className="p-2 text-left">Date</th>
-              <th className="p-2 text-left">Action</th>
+{subjects.map((s:any)=>(
+<th key={s.subject_id} className="p-2">
+{s.subjects?.name}
+</th>
+))}
 
-            </tr>
+<th className="p-2">Total</th>
+<th className="p-2">%</th>
 
-          </thead>
+</tr>
 
-          <tbody>
+</thead>
 
-            {exams.length === 0 && (
+<tbody>
 
-              <tr>
-                <td colSpan={4} className="p-4 text-gray-400">
-                  No exams created yet
-                </td>
-              </tr>
+{students.map((student,row)=>{
 
-            )}
+const t = total(student.id)
 
-            {exams.map(exam=>(
-              <tr
-                key={exam.id}
-                className="border-t border-white/10 hover:bg-white/5"
-              >
+return(
 
-                <td className="p-2">{exam.name}</td>
-                <td className="p-2">{exam.class}</td>
-                <td className="p-2">{exam.exam_date}</td>
+<tr key={student.id} className="border-t border-white/10">
 
-                <td className="p-2">
+<td className="p-2">
+{student.name}
+</td>
 
-                  <button
-                    onClick={()=>deleteExam(exam.id)}
-                    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded"
-                  >
-                    Delete
-                  </button>
+{subjects.map((s:any,col)=>{
 
-                </td>
+const key = `${student.id}-${s.subject_id}`
 
-              </tr>
-            ))}
+return(
 
-          </tbody>
+<td key={s.subject_id} className="p-2">
 
-        </table>
+<input
+ref={el=>inputRefs.current[`${row}-${col}`]=el}
+value={marks[key] || ""}
+onChange={(e)=>updateMark(student.id,s.subject_id,e.target.value)}
+onKeyDown={(e)=>handleKey(e,row,col)}
+onPaste={(e)=>handlePaste(e,row,col)}
+className="bg-gray-800 w-20 p-1 rounded text-center focus:ring-2 focus:ring-blue-500"
+/>
 
-      </div>
+</td>
 
-    </div>
+)
 
-  )
+})}
+
+<td className="p-2">{t}</td>
+
+<td className="p-2">
+{percentage(t)}
+</td>
+
+</tr>
+
+)
+
+})}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+{/* ACTION BUTTONS */}
+
+<div className="flex gap-4 mt-6 flex-wrap">
+
+<button
+onClick={saveMarks}
+className="bg-white/10 border border-white/20 rounded-xl px-6 py-3 hover:bg-white/20"
+>
+Save Marks
+</button>
+
+<button className="bg-white/10 border border-white/20 rounded-xl px-6 py-3 hover:bg-white/20">
+Verify Marks
+</button>
+
+<button className="bg-white/10 border border-white/20 rounded-xl px-6 py-3 hover:bg-white/20">
+Create Results
+</button>
+
+<button className="bg-white/10 border border-white/20 rounded-xl px-6 py-3 hover:bg-white/20">
+Publish Results
+</button>
+
+</div>
+
+</div>
+
+)
+
 }
