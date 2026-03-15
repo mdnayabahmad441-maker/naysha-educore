@@ -2,79 +2,44 @@
 
 import Link from "next/link"
 
-export default function ExamsDashboard(){
+export default function ExamsPage(){
 
-  const cards = [
-    {
-      title: "Create Exam",
-      href: "/admin/exams/create"
-    },
-    {
-      title: "Enter Marks",
-      href: "/admin/exams/marks"
-    },
-    {
-      title: "Results",
-      href: "/admin/exams/results"
-    },
-    {
-      title: "Report Cards",
-      href: "/admin/exams/reportcards"
-    },
-    {
-      title: "Subjects",
-      href: "/admin/subjects"
-    }
-  ]
+const cards = [
+{title:"Create Exam",link:"/admin/exams/create"},
+{title:"Enter Marks",link:"/admin/exams/marks"},
+{title:"Results",link:"/admin/exams/results"},
+{title:"Report Cards",link:"/admin/exams/reportcards"},
+{title:"Subjects",link:"/admin/exams/subjects"}
+]
 
-  return(
+return(
 
-    <div className="p-10 text-white">
+<div className="p-10 text-white">
 
-      <h1 className="text-4xl font-bold mb-12">
-        Exam Management
-      </h1>
+<h1 className="text-4xl font-bold mb-10">
+Exam Management
+</h1>
 
-      <div
-        className="
-        grid
-        grid-cols-1
-        sm:grid-cols-2
-        lg:grid-cols-3
-        xl:grid-cols-4
-        gap-8
-        "
-      >
+<div className="grid grid-cols-2 gap-8 max-w-xl">
 
-        {cards.map((card)=>(
+{cards.map(c=>(
 
-          <Link
-            key={card.href}
-            href={card.href}
-            className="
-            bg-white/10
-            hover:bg-white/20
-            transition
-            rounded-2xl
-            p-10
-            text-center
-            text-lg
-            font-semibold
-            shadow-lg
-            backdrop-blur-lg
-            "
-          >
+<Link
+key={c.title}
+href={c.link}
+className="bg-white/10 hover:bg-white/20 p-10 rounded text-center text-xl"
+>
 
-            {card.title}
+{c.title}
 
-          </Link>
+</Link>
 
-        ))}
+))}
 
-      </div>
+</div>
 
-    </div>
+</div>
 
-  )
+)
 
 }
