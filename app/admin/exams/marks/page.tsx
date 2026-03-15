@@ -14,8 +14,6 @@ const [selectedExam,setSelectedExam]=useState("")
 const [selectedClass,setSelectedClass]=useState("")
 const [published,setPublished]=useState(false)
 
-const [loading,setLoading]=useState(false)
-
 useEffect(()=>{
 loadExams()
 },[])
@@ -25,7 +23,6 @@ async function loadExams(){
 const {data}=await supabase
 .from("exams")
 .select("*")
-.order("created_at",{ascending:false})
 
 setExams(data||[])
 
@@ -55,37 +52,23 @@ alert("Select exam and class")
 return
 }
 
-setLoading(true)
-
 await checkPublish()
-
-/* load students */
 
 const {data:studentData}=await supabase
 .from("students")
 .select("*")
 .eq("class",selectedClass)
-.order("roll_number")
 
 setStudents(studentData||[])
 
-/* load subjects */
-
 const {data:subjectData}=await supabase
 .from("exam_subjects")
-.select(`
-subject_id,
-subjects(name)
-`)
+.select("subject,max_marks")
 .eq("exam_id",selectedExam)
 
 setSubjects(subjectData||[])
 
-/* load existing marks */
-
-await loadExistingMarks(studentData||[],subjectData||[])
-
-setLoading(false)
+loadExistingMarks(studentData,subjectData)
 
 }
 
@@ -93,27 +76,21 @@ async function loadExistingMarks(studentData:any,subjectData:any){
 
 let newMarks:any={}
 
-/* get all marks at once */
-
-const {data:marksData}=await supabase
-.from("marks")
-.select("*")
-.eq("exam_id",selectedExam)
-.eq("class",selectedClass)
-
 for(const student of studentData){
 
 for(const subject of subjectData){
 
-const key=`${student.id}_${subject.subject_id}`
+const {data}=await supabase
+.from("marks")
+.select("*")
+.eq("exam_id",selectedExam)
+.eq("student_id",student.id)
+.eq("subject",subject.subject)
+.single()
 
-const found=marksData?.find(
-(m:any)=>
-m.student_id===student.id &&
-m.subject_id===subject.subject_id
-)
+const key=`${student.id}_${subject.subject}`
 
-newMarks[key]=found?.marks || ""
+newMarks[key]=data?.marks || ""
 
 }
 
@@ -137,9 +114,9 @@ return value
 
 }
 
-function handleMark(studentId:number,subjectId:number,value:string){
+function handleMark(studentId:number,subject:string,value:string){
 
-const key=`${studentId}_${subjectId}`
+const key=`${studentId}_${subject}`
 
 setMarks((prev:any)=>({
 
@@ -159,7 +136,7 @@ return
 
 for(const key in marks){
 
-const [studentId,subjectId]=key.split("_")
+const [studentId,subject]=key.split("_")
 
 const mark=normalizeMark(marks[key])
 
@@ -170,7 +147,7 @@ await supabase
 exam_id:selectedExam,
 class:selectedClass,
 student_id:Number(studentId),
-subject_id:Number(subjectId),
+subject:subject,
 marks:mark
 
 })
@@ -182,6 +159,11 @@ alert("Marks saved successfully")
 }
 
 async function verifyMarks(){
+
+if(Object.values(marks).some(m => m === "")){
+alert("Fill all marks before verifying")
+return
+}
 
 await supabase
 .from("exam_results_status")
@@ -249,10 +231,10 @@ return(
 <div className="p-10 text-white">
 
 <h1 className="text-4xl font-bold mb-10">
-Result Creation
-</h1>
 
-{/* SELECT AREA */}
+Result Creation
+
+</h1>
 
 <div className="flex gap-4 mb-6 flex-wrap">
 
@@ -294,16 +276,6 @@ Load Students
 
 </div>
 
-{/* LOADING */}
-
-{loading && (
-<p className="text-gray-400 mb-6">
-Loading students and subjects...
-</p>
-)}
-
-{/* MARKS TABLE */}
-
 <div className="overflow-x-auto">
 
 <table className="min-w-full text-sm">
@@ -312,13 +284,11 @@ Loading students and subjects...
 
 <tr className="bg-gray-700">
 
-<th className="p-3 text-left">
-Student
-</th>
+<th className="p-2">Student</th>
 
 {subjects.map((s)=>(
-<th key={s.subject_id} className="p-3">
-{s.subjects.name}
+<th key={s.subject} className="p-2">
+{s.subject}
 </th>
 ))}
 
@@ -329,27 +299,23 @@ Student
 <tbody>
 
 {students.map((student)=>(
-<tr key={student.id} className="border-b border-gray-800">
+<tr key={student.id}>
 
-<td className="p-2">
-{student.name}
-</td>
+<td className="p-2">{student.name}</td>
 
 {subjects.map((sub)=>{
 
-const key=`${student.id}_${sub.subject_id}`
+const key=`${student.id}_${sub.subject}`
 
 return(
 
-<td key={sub.subject_id} className="p-2">
+<td key={sub.subject} className="p-2">
 
 <input
-type="text"
-placeholder="0"
-className="bg-gray-800 p-1 w-20 rounded text-center"
+className="bg-gray-800 p-1 w-20 rounded"
 value={marks[key]||""}
 disabled={published}
-onChange={(e)=>handleMark(student.id,sub.subject_id,e.target.value)}
+onChange={(e)=>handleMark(student.id,sub.subject,e.target.value)}
 onKeyDown={handleKey}
 />
 
@@ -367,8 +333,6 @@ onKeyDown={handleKey}
 </table>
 
 </div>
-
-{/* ACTION BUTTONS */}
 
 <div className="flex gap-4 mt-8 flex-wrap">
 
