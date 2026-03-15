@@ -5,67 +5,201 @@ import { supabase } from "@/lib/supabase"
 
 export default function SubjectsPage(){
 
-const [rows,setRows]=useState<any[]>([])
+const [schoolId,setSchoolId] = useState("")
+const [name,setName] = useState("")
+const [className,setClassName] = useState("")
+const [subjects,setSubjects] = useState<any[]>([])
+const [classes,setClasses] = useState<string[]>([])
+const [editingId,setEditingId] = useState<number | null>(null)
 
 useEffect(()=>{
+loadSchool()
+},[])
 
-async function load(){
+async function loadSchool(){
 
-const {data} = await supabase
-.from("class_subjects")
-.select(`
-id,
-class,
-max_marks,
-pass_marks,
-subjects(name)
-`)
-.order("class")
+const { data } = await supabase.auth.getSession()
 
-setRows(data || [])
+const userId = data.session?.user.id
+
+const { data:user } = await supabase
+.from("users")
+.select("school_id")
+.eq("id",userId)
+.single()
+
+if(user){
+
+setSchoolId(user.school_id)
+
+loadClasses(user.school_id)
+loadSubjects(user.school_id)
 
 }
 
-load()
+}
 
-},[])
+async function loadClasses(school:string){
 
-const grouped = rows.reduce((acc:any,row)=>{
+const { data } = await supabase
+.from("students")
+.select("class")
+.eq("school_id",school)
 
-if(!acc[row.class]) acc[row.class]=[]
+const unique = [...new Set(data?.map((s:any)=>s.class))]
 
-acc[row.class].push(row)
+setClasses(unique as string[])
 
-return acc
+}
 
-},{})
-  
+async function loadSubjects(school:string){
+
+const { data } = await supabase
+.from("subjects")
+.select("*")
+.eq("school_id",school)
+.order("class",{ascending:true})
+
+setSubjects(data || [])
+
+}
+
+async function addSubject(){
+
+if(!name || !className){
+alert("Enter subject and class")
+return
+}
+
+/* prevent duplicates */
+
+const exists = subjects.find(
+s => s.name.toLowerCase() === name.toLowerCase() && s.class === className
+)
+
+if(exists){
+alert("Subject already exists in this class")
+return
+}
+
+await supabase.from("subjects").insert({
+
+name,
+class: className,
+school_id: schoolId
+
+})
+
+setName("")
+setClassName("")
+
+loadSubjects(schoolId)
+
+}
+
+function startEdit(subject:any){
+
+setEditingId(subject.id)
+setName(subject.name)
+setClassName(subject.class)
+
+}
+
+async function updateSubject(){
+
+if(!editingId) return
+
+await supabase
+.from("subjects")
+.update({
+name,
+class:className
+})
+.eq("id",editingId)
+
+setEditingId(null)
+setName("")
+setClassName("")
+
+loadSubjects(schoolId)
+
+}
+
+async function deleteSubject(id:number){
+
+if(!confirm("Delete this subject?")) return
+
+await supabase
+.from("subjects")
+.delete()
+.eq("id",id)
+
+loadSubjects(schoolId)
+
+}
+
 return(
 
-<div className="p-10 text-white max-w-6xl mx-auto">
+<div className="p-10 text-white">
 
-<h1 className="text-2xl mb-6">Subjects by Class</h1>
+<h1 className="text-3xl font-bold mb-6">
+Subjects
+</h1>
 
-{Object.keys(grouped).map(cls => (
+<div className="flex gap-4 mb-6 flex-wrap">
 
-<div
-key={cls}
-className="bg-white/10 border border-white/20 rounded-xl p-6 mb-6"
+<input
+value={name}
+onChange={(e)=>setName(e.target.value)}
+placeholder="Subject Name"
+className="bg-slate-800 p-2 rounded"
+/>
+
+<select
+value={className}
+onChange={(e)=>setClassName(e.target.value)}
+className="bg-slate-800 p-2 rounded"
 >
 
-<h2 className="text-lg mb-4">Class {cls}</h2>
+<option value="">Select Class</option>
 
-<div className="overflow-x-auto">
+{classes.map(c=>(
+<option key={c}>{c}</option>
+))}
 
-<table className="min-w-[900px] w-full text-sm">
+</select>
+
+{editingId ? (
+
+<button
+onClick={updateSubject}
+className="bg-yellow-500 px-6 py-2 rounded"
+>
+Update Subject
+</button>
+
+) : (
+
+<button
+onClick={addSubject}
+className="bg-green-600 px-6 py-2 rounded"
+>
+Add Subject
+</button>
+
+)}
+
+</div>
+
+<table className="w-full border border-white/20">
 
 <thead>
 
 <tr className="bg-white/10">
 
-<th className="p-2 text-left">Subject</th>
-<th className="p-2 text-left">Max Marks</th>
-<th className="p-2 text-left">Pass Marks</th>
+<th className="p-2">Subject</th>
+<th className="p-2">Class</th>
+<th className="p-2">Actions</th>
 
 </tr>
 
@@ -73,25 +207,57 @@ className="bg-white/10 border border-white/20 rounded-xl p-6 mb-6"
 
 <tbody>
 
-{grouped[cls].map((r:any)=>(
-<tr key={r.id}>
+{classes.map((cls)=>{
 
-<td className="p-2">{r.subjects?.name}</td>
-<td className="p-2">{r.max_marks}</td>
-<td className="p-2">{r.pass_marks}</td>
+const classSubjects = subjects.filter(s => s.class === cls)
+
+if(classSubjects.length === 0) return null
+
+return(
+
+<>
+<tr className="bg-white/10">
+<td colSpan={3} className="p-3 font-bold text-left">
+Class {cls}
+</td>
+</tr>
+
+{classSubjects.map((s)=>(
+<tr key={s.id}>
+
+<td className="p-2">{s.name}</td>
+<td className="p-2">{s.class}</td>
+
+<td className="p-2 flex gap-2">
+
+<button
+onClick={()=>startEdit(s)}
+className="bg-blue-600 px-3 py-1 rounded"
+>
+Edit
+</button>
+
+<button
+onClick={()=>deleteSubject(s.id)}
+className="bg-red-600 px-3 py-1 rounded"
+>
+Delete
+</button>
+
+</td>
 
 </tr>
 ))}
 
+</>
+
+)
+
+})}
+
 </tbody>
 
 </table>
-
-</div>
-
-</div>
-
-))}
 
 </div>
 
