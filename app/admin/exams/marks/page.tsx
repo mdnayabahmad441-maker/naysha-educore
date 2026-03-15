@@ -202,21 +202,64 @@ alert("Results published")
 
 }
 
-function handleKey(e:any){
+function handleKeyNavigation(e:any){
+
+const input=e.target as HTMLInputElement
+
+const cell=input.parentElement
+const row=cell?.parentElement
+
+if(!cell || !row) return
 
 if(e.key==="Enter"){
+e.preventDefault()
 
-const form=(e.currentTarget as HTMLInputElement).form
+const next=row.nextElementSibling
+const index=Array.from(row.children).indexOf(cell)
 
-if(!form) return
+const nextCell=next?.children[index]
+const nextInput=nextCell?.querySelector("input") as HTMLElement
 
-const elements=Array.from(form.elements)
+if(nextInput) nextInput.focus()
+}
 
-const index=elements.indexOf(e.target as Element)
+if(e.key==="ArrowRight"){
 
-const next=elements[index+1] as HTMLElement
+const nextCell=cell.nextElementSibling
+const nextInput=nextCell?.querySelector("input") as HTMLElement
+if(nextInput) nextInput.focus()
 
-if(next) next.focus()
+}
+
+if(e.key==="ArrowLeft"){
+
+const prevCell=cell.previousElementSibling
+const prevInput=prevCell?.querySelector("input") as HTMLElement
+if(prevInput) prevInput.focus()
+
+}
+
+if(e.key==="ArrowDown"){
+
+const nextRow=row.nextElementSibling
+const index=Array.from(row.children).indexOf(cell)
+
+const nextCell=nextRow?.children[index]
+const nextInput=nextCell?.querySelector("input") as HTMLElement
+
+if(nextInput) nextInput.focus()
+
+}
+
+if(e.key==="ArrowUp"){
+
+const prevRow=row.previousElementSibling
+const index=Array.from(row.children).indexOf(cell)
+
+const prevCell=prevRow?.children[index]
+const prevInput=prevCell?.querySelector("input") as HTMLElement
+
+if(prevInput) prevInput.focus()
 
 }
 
@@ -272,18 +315,20 @@ Load Students
 
 </div>
 
-<div className="overflow-x-auto">
+<div className="overflow-x-auto border border-gray-700 rounded-lg">
 
-<table className="min-w-full text-sm">
+<table className="min-w-full text-sm border-collapse">
 
 <thead>
 
 <tr className="bg-gray-700">
 
-<th className="p-2">Student</th>
+<th className="p-3 sticky left-0 bg-gray-700 z-10">
+Student
+</th>
 
 {subjects.map((s)=>(
-<th key={s.subject_id} className="p-2">
+<th key={s.subject_id} className="p-3 min-w-[90px]">
 {s.subjects.name}
 </th>
 ))}
@@ -295,9 +340,11 @@ Load Students
 <tbody>
 
 {students.map((student)=>(
-<tr key={student.id}>
+<tr key={student.id} className="border-b border-gray-800">
 
-<td className="p-2">{student.name}</td>
+<td className="p-2 sticky left-0 bg-gray-900 font-medium">
+{student.name}
+</td>
 
 {subjects.map((sub)=>{
 
@@ -305,14 +352,14 @@ const key=`${student.id}_${sub.subject_id}`
 
 return(
 
-<td key={sub.subject_id} className="p-2">
+<td key={sub.subject_id} className="p-2 text-center">
 
 <input
-className="bg-gray-800 p-1 w-20 rounded"
+className="bg-gray-800 p-2 w-16 text-center rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
 value={marks[key]||""}
 disabled={published}
 onChange={(e)=>handleMark(student.id,sub.subject_id,e.target.value)}
-onKeyDown={handleKey}
+onKeyDown={(e)=>handleKeyNavigation(e)}
 />
 
 </td>
