@@ -14,6 +14,8 @@ const [selectedExam,setSelectedExam]=useState("")
 const [selectedClass,setSelectedClass]=useState("")
 const [published,setPublished]=useState(false)
 
+const [loading,setLoading]=useState(false)
+
 useEffect(()=>{
 loadExams()
 },[])
@@ -23,6 +25,7 @@ async function loadExams(){
 const {data}=await supabase
 .from("exams")
 .select("*")
+.order("created_at",{ascending:false})
 
 setExams(data||[])
 
@@ -39,6 +42,8 @@ const {data}=await supabase
 
 if(data?.published){
 setPublished(true)
+}else{
+setPublished(false)
 }
 
 }
@@ -50,14 +55,21 @@ alert("Select exam and class")
 return
 }
 
+setLoading(true)
+
 await checkPublish()
+
+/* load students */
 
 const {data:studentData}=await supabase
 .from("students")
 .select("*")
 .eq("class",selectedClass)
+.order("roll_number")
 
 setStudents(studentData||[])
+
+/* load subjects */
 
 const {data:subjectData}=await supabase
 .from("exam_subjects")
@@ -69,7 +81,11 @@ subjects(name)
 
 setSubjects(subjectData||[])
 
-loadExistingMarks(studentData,subjectData)
+/* load existing marks */
+
+await loadExistingMarks(studentData||[],subjectData||[])
+
+setLoading(false)
 
 }
 
@@ -77,21 +93,27 @@ async function loadExistingMarks(studentData:any,subjectData:any){
 
 let newMarks:any={}
 
+/* get all marks at once */
+
+const {data:marksData}=await supabase
+.from("marks")
+.select("*")
+.eq("exam_id",selectedExam)
+.eq("class",selectedClass)
+
 for(const student of studentData){
 
 for(const subject of subjectData){
 
-const {data}=await supabase
-.from("marks")
-.select("*")
-.eq("exam_id",selectedExam)
-.eq("student_id",student.id)
-.eq("subject_id",subject.subject_id)
-.single()
-
 const key=`${student.id}_${subject.subject_id}`
 
-newMarks[key]=data?.marks || ""
+const found=marksData?.find(
+(m:any)=>
+m.student_id===student.id &&
+m.subject_id===subject.subject_id
+)
+
+newMarks[key]=found?.marks || ""
 
 }
 
@@ -202,64 +224,21 @@ alert("Results published")
 
 }
 
-function handleKeyNavigation(e:any){
-
-const input=e.target as HTMLInputElement
-
-const cell=input.parentElement
-const row=cell?.parentElement
-
-if(!cell || !row) return
+function handleKey(e:any){
 
 if(e.key==="Enter"){
-e.preventDefault()
 
-const next=row.nextElementSibling
-const index=Array.from(row.children).indexOf(cell)
+const form=(e.currentTarget as HTMLInputElement).form
 
-const nextCell=next?.children[index]
-const nextInput=nextCell?.querySelector("input") as HTMLElement
+if(!form) return
 
-if(nextInput) nextInput.focus()
-}
+const elements=Array.from(form.elements)
 
-if(e.key==="ArrowRight"){
+const index=elements.indexOf(e.target as Element)
 
-const nextCell=cell.nextElementSibling
-const nextInput=nextCell?.querySelector("input") as HTMLElement
-if(nextInput) nextInput.focus()
+const next=elements[index+1] as HTMLElement
 
-}
-
-if(e.key==="ArrowLeft"){
-
-const prevCell=cell.previousElementSibling
-const prevInput=prevCell?.querySelector("input") as HTMLElement
-if(prevInput) prevInput.focus()
-
-}
-
-if(e.key==="ArrowDown"){
-
-const nextRow=row.nextElementSibling
-const index=Array.from(row.children).indexOf(cell)
-
-const nextCell=nextRow?.children[index]
-const nextInput=nextCell?.querySelector("input") as HTMLElement
-
-if(nextInput) nextInput.focus()
-
-}
-
-if(e.key==="ArrowUp"){
-
-const prevRow=row.previousElementSibling
-const index=Array.from(row.children).indexOf(cell)
-
-const prevCell=prevRow?.children[index]
-const prevInput=prevCell?.querySelector("input") as HTMLElement
-
-if(prevInput) prevInput.focus()
+if(next) next.focus()
 
 }
 
@@ -270,10 +249,10 @@ return(
 <div className="p-10 text-white">
 
 <h1 className="text-4xl font-bold mb-10">
-
 Result Creation
-
 </h1>
+
+{/* SELECT AREA */}
 
 <div className="flex gap-4 mb-6 flex-wrap">
 
@@ -315,20 +294,30 @@ Load Students
 
 </div>
 
-<div className="overflow-x-auto border border-gray-700 rounded-lg">
+{/* LOADING */}
 
-<table className="min-w-full text-sm border-collapse">
+{loading && (
+<p className="text-gray-400 mb-6">
+Loading students and subjects...
+</p>
+)}
+
+{/* MARKS TABLE */}
+
+<div className="overflow-x-auto">
+
+<table className="min-w-full text-sm">
 
 <thead>
 
 <tr className="bg-gray-700">
 
-<th className="p-3 sticky left-0 bg-gray-700 z-10">
+<th className="p-3 text-left">
 Student
 </th>
 
 {subjects.map((s)=>(
-<th key={s.subject_id} className="p-3 min-w-[90px]">
+<th key={s.subject_id} className="p-3">
 {s.subjects.name}
 </th>
 ))}
@@ -342,7 +331,7 @@ Student
 {students.map((student)=>(
 <tr key={student.id} className="border-b border-gray-800">
 
-<td className="p-2 sticky left-0 bg-gray-900 font-medium">
+<td className="p-2">
 {student.name}
 </td>
 
@@ -352,14 +341,16 @@ const key=`${student.id}_${sub.subject_id}`
 
 return(
 
-<td key={sub.subject_id} className="p-2 text-center">
+<td key={sub.subject_id} className="p-2">
 
 <input
-className="bg-gray-800 p-2 w-16 text-center rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+type="text"
+placeholder="0"
+className="bg-gray-800 p-1 w-20 rounded text-center"
 value={marks[key]||""}
 disabled={published}
 onChange={(e)=>handleMark(student.id,sub.subject_id,e.target.value)}
-onKeyDown={(e)=>handleKeyNavigation(e)}
+onKeyDown={handleKey}
 />
 
 </td>
@@ -376,6 +367,8 @@ onKeyDown={(e)=>handleKeyNavigation(e)}
 </table>
 
 </div>
+
+{/* ACTION BUTTONS */}
 
 <div className="flex gap-4 mt-8 flex-wrap">
 
