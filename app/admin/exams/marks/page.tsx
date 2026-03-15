@@ -1,304 +1,153 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
+import Button from "@/components/ui/Button"
 
 export default function MarksPage(){
 
-const classes = [
-"Nursery","LKG","UKG",
-"01","02","03","04","05",
-"06","07","08","09","10"
-]
+  const [students,setStudents] = useState<any[]>([])
+  const [subjects,setSubjects] = useState<any[]>([])
+  const [examId,setExamId] = useState("")
+  const [marks,setMarks] = useState<any>({})
 
-const [exams,setExams] = useState<any[]>([])
-const [exam,setExam] = useState("")
-const [className,setClassName] = useState("")
+  useEffect(()=>{
 
-const [students,setStudents] = useState<any[]>([])
-const [subjects,setSubjects] = useState<any[]>([])
+    const load = async()=>{
 
-const [marks,setMarks] = useState<Record<string,string>>({})
+      const {data:s}=await supabase.from("students").select("*")
+      const {data:sub}=await supabase.from("subjects").select("*")
 
-useEffect(()=>{
-loadExams()
-},[])
+      setStudents(s||[])
+      setSubjects(sub||[])
 
-async function loadExams(){
+    }
 
-const {data} = await supabase
-.from("exams")
-.select("*")
-.order("exam_date",{ascending:false})
+    load()
 
-setExams(data || [])
+  },[])
 
-}
+  const updateMark = (studentId:string,subjectId:string,value:any)=>{
 
-async function loadGrid(){
+    setMarks({
+      ...marks,
+      [`${studentId}_${subjectId}`]:value
+    })
 
-if(!exam || !className){
-alert("Select exam and class")
-return
-}
+  }
 
-const {data:studentData} = await supabase
-.from("students")
-.select("*")
-.eq("class",className)
-.order("roll_no")
+  const save = async()=>{
 
-setStudents(studentData || [])
+    const rows:any[] = []
 
-const {data:subjectData} = await supabase
-.from("class_subjects")
-.select(`
-subject_id,
-subjects(name)
-`)
-.eq("class",className)
+    students.forEach(student=>{
 
-setSubjects(subjectData || [])
+      subjects.forEach(subject=>{
 
-const {data:marksData} = await supabase
-.from("marks")
-.select("*")
-.eq("exam_id",exam)
-.eq("class",className)
+        const key = `${student.id}_${subject.id}`
 
-const map:any = {}
+        if(marks[key]){
 
-marksData?.forEach((m:any)=>{
-map[`${m.student_id}-${m.subject_id}`] = m.marks
-})
+          rows.push({
+            id:crypto.randomUUID(),
+            exam_id:examId,
+            student_id:student.id,
+            subject_id:subject.id,
+            marks:marks[key]
+          })
 
-setMarks(map)
+        }
 
-}
+      })
 
-function updateMark(studentId:string,subjectId:string,value:string){
+    })
 
-const key = `${studentId}-${subjectId}`
+    const {error}=await supabase
+      .from("marks")
+      .insert(rows)
 
-setMarks(prev=>({
-...prev,
-[key]:value
-}))
+    if(error) console.error(error)
 
-}
+  }
 
-function total(studentId:string){
+  return(
 
-let t = 0
+    <div className="p-10 text-white max-w-7xl mx-auto">
 
-subjects.forEach((s:any)=>{
-const v = marks[`${studentId}-${s.subject_id}`]
-if(Number(v)) t += Number(v)
-})
+      <h1 className="text-2xl mb-6">Marks Entry</h1>
 
-return t
+      <div className="overflow-x-auto">
 
-}
+        <table className="w-full text-sm border border-white/20">
 
-function percent(total:number){
+          <thead>
 
-if(subjects.length===0) return 0
+            <tr>
+              <th className="border p-2">Student</th>
 
-return ((total/(subjects.length*100))*100).toFixed(2)
+              {subjects.map(sub=>(
+                <th key={sub.id} className="border p-2">
+                  {sub.name}
+                </th>
+              ))}
 
-}
+            </tr>
 
-async function saveMarks(){
+          </thead>
 
-const rows:any = []
+          <tbody>
 
-Object.keys(marks).forEach(key=>{
+            {students.map(student=>(
 
-const [studentId,subjectId] = key.split("-")
+              <tr key={student.id}>
 
-rows.push({
-exam_id:exam,
-student_id:studentId,
-subject_id:subjectId,
-class:className,
-marks:marks[key],
-status:"entered"
-})
+                <td className="border p-2">
+                  {student.name}
+                </td>
 
-})
+                {subjects.map(subject=>{
 
-await supabase.from("marks").upsert(rows)
+                  const key = `${student.id}_${subject.id}`
 
-alert("Marks Saved")
+                  return(
 
-}
+                    <td key={subject.id} className="border p-2">
 
-return(
+                      <input
+                      className="bg-slate-800 border border-white/20 p-1 w-16"
+                      onChange={(e)=>updateMark(
+                        student.id,
+                        subject.id,
+                        e.target.value
+                      )}
+                      />
 
-<div className="p-10 text-white max-w-6xl mx-auto">
+                    </td>
 
-<h1 className="text-2xl font-semibold mb-6">
-Marks Entry
-</h1>
+                  )
 
-{/* FILTER CARD */}
+                })}
 
-<div className="bg-white/10 border border-white/20 rounded-xl backdrop-blur p-6 mb-8">
+              </tr>
 
-<div className="flex gap-4 flex-wrap">
+            ))}
 
-<select
-value={exam}
-onChange={(e)=>setExam(e.target.value)}
-className="bg-gray-800 px-3 py-2 rounded"
->
-<option value="">Select Exam</option>
-{exams.map(e=>(
-<option key={e.id} value={e.id}>
-{e.name}
-</option>
-))}
-</select>
+          </tbody>
 
-<select
-value={className}
-onChange={(e)=>setClassName(e.target.value)}
-className="bg-gray-800 px-3 py-2 rounded"
->
-<option value="">Select Class</option>
-{classes.map(c=>(
-<option key={c}>{c}</option>
-))}
-</select>
+        </table>
 
-<button
-onClick={loadGrid}
-className="bg-white/10 border border-white/20 px-4 py-2 rounded-lg hover:bg-white/20"
->
-Load
-</button>
+      </div>
 
-</div>
+      <div className="mt-4">
 
-</div>
+        <Button color="green" onClick={save}>
+          Save Marks
+        </Button>
 
-{/* GRID */}
+      </div>
 
-<div className="bg-white/10 border border-white/20 rounded-xl backdrop-blur p-6">
+    </div>
 
-<div className="overflow-x-auto">
-
-<table className="min-w-[900px] w-full text-sm">
-
-<thead>
-
-<tr className="bg-white/10">
-
-<th className="p-2 text-left">
-Student
-</th>
-
-{subjects.map((s:any)=>(
-<th key={s.subject_id} className="p-2 text-left">
-{s.subjects?.name}
-</th>
-))}
-
-<th className="p-2 text-left">
-Total
-</th>
-
-<th className="p-2 text-left">
-%
-</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-{students.map(student=>{
-
-const t = total(student.id)
-
-return(
-
-<tr key={student.id} className="border-t border-white/10">
-
-<td className="p-2">
-{student.name}
-</td>
-
-{subjects.map((s:any)=>{
-
-const key = `${student.id}-${s.subject_id}`
-
-return(
-
-<td key={s.subject_id} className="p-2">
-
-<input
-value={marks[key] || ""}
-onChange={(e)=>updateMark(student.id,s.subject_id,e.target.value)}
-className="bg-gray-800 w-20 p-1 rounded text-center"
-/>
-
-</td>
-
-)
-
-})}
-
-<td className="p-2">
-{t}
-</td>
-
-<td className="p-2">
-{percent(t)}
-</td>
-
-</tr>
-
-)
-
-})}
-
-</tbody>
-
-</table>
-
-</div>
-
-</div>
-
-{/* ACTIONS */}
-
-<div className="flex gap-4 mt-6 flex-wrap">
-
-<button
-onClick={saveMarks}
-className="bg-white/10 border border-white/20 px-6 py-3 rounded-xl hover:bg-white/20"
->
-Save Marks
-</button>
-
-<button className="bg-white/10 border border-white/20 px-6 py-3 rounded-xl hover:bg-white/20">
-Verify Marks
-</button>
-
-<button className="bg-white/10 border border-white/20 px-6 py-3 rounded-xl hover:bg-white/20">
-Create Results
-</button>
-
-<button className="bg-white/10 border border-white/20 px-6 py-3 rounded-xl hover:bg-white/20">
-Publish Results
-</button>
-
-</div>
-
-</div>
-
-)
+  )
 
 }

@@ -1,32 +1,32 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 
-export function middleware(req: NextRequest) {
+export function middleware(request: NextRequest) {
 
-  const pathname = req.nextUrl.pathname
+  const host = request.headers.get("host") || ""
+  const slug = host.split(".")[0]
 
-  // allow auth pages
-  if (pathname.startsWith("/auth")) {
-    return NextResponse.next()
+  const headers = new Headers(request.headers)
+
+  // Detect tenant from subdomain
+  if (slug !== "erp" && slug !== "www" && slug !== "localhost") {
+    headers.set("x-tenant", slug)
   }
 
-  const host = req.headers.get("host") || ""
+  // Protect admin routes
+  const token = request.cookies.get("sb-access-token")
 
-  // example host:
-  // nayshaschool.erp.naysha.online
-
-  const subdomain = host.split(".")[0]
-
-  // attach school subdomain to request header
-  const requestHeaders = new Headers(req.headers)
-  requestHeaders.set("x-school-subdomain", subdomain)
+  if (!token && request.nextUrl.pathname.startsWith("/admin")) {
+    return NextResponse.redirect(new URL("/login", request.url))
+  }
 
   return NextResponse.next({
     request: {
-      headers: requestHeaders
+      headers
     }
   })
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"]
+  matcher: ["/((?!_next|favicon.ico).*)"]
 }

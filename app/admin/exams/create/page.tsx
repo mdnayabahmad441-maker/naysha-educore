@@ -1,378 +1,94 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
+import Button from "@/components/ui/Button"
+import { createExam } from "@/services/exams.service"
 
-export default function CreateExamPage(){
+export default function CreateExam(){
 
-const classes = [
-"Nursery","LKG","UKG",
-"01","02","03","04","05",
-"06","07","08","09","10"
-]
+  const [name,setName] = useState("")
+  const [date,setDate] = useState("")
+  const [classId,setClassId] = useState("")
 
-const [name,setName] = useState("")
-const [date,setDate] = useState("")
-const [classMode,setClassMode] = useState("all")
-const [selectedClass,setSelectedClass] = useState("")
+  const [classes,setClasses] = useState<any[]>([])
 
-const [subjects,setSubjects] = useState<any[]>([])
-const [selectedSubjects,setSelectedSubjects] = useState<string[]>([])
+  useEffect(()=>{
 
-const [exams,setExams] = useState<any[]>([])
+    const load = async()=>{
 
-const schoolId = "1" // replace with real school later
+      const {data}=await supabase
+        .from("classes")
+        .select("*")
 
-useEffect(()=>{
-loadExams()
-},[])
+      setClasses(data||[])
 
-useEffect(()=>{
-if(classMode==="specific" && selectedClass){
-loadSubjects()
-}
-},[selectedClass])
+    }
 
-async function loadExams(){
+    load()
 
-const {data} = await supabase
-.from("exams")
-.select("*")
-.order("created_at",{ascending:false})
+  },[])
 
-setExams(data || [])
+  const submit = async()=>{
 
-}
+    await createExam({
+      id:crypto.randomUUID(),
+      name,
+      exam_date:date,
+      class_id:classId
+    })
 
-async function loadSubjects(){
+    setName("")
+    setDate("")
+    setClassId("")
 
-const {data} = await supabase
-.from("class_subjects")
-.select(`
-subject_id,
-max_marks,
-pass_marks,
-subjects(name)
-`)
-.eq("class",selectedClass)
+  }
 
-setSubjects(data || [])
+  return(
 
-}
+    <div className="p-10 text-white max-w-7xl mx-auto">
 
-function toggleSubject(id:string){
+      <h1 className="text-2xl mb-6">Create Exam</h1>
 
-if(selectedSubjects.includes(id)){
-setSelectedSubjects(selectedSubjects.filter(s=>s!==id))
-}else{
-setSelectedSubjects([...selectedSubjects,id])
-}
+      <div className="bg-white/10 border border-white/20 backdrop-blur rounded-xl p-6 flex gap-4">
 
-}
+        <input
+        className="bg-slate-800 border border-white/20 p-2 rounded"
+        placeholder="Exam Name"
+        value={name}
+        onChange={(e)=>setName(e.target.value)}
+        />
 
-async function createExam(){
+        <input
+        type="date"
+        className="bg-slate-800 border border-white/20 p-2 rounded"
+        value={date}
+        onChange={(e)=>setDate(e.target.value)}
+        />
 
-if(!name || !date){
-alert("Enter exam name and date")
-return
-}
+        <select
+        className="bg-slate-800 border border-white/20 p-2 rounded"
+        onChange={(e)=>setClassId(e.target.value)}
+        >
 
-if(classMode==="specific" && selectedSubjects.length===0){
-alert("Select subjects")
-return
-}
+          <option>Select Class</option>
 
-const examClass = classMode==="all" ? "ALL" : selectedClass
+          {classes.map(c=>(
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
 
-/* CREATE EXAM */
+        </select>
 
-const {data:examData,error} = await supabase
-.from("exams")
-.insert({
-name,
-exam_date:date,
-school_id:schoolId,
-class:examClass
-})
-.select()
-.single()
+        <Button color="purple" onClick={submit}>
+          Create
+        </Button>
 
-if(error){
-alert(error.message)
-return
-}
+      </div>
 
-const examId = examData.id
+    </div>
 
-/* INSERT EXAM SUBJECTS */
-
-if(classMode==="specific"){
-
-const rows = selectedSubjects.map(id=>{
-
-const subject = subjects.find(s=>s.subject_id===id)
-
-return{
-exam_id:examId,
-subject_id:id,
-full_marks:subject.max_marks,
-pass_marks:subject.pass_marks
-}
-
-})
-
-await supabase
-.from("exam_subjects")
-.insert(rows)
-
-}
-
-/* RESET FORM */
-
-setName("")
-setDate("")
-setSelectedSubjects([])
-setSelectedClass("")
-
-loadExams()
-
-alert("Exam created successfully")
-
-}
-
-async function deleteExam(id:string){
-
-await supabase
-.from("exams")
-.delete()
-.eq("id",id)
-
-loadExams()
-
-}
-
-return(
-
-<div className="p-10 text-white max-w-6xl mx-auto">
-
-<h1 className="text-2xl font-semibold mb-6">
-Create Exam
-</h1>
-
-{/* CREATE CARD */}
-
-<div className="bg-white/10 border border-white/20 rounded-xl backdrop-blur p-6 mb-8">
-
-<div className="flex gap-4 flex-wrap mb-4">
-
-<input
-placeholder="Exam Name"
-value={name}
-onChange={(e)=>setName(e.target.value)}
-className="bg-gray-800 px-3 py-2 rounded"
-/>
-
-<input
-type="date"
-value={date}
-onChange={(e)=>setDate(e.target.value)}
-className="bg-gray-800 px-3 py-2 rounded"
-/>
-
-<button
-onClick={createExam}
-className="bg-green-600 px-5 py-2 rounded"
->
-Save Exam
-</button>
-
-</div>
-
-{/* CLASS MODE */}
-
-<div className="flex gap-6 mb-4">
-
-<label className="flex gap-2">
-
-<input
-type="radio"
-checked={classMode==="all"}
-onChange={()=>setClassMode("all")}
-/>
-
-All Classes
-
-</label>
-
-<label className="flex gap-2">
-
-<input
-type="radio"
-checked={classMode==="specific"}
-onChange={()=>setClassMode("specific")}
-/>
-
-Specific Class
-
-</label>
-
-</div>
-
-{/* CLASS SELECT */}
-
-{classMode==="specific" && (
-
-<select
-value={selectedClass}
-onChange={(e)=>setSelectedClass(e.target.value)}
-className="bg-gray-800 px-3 py-2 rounded mb-4"
->
-
-<option value="">
-Select Class
-</option>
-
-{classes.map(c=>(
-<option key={c}>
-{c}
-</option>
-))}
-
-</select>
-
-)}
-
-{/* SUBJECT SELECT */}
-
-{subjects.length>0 && (
-
-<div>
-
-<h3 className="mb-2">
-Select Subjects
-</h3>
-
-<div className="flex flex-wrap gap-3">
-
-{subjects.map((s:any)=>{
-
-const id = s.subject_id
-
-return(
-
-<button
-key={id}
-onClick={()=>toggleSubject(id)}
-className={`px-3 py-1 rounded border ${
-selectedSubjects.includes(id)
-? "bg-blue-500"
-: "bg-white/10"
-}`}
->
-
-{s.subjects?.name}
-
-</button>
-
-)
-
-})}
-
-</div>
-
-</div>
-
-)}
-
-</div>
-
-{/* EXAMS TABLE */}
-
-<div className="bg-white/10 border border-white/20 rounded-xl backdrop-blur p-6">
-
-<div className="overflow-x-auto">
-
-<table className="min-w-[900px] w-full text-sm">
-
-<thead>
-
-<tr className="bg-white/10">
-
-<th className="p-2 text-left">
-Exam
-</th>
-
-<th className="p-2 text-left">
-Class
-</th>
-
-<th className="p-2 text-left">
-Date
-</th>
-
-<th className="p-2 text-left">
-Action
-</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-{exams.length===0 && (
-
-<tr>
-<td colSpan={4} className="p-4 text-center text-gray-400">
-No exams created yet
-</td>
-</tr>
-
-)}
-
-{exams.map(exam=>(
-
-<tr key={exam.id} className="border-t border-white/10">
-
-<td className="p-2">
-{exam.name}
-</td>
-
-<td className="p-2">
-{exam.class}
-</td>
-
-<td className="p-2">
-{exam.exam_date}
-</td>
-
-<td className="p-2">
-
-<button
-onClick={()=>deleteExam(exam.id)}
-className="bg-red-500 px-3 py-1 rounded"
->
-
-Delete
-
-</button>
-
-</td>
-
-</tr>
-
-))}
-
-</tbody>
-
-</table>
-
-</div>
-
-</div>
-
-</div>
-
-)
+  )
 
 }

@@ -1,146 +1,98 @@
 "use client"
 
-import { useState,useEffect } from "react"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
+import Button from "@/components/ui/Button"
+import { saveAttendance } from "@/services/attendance.service"
 
 export default function AttendancePage(){
 
   const [students,setStudents] = useState<any[]>([])
-  const [schoolId,setSchoolId] = useState<string | null>(null)
-  const [date,setDate] = useState("")
+  const [status,setStatus] = useState<any>({})
+
+  const today = new Date().toISOString().slice(0,10)
 
   useEffect(()=>{
-    loadData()
-  },[])
 
+    const load = async()=>{
 
-  async function loadData(){
-
-    const { data:userData } =
-      await supabase.auth.getUser()
-
-    const userId = userData.user?.id
-
-    if(!userId) return
-
-
-    const { data:user } =
-      await supabase
-        .from("users")
-        .select("school_id")
-        .eq("id",userId)
-        .single()
-
-    if(!user) return
-
-    setSchoolId(user.school_id)
-
-
-    const { data:studentsData } =
-      await supabase
+      const {data}=await supabase
         .from("students")
         .select("*")
-        .eq("school_id",user.school_id)
 
-    if(studentsData){
-      setStudents(studentsData)
+      setStudents(data || [])
+
     }
+
+    load()
+
+  },[])
+
+  const changeStatus = (studentId:string,value:string)=>{
+
+    setStatus({
+      ...status,
+      [studentId]:value
+    })
 
   }
 
+  const save = async()=>{
 
+    const rows = students.map(s=>({
 
-  async function markAttendance(studentId:string,status:string){
+      id:crypto.randomUUID(),
+      student_id:s.id,
+      date:today,
+      status:status[s.id] || "P"
 
-    if(!date){
-      alert("Select date")
-      return
-    }
+    }))
 
-    const { error } =
-      await supabase
-        .from("attendance")
-        .insert({
-          student_id:studentId,
-          date:date,
-          status:status,
-          school_id:schoolId
-        })
-
-    if(error){
-      alert(error.message)
-    }
+    await saveAttendance(rows)
 
   }
-
-
 
   return(
 
-    <div>
+    <div className="p-10 text-white max-w-7xl mx-auto">
 
-      <h1 className="text-3xl font-bold mb-8">
-        Attendance
-      </h1>
+      <h1 className="text-2xl mb-6">Attendance</h1>
 
+      <div className="overflow-x-auto">
 
-      <div className="mb-6">
-
-        <input
-          type="date"
-          className="p-2 rounded bg-slate-800"
-          value={date}
-          onChange={(e)=>setDate(e.target.value)}
-        />
-
-      </div>
-
-
-      <div className="bg-white/10 p-6 rounded-xl">
-
-        <table className="w-full">
+        <table className="w-full text-sm border border-white/20">
 
           <thead>
 
-            <tr className="border-b border-white/20">
-
-              <th className="text-left py-2">Name</th>
-              <th className="text-left">Class</th>
-              <th className="text-left">Present</th>
-              <th className="text-left">Absent</th>
-
+            <tr>
+              <th className="border p-2">Student</th>
+              <th className="border p-2">Status</th>
             </tr>
 
           </thead>
 
           <tbody>
 
-            {students.map((s)=>(
+            {students.map(student=>(
 
-              <tr key={s.id} className="border-b border-white/10">
+              <tr key={student.id}>
 
-                <td className="py-2">{s.name}</td>
-                <td>{s.class}</td>
-
-                <td>
-
-                  <button
-                    onClick={()=>markAttendance(s.id,"present")}
-                    className="bg-green-600 px-3 py-1 rounded"
-                  >
-                    Present
-                  </button>
-
+                <td className="border p-2">
+                  {student.name}
                 </td>
 
-                <td>
+                <td className="border p-2">
 
-                  <button
-                    onClick={()=>markAttendance(s.id,"absent")}
-                    className="bg-red-600 px-3 py-1 rounded"
+                  <select
+                    className="bg-slate-800 border border-white/20 p-1"
+                    onChange={(e)=>changeStatus(student.id,e.target.value)}
                   >
-                    Absent
-                  </button>
+
+                    <option value="P">Present</option>
+                    <option value="A">Absent</option>
+                    <option value="L">Leave</option>
+
+                  </select>
 
                 </td>
 
@@ -151,6 +103,14 @@ export default function AttendancePage(){
           </tbody>
 
         </table>
+
+      </div>
+
+      <div className="mt-4">
+
+        <Button color="green" onClick={save}>
+          Save Attendance
+        </Button>
 
       </div>
 

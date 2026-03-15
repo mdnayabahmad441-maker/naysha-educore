@@ -1,426 +1,67 @@
 "use client"
 
-import { useState,useEffect,useRef } from "react"
-import { supabase } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
-import ResponsiveTable from "@/components/ResponsiveTable"
+import { useEffect,useState } from "react"
+import Card from "@/components/ui/Card"
+import StudentForm from "@/components/students/StudentForm"
+import { getStudents } from "@/services/students.service"
 
 export default function StudentsPage(){
 
-const router = useRouter()
+  const [students,setStudents] = useState<any[]>([])
 
-const [name,setName] = useState("")
-const [className,setClassName] = useState("")
-const [roll,setRoll] = useState("")
-const [phone,setPhone] = useState("")
+  const load = async()=>{
+    const data = await getStudents()
+    setStudents(data)
+  }
 
-const [students,setStudents] = useState<any[]>([])
-const [schoolId,setSchoolId] = useState<string | null>(null)
+  useEffect(()=>{
+    load()
+  },[])
 
-const [editId,setEditId] = useState<string | null>(null)
+  return(
 
-const [selectedIndex,setSelectedIndex] = useState(0)
+    <div className="p-10 text-white max-w-7xl mx-auto">
 
-const rowsRef = useRef<(HTMLTableRowElement | null)[]>([])
+      <h1 className="text-2xl mb-6">Students</h1>
 
+      <Card>
 
+        <StudentForm onSaved={load}/>
 
-/* ---------------- GET SCHOOL ---------------- */
+        <div className="overflow-x-auto">
 
-useEffect(()=>{
-getSchool()
-},[])
+          <table className="w-full text-sm border border-white/20">
 
-async function getSchool(){
+            <thead>
+              <tr>
+                <th className="border p-2">Name</th>
+                <th className="border p-2">Email</th>
+                <th className="border p-2">Class</th>
+                <th className="border p-2">Section</th>
+              </tr>
+            </thead>
 
-const { data:userData } = await supabase.auth.getUser()
+            <tbody>
 
-const userId = userData.user?.id
+              {students.map((s:any)=>(
+                <tr key={s.id}>
+                  <td className="border p-2">{s.name}</td>
+                  <td className="border p-2">{s.email}</td>
+                  <td className="border p-2">{s.classes?.name}</td>
+                  <td className="border p-2">{s.sections?.name}</td>
+                </tr>
+              ))}
 
-if(!userId) return
+            </tbody>
 
-const { data } = await supabase
-.from("users")
-.select("school_id")
-.eq("id",userId)
-.single()
+          </table>
 
-if(data){
+        </div>
 
-setSchoolId(data.school_id)
+      </Card>
 
-fetchStudents(data.school_id)
+    </div>
 
-}
-
-}
-
-
-
-/* ---------------- FETCH STUDENTS ---------------- */
-
-async function fetchStudents(id:string){
-
-const { data,error } = await supabase
-.from("students")
-.select("*")
-.eq("school_id",id)
-.order("class",{ascending:true})
-
-if(error){
-
-console.log(error)
-
-return
-
-}
-
-if(data){
-
-setStudents(data)
-
-}
-
-}
-
-
-
-/* ---------------- ADD STUDENT ---------------- */
-
-async function addStudent(){
-
-if(!name || !className || !roll){
-
-alert("Fill required fields")
-
-return
-
-}
-
-if(!schoolId){
-
-alert("School not found")
-
-return
-
-}
-
-const { error } = await supabase
-.from("students")
-.insert({
-
-name,
-class:className,
-roll_number:roll,
-parent_phone:phone,
-school_id:schoolId
-
-})
-
-if(error){
-
-alert(error.message)
-
-return
-
-}
-
-setName("")
-setClassName("")
-setRoll("")
-setPhone("")
-
-fetchStudents(schoolId)
-
-}
-
-
-
-/* ---------------- DELETE STUDENT ---------------- */
-
-async function deleteStudent(id:string){
-
-const confirmDelete = confirm("Delete this student?")
-
-if(!confirmDelete) return
-
-const { data,error } = await supabase
-.from("students")
-.delete()
-.eq("id",id)
-.eq("school_id",schoolId)
-.select()
-
-if(error){
-
-alert(error.message)
-console.log(error)
-
-return
-
-}
-
-if(!data || data.length===0){
-
-alert("Delete blocked by security policy or student not found.")
-return
-
-}
-
-await fetchStudents(schoolId!)
-
-}
-
-
-
-/* ---------------- EDIT STUDENT ---------------- */
-
-function startEdit(student:any){
-
-setEditId(student.id)
-
-setName(student.name)
-setClassName(student.class)
-setRoll(student.roll_number)
-setPhone(student.parent_phone)
-
-}
-
-
-
-/* ---------------- UPDATE STUDENT ---------------- */
-
-async function updateStudent(){
-
-if(!editId) return
-
-const { error } = await supabase
-.from("students")
-.update({
-
-name,
-class:className,
-roll_number:roll,
-parent_phone:phone
-
-})
-.eq("id",editId)
-.eq("school_id",schoolId)
-
-if(error){
-
-alert(error.message)
-
-return
-
-}
-
-setEditId(null)
-
-setName("")
-setClassName("")
-setRoll("")
-setPhone("")
-
-fetchStudents(schoolId!)
-
-}
-
-
-
-/* ---------------- KEYBOARD NAVIGATION ---------------- */
-
-useEffect(()=>{
-
-function handleKeys(e:KeyboardEvent){
-
-if(e.key==="ArrowDown"){
-
-setSelectedIndex(prev=>Math.min(prev+1,students.length-1))
-
-}
-
-if(e.key==="ArrowUp"){
-
-setSelectedIndex(prev=>Math.max(prev-1,0))
-
-}
-
-if(e.key==="Enter"){
-
-const student = students[selectedIndex]
-
-if(student){
-
-router.push(`/admin/students/${student.id}`)
-
-}
-
-}
-
-}
-
-window.addEventListener("keydown",handleKeys)
-
-return ()=>window.removeEventListener("keydown",handleKeys)
-
-},[students,selectedIndex])
-
-
-
-/* ---------------- GROUP CLASSES ---------------- */
-
-const classes = [...new Set(students.map((s:any)=>s.class))]
-
-
-
-return(
-
-<div className="p-4 md:p-8">
-
-<h1 className="text-2xl md:text-3xl font-bold mb-8">
-
-Students
-
-</h1>
-
-
-
-{/* ADD / EDIT STUDENT FORM */}
-
-<div className="bg-white/10 p-6 rounded-xl w-full md:w-[380px] mb-10">
-
-<h2 className="text-lg font-bold mb-4">
-
-{editId ? "Edit Student" : "Add Student"}
-
-</h2>
-
-<input
-placeholder="Student Name"
-className="w-full p-2 mb-3 rounded bg-slate-800"
-value={name}
-onChange={(e)=>setName(e.target.value)}
-/>
-
-<input
-placeholder="Class"
-className="w-full p-2 mb-3 rounded bg-slate-800"
-value={className}
-onChange={(e)=>setClassName(e.target.value)}
-/>
-
-<input
-placeholder="Roll Number"
-className="w-full p-2 mb-3 rounded bg-slate-800"
-value={roll}
-onChange={(e)=>setRoll(e.target.value)}
-/>
-
-<input
-placeholder="Parent Phone"
-className="w-full p-2 mb-4 rounded bg-slate-800"
-value={phone}
-onChange={(e)=>setPhone(e.target.value)}
-/>
-
-<button
-onClick={editId ? updateStudent : addStudent}
-className="w-full py-2 rounded bg-gradient-to-r from-cyan-500 to-purple-600"
->
-
-{editId ? "Update Student" : "Add Student"}
-
-</button>
-
-</div>
-
-
-
-{/* CLASS SECTIONS */}
-
-{classes.map((cls:any)=>{
-
-const classStudents = students.filter((s:any)=>s.class === cls)
-
-return(
-
-<div key={cls} className="bg-white/10 p-4 md:p-6 rounded-xl mb-8 overflow-x-auto">
-
-<div className="flex justify-between items-center mb-4">
-
-<h2 className="text-lg md:text-xl font-bold">
-
-Class {cls}
-
-</h2>
-
-<button
-onClick={()=>setClassName(cls)}
-className="px-4 py-1 text-sm rounded bg-green-600 hover:bg-green-700"
->
-
-Add Student
-
-</button>
-
-</div>
-
-
-
-{/* RESPONSIVE TABLE */}
-
-<ResponsiveTable
-
-columns={["Name","Roll Number","Parent Phone"]}
-
-data={classStudents.map((s:any)=>({
-id:s.id,
-name:s.name,
-roll_number:s.roll_number,
-parent_phone:s.parent_phone
-}))}
-
-onRowClick={(s)=>router.push(`/admin/students/${s.id}`)}
-
-renderActions={(s)=>(
-<>
-<button
-onClick={(e)=>{
-e.stopPropagation()
-startEdit(s)
-}}
-className="px-3 py-1 text-sm bg-blue-500 rounded hover:bg-blue-600"
->
-
-Edit
-
-</button>
-
-<button
-onClick={(e)=>{
-e.stopPropagation()
-deleteStudent(s.id)
-}}
-className="px-3 py-1 text-sm bg-red-600 rounded hover:bg-red-700"
->
-
-Delete
-
-</button>
-</>
-)}
-
-/>
-
-</div>
-
-)
-
-})}
-
-</div>
-
-)
+  )
 
 }

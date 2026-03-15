@@ -1,136 +1,32 @@
-"use client"
+import Card from "@/components/ui/Card"
 
-import { useEffect,useState } from "react"
-import { supabase } from "@/lib/supabase"
+export default function DashboardPage() {
 
-export default function AdminDashboard(){
+  return (
 
-  const [students,setStudents] = useState(0)
-  const [teachers,setTeachers] = useState(0)
-  const [fees,setFees] = useState(0)
+    <div className="grid grid-cols-4 gap-6">
 
-  useEffect(()=>{
-    loadDashboard()
-  },[])
+      <Card>
+        <h2 className="text-lg">Students</h2>
+        <p className="text-3xl mt-2">120</p>
+      </Card>
 
+      <Card>
+        <h2 className="text-lg">Teachers</h2>
+        <p className="text-3xl mt-2">12</p>
+      </Card>
 
-  async function loadDashboard(){
+      <Card>
+        <h2 className="text-lg">Classes</h2>
+        <p className="text-3xl mt-2">8</p>
+      </Card>
 
-    const { data:userData } =
-      await supabase.auth.getUser()
-
-    const userId = userData.user?.id
-
-    if(!userId) return
-
-
-    // GET SCHOOL ID
-
-    const { data:user } =
-      await supabase
-        .from("users")
-        .select("school_id")
-        .eq("id",userId)
-        .single()
-
-    if(!user) return
-
-    const schoolId = user.school_id
-
-
-    // COUNT STUDENTS
-
-    const { data:studentsData } =
-      await supabase
-        .from("students")
-        .select("id")
-        .eq("school_id",schoolId)
-
-    setStudents(studentsData?.length || 0)
-
-
-    // COUNT TEACHERS
-
-    const { data:teachersData } =
-      await supabase
-        .from("teachers")
-        .select("id")
-        .eq("school_id",schoolId)
-
-    setTeachers(teachersData?.length || 0)
-
-
-    // TOTAL FEES
-
-    const { data:feesData } =
-      await supabase
-        .from("fees")
-        .select("total")
-        .eq("school_id",schoolId)
-
-    let totalFees = 0
-
-    feesData?.forEach((f:any)=>{
-      totalFees += Number(f.total || 0)
-    })
-
-    setFees(totalFees)
-
-  }
-
-
-  return(
-
-    <div>
-
-      <h1 className="text-3xl font-bold mb-8">
-        Dashboard Overview
-      </h1>
-
-      <div className="grid grid-cols-3 gap-6">
-
-        <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
-
-          <p className="text-gray-400">
-            Total Students
-          </p>
-
-          <h2 className="text-3xl font-bold text-cyan-400 mt-2">
-            {students}
-          </h2>
-
-        </div>
-
-
-        <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
-
-          <p className="text-gray-400">
-            Teachers
-          </p>
-
-          <h2 className="text-3xl font-bold text-cyan-400 mt-2">
-            {teachers}
-          </h2>
-
-        </div>
-
-
-        <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl">
-
-          <p className="text-gray-400">
-            Fees Collected
-          </p>
-
-          <h2 className="text-3xl font-bold text-cyan-400 mt-2">
-            ₹{fees.toLocaleString()}
-          </h2>
-
-        </div>
-
-      </div>
+      <Card>
+        <h2 className="text-lg">Attendance</h2>
+        <p className="text-3xl mt-2">92%</p>
+      </Card>
 
     </div>
 
   )
-
 }
