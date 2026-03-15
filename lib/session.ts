@@ -1,35 +1,40 @@
 import { supabase } from "@/lib/supabase"
 import { getSchool } from "@/lib/school"
 
-export async function getSessionContext(){
+export async function getSessionContext() {
 
-  const school = await getSchool()
+  const { data: sessionData } = await supabase.auth.getSession()
 
-  /* GET AUTH USER */
+  const session = sessionData.session
 
-  const { data:userData } = await supabase.auth.getUser()
-
-  const authUser = userData.user
-
-  if(!authUser){
-    throw new Error("User not logged in")
+  if (!session) {
+    return null
   }
 
-  /* GET ERP USER */
+  const userId = session.user.id
 
-  const { data:user } =
-  await supabase
-  .from("users")
-  .select("*")
-  .eq("id",authUser.id)
-  .single()
+  // get user info
+  const { data: user } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .single()
+
+  if (!user) {
+    return null
+  }
+
+  // get school
+  const { data: school } = await supabase
+    .from("schools")
+    .select("*")
+    .eq("id", user.school_id)
+    .single()
 
   return {
-
-    school,
+    session,
     user,
-    role:user?.role
-
+    school
   }
 
 }
