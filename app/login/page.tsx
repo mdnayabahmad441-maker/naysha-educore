@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 
@@ -11,6 +11,23 @@ export default function LoginPage(){
   const [email,setEmail] = useState("")
   const [password,setPassword] = useState("")
   const [loading,setLoading] = useState(false)
+
+  // 🔹 check if already logged in
+  useEffect(()=>{
+
+    const checkSession = async () => {
+
+      const { data } = await supabase.auth.getSession()
+
+      if(data.session){
+        router.push("/admin/dashboard")
+      }
+
+    }
+
+    checkSession()
+
+  },[])
 
   const login = async () => {
 
@@ -34,31 +51,29 @@ export default function LoginPage(){
 
   const loginWithGoogle = async () => {
 
-  await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`
-    }
-  })
+    await supabase.auth.signInWithOAuth({
+      provider:"google",
+      options:{
+        redirectTo:`${window.location.origin}/auth/callback`
+      }
+    })
 
-}
+  }
 
   return(
-
     <div className="min-h-screen flex items-center justify-center bg-[#020c1b]">
 
-      <div className="bg-[#1c2235] p-8 rounded-xl w-[380px] shadow-lg">
+      <div className="bg-[#1c2235] p-8 rounded-xl w-[380px]">
 
         <h2 className="text-white text-2xl mb-6 text-center">
           Login to NaySha EduCore
         </h2>
 
         <input
-          type="email"
           placeholder="Email"
           value={email}
           onChange={(e)=>setEmail(e.target.value)}
-          className="w-full p-3 mb-3 rounded bg-gray-200 text-black"
+          className="w-full p-3 mb-3 rounded bg-gray-200"
         />
 
         <input
@@ -87,17 +102,19 @@ export default function LoginPage(){
           Continue with Google
         </button>
 
-        <p className="text-gray-400 text-sm mt-6 text-center">
-          New school?{" "}
-          <a href="/onboarding" className="text-blue-400">
-            Create account
+        <div className="text-center mt-4">
+          <a href="/forgot-password" className="text-blue-400 text-sm">
+            Forgot password?
           </a>
+        </div>
+
+        <p className="text-gray-400 text-sm mt-4 text-center">
+          New school? <a href="/onboarding" className="text-blue-400">Create account</a>
         </p>
 
       </div>
 
     </div>
-
   )
 
 }
