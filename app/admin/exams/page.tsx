@@ -1,35 +1,18 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import Link from "next/link"
 
-export default function ExamsPage() {
-
-const router = useRouter()
+export default function ExamsPage(){
 
 const modules = [
-{
-title: "Create Exam",
-path: "/admin/exams/create"
-},
-{
-title: "Subjects",
-path: "/admin/exams/subjects"
-},
-{
-title: "Class Subjects",
-path: "/admin/exams/class-subjects"
-},
-{
-title: "Exam Subjects",
-path: "/admin/exams/exam-subjects"
-},
-{
-title: "Enter Marks",
-path: "/admin/exams/marks"
-}
+{title:"Create Exam",path:"/admin/exams/create"},
+{title:"Subjects",path:"/admin/exams/subjects"},
+{title:"Class Subjects",path:"/admin/exams/class-subjects"},
+{title:"Exam Subjects",path:"/admin/exams/exam-subjects"},
+{title:"Enter Marks",path:"/admin/exams/marks"}
 ]
 
-return (
+return(
 
 <div className="p-10 text-white max-w-6xl mx-auto">
 
@@ -39,19 +22,19 @@ Exam Module
 
 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
 
-{modules.map((m) => (
+{modules.map((m)=> (
 
-<div
+<Link
 key={m.title}
-onClick={() => router.push(m.path)}
-className="bg-white/10 border border-white/20 rounded-xl p-8 text-center cursor-pointer hover:bg-white/20 transition"
+href={m.path}
+className="bg-white/10 border border-white/20 rounded-xl p-8 text-center hover:bg-white/20 hover:scale-105 transition block"
 >
 
 <h2 className="text-lg font-medium">
 {m.title}
 </h2>
 
-</div>
+</Link>
 
 ))}
 
