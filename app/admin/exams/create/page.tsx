@@ -11,54 +11,53 @@ type Subject = {
 type Exam = {
   id: string
   name: string
-  term: string
-  date: string
+  exam_date: string
+  class: string
 }
 
 export default function CreateExamPage() {
 
   const schoolId = "1"
 
-  const [name,setName]=useState("")
-  const [term,setTerm]=useState("")
-  const [date,setDate]=useState("")
+  const [name,setName] = useState("")
+  const [date,setDate] = useState("")
+  const [scope,setScope] = useState("ALL")
+  const [selectedClass,setSelectedClass] = useState("")
 
-  const [scope,setScope]=useState("all")
-  const [selectedClass,setSelectedClass]=useState("")
+  const [subjects,setSubjects] = useState<Subject[]>([])
+  const [selectedSubjects,setSelectedSubjects] = useState<string[]>([])
 
-  const [subjects,setSubjects]=useState<Subject[]>([])
-  const [selectedSubjects,setSelectedSubjects]=useState<string[]>([])
+  const [exams,setExams] = useState<Exam[]>([])
 
-  const [exams,setExams]=useState<Exam[]>([])
+ const classes = ["Nursery","LKG","UKG","Class 1","Class 2","Class 3","Class 4","Class 5","Class 6","Class 7","Class 8","Class 9","Class 10"]
 
-  const classes=["01","02","03","04","05"]
+  useEffect(()=>{
+    loadSubjects()
+    loadExams()
+  },[])
 
   async function loadSubjects(){
 
-    const {data} = await supabase
+    const { data } = await supabase
       .from("subjects")
       .select("*")
       .eq("school_id",schoolId)
+      .order("name")
 
     setSubjects(data || [])
   }
 
   async function loadExams(){
 
-    const {data} = await supabase
+    const { data } = await supabase
       .from("exams")
       .select("*")
       .eq("school_id",schoolId)
-      .order("date",{ascending:false})
+      .order("exam_date",{ascending:false})
 
     setExams(data || [])
 
   }
-
-  useEffect(()=>{
-    loadSubjects()
-    loadExams()
-  },[])
 
   function toggleSubject(id:string){
 
@@ -72,39 +71,50 @@ export default function CreateExamPage() {
 
   async function createExam(){
 
-    if(!name || !term || !date){
-      alert("Fill exam details")
+    if(!name || !date){
+      alert("Enter exam name and date")
       return
     }
 
-    const {data:exam} = await supabase
+    const examClass = scope === "ALL" ? "ALL" : selectedClass
+
+    const { data, error } = await supabase
       .from("exams")
       .insert({
-        school_id:schoolId,
-        name,
-        term,
-        date
+        school_id: schoolId,
+        name: name,
+        exam_date: date,
+        class: examClass
       })
       .select()
       .single()
 
-    if(!exam) return
+    if(error){
+      console.error(error)
+      alert(error.message)
+      return
+    }
+
+    const examId = data.id
 
     for(const subjectId of selectedSubjects){
 
-      await supabase.from("exam_subjects").insert({
-        exam_id:exam.id,
-        subject_id:subjectId,
-        full_marks:100,
-        pass_marks:40
-      })
+      await supabase
+        .from("exam_subjects")
+        .insert({
+          exam_id: examId,
+          subject_id: subjectId,
+          full_marks: 100,
+          pass_marks: 40
+        })
 
     }
 
     setName("")
-    setTerm("")
     setDate("")
     setSelectedSubjects([])
+    setSelectedClass("")
+    setScope("ALL")
 
     loadExams()
 
@@ -112,7 +122,10 @@ export default function CreateExamPage() {
 
   async function deleteExam(id:string){
 
-    await supabase.from("exams").delete().eq("id",id)
+    await supabase
+      .from("exams")
+      .delete()
+      .eq("id",id)
 
     loadExams()
 
@@ -126,7 +139,7 @@ export default function CreateExamPage() {
         Create Exam
       </h1>
 
-      {/* FORM */}
+      {/* FORM CARD */}
 
       <div className="bg-white/10 border border-white/20 rounded-xl backdrop-blur p-6 mb-8">
 
@@ -140,13 +153,6 @@ export default function CreateExamPage() {
           />
 
           <input
-            value={term}
-            onChange={(e)=>setTerm(e.target.value)}
-            placeholder="Term"
-            className="bg-gray-800 text-white px-3 py-2 rounded"
-          />
-
-          <input
             type="date"
             value={date}
             onChange={(e)=>setDate(e.target.value)}
@@ -155,33 +161,39 @@ export default function CreateExamPage() {
 
         </div>
 
-        {/* SCOPE */}
+        {/* EXAM TYPE */}
 
-        <div className="flex gap-4 mb-4">
+        <div className="flex gap-6 mb-4">
 
-          <label className="flex items-center gap-2">
+          <label className="flex gap-2 items-center">
+
             <input
               type="radio"
-              checked={scope==="all"}
-              onChange={()=>setScope("all")}
+              checked={scope==="ALL"}
+              onChange={()=>setScope("ALL")}
             />
+
             All Classes
+
           </label>
 
-          <label className="flex items-center gap-2">
+          <label className="flex gap-2 items-center">
+
             <input
               type="radio"
-              checked={scope==="class"}
-              onChange={()=>setScope("class")}
+              checked={scope==="CLASS"}
+              onChange={()=>setScope("CLASS")}
             />
+
             Specific Class
+
           </label>
 
         </div>
 
         {/* CLASS SELECT */}
 
-        {scope==="class" && (
+        {scope==="CLASS" && (
 
           <select
             value={selectedClass}
@@ -207,7 +219,7 @@ export default function CreateExamPage() {
             Select Subjects
           </h3>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
 
             {subjects.map(sub=>{
 
@@ -218,13 +230,15 @@ export default function CreateExamPage() {
                 <button
                   key={sub.id}
                   onClick={()=>toggleSubject(sub.id)}
-                  className={`px-3 py-1 rounded border ${
+                  className={`px-3 py-1 rounded border text-sm ${
                     active
-                    ? "bg-blue-600 border-blue-600"
-                    : "border-white/30"
+                      ? "bg-blue-600 border-blue-600"
+                      : "border-white/30"
                   }`}
                 >
+
                   {sub.name}
+
                 </button>
 
               )
@@ -237,7 +251,7 @@ export default function CreateExamPage() {
 
         <button
           onClick={createExam}
-          className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded"
+          className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded font-medium"
         >
           Save Exam
         </button>
@@ -255,7 +269,7 @@ export default function CreateExamPage() {
             <tr className="bg-white/10">
 
               <th className="p-2 text-left">Exam</th>
-              <th className="p-2 text-left">Term</th>
+              <th className="p-2 text-left">Class</th>
               <th className="p-2 text-left">Date</th>
               <th className="p-2 text-left">Action</th>
 
@@ -265,6 +279,16 @@ export default function CreateExamPage() {
 
           <tbody>
 
+            {exams.length === 0 && (
+
+              <tr>
+                <td colSpan={4} className="p-4 text-gray-400">
+                  No exams created yet
+                </td>
+              </tr>
+
+            )}
+
             {exams.map(exam=>(
               <tr
                 key={exam.id}
@@ -272,14 +296,14 @@ export default function CreateExamPage() {
               >
 
                 <td className="p-2">{exam.name}</td>
-                <td className="p-2">{exam.term}</td>
-                <td className="p-2">{exam.date}</td>
+                <td className="p-2">{exam.class}</td>
+                <td className="p-2">{exam.exam_date}</td>
 
                 <td className="p-2">
 
                   <button
                     onClick={()=>deleteExam(exam.id)}
-                    className="bg-red-600 px-3 py-1 rounded"
+                    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded"
                   >
                     Delete
                   </button>
