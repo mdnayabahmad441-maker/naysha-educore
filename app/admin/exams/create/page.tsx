@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function CreateExamPage() {
+export default function CreateExamPage(){
 
 const classes = [
 "Nursery","LKG","UKG",
@@ -12,9 +12,7 @@ const classes = [
 ]
 
 const [name,setName] = useState("")
-const [term,setTerm] = useState("")
 const [date,setDate] = useState("")
-
 const [classMode,setClassMode] = useState("all")
 const [selectedClass,setSelectedClass] = useState("")
 
@@ -23,7 +21,7 @@ const [selectedSubjects,setSelectedSubjects] = useState<string[]>([])
 
 const [exams,setExams] = useState<any[]>([])
 
-const schoolId = "1"   // replace with auth school later
+const schoolId = "1" // replace with real school later
 
 useEffect(()=>{
 loadExams()
@@ -52,6 +50,8 @@ const {data} = await supabase
 .from("class_subjects")
 .select(`
 subject_id,
+max_marks,
+pass_marks,
 subjects(name)
 `)
 .eq("class",selectedClass)
@@ -63,13 +63,9 @@ setSubjects(data || [])
 function toggleSubject(id:string){
 
 if(selectedSubjects.includes(id)){
-
 setSelectedSubjects(selectedSubjects.filter(s=>s!==id))
-
 }else{
-
 setSelectedSubjects([...selectedSubjects,id])
-
 }
 
 }
@@ -81,9 +77,16 @@ alert("Enter exam name and date")
 return
 }
 
+if(classMode==="specific" && selectedSubjects.length===0){
+alert("Select subjects")
+return
+}
+
 const examClass = classMode==="all" ? "ALL" : selectedClass
 
-const {error} = await supabase
+/* CREATE EXAM */
+
+const {data:examData,error} = await supabase
 .from("exams")
 .insert({
 name,
@@ -91,22 +94,49 @@ exam_date:date,
 school_id:schoolId,
 class:examClass
 })
+.select()
+.single()
 
 if(error){
-
 alert(error.message)
 return
+}
+
+const examId = examData.id
+
+/* INSERT EXAM SUBJECTS */
+
+if(classMode==="specific"){
+
+const rows = selectedSubjects.map(id=>{
+
+const subject = subjects.find(s=>s.subject_id===id)
+
+return{
+exam_id:examId,
+subject_id:id,
+full_marks:subject.max_marks,
+pass_marks:subject.pass_marks
+}
+
+})
+
+await supabase
+.from("exam_subjects")
+.insert(rows)
 
 }
 
+/* RESET FORM */
+
 setName("")
-setTerm("")
 setDate("")
 setSelectedSubjects([])
+setSelectedClass("")
 
 loadExams()
 
-alert("Exam Created")
+alert("Exam created successfully")
 
 }
 
@@ -143,13 +173,6 @@ className="bg-gray-800 px-3 py-2 rounded"
 />
 
 <input
-placeholder="Term"
-value={term}
-onChange={(e)=>setTerm(e.target.value)}
-className="bg-gray-800 px-3 py-2 rounded"
-/>
-
-<input
 type="date"
 value={date}
 onChange={(e)=>setDate(e.target.value)}
@@ -158,7 +181,7 @@ className="bg-gray-800 px-3 py-2 rounded"
 
 <button
 onClick={createExam}
-className="bg-white/10 border border-white/20 rounded-xl px-5 py-2 hover:bg-white/20"
+className="bg-green-600 px-5 py-2 rounded"
 >
 Save Exam
 </button>
@@ -169,7 +192,7 @@ Save Exam
 
 <div className="flex gap-6 mb-4">
 
-<label className="flex items-center gap-2">
+<label className="flex gap-2">
 
 <input
 type="radio"
@@ -181,7 +204,7 @@ All Classes
 
 </label>
 
-<label className="flex items-center gap-2">
+<label className="flex gap-2">
 
 <input
 type="radio"
@@ -300,13 +323,9 @@ Action
 {exams.length===0 && (
 
 <tr>
-
 <td colSpan={4} className="p-4 text-center text-gray-400">
-
 No exams created yet
-
 </td>
-
 </tr>
 
 )}
