@@ -39,8 +39,6 @@ const {data}=await supabase
 
 if(data?.published){
 setPublished(true)
-}else{
-setPublished(false)
 }
 
 }
@@ -63,12 +61,15 @@ setStudents(studentData||[])
 
 const {data:subjectData}=await supabase
 .from("exam_subjects")
-.select("subject,max_marks")
+.select(`
+subject_id,
+subjects(name)
+`)
 .eq("exam_id",selectedExam)
 
 setSubjects(subjectData||[])
 
-await loadExistingMarks(studentData,subjectData)
+loadExistingMarks(studentData,subjectData)
 
 }
 
@@ -85,10 +86,10 @@ const {data}=await supabase
 .select("*")
 .eq("exam_id",selectedExam)
 .eq("student_id",student.id)
-.eq("subject",subject.subject)
+.eq("subject_id",subject.subject_id)
 .single()
 
-const key=`${student.id}_${subject.subject}`
+const key=`${student.id}_${subject.subject_id}`
 
 newMarks[key]=data?.marks || ""
 
@@ -114,9 +115,9 @@ return value
 
 }
 
-function handleMark(studentId:number,subject:string,value:string){
+function handleMark(studentId:number,subjectId:number,value:string){
 
-const key=`${studentId}_${subject}`
+const key=`${studentId}_${subjectId}`
 
 setMarks((prev:any)=>({
 
@@ -136,7 +137,7 @@ return
 
 for(const key in marks){
 
-const [studentId,subject]=key.split("_")
+const [studentId,subjectId]=key.split("_")
 
 const mark=normalizeMark(marks[key])
 
@@ -147,7 +148,7 @@ await supabase
 exam_id:selectedExam,
 class:selectedClass,
 student_id:Number(studentId),
-subject:subject,
+subject_id:Number(subjectId),
 marks:mark
 
 })
@@ -159,26 +160,6 @@ alert("Marks saved successfully")
 }
 
 async function verifyMarks(){
-
-if(students.length===0 || subjects.length===0){
-alert("Load students first")
-return
-}
-
-for(const student of students){
-
-for(const subject of subjects){
-
-const key=`${student.id}_${subject.subject}`
-
-if(!marks[key] || marks[key]===""){
-alert("Fill all marks before verifying")
-return
-}
-
-}
-
-}
 
 await supabase
 .from("exam_results_status")
@@ -226,10 +207,13 @@ function handleKey(e:any){
 if(e.key==="Enter"){
 
 const form=(e.currentTarget as HTMLInputElement).form
+
 if(!form) return
 
 const elements=Array.from(form.elements)
+
 const index=elements.indexOf(e.target as Element)
+
 const next=elements[index+1] as HTMLElement
 
 if(next) next.focus()
@@ -244,7 +228,7 @@ return(
 
 <h1 className="text-4xl font-bold mb-10">
 
-Marks Entry
+Result Creation
 
 </h1>
 
@@ -290,7 +274,7 @@ Load Students
 
 <div className="overflow-x-auto">
 
-<table className="min-w-full text-sm border">
+<table className="min-w-full text-sm">
 
 <thead>
 
@@ -299,8 +283,8 @@ Load Students
 <th className="p-2">Student</th>
 
 {subjects.map((s)=>(
-<th key={s.subject} className="p-2">
-{s.subject}
+<th key={s.subject_id} className="p-2">
+{s.subjects.name}
 </th>
 ))}
 
@@ -313,21 +297,21 @@ Load Students
 {students.map((student)=>(
 <tr key={student.id}>
 
-<td className="p-2 font-semibold">{student.name}</td>
+<td className="p-2">{student.name}</td>
 
 {subjects.map((sub)=>{
 
-const key=`${student.id}_${sub.subject}`
+const key=`${student.id}_${sub.subject_id}`
 
 return(
 
-<td key={sub.subject} className="p-2">
+<td key={sub.subject_id} className="p-2">
 
 <input
-className="bg-gray-800 p-1 w-20 rounded text-center"
+className="bg-gray-800 p-1 w-20 rounded"
 value={marks[key]||""}
 disabled={published}
-onChange={(e)=>handleMark(student.id,sub.subject,e.target.value)}
+onChange={(e)=>handleMark(student.id,sub.subject_id,e.target.value)}
 onKeyDown={handleKey}
 />
 
