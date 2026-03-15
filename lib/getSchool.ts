@@ -1,21 +1,32 @@
-import { createClient } from "@supabase/supabase-js"
+import { headers } from "next/headers"
+import { supabase } from "./supabase"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+export async function getSchool(){
 
-export async function getSchoolBySubdomain(subdomain: string) {
+  const headersList = await headers()
 
-  const { data, error } = await supabase
+  const host =
+    headersList.get("x-forwarded-host") ||
+    headersList.get("host") ||
+    ""
+
+  const parts = host.split(".")
+
+  if(parts.length < 3){
+    throw new Error("Invalid domain")
+  }
+
+  const subdomain = parts[0]
+
+  const { data: school, error } = await supabase
     .from("schools")
     .select("*")
     .eq("subdomain", subdomain)
     .single()
 
-  if (error) {
+  if(error || !school){
     throw new Error("School not found")
   }
 
-  return data
+  return school
 }
