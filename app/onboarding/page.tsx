@@ -15,40 +15,45 @@ export default function Onboarding(){
 
   const signup = async () => {
 
-    setLoading(true)
+  setLoading(true)
 
-    // 1️⃣ create auth user
-    const { data:authData, error:authError } =
-      await supabase.auth.signUp({
-        email,
-        password
-      })
+  // 1 create auth user
+  const { data:authData, error:authError } =
+    await supabase.auth.signUp({
+      email,
+      password
+    })
 
-    if(authError){
-      alert(authError.message)
-      setLoading(false)
-      return
-    }
+  if(authError){
+    alert(authError.message)
+    setLoading(false)
+    return
+  }
 
-    const userId = authData.user?.id
+  const userId = authData.user?.id
 
-    // 2️⃣ create school
-    const { data:school, error:schoolError } =
-      await supabase
+  // 2 create school
+  const { data:school, error:schoolError } =
+    await supabase
       .from("schools")
-      .insert({ name:schoolName })
+      .insert({
+        name:schoolName
+      })
       .select()
       .single()
 
-    if(schoolError){
-      alert(schoolError.message)
-      setLoading(false)
-      return
-    }
+  if(schoolError){
+    alert(schoolError.message)
+    setLoading(false)
+    return
+  }
 
-    // 3️⃣ create admin user record
-    const { error:userError } =
-      await supabase
+  // 3 wait a moment for auth session
+  await new Promise((resolve)=>setTimeout(resolve,1000))
+
+  // 4 create admin user record
+  const { error:userError } =
+    await supabase
       .from("users")
       .insert({
         id:userId,
@@ -57,18 +62,17 @@ export default function Onboarding(){
         school_id:school.id
       })
 
-    if(userError){
-      alert(userError.message)
-      setLoading(false)
-      return
-    }
-
+  if(userError){
+    alert(userError.message)
     setLoading(false)
-
-    router.push("/admin/dashboard")
-
+    return
   }
 
+  setLoading(false)
+
+  router.push("/admin/dashboard")
+
+}
   return(
 
     <div className="min-h-screen flex items-center justify-center bg-[#020c1b]">
