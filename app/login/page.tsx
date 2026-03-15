@@ -3,11 +3,8 @@
 import { useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
-import Input from "@/components/ui/Input"
-import Button from "@/components/ui/Button"
-import Card from "@/components/ui/Card"
 
-export default function LoginPage() {
+export default function LoginPage(){
 
   const router = useRouter()
 
@@ -21,43 +18,50 @@ export default function LoginPage() {
       password
     })
 
-    if(!error){
-      router.push("/admin/dashboard")
+    if(error){
+      alert(error.message)
+      return
     }
+
+    router.push("/admin/dashboard")
+
   }
 
-  return (
+  return(
 
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+    <div className="min-h-screen flex items-center justify-center bg-[#020c1b]">
 
-      <Card>
+      <div className="bg-[#1c2235] p-8 rounded-xl w-[350px]">
 
-        <h1 className="text-2xl mb-6">Login</h1>
+        <h2 className="text-white text-xl mb-6">Login</h2>
 
-        <div className="flex flex-col gap-4 w-80">
-
-          <Input
-          placeholder="Email"
+        <input
+          type="email"
           value={email}
-          onChange={e=>setEmail(e.target.value)}
-          />
+          onChange={(e)=>setEmail(e.target.value)}
+          placeholder="Email"
+          className="w-full p-3 mb-3 rounded bg-gray-200"
+        />
 
-          <Input
+        <input
           type="password"
-          placeholder="Password"
           value={password}
-          onChange={e=>setPassword(e.target.value)}
-          />
+          onChange={(e)=>setPassword(e.target.value)}
+          placeholder="Password"
+          className="w-full p-3 mb-4 rounded bg-gray-700 text-white"
+        />
 
-          <Button color="blue">
-            Login
-          </Button>
+        <button
+          onClick={login}
+          className="w-full bg-blue-600 p-3 rounded text-white"
+        >
+          Login
+        </button>
 
-        </div>
-
-      </Card>
+      </div>
 
     </div>
 
   )
+
 }
