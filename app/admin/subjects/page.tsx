@@ -207,8 +207,22 @@ Add Subject
 
 <tbody>
 
-{subjects.map(s=>(
+{classes.map((cls)=>{
 
+const classSubjects = subjects.filter(s => s.class === cls)
+
+if(classSubjects.length === 0) return null
+
+return(
+
+<>
+<tr className="bg-white/10">
+<td colSpan={3} className="p-3 font-bold text-left">
+Class {cls}
+</td>
+</tr>
+
+{classSubjects.map((s)=>(
 <tr key={s.id}>
 
 <td className="p-2">{s.name}</td>
@@ -233,8 +247,13 @@ Delete
 </td>
 
 </tr>
-
 ))}
+
+</>
+
+)
+
+})}
 
 </tbody>
 
