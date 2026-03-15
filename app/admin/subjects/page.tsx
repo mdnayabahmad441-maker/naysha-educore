@@ -10,6 +10,7 @@ const [name,setName] = useState("")
 const [className,setClassName] = useState("")
 const [subjects,setSubjects] = useState<any[]>([])
 const [classes,setClasses] = useState<string[]>([])
+const [editingId,setEditingId] = useState<number | null>(null)
 
 useEffect(()=>{
 loadSchool()
@@ -57,6 +58,7 @@ const { data } = await supabase
 .from("subjects")
 .select("*")
 .eq("school_id",school)
+.order("class",{ascending:true})
 
 setSubjects(data || [])
 
@@ -69,6 +71,17 @@ alert("Enter subject and class")
 return
 }
 
+/* prevent duplicates */
+
+const exists = subjects.find(
+s => s.name.toLowerCase() === name.toLowerCase() && s.class === className
+)
+
+if(exists){
+alert("Subject already exists in this class")
+return
+}
+
 await supabase.from("subjects").insert({
 
 name,
@@ -78,6 +91,48 @@ school_id: schoolId
 })
 
 setName("")
+setClassName("")
+
+loadSubjects(schoolId)
+
+}
+
+function startEdit(subject:any){
+
+setEditingId(subject.id)
+setName(subject.name)
+setClassName(subject.class)
+
+}
+
+async function updateSubject(){
+
+if(!editingId) return
+
+await supabase
+.from("subjects")
+.update({
+name,
+class:className
+})
+.eq("id",editingId)
+
+setEditingId(null)
+setName("")
+setClassName("")
+
+loadSubjects(schoolId)
+
+}
+
+async function deleteSubject(id:number){
+
+if(!confirm("Delete this subject?")) return
+
+await supabase
+.from("subjects")
+.delete()
+.eq("id",id)
 
 loadSubjects(schoolId)
 
@@ -91,7 +146,7 @@ return(
 Subjects
 </h1>
 
-<div className="flex gap-4 mb-6">
+<div className="flex gap-4 mb-6 flex-wrap">
 
 <input
 value={name}
@@ -106,7 +161,7 @@ onChange={(e)=>setClassName(e.target.value)}
 className="bg-slate-800 p-2 rounded"
 >
 
-<option>Select Class</option>
+<option value="">Select Class</option>
 
 {classes.map(c=>(
 <option key={c}>{c}</option>
@@ -114,12 +169,25 @@ className="bg-slate-800 p-2 rounded"
 
 </select>
 
+{editingId ? (
+
+<button
+onClick={updateSubject}
+className="bg-yellow-500 px-6 py-2 rounded"
+>
+Update Subject
+</button>
+
+) : (
+
 <button
 onClick={addSubject}
 className="bg-green-600 px-6 py-2 rounded"
 >
 Add Subject
 </button>
+
+)}
 
 </div>
 
@@ -131,6 +199,7 @@ Add Subject
 
 <th className="p-2">Subject</th>
 <th className="p-2">Class</th>
+<th className="p-2">Actions</th>
 
 </tr>
 
@@ -139,12 +208,32 @@ Add Subject
 <tbody>
 
 {subjects.map(s=>(
+
 <tr key={s.id}>
 
 <td className="p-2">{s.name}</td>
 <td className="p-2">{s.class}</td>
 
+<td className="p-2 flex gap-2">
+
+<button
+onClick={()=>startEdit(s)}
+className="bg-blue-600 px-3 py-1 rounded"
+>
+Edit
+</button>
+
+<button
+onClick={()=>deleteSubject(s.id)}
+className="bg-red-600 px-3 py-1 rounded"
+>
+Delete
+</button>
+
+</td>
+
 </tr>
+
 ))}
 
 </tbody>
