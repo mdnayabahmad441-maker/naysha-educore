@@ -1,320 +1,279 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function ResultsPage(){
-
-const [status,setStatus]=useState<any>(null)
-const [results,setResults]=useState<any[]>([])
-const [subjects,setSubjects]=useState<any[]>([])
-const [selectedExam,setSelectedExam]=useState("")
-const [selectedClass,setSelectedClass]=useState("")
-const [exams,setExams]=useState<any[]>([])
-
-useEffect(()=>{
-loadExams()
-},[])
-
-async function loadExams(){
-const {data}=await supabase.from("exams").select("*")
-setExams(data || [])
+type ResultRow = {
+  student: string
+  class: string
+  marks: Record<string, number | string>
+  total: number
+  percentage: number
+  rank: number
+  grade: string
 }
 
-async function loadStatus(){
+export default function ResultsPage() {
 
-const {data}=await supabase
-.from("exam_results_status")
-.select("*")
-.eq("exam_id",selectedExam)
-.eq("class",selectedClass)
-.single()
+  const [exams,setExams] = useState<any[]>([])
+  const [subjects,setSubjects] = useState<any[]>([])
+  const [results,setResults] = useState<ResultRow[]>([])
 
-setStatus(data)
-}
+  const [selectedExam,setSelectedExam] = useState("")
+  const [selectedClass,setSelectedClass] = useState("")
 
-async function createResult(){
+  useEffect(()=>{
+    loadExams()
+  },[])
 
-const confirmCreate=confirm("Create result for this exam?")
+  async function loadExams(){
 
-if(!confirmCreate) return
+    const {data} = await supabase
+      .from("exams")
+      .select("*")
 
-await supabase
-.from("exam_results_status")
-.insert({
-exam_id:selectedExam,
-class:selectedClass,
-status:"created"
-})
+    setExams(data || [])
+  }
 
-alert("Result Created Successfully")
+  function getGrade(p:number){
 
-loadStatus()
+    if(p >= 90) return "A+"
+    if(p >= 80) return "A"
+    if(p >= 60) return "B"
+    if(p >= 40) return "C"
+    return "F"
+  }
 
-}
+  function getRowColor(r:ResultRow){
 
-async function verifyResult(){
+    if(r.rank === 1) return "bg-yellow-400 text-black"
+    if(r.rank === 2) return "bg-gray-300 text-black"
+    if(r.rank === 3) return "bg-orange-300 text-black"
 
-await supabase
-.from("exam_results_status")
-.update({verified:true,status:"verified"})
-.eq("exam_id",selectedExam)
-.eq("class",selectedClass)
+    if(r.percentage < 33) return "bg-red-500"
+    if(r.percentage < 60) return "bg-yellow-400 text-black"
+    if(r.percentage < 80) return "bg-green-300 text-black"
 
-alert("Result Verified")
+    return "bg-green-600"
+  }
 
-loadStatus()
+  async function loadResults(){
 
-}
+    if(!selectedExam || !selectedClass){
+      alert("Select exam and class")
+      return
+    }
 
-async function publishResult(){
+    /* SUBJECTS */
 
-const confirmPublish=confirm("Publish result? After publishing marks cannot be edited.")
+    const {data:subjectData} = await supabase
+      .from("exam_subjects")
+      .select(`
+        subject_id,
+        full_marks,
+        subjects(name)
+      `)
+      .eq("exam_id",selectedExam)
 
-if(!confirmPublish) return
+    const subjectsList = subjectData || []
 
-await supabase
-.from("exam_results_status")
-.update({
-published:true,
-status:"published"
-})
-.eq("exam_id",selectedExam)
-.eq("class",selectedClass)
+    setSubjects(subjectsList)
 
-alert("Result Published")
+    /* STUDENTS */
 
-loadStatus()
+    const {data:students} = await supabase
+      .from("students")
+      .select("*")
+      .eq("class",selectedClass)
 
-}
+    let rows:ResultRow[] = []
 
-async function loadResults(){
+    for(const student of (students || []) as any[]){
 
-await loadStatus()
+      let total = 0
+      let subjectMarks:Record<string,number|string> = {}
 
-const {data:students}=await supabase
-.from("students")
-.select("*")
-.eq("class",selectedClass)
+      for(const subject of subjectsList){
 
-const {data:examSubjects}=await supabase
-.from("exam_subjects")
-.select(`
-subject_id,
-full_marks,
-subjects(name)
-`)
-.eq("exam_id",selectedExam)
+const subjectName = subject?.subjects?.[0]?.name || "Subject"
 
-setSubjects(examSubjects || [])
+        const {data:markRow} = await supabase
+          .from("marks")
+          .select("marks")
+          .eq("exam_id",selectedExam)
+          .eq("student_id",student.id)
+          .eq("subject_id",subject.subject_id)
+          .maybeSingle()
 
-let resultRows:any[]=[]
+        let mark:any = markRow?.marks
 
-for(const student of students || []){
+        if(mark === null || mark === undefined || mark === ""){
+          mark = "ABSENT"
+        }else{
+          mark = Number(mark)
 
-const {data:marksData}=await supabase
-.from("marks")
-.select("*")
-.eq("student_id",student.id)
-.eq("exam_id",selectedExam)
+          if(!isNaN(mark)){
+            total += mark
+          }
+        }
 
-let total=0
-let fullTotal=0
-let subjectMarks:any={}
+        subjectMarks[subjectName] = mark
+      }
+
+      const maxTotal = subjectsList.reduce(
+        (sum:number,s:any)=> sum + Number(s.full_marks || 0),
+        0
+      )
+
+      let percentage = 0
+
+      if(maxTotal > 0){
+        percentage = (total / maxTotal) * 100
+      }
 
-for(const subject of examSubjects || []){
+      if(isNaN(percentage)){
+        percentage = 0
+      }
 
-const subjectName=(subject as any)?.subjects?.name || "Subject"
+      rows.push({
+        student:student.name,
+        class:student.class,
+        marks:subjectMarks,
+        total,
+        percentage,
+        rank:0,
+        grade:""
+      })
+    }
 
-fullTotal+=subject.full_marks
+    rows.sort((a,b)=> b.total - a.total)
 
-const markRow=marksData?.find(
-(m:any)=>String(m.subject_id)===String(subject.subject_id)
-)
+    rows = rows.map((r,i)=>({
+      ...r,
+      rank:i+1,
+      grade:getGrade(r.percentage)
+    }))
 
-let mark=markRow?.marks
+    setResults(rows)
+  }
 
-if(!mark) mark="ABSENT"
+  return(
 
-subjectMarks[subjectName]=mark
+    <div className="p-10 text-white">
 
-if(mark!=="ABSENT"){
-total+=Number(mark)
-}
+      <h1 className="text-4xl font-bold mb-8">
+        Exam Results
+      </h1>
 
-}
+      <div className="flex gap-4 mb-6 flex-wrap">
 
-const percentage=(total/fullTotal)*100
+        <select
+          className="bg-slate-800 p-2 rounded"
+          onChange={(e)=>setSelectedExam(e.target.value)}
+        >
+          <option>Select Exam</option>
 
-resultRows.push({
-student:student.name,
-class:student.class,
-marks:subjectMarks,
-total,
-percentage
-})
+          {exams.map((exam)=>(
+            <option key={exam.id} value={exam.id}>
+              {exam.name}
+            </option>
+          ))}
+        </select>
 
-}
+        <select
+          className="bg-slate-800 p-2 rounded"
+          onChange={(e)=>setSelectedClass(e.target.value)}
+        >
+          <option>Select Class</option>
+          <option value="01">01</option>
+          <option value="02">02</option>
+          <option value="03">03</option>
+        </select>
 
-resultRows.sort((a,b)=>b.percentage-a.percentage)
+        <button
+          onClick={loadResults}
+          className="bg-blue-600 px-4 py-2 rounded"
+        >
+          Load Results
+        </button>
 
-resultRows=resultRows.map((r,i)=>({
-...r,
-rank:i+1,
-grade:getGrade(r.percentage)
-}))
+      </div>
 
-setResults(resultRows)
+      <div className="overflow-x-auto">
 
-}
+        <table className="min-w-full text-sm">
 
-function getGrade(p:number){
+          <thead>
 
-if(p>=90) return "A+"
-if(p>=80) return "A"
-if(p>=70) return "B"
-if(p>=60) return "C"
-if(p>=50) return "D"
-return "F"
+            <tr className="bg-gray-700">
 
-}
+              <th className="p-2">Rank</th>
+              <th className="p-2">Student</th>
+              <th className="p-2">Class</th>
 
-function getColor(rank:number,percentage:number){
+              {subjects.map((s:any)=>{
 
-if(percentage<33) return "bg-red-500"
+                const name = s?.subjects?.name || "Subject"
 
-if(rank===1) return "bg-yellow-400 text-black"
-if(rank===2) return "bg-gray-300 text-black"
-if(rank===3) return "bg-orange-300 text-black"
+                return(
+                  <th key={s.subject_id} className="p-2">
+                    {name}
+                  </th>
+                )
+              })}
 
-if(percentage>=81) return "bg-green-600"
-if(percentage>=61) return "bg-green-400 text-black"
-if(percentage>=33) return "bg-yellow-300 text-black"
+              <th className="p-2">Total</th>
+              <th className="p-2">%</th>
+              <th className="p-2">Grade</th>
 
-return ""
+            </tr>
 
-}
+          </thead>
 
-return(
+          <tbody>
 
-<div className="p-8 text-white">
+            {results.map((r)=>{
 
-<h1 className="text-3xl mb-6">Exam Results</h1>
+              const color = getRowColor(r)
 
-<div className="flex gap-3 mb-6 flex-wrap">
+              let medal = ""
+              if(r.rank === 1) medal="🥇"
+              if(r.rank === 2) medal="🥈"
+              if(r.rank === 3) medal="🥉"
 
-<select onChange={(e)=>setSelectedExam(e.target.value)} className="bg-slate-800 p-2 rounded">
-<option>Select Exam</option>
-{exams.map((e:any)=>(
-<option key={e.id} value={e.id}>{e.name}</option>
-))}
-</select>
+              return(
 
-<select onChange={(e)=>setSelectedClass(e.target.value)} className="bg-slate-800 p-2 rounded">
-<option>Select Class</option>
-<option>01</option>
-<option>02</option>
-<option>03</option>
-</select>
+                <tr key={r.student} className={color}>
 
-<button onClick={loadResults} className="bg-blue-500 px-4 py-2 rounded">
-Load Results
-</button>
+                  <td className="p-2">{medal} {r.rank}</td>
+                  <td className="p-2">{r.student}</td>
+                  <td className="p-2">{r.class}</td>
 
-</div>
+                  {subjects.map((s:any)=>{
 
-{status?.status==="created" && (
+                    const name = s?.subjects?.name || "Subject"
 
-<div className="mb-6 bg-yellow-700 p-3 rounded">
-Result created. Please verify before publishing.
-<button onClick={verifyResult} className="ml-4 bg-blue-500 px-3 py-1 rounded">
-Verify
-</button>
-</div>
+                    return(
+                      <td key={s.subject_id} className="p-2">
+                        {r.marks[name]}
+                      </td>
+                    )
+                  })}
 
-)}
+                  <td className="p-2">{r.total}</td>
+                  <td className="p-2">{r.percentage.toFixed(2)}%</td>
+                  <td className="p-2">{r.grade}</td>
 
-{status?.verified && !status?.published && (
+                </tr>
+              )
+            })}
 
-<div className="mb-6 bg-blue-700 p-3 rounded">
-Result verified. Ready to publish.
-<button onClick={publishResult} className="ml-4 bg-green-500 px-3 py-1 rounded">
-Publish
-</button>
-</div>
+          </tbody>
 
-)}
+        </table>
 
-{!status && (
+      </div>
 
-<button onClick={createResult} className="bg-purple-600 px-4 py-2 rounded mb-6">
-Create Result
-</button>
-
-)}
-
-<div className="overflow-x-auto">
-
-<table className="min-w-full text-sm">
-
-<thead className="bg-white/10">
-
-<tr>
-
-<th>Rank</th>
-<th>Student</th>
-<th>Class</th>
-
-{subjects.map((s:any)=>(
-<th key={s.subject_id}>{s.subjects.name}</th>
-))}
-
-<th>Total</th>
-<th>%</th>
-<th>Grade</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-{results.map((r:any,i:number)=>{
-
-const rowColor=getColor(r.rank,r.percentage)
-
-return(
-
-<tr key={i} className={rowColor}>
-
-<td>{r.rank}</td>
-<td>{r.student}</td>
-<td>{r.class}</td>
-
-{subjects.map((s:any)=>(
-<td key={s.subject_id}>
-{r.marks[s.subjects.name]}
-</td>
-))}
-
-<td>{r.total}</td>
-<td>{r.percentage.toFixed(2)}%</td>
-<td>{r.grade}</td>
-
-</tr>
-
-)
-
-})}
-
-</tbody>
-
-</table>
-
-</div>
-
-</div>
-
-)
-
+    </div>
+  )
 }
