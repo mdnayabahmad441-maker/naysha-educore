@@ -211,13 +211,10 @@ function handleKey(e:any){
 if(e.key==="Enter"){
 
 const form=(e.currentTarget as HTMLInputElement).form
-
 if(!form) return
 
 const elements=Array.from(form.elements)
-
 const index=elements.indexOf(e.target as Element)
-
 const next=elements[index+1] as HTMLElement
 
 if(next) next.focus()
@@ -232,7 +229,7 @@ return(
 
 <h1 className="text-4xl font-bold mb-10">
 
-Result Creation
+Marks Entry
 
 </h1>
 
