@@ -1,18 +1,13 @@
 import { supabase } from "@/lib/supabase"
 
-export async function getStudents() {
+export async function getStudents(schoolId:string){
 
   const { data, error } = await supabase
     .from("students")
-    .select(`
-      id,
-      name,
-      email,
-      classes(name),
-      sections(name)
-    `)
+    .select("*")
+    .eq("school_id", schoolId)
 
-  if (error) {
+  if(error){
     console.error(error)
     return []
   }
@@ -20,12 +15,15 @@ export async function getStudents() {
   return data
 }
 
-export async function createStudent(student:any){
+export async function addStudent(student:any){
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("students")
-    .insert(student)
+    .insert([student])
 
-  if(error) console.error(error)
+  if(error){
+    console.error(error)
+  }
 
+  return data
 }
