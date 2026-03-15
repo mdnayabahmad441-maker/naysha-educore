@@ -1,54 +1,112 @@
 "use client"
 
 import { useState } from "react"
-import { useAuth } from "@/hooks/useAuth"
-import Button from "@/components/ui/Button"
-import { createSchool } from "@/services/onboarding.service"
+import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
 export default function Onboarding(){
 
-  const {user} = useAuth()
+  const router = useRouter()
 
-  const [name,setName] = useState("")
-  const [slug,setSlug] = useState("")
+  const [schoolName,setSchoolName] = useState("")
+  const [email,setEmail] = useState("")
+  const [password,setPassword] = useState("")
+  const [loading,setLoading] = useState(false)
 
-  const submit = async()=>{
+  const signup = async () => {
 
-    if(!user) return
+    setLoading(true)
 
-    await createSchool(user.id,name,slug)
+    // 1️⃣ create auth user
+    const { data:authData, error:authError } =
+      await supabase.auth.signUp({
+        email,
+        password
+      })
 
-    window.location.href="/admin/dashboard"
+    if(authError){
+      alert(authError.message)
+      setLoading(false)
+      return
+    }
+
+    const userId = authData.user?.id
+
+    // 2️⃣ create school
+    const { data:school, error:schoolError } =
+      await supabase
+      .from("schools")
+      .insert({ name:schoolName })
+      .select()
+      .single()
+
+    if(schoolError){
+      alert(schoolError.message)
+      setLoading(false)
+      return
+    }
+
+    // 3️⃣ create admin user record
+    const { error:userError } =
+      await supabase
+      .from("users")
+      .insert({
+        id:userId,
+        email:email,
+        role:"admin",
+        school_id:school.id
+      })
+
+    if(userError){
+      alert(userError.message)
+      setLoading(false)
+      return
+    }
+
+    setLoading(false)
+
+    router.push("/admin/dashboard")
 
   }
 
   return(
 
-    <div className="p-10 text-white max-w-xl mx-auto">
+    <div className="min-h-screen flex items-center justify-center bg-[#020c1b]">
 
-      <h1 className="text-2xl mb-6">
-        Create Your School
-      </h1>
+      <div className="bg-[#1c2235] p-8 rounded-xl w-[420px] shadow-lg">
 
-      <div className="bg-white/10 border border-white/20 backdrop-blur rounded-xl p-6 space-y-4">
+        <h2 className="text-white text-2xl mb-6 text-center">
+          Create Your School ERP
+        </h2>
 
         <input
-          className="bg-slate-800 border border-white/20 p-2 rounded w-full"
           placeholder="School Name"
-          value={name}
-          onChange={(e)=>setName(e.target.value)}
+          value={schoolName}
+          onChange={(e)=>setSchoolName(e.target.value)}
+          className="w-full p-3 mb-3 rounded bg-gray-200 text-black"
         />
 
         <input
-          className="bg-slate-800 border border-white/20 p-2 rounded w-full"
-          placeholder="Subdomain (school name)"
-          value={slug}
-          onChange={(e)=>setSlug(e.target.value)}
+          placeholder="Admin Email"
+          value={email}
+          onChange={(e)=>setEmail(e.target.value)}
+          className="w-full p-3 mb-3 rounded bg-gray-200 text-black"
         />
 
-        <Button color="purple" onClick={submit}>
-          Create School
-        </Button>
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e)=>setPassword(e.target.value)}
+          className="w-full p-3 mb-4 rounded bg-gray-700 text-white"
+        />
+
+        <button
+          onClick={signup}
+          className="w-full bg-green-600 p-3 rounded text-white"
+        >
+          {loading ? "Creating..." : "Create School"}
+        </button>
 
       </div>
 
