@@ -68,7 +68,7 @@ const {data:subjectData}=await supabase
 
 setSubjects(subjectData||[])
 
-loadExistingMarks(studentData,subjectData)
+await loadExistingMarks(studentData,subjectData)
 
 }
 
@@ -160,9 +160,24 @@ alert("Marks saved successfully")
 
 async function verifyMarks(){
 
-if(Object.values(marks).some(m => m === "")){
+if(students.length===0 || subjects.length===0){
+alert("Load students first")
+return
+}
+
+for(const student of students){
+
+for(const subject of subjects){
+
+const key=`${student.id}_${subject.subject}`
+
+if(!marks[key] || marks[key]===""){
 alert("Fill all marks before verifying")
 return
+}
+
+}
+
 }
 
 await supabase
@@ -275,7 +290,7 @@ Load Students
 
 <div className="overflow-x-auto">
 
-<table className="min-w-full text-sm">
+<table className="min-w-full text-sm border">
 
 <thead>
 
@@ -298,7 +313,7 @@ Load Students
 {students.map((student)=>(
 <tr key={student.id}>
 
-<td className="p-2">{student.name}</td>
+<td className="p-2 font-semibold">{student.name}</td>
 
 {subjects.map((sub)=>{
 
@@ -309,7 +324,7 @@ return(
 <td key={sub.subject} className="p-2">
 
 <input
-className="bg-gray-800 p-1 w-20 rounded"
+className="bg-gray-800 p-1 w-20 rounded text-center"
 value={marks[key]||""}
 disabled={published}
 onChange={(e)=>handleMark(student.id,sub.subject,e.target.value)}
