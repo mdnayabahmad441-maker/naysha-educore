@@ -1,82 +1,80 @@
 "use client"
 
-import { useState,useEffect } from "react"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function SubjectsPage(){
+export default function Page(){
 
-const [name,setName]=useState("")
-const [subjects,setSubjects]=useState<any[]>([])
+const [rows,setRows]=useState<any[]>([])
 
-async function load(){
-const {data}=await supabase.from("subjects").select("*")
-setSubjects(data||[])
-}
+useEffect(()=>{
 
-useEffect(()=>{load()},[])
+supabase
+.from("class_subjects")
+.select("*,subjects(name)")
+.then(res=>setRows(res.data||[]))
 
-async function add(){
-await supabase.from("subjects").insert({name})
-setName("")
-load()
-}
+},[])
 
-async function remove(id:string){
-await supabase.from("subjects").delete().eq("id",id)
-load()
-}
+const grouped=rows.reduce((acc:any,row)=>{
+
+if(!acc[row.class]) acc[row.class]=[]
+
+acc[row.class].push(row)
+
+return acc
+
+},{})
 
 return(
 
-<div className="p-8">
+<div className="p-10 text-white">
 
-<h1 className="text-xl font-bold mb-4">Subjects</h1>
+<h1 className="text-2xl mb-6">Subjects by Class</h1>
 
-<div className="flex gap-3 mb-6">
+{Object.keys(grouped).map(c=>(
 
-<input
-value={name}
-onChange={(e)=>setName(e.target.value)}
-className="border p-2"
-placeholder="Subject"
-/>
+<div key={c} className="mb-8 bg-white/10 border border-white/20 rounded-xl p-6">
 
-<button onClick={add}
-className="bg-blue-600 text-white px-4 py-2 rounded">
-Add
-</button>
+<h2 className="mb-4">Class {c}</h2>
 
-</div>
-
-<table className="w-full border">
+<table className="w-full">
 
 <thead>
-<tr className="bg-gray-100">
+
+<tr>
+
 <th>Subject</th>
-<th></th>
+<th>Max</th>
+<th>Pass</th>
+
 </tr>
+
 </thead>
 
 <tbody>
-{subjects.map((s)=>(
-<tr key={s.id} className="border-t">
 
-<td>{s.name}</td>
+{grouped[c].map((r:any)=>(
 
-<td>
-<button
-onClick={()=>remove(s.id)}
-className="text-red-600">
-Delete
-</button>
-</td>
+<tr key={r.id}>
+
+<td>{r.subjects?.name}</td>
+<td>{r.max_marks}</td>
+<td>{r.pass_marks}</td>
 
 </tr>
+
 ))}
+
 </tbody>
 
 </table>
 
 </div>
+
+))}
+
+</div>
+
 )
 }

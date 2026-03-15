@@ -3,57 +3,47 @@
 import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function Results(){
+export default function Page(){
 
 const [rows,setRows]=useState<any[]>([])
 
-async function load(){
+useEffect(()=>{
 
-const {data}=await supabase
+supabase
 .from("exam_results")
 .select("*,students(name,class)")
+.then(res=>setRows(res.data||[]))
 
-setRows(data||[])
-
-}
-
-useEffect(()=>{load()},[])
+},[])
 
 return(
 
-<div className="p-8">
+<div className="p-10 text-white">
 
-<h1 className="text-xl font-bold mb-6">Results</h1>
+<h1 className="text-2xl mb-6">Results</h1>
 
-<table className="w-full border">
+<table className="w-full bg-white/10 border border-white/20">
 
 <thead>
-<tr className="bg-gray-100">
+
+<tr>
+
 <th>Rank</th>
 <th>Student</th>
 <th>Total</th>
 <th>%</th>
 <th>Grade</th>
 <th>Status</th>
+
 </tr>
+
 </thead>
 
 <tbody>
 
-{rows.map((r)=>{
+{rows.map(r=>(
 
-const color =
-r.status==="FAIL"
-? "bg-red-100"
-: r.percentage>80
-? "bg-green-200"
-: r.percentage>60
-? "bg-green-100"
-: "bg-yellow-100"
-
-return(
-
-<tr key={r.id} className={color}>
+<tr key={r.id}>
 
 <td>{r.rank}</td>
 <td>{r.students?.name}</td>
@@ -64,9 +54,7 @@ return(
 
 </tr>
 
-)
-
-})}
+))}
 
 </tbody>
 

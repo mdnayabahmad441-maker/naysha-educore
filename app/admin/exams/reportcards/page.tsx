@@ -1,46 +1,43 @@
 "use client"
 
-export default function ReportCards(){
+export default function Page(){
 
 return(
 
-<div className="p-10">
+<div className="p-10 text-white">
 
 <button
 onClick={()=>window.print()}
-className="bg-blue-600 text-white px-4 py-2 rounded mb-6">
+className="bg-blue-600 px-4 py-2 rounded mb-6"
+>
+
 Print
+
 </button>
 
-<div className="border p-8 max-w-xl">
+<div className="bg-white text-black p-10 max-w-xl">
 
-<h1 className="text-xl font-bold mb-4">
-School Name
-</h1>
+<h1 className="text-xl mb-4">NaySha School</h1>
 
-<p>Student Name:</p>
+<p>Student:</p>
 <p>Class:</p>
 <p>Exam:</p>
 
-<table className="w-full border mt-6">
+<table className="w-full border mt-4">
 
 <thead>
+
 <tr>
+
 <th>Subject</th>
 <th>Marks</th>
 <th>Max</th>
+
 </tr>
+
 </thead>
 
-<tbody>
-</tbody>
-
 </table>
-
-<p className="mt-6">Total:</p>
-<p>Percentage:</p>
-<p>Rank:</p>
-<p>Grade:</p>
 
 </div>
 

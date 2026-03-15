@@ -1,105 +1,101 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState,useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function CreateExam() {
-  const [name, setName] = useState("")
-  const [term, setTerm] = useState("")
-  const [date, setDate] = useState("")
-  const [exams, setExams] = useState<any[]>([])
+export default function Page(){
 
-  async function load() {
-    const { data } = await supabase.from("exams").select("*")
-    setExams(data || [])
-  }
+const [name,setName]=useState("")
+const [term,setTerm]=useState("")
+const [date,setDate]=useState("")
+const [exams,setExams]=useState<any[]>([])
 
-  useEffect(() => {
-    load()
-  }, [])
+async function load(){
 
-  async function createExam() {
-    await supabase.from("exams").insert({
-      name,
-      term,
-      date
-    })
-    setName("")
-    load()
-  }
+const {data}=await supabase.from("exams").select("*")
 
-  async function deleteExam(id: string) {
-    await supabase.from("exams").delete().eq("id", id)
-    load()
-  }
+setExams(data||[])
 
-  return (
-    <div className="p-8 space-y-6">
+}
 
-      <h1 className="text-xl font-bold">Create Exam</h1>
+useEffect(()=>{load()},[])
 
-      <div className="flex gap-4">
+async function createExam(){
 
-        <input
-          placeholder="Exam Name"
-          value={name}
-          onChange={(e)=>setName(e.target.value)}
-          className="border p-2"
-        />
+await supabase.from("exams").insert({name,term,date})
 
-        <input
-          placeholder="Term"
-          value={term}
-          onChange={(e)=>setTerm(e.target.value)}
-          className="border p-2"
-        />
+load()
 
-        <input
-          type="date"
-          value={date}
-          onChange={(e)=>setDate(e.target.value)}
-          className="border p-2"
-        />
+}
 
-        <button
-          onClick={createExam}
-          className="bg-blue-600 text-white px-4 py-2 rounded"
-        >
-          Save
-        </button>
+async function remove(id:string){
 
-      </div>
+await supabase.from("exams").delete().eq("id",id)
 
-      <table className="w-full border">
+load()
 
-        <thead>
-          <tr className="bg-gray-100">
-            <th>Name</th>
-            <th>Term</th>
-            <th>Date</th>
-            <th></th>
-          </tr>
-        </thead>
+}
 
-        <tbody>
-          {exams.map((exam)=>(
-            <tr key={exam.id} className="border-t">
-              <td>{exam.name}</td>
-              <td>{exam.term}</td>
-              <td>{exam.date}</td>
-              <td>
-                <button
-                  onClick={()=>deleteExam(exam.id)}
-                  className="text-red-600"
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
+return(
 
-      </table>
-    </div>
-  )
+<div className="p-10 text-white space-y-6">
+
+<h1 className="text-2xl">Create Exam</h1>
+
+<div className="bg-white/10 border border-white/20 rounded-xl p-6 space-y-4">
+
+<input placeholder="Exam Name" className="p-2 text-black" onChange={e=>setName(e.target.value)}/>
+<input placeholder="Term" className="p-2 text-black" onChange={e=>setTerm(e.target.value)}/>
+<input type="date" className="p-2 text-black" onChange={e=>setDate(e.target.value)}/>
+
+<button onClick={createExam} className="bg-green-600 px-4 py-2 rounded">Save</button>
+
+</div>
+
+<table className="w-full bg-white/10 border border-white/20">
+
+<thead>
+
+<tr>
+
+<th>Name</th>
+<th>Term</th>
+<th>Date</th>
+<th></th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{exams.map(e=>(
+
+<tr key={e.id}>
+
+<td>{e.name}</td>
+<td>{e.term}</td>
+<td>{e.date}</td>
+
+<td>
+
+<button onClick={()=>remove(e.id)} className="bg-red-600 px-2 py-1 rounded">
+
+Delete
+
+</button>
+
+</td>
+
+</tr>
+
+))}
+
+</tbody>
+
+</table>
+
+</div>
+
+)
 }
