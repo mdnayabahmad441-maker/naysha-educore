@@ -1,203 +1,123 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function MarksPage(){
+export default function CreateExamPage() {
 
 const classes = [
 "Nursery","LKG","UKG",
-"01","02","03","04","05","06","07","08","09","10"
+"01","02","03","04","05",
+"06","07","08","09","10"
 ]
 
-const [exams,setExams] = useState<any[]>([])
-const [selectedExam,setSelectedExam] = useState("")
+const [name,setName] = useState("")
+const [term,setTerm] = useState("")
+const [date,setDate] = useState("")
+
+const [classMode,setClassMode] = useState("all")
 const [selectedClass,setSelectedClass] = useState("")
 
-const [students,setStudents] = useState<any[]>([])
 const [subjects,setSubjects] = useState<any[]>([])
+const [selectedSubjects,setSelectedSubjects] = useState<string[]>([])
 
-const [marks,setMarks] = useState<Record<string,string>>({})
+const [exams,setExams] = useState<any[]>([])
 
-const inputRefs = useRef<any>({})
+const schoolId = "1"   // replace with auth school later
 
 useEffect(()=>{
 loadExams()
 },[])
+
+useEffect(()=>{
+if(classMode==="specific" && selectedClass){
+loadSubjects()
+}
+},[selectedClass])
 
 async function loadExams(){
 
 const {data} = await supabase
 .from("exams")
 .select("*")
-.order("exam_date",{ascending:false})
+.order("created_at",{ascending:false})
 
 setExams(data || [])
 
 }
 
-async function loadGrid(){
+async function loadSubjects(){
 
-if(!selectedExam || !selectedClass){
-alert("Select exam and class")
-return
-}
-
-const {data:studentsData} = await supabase
-.from("students")
-.select("*")
-.eq("class",selectedClass)
-.order("roll_no")
-
-setStudents(studentsData || [])
-
-const {data:subjectsData} = await supabase
+const {data} = await supabase
 .from("class_subjects")
 .select(`
 subject_id,
-max_marks,
-pass_marks,
 subjects(name)
 `)
 .eq("class",selectedClass)
 
-setSubjects(subjectsData || [])
+setSubjects(data || [])
 
-const {data:marksData} = await supabase
-.from("marks")
-.select("*")
-.eq("exam_id",selectedExam)
-.eq("class",selectedClass)
+}
 
-const map:any = {}
+function toggleSubject(id:string){
 
-marksData?.forEach((m:any)=>{
-map[`${m.student_id}-${m.subject_id}`] = m.marks
+if(selectedSubjects.includes(id)){
+
+setSelectedSubjects(selectedSubjects.filter(s=>s!==id))
+
+}else{
+
+setSelectedSubjects([...selectedSubjects,id])
+
+}
+
+}
+
+async function createExam(){
+
+if(!name || !date){
+alert("Enter exam name and date")
+return
+}
+
+const examClass = classMode==="all" ? "ALL" : selectedClass
+
+const {error} = await supabase
+.from("exams")
+.insert({
+name,
+exam_date:date,
+school_id:schoolId,
+class:examClass
 })
 
-setMarks(map)
+if(error){
+
+alert(error.message)
+return
 
 }
 
-function updateMark(studentId:string,subjectId:string,value:string){
+setName("")
+setTerm("")
+setDate("")
+setSelectedSubjects([])
 
-const key = `${studentId}-${subjectId}`
+loadExams()
 
-setMarks(prev=>({
-...prev,
-[key]:value
-}))
-
-}
-
-function total(studentId:string){
-
-let t = 0
-
-subjects.forEach((s:any)=>{
-const val = marks[`${studentId}-${s.subject_id}`]
-if(Number(val)) t += Number(val)
-})
-
-return t
+alert("Exam Created")
 
 }
 
-function percentage(total:number){
+async function deleteExam(id:string){
 
-if(subjects.length===0) return 0
+await supabase
+.from("exams")
+.delete()
+.eq("id",id)
 
-return ((total/(subjects.length*100))*100).toFixed(2)
-
-}
-
-function handleKey(e:any,row:number,col:number){
-
-if(e.key==="ArrowRight"){
-focusCell(row,col+1)
-}
-
-if(e.key==="ArrowLeft"){
-focusCell(row,col-1)
-}
-
-if(e.key==="ArrowDown"){
-focusCell(row+1,col)
-}
-
-if(e.key==="ArrowUp"){
-focusCell(row-1,col)
-}
-
-if(e.key==="Enter"){
-focusCell(row+1,col)
-}
-
-}
-
-function focusCell(r:number,c:number){
-
-const key = `${r}-${c}`
-
-if(inputRefs.current[key]){
-inputRefs.current[key].focus()
-}
-
-}
-
-function handlePaste(e:any,row:number,col:number){
-
-const paste = e.clipboardData.getData("text")
-
-const rows = paste.split("\n")
-
-rows.forEach((r,rowIndex)=>{
-
-const cols = r.split(/\t|,/)
-
-cols.forEach((cell,colIndex)=>{
-
-const student = students[row + rowIndex]
-const subject = subjects[col + colIndex]
-
-if(student && subject){
-
-const key = `${student.id}-${subject.subject_id}`
-
-marks[key] = cell
-
-}
-
-})
-
-})
-
-setMarks({...marks})
-
-}
-
-async function saveMarks(){
-
-const rows:any = []
-
-Object.keys(marks).forEach(key=>{
-
-const [studentId,subjectId] = key.split("-")
-
-rows.push({
-exam_id:selectedExam,
-student_id:studentId,
-subject_id:subjectId,
-class:selectedClass,
-marks:marks[key],
-status:"entered"
-})
-
-})
-
-await supabase.from("marks").upsert(rows)
-
-alert("Marks saved")
+loadExams()
 
 }
 
@@ -205,58 +125,145 @@ return(
 
 <div className="p-10 text-white max-w-6xl mx-auto">
 
-<h1 className="text-2xl mb-6 font-semibold">
-Marks Entry
+<h1 className="text-2xl font-semibold mb-6">
+Create Exam
 </h1>
 
-{/* FILTER CARD */}
+{/* CREATE CARD */}
 
 <div className="bg-white/10 border border-white/20 rounded-xl backdrop-blur p-6 mb-8">
 
-<div className="flex gap-4 flex-wrap">
+<div className="flex gap-4 flex-wrap mb-4">
+
+<input
+placeholder="Exam Name"
+value={name}
+onChange={(e)=>setName(e.target.value)}
+className="bg-gray-800 px-3 py-2 rounded"
+/>
+
+<input
+placeholder="Term"
+value={term}
+onChange={(e)=>setTerm(e.target.value)}
+className="bg-gray-800 px-3 py-2 rounded"
+/>
+
+<input
+type="date"
+value={date}
+onChange={(e)=>setDate(e.target.value)}
+className="bg-gray-800 px-3 py-2 rounded"
+/>
+
+<button
+onClick={createExam}
+className="bg-white/10 border border-white/20 rounded-xl px-5 py-2 hover:bg-white/20"
+>
+Save Exam
+</button>
+
+</div>
+
+{/* CLASS MODE */}
+
+<div className="flex gap-6 mb-4">
+
+<label className="flex items-center gap-2">
+
+<input
+type="radio"
+checked={classMode==="all"}
+onChange={()=>setClassMode("all")}
+/>
+
+All Classes
+
+</label>
+
+<label className="flex items-center gap-2">
+
+<input
+type="radio"
+checked={classMode==="specific"}
+onChange={()=>setClassMode("specific")}
+/>
+
+Specific Class
+
+</label>
+
+</div>
+
+{/* CLASS SELECT */}
+
+{classMode==="specific" && (
 
 <select
-value={selectedExam}
-onChange={(e)=>setSelectedExam(e.target.value)}
-className="bg-gray-800 px-3 py-2 rounded"
+value={selectedClass}
+onChange={(e)=>setSelectedClass(e.target.value)}
+className="bg-gray-800 px-3 py-2 rounded mb-4"
 >
 
-<option value="">Select Exam</option>
+<option value="">
+Select Class
+</option>
 
-{exams.map(exam=>(
-<option key={exam.id} value={exam.id}>
-{exam.name}
+{classes.map(c=>(
+<option key={c}>
+{c}
 </option>
 ))}
 
 </select>
 
-<select
-value={selectedClass}
-onChange={(e)=>setSelectedClass(e.target.value)}
-className="bg-gray-800 px-3 py-2 rounded"
->
+)}
 
-<option value="">Select Class</option>
+{/* SUBJECT SELECT */}
 
-{classes.map(c=>(
-<option key={c}>{c}</option>
-))}
+{subjects.length>0 && (
 
-</select>
+<div>
+
+<h3 className="mb-2">
+Select Subjects
+</h3>
+
+<div className="flex flex-wrap gap-3">
+
+{subjects.map((s:any)=>{
+
+const id = s.subject_id
+
+return(
 
 <button
-onClick={loadGrid}
-className="bg-white/10 border border-white/20 rounded-xl px-4 py-2 hover:bg-white/20"
+key={id}
+onClick={()=>toggleSubject(id)}
+className={`px-3 py-1 rounded border ${
+selectedSubjects.includes(id)
+? "bg-blue-500"
+: "bg-white/10"
+}`}
 >
-Load
+
+{s.subjects?.name}
+
 </button>
 
-</div>
+)
+
+})}
 
 </div>
 
-{/* GRID */}
+</div>
+
+)}
+
+</div>
+
+{/* EXAMS TABLE */}
 
 <div className="bg-white/10 border border-white/20 rounded-xl backdrop-blur p-6">
 
@@ -268,16 +275,21 @@ Load
 
 <tr className="bg-white/10">
 
-<th className="p-2 text-left">Student</th>
-
-{subjects.map((s:any)=>(
-<th key={s.subject_id} className="p-2">
-{s.subjects?.name}
+<th className="p-2 text-left">
+Exam
 </th>
-))}
 
-<th className="p-2">Total</th>
-<th className="p-2">%</th>
+<th className="p-2 text-left">
+Class
+</th>
+
+<th className="p-2 text-left">
+Date
+</th>
+
+<th className="p-2 text-left">
+Action
+</th>
 
 </tr>
 
@@ -285,83 +297,58 @@ Load
 
 <tbody>
 
-{students.map((student,row)=>{
+{exams.length===0 && (
 
-const t = total(student.id)
+<tr>
 
-return(
+<td colSpan={4} className="p-4 text-center text-gray-400">
 
-<tr key={student.id} className="border-t border-white/10">
+No exams created yet
 
-<td className="p-2">
-{student.name}
-</td>
-
-{subjects.map((s:any,col)=>{
-
-const key = `${student.id}-${s.subject_id}`
-
-return(
-
-<td key={s.subject_id} className="p-2">
-
-<input
-ref={el=>inputRefs.current[`${row}-${col}`]=el}
-value={marks[key] || ""}
-onChange={(e)=>updateMark(student.id,s.subject_id,e.target.value)}
-onKeyDown={(e)=>handleKey(e,row,col)}
-onPaste={(e)=>handlePaste(e,row,col)}
-className="bg-gray-800 w-20 p-1 rounded text-center focus:ring-2 focus:ring-blue-500"
-/>
-
-</td>
-
-)
-
-})}
-
-<td className="p-2">{t}</td>
-
-<td className="p-2">
-{percentage(t)}
 </td>
 
 </tr>
 
-)
+)}
 
-})}
+{exams.map(exam=>(
+
+<tr key={exam.id} className="border-t border-white/10">
+
+<td className="p-2">
+{exam.name}
+</td>
+
+<td className="p-2">
+{exam.class}
+</td>
+
+<td className="p-2">
+{exam.exam_date}
+</td>
+
+<td className="p-2">
+
+<button
+onClick={()=>deleteExam(exam.id)}
+className="bg-red-500 px-3 py-1 rounded"
+>
+
+Delete
+
+</button>
+
+</td>
+
+</tr>
+
+))}
 
 </tbody>
 
 </table>
 
 </div>
-
-</div>
-
-{/* ACTION BUTTONS */}
-
-<div className="flex gap-4 mt-6 flex-wrap">
-
-<button
-onClick={saveMarks}
-className="bg-white/10 border border-white/20 rounded-xl px-6 py-3 hover:bg-white/20"
->
-Save Marks
-</button>
-
-<button className="bg-white/10 border border-white/20 rounded-xl px-6 py-3 hover:bg-white/20">
-Verify Marks
-</button>
-
-<button className="bg-white/10 border border-white/20 rounded-xl px-6 py-3 hover:bg-white/20">
-Create Results
-</button>
-
-<button className="bg-white/10 border border-white/20 rounded-xl px-6 py-3 hover:bg-white/20">
-Publish Results
-</button>
 
 </div>
 
