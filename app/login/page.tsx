@@ -34,14 +34,14 @@ export default function LoginPage(){
 
   const loginWithGoogle = async () => {
 
-    await supabase.auth.signInWithOAuth({
-      provider:"google",
-      options:{
-        redirectTo:"https://erp.naysha.online/admin/dashboard"
-      }
-    })
+  await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`
+    }
+  })
 
-  }
+}
 
   return(
 
