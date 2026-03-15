@@ -52,6 +52,8 @@ return
 
 await checkPublish()
 
+/* LOAD STUDENTS */
+
 const {data:studentData}=await supabase
 .from("students")
 .select("*")
@@ -59,17 +61,25 @@ const {data:studentData}=await supabase
 
 setStudents(studentData||[])
 
+
+/* LOAD SUBJECTS FOR THIS CLASS */
+
 const {data:subjectData}=await supabase
-.from("exam_subjects")
-.select(`
-subject_id,
-subjects(name)
-`)
-.eq("exam_id",selectedExam)
+.from("subjects")
+.select("id,name")
+.eq("class",selectedClass)
 
-setSubjects(subjectData||[])
+const formattedSubjects = subjectData?.map((s:any)=>({
+subject_id:s.id,
+subjects:{name:s.name}
+})) || []
 
-loadExistingMarks(studentData,subjectData)
+setSubjects(formattedSubjects)
+
+
+/* LOAD EXISTING MARKS */
+
+loadExistingMarks(studentData,formattedSubjects)
 
 }
 
