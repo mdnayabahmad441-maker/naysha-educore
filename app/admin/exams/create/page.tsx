@@ -1,144 +1,181 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function CreateExamPage(){
-
-const [name,setName]=useState("")
-const [term,setTerm]=useState("")
-const [date,setDate]=useState("")
-const [exams,setExams]=useState<any[]>([])
-
-async function load(){
-
-const {data} = await supabase
-.from("exams")
-.select("*")
-.order("date")
-
-setExams(data || [])
-
+type Exam = {
+  id: string
+  name: string
+  term: string
+  date: string
 }
 
-useEffect(()=>{load()},[])
+export default function CreateExamPage() {
 
-async function createExam(){
+  const schoolId = "1"
 
-await supabase.from("exams").insert({
-name,
-term,
-date
-})
+  const [name, setName] = useState("")
+  const [term, setTerm] = useState("")
+  const [date, setDate] = useState("")
+  const [exams, setExams] = useState<Exam[]>([])
 
-setName("")
-setTerm("")
-setDate("")
+  async function loadExams() {
 
-load()
+    const { data, error } = await supabase
+      .from("exams")
+      .select("*")
+      .eq("school_id", schoolId)
+      .order("date", { ascending: false })
 
-}
+    if (!error) setExams(data || [])
+  }
 
-async function deleteExam(id:string){
+  useEffect(() => {
+    loadExams()
+  }, [])
 
-await supabase.from("exams").delete().eq("id",id)
+  async function createExam() {
 
-load()
+    if (!name || !term || !date) {
+      alert("Please fill all fields")
+      return
+    }
 
-}
+    const { error } = await supabase
+      .from("exams")
+      .insert({
+        school_id: schoolId,
+        name,
+        term,
+        date
+      })
 
-return(
+    if (!error) {
+      setName("")
+      setTerm("")
+      setDate("")
+      loadExams()
+    }
+  }
 
-<div className="p-10 text-white max-w-6xl mx-auto">
+  async function deleteExam(id: string) {
 
-<h1 className="text-2xl mb-6">Create Exam</h1>
+    await supabase
+      .from("exams")
+      .delete()
+      .eq("id", id)
 
-<div className="bg-white/10 border border-white/20 rounded-xl p-6 mb-8">
+    loadExams()
+  }
 
-<div className="flex gap-4 flex-wrap">
+  return (
 
-<input
-value={name}
-onChange={(e)=>setName(e.target.value)}
-placeholder="Exam Name"
-className="text-black p-2 rounded"
-/>
+    <div className="p-10 text-white max-w-6xl mx-auto">
 
-<input
-value={term}
-onChange={(e)=>setTerm(e.target.value)}
-placeholder="Term"
-className="text-black p-2 rounded"
-/>
+      <h1 className="text-2xl font-semibold mb-6">
+        Create Exam
+      </h1>
 
-<input
-type="date"
-value={date}
-onChange={(e)=>setDate(e.target.value)}
-className="text-black p-2 rounded"
-/>
+      {/* FORM CARD */}
 
-<button
-onClick={createExam}
-className="bg-green-600 px-4 py-2 rounded"
->
+      <div className="bg-white/10 border border-white/20 rounded-xl backdrop-blur p-6 mb-8">
 
-Save
+        <div className="flex gap-4 flex-wrap">
 
-</button>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Exam Name"
+            className="bg-gray-800 text-white px-3 py-2 rounded w-48"
+          />
 
-</div>
+          <input
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+            placeholder="Term"
+            className="bg-gray-800 text-white px-3 py-2 rounded w-40"
+          />
 
-</div>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="bg-gray-800 text-white px-3 py-2 rounded"
+          />
 
-<div className="overflow-x-auto">
+          <button
+            onClick={createExam}
+            className="bg-green-600 hover:bg-green-700 px-5 py-2 rounded font-medium"
+          >
+            Save
+          </button>
 
-<table className="min-w-[900px] w-full text-sm">
+        </div>
 
-<thead>
+      </div>
 
-<tr className="bg-white/10">
+      {/* EXAMS TABLE */}
 
-<th className="p-2 text-left">Exam</th>
-<th className="p-2 text-left">Term</th>
-<th className="p-2 text-left">Date</th>
-<th className="p-2 text-left">Action</th>
+      <div className="overflow-x-auto">
 
-</tr>
+        <table className="min-w-[900px] w-full text-sm">
 
-</thead>
+          <thead>
 
-<tbody>
+            <tr className="bg-white/10">
 
-{exams.map(exam=>(
-<tr key={exam.id}>
+              <th className="p-2 text-left">Exam</th>
+              <th className="p-2 text-left">Term</th>
+              <th className="p-2 text-left">Date</th>
+              <th className="p-2 text-left">Action</th>
 
-<td className="p-2">{exam.name}</td>
-<td className="p-2">{exam.term}</td>
-<td className="p-2">{exam.date}</td>
+            </tr>
 
-<td className="p-2">
+          </thead>
 
-<button
-onClick={()=>deleteExam(exam.id)}
-className="bg-red-600 px-3 py-1 rounded"
->
-Delete
-</button>
+          <tbody>
 
-</td>
+            {exams.length === 0 && (
+              <tr>
+                <td colSpan={4} className="p-4 text-gray-400">
+                  No exams created yet
+                </td>
+              </tr>
+            )}
 
-</tr>
-))}
+            {exams.map((exam) => (
 
-</tbody>
+              <tr
+                key={exam.id}
+                className="border-t border-white/10 hover:bg-white/5"
+              >
 
-</table>
+                <td className="p-2">{exam.name}</td>
+                <td className="p-2">{exam.term}</td>
+                <td className="p-2">{exam.date}</td>
 
-</div>
+                <td className="p-2">
 
-</div>
+                  <button
+                    onClick={() => deleteExam(exam.id)}
+                    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded"
+                  >
+                    Delete
+                  </button>
 
-)
+                </td>
 
+              </tr>
+
+            ))}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+  )
 }
