@@ -40,13 +40,16 @@ export default function Onboarding(){
     const userId = userData.user?.id
 
     // Create school
-    const { data:school, error:schoolError } =
-      await supabase
-      .from("schools")
-      .insert({
-        name:schoolName,
-        subdomain:subdomain
-      })
+   const { data:school, error:schoolError } =
+  await supabase
+  .from("schools")
+  .insert({
+    name: schoolName,
+    subdomain: subdomain,
+    email: email,
+    phone: phone
+  })
+  
       .select()
       .single()
 
