@@ -1,13 +1,12 @@
-import { headers } from "next/headers"
 import { supabase } from "./supabase"
 
 export async function getSchoolId() {
 
-  const headersList = await headers()
+  if (typeof window === "undefined") return null
 
-  const host = headersList.get("host") || ""
+  const host = window.location.hostname
 
-  // abc123.naysha.online → abc123
+  // abc123.naysha.online -> abc123
   const subdomain = host.split(".")[0]
 
   if (!subdomain) return null
