@@ -1,27 +1,54 @@
 import { supabase } from "@/lib/supabase"
 
-export async function getTeachers(){
+export async function getTeachers() {
 
-  const {data,error} = await supabase
+  const { data: sessionData } = await supabase.auth.getSession()
+
+  const userId = sessionData?.session?.user?.id
+
+  if (!userId) return []
+
+  const { data: user } = await supabase
+    .from("users")
+    .select("school_id")
+    .eq("id", userId)
+    .single()
+
+  if (!user) return []
+
+  const { data } = await supabase
     .from("teachers")
     .select("*")
-    .order("name")
+    .eq("school_id", user.school_id)
 
-  if(error){
-    console.error(error)
-    return []
-  }
-
-  return data
-
+  return data || []
 }
 
-export async function createTeacher(teacher:any){
 
-  const {error} = await supabase
+export async function createTeacher(teacher:any) {
+
+  const { data: sessionData } = await supabase.auth.getSession()
+
+  const userId = sessionData?.session?.user?.id
+
+  if (!userId) return
+
+  const { data: user } = await supabase
+    .from("users")
+    .select("school_id")
+    .eq("id", userId)
+    .single()
+
+  if (!user) return
+
+  const { error } = await supabase
     .from("teachers")
-    .insert(teacher)
+    .insert({
+      ...teacher,
+      school_id: user.school_id
+    })
 
-  if(error) console.error(error)
-
+  if (error) {
+    console.error("Teacher insert error:", error)
+  }
 }
