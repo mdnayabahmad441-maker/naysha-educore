@@ -18,7 +18,7 @@ export default function ClassesPage() {
 
   const load = async () => {
 
-    const data = await getClasses(schoolId!)
+    const data = await getClasses()
     setClasses(data)
 
   }
