@@ -3,39 +3,28 @@ import type { NextRequest } from "next/server"
 
 export function middleware(request: NextRequest) {
 
-  const hostname = request.headers.get("host") || ""
-
-  // remove port in localhost
-  const host = hostname.split(":")[0]
+  const host = request.headers.get("host") || ""
+  const pathname = request.nextUrl.pathname
 
   const parts = host.split(".")
+  const subdomain = parts[0]
 
-  // default tenant
-  let tenant = null
-
-  // localhost handling
-  if (host.includes("localhost")) {
-    tenant = "erp"
+  // ignore main domain
+  if (
+    subdomain === "erp" ||
+    subdomain === "www" ||
+    host.includes("localhost")
+  ) {
+    return NextResponse.next()
   }
 
-  // subdomain handling
-  else if (parts.length > 2) {
-    tenant = parts[0]
-  }
+  // rewrite to tenant route
+  const url = request.nextUrl.clone()
+  url.pathname = `/tenant/${subdomain}${pathname}`
 
-  const headers = new Headers(request.headers)
-
-  if (tenant && tenant !== "www" && tenant !== "erp") {
-    headers.set("x-tenant", tenant)
-  }
-
-  return NextResponse.next({
-    request: {
-      headers,
-    },
-  })
+  return NextResponse.rewrite(url)
 }
 
 export const config = {
-  matcher: ["/((?!_next|favicon.ico).*)"],
+  matcher: ["/((?!_next|favicon.ico).*)"]
 }
