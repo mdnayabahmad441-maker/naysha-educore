@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import Card from "@/components/ui/Card"
 import Button from "@/components/ui/Button"
 import { createTeacher, getTeachers } from "@/services/teachers.service"
@@ -8,11 +8,12 @@ import { createTeacher, getTeachers } from "@/services/teachers.service"
 export default function TeachersPage(){
 
   const [teachers,setTeachers] = useState<any[]>([])
+
   const [name,setName] = useState("")
   const [email,setEmail] = useState("")
-  const [subject,setSubject] = useState("")
+  const [phone,setPhone] = useState("")
 
-  const load = async()=>{
+  const load = async () => {
 
     const data = await getTeachers()
     setTeachers(data)
@@ -23,18 +24,20 @@ export default function TeachersPage(){
     load()
   },[])
 
-  const submit = async()=>{
+  const submit = async () => {
+
+    if(!name || !email || !phone) return
 
     await createTeacher({
-      id:crypto.randomUUID(),
+      id: crypto.randomUUID(),
       name,
       email,
-      subject
+      phone
     })
 
     setName("")
     setEmail("")
-    setSubject("")
+    setPhone("")
 
     load()
 
@@ -44,11 +47,13 @@ export default function TeachersPage(){
 
     <div className="p-10 text-white max-w-7xl mx-auto">
 
-      <h1 className="text-2xl mb-6">Teachers</h1>
+      <h1 className="text-2xl mb-6">
+        Teachers
+      </h1>
 
       <Card>
 
-        <div className="flex gap-4 mb-6">
+        <div className="flex flex-wrap gap-4 mb-6">
 
           <input
             className="bg-slate-800 border border-white/20 p-2 rounded"
@@ -66,9 +71,9 @@ export default function TeachersPage(){
 
           <input
             className="bg-slate-800 border border-white/20 p-2 rounded"
-            placeholder="Subject"
-            value={subject}
-            onChange={(e)=>setSubject(e.target.value)}
+            placeholder="Phone"
+            value={phone}
+            onChange={(e)=>setPhone(e.target.value)}
           />
 
           <Button color="green" onClick={submit}>
@@ -83,17 +88,17 @@ export default function TeachersPage(){
             <tr>
               <th className="border p-2">Name</th>
               <th className="border p-2">Email</th>
-              <th className="border p-2">Subject</th>
+              <th className="border p-2">Phone</th>
             </tr>
           </thead>
 
           <tbody>
 
-            {teachers.map(t=>(
+            {teachers.map((t)=>(
               <tr key={t.id}>
                 <td className="border p-2">{t.name}</td>
                 <td className="border p-2">{t.email}</td>
-                <td className="border p-2">{t.subject}</td>
+                <td className="border p-2">{t.phone}</td>
               </tr>
             ))}
 
