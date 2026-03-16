@@ -8,22 +8,17 @@ export function middleware(request: NextRequest) {
 
   const headers = new Headers(request.headers)
 
-  // Detect tenant from subdomain
-  if (slug !== "erp" && slug !== "www" && slug !== "localhost") {
+  // Tenant detection only
+  if (
+    slug !== "erp" &&
+    slug !== "www" &&
+    !host.includes("localhost")
+  ) {
     headers.set("x-tenant", slug)
   }
 
-  // Protect admin routes
-  const token = request.cookies.get("sb-access-token")
-
-  if (!token && request.nextUrl.pathname.startsWith("/admin")) {
-    return NextResponse.redirect(new URL("/login", request.url))
-  }
-
   return NextResponse.next({
-    request: {
-      headers
-    }
+    request: { headers }
   })
 }
 
