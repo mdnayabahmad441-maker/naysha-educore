@@ -16,7 +16,7 @@ export default function StudentsPage(){
 
     if(!user?.school_id) return
 
-    const data = await getStudents(user.school_id)
+   const data = await getStudents()
     setStudents(data)
 
   }

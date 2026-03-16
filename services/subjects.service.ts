@@ -1,28 +1,9 @@
-import { supabase } from "@/lib/supabase"
+import { getAll, createItem } from "./base.service"
 
-export async function getSubjects() {
-
-  const { data, error } = await supabase
-    .from("subjects")
-    .select("*")
-    .order("name")
-
-  if (error) {
-    console.error(error)
-    return []
-  }
-
-  return data
+export function getSubjects(){
+  return getAll("subjects")
 }
 
-export async function createSubject(subject: any) {
-
-  const { error } = await supabase
-    .from("subjects")
-    .insert(subject)
-
-  if (error) {
-    console.error(error)
-  }
-
+export function createSubject(data:any){
+  return createItem("subjects",data)
 }
