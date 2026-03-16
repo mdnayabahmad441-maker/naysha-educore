@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import "./globals.css"
 
 export default function AdminLayout({
   children,
