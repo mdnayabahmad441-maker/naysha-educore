@@ -2,8 +2,11 @@
 
 import { useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage(){
+
+  const router = useRouter()
 
   const [email,setEmail] = useState("")
   const [loading,setLoading] = useState(false)
@@ -13,7 +16,10 @@ export default function LoginPage(){
     setLoading(true)
 
     const { error } = await supabase.auth.signInWithOtp({
-      email
+      email,
+      options:{
+        shouldCreateUser:false
+      }
     })
 
     setLoading(false)
@@ -23,7 +29,7 @@ export default function LoginPage(){
       return
     }
 
-    alert("OTP sent to your email")
+    router.push(`/verify?email=${email}`)
 
   }
 
@@ -48,11 +54,14 @@ export default function LoginPage(){
           onClick={sendOTP}
           className="w-full bg-blue-600 p-3 rounded text-white"
         >
-          {loading ? "Sending..." : "Send Login OTP"}
+          {loading ? "Sending..." : "Continue"}
         </button>
 
         <p className="text-gray-400 text-sm mt-4 text-center">
-          New school? <a href="/onboarding" className="text-blue-400">Create account</a>
+          New school? 
+          <a href="/onboarding" className="text-blue-400 ml-1">
+            Create account
+          </a>
         </p>
 
       </div>
@@ -60,5 +69,4 @@ export default function LoginPage(){
     </div>
 
   )
-
 }
