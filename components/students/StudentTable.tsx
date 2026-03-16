@@ -18,7 +18,7 @@ export default function StudentTable(){
     if(!schoolId) return
 
     const load = async()=>{
-      const data = await getStudents(schoolId)
+     const data = await getStudents()
       setStudents(data)
     }
 
