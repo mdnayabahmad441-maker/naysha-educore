@@ -2,103 +2,116 @@
 
 import { useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
 
-export default function Onboarding() {
+export default function OnboardingPage() {
 
-  const router = useRouter()
-
-  const [schoolName,setSchoolName] = useState("")
+  const [name,setName] = useState("")
   const [subdomain,setSubdomain] = useState("")
   const [email,setEmail] = useState("")
   const [phone,setPhone] = useState("")
   const [loading,setLoading] = useState(false)
 
-  const createSchool = async () => {
+  const createSchool = async()=>{
 
-    if(!schoolName || !subdomain || !email){
-      alert("Please fill all required fields")
+    if(!name || !subdomain){
+      alert("School name and domain required")
       return
     }
 
     setLoading(true)
 
-    // 1️⃣ Create school
-    const { data:school, error:schoolError } = await supabase
-      .from("schools")
-      .insert({
-        name: schoolName,
-        subdomain: subdomain,
-        email: email,
-        phone: phone
-      })
-      .select()
-      .single()
+    try{
 
-    if(schoolError){
-      alert(schoolError.message)
-      setLoading(false)
-      return
+      // check if subdomain exists
+      const { data:existing } = await supabase
+        .from("schools")
+        .select("id")
+        .eq("subdomain",subdomain)
+        .single()
+
+      if(existing){
+        alert("Domain already taken")
+        setLoading(false)
+        return
+      }
+
+      // create school
+      const { error } = await supabase
+        .from("schools")
+        .insert({
+          name,
+          subdomain,
+          email,
+          phone
+        })
+
+      if(error){
+        alert(error.message)
+        setLoading(false)
+        return
+      }
+
+      // redirect to school domain
+      window.location.href =
+        `https://${subdomain}.naysha.online/admin/dashboard`
+
     }
-
-    // 2️⃣ Send OTP
-    const { error:otpError } = await supabase.auth.signInWithOtp({
-      email
-    })
+    catch(err){
+      console.error(err)
+      alert("Something went wrong")
+    }
 
     setLoading(false)
-
-    if(otpError){
-      alert(otpError.message)
-      return
-    }
-
-    // 3️⃣ Go to verify page
-    router.push(`/verify?email=${email}&school=${school.id}`)
 
   }
 
   return(
 
-    <div className="min-h-screen flex items-center justify-center bg-[#020c1b]">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950">
 
-      <div className="bg-[#1c2235] p-8 rounded-xl w-[400px] shadow-xl">
+      <div className="bg-slate-900 p-8 rounded-xl w-[400px]">
 
-        <h2 className="text-white text-2xl mb-6 text-center font-semibold">
+        <h1 className="text-white text-2xl mb-6">
           Create Your School ERP
-        </h2>
+        </h1>
 
         <input
+          className="w-full mb-4 p-3 rounded bg-slate-800 text-white"
           placeholder="School Name"
-          value={schoolName}
-          onChange={(e)=>setSchoolName(e.target.value)}
-          className="w-full p-3 mb-4 rounded bg-[#2a3147] text-white border border-gray-600"
+          value={name}
+          onChange={(e)=>setName(e.target.value)}
         />
 
         <input
-          placeholder="Subdomain (example: childrensacademy)"
+          className="w-full mb-4 p-3 rounded bg-slate-800 text-white"
+          placeholder="School Domain"
           value={subdomain}
-          onChange={(e)=>setSubdomain(e.target.value)}
-          className="w-full p-3 mb-4 rounded bg-[#2a3147] text-white border border-gray-600"
+          onChange={(e)=>
+            setSubdomain(
+              e.target.value
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g,"")
+            )
+          }
         />
 
         <input
-          placeholder="Admin Email"
+          className="w-full mb-4 p-3 rounded bg-slate-800 text-white"
+          placeholder="Email"
           value={email}
           onChange={(e)=>setEmail(e.target.value)}
-          className="w-full p-3 mb-4 rounded bg-[#2a3147] text-white border border-gray-600"
         />
 
         <input
-          placeholder="Phone Number"
+          className="w-full mb-6 p-3 rounded bg-slate-800 text-white"
+          placeholder="Phone"
           value={phone}
           onChange={(e)=>setPhone(e.target.value)}
-          className="w-full p-3 mb-6 rounded bg-[#2a3147] text-white border border-gray-600"
         />
 
         <button
           onClick={createSchool}
-          className="w-full bg-green-600 hover:bg-green-700 p-3 rounded text-white font-semibold"
+          className="w-full bg-green-600 text-white p-3 rounded"
         >
           {loading ? "Creating..." : "Create School"}
         </button>
