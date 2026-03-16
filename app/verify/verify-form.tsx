@@ -9,54 +9,57 @@ export default function VerifyForm(){
   const router = useRouter()
   const params = useSearchParams()
 
-  const email = params.get("email")
+  const email = params.get("email") || ""
 
   const [otp,setOtp] = useState("")
+  const [loading,setLoading] = useState(false)
 
-  const verify = async () => {
+  const verifyOTP = async () => {
+
+    setLoading(true)
 
     const { error } = await supabase.auth.verifyOtp({
-      email: email!,
+      email,
       token: otp,
       type: "email"
     })
+
+    setLoading(false)
 
     if(error){
       alert(error.message)
       return
     }
 
-   router.replace("/admin/dashboard")
-
+    router.replace("/admin/dashboard")
   }
 
   return(
 
     <div className="min-h-screen flex items-center justify-center bg-[#020c1b]">
 
-      <div className="bg-[#1c2235] p-8 rounded-xl w-[380px]">
+      <div className="bg-[#1c2235] p-8 rounded-xl w-[380px] shadow-xl">
 
-        <h2 className="text-white text-2xl mb-6 text-center">
+        <h2 className="text-white text-2xl mb-6 text-center font-semibold">
           Enter OTP
         </h2>
 
         <input
-          placeholder="6 digit code"
+          placeholder="Enter OTP"
           value={otp}
           onChange={(e)=>setOtp(e.target.value)}
-          className="w-full p-3 mb-4 rounded bg-gray-200"
+          className="w-full p-3 mb-4 rounded bg-[#2a3147] text-white placeholder-gray-400 border border-gray-600 focus:outline-none focus:border-green-500"
         />
 
         <button
-          onClick={verify}
-          className="w-full bg-green-600 p-3 rounded text-white"
+          onClick={verifyOTP}
+          className="w-full bg-green-600 hover:bg-green-700 transition p-3 rounded text-white font-medium"
         >
-          Verify
+          {loading ? "Verifying..." : "Verify"}
         </button>
 
       </div>
 
     </div>
-
   )
 }
