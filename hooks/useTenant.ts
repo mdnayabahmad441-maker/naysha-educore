@@ -12,16 +12,15 @@ export function useTenant() {
 
     const loadTenant = async () => {
 
+      const host = window.location.hostname
+      const parts = host.split(".")
+
+      // example: patna.naysha.online
+      const subdomain = parts[0]
+
       try {
 
-        const host = window.location.hostname
-        const parts = host.split(".")
-
-        // Example:
-        // patna.naysha.online -> ["patna","naysha","online"]
-        const subdomain = parts[0]
-
-        // Ignore main domain
+        // ignore main domain
         if (
           subdomain === "erp" ||
           subdomain === "www" ||
@@ -39,14 +38,18 @@ export function useTenant() {
 
         if (error) {
           console.error("Tenant load error:", error)
+          setLoading(false)
+          return
         }
 
         setSchool(data)
         setLoading(false)
 
       } catch (err) {
+
         console.error("Tenant detection failed", err)
         setLoading(false)
+
       }
 
     }
