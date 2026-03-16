@@ -1,18 +1,22 @@
-import { supabase } from "@/lib/supabase"
+import { headers } from "next/headers"
+import { supabase } from "./supabase"
 
 export async function getSchoolId() {
 
-  const { data: sessionData } = await supabase.auth.getSession()
+  const headersList = await headers()
 
-  const userId = sessionData?.session?.user?.id
+  const host = headersList.get("host") || ""
 
-  if (!userId) return null
+  // abc123.naysha.online → abc123
+  const subdomain = host.split(".")[0]
+
+  if (!subdomain) return null
 
   const { data } = await supabase
-    .from("users")
-    .select("school_id")
-    .eq("id", userId)
-    .single()
+    .from("schools")
+    .select("id")
+    .eq("subdomain", subdomain)
+    .maybeSingle()
 
-  return data?.school_id || null
+  return data?.id || null
 }
