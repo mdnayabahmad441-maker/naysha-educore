@@ -26,7 +26,7 @@ export default function VerifyForm(){
       return
     }
 
-    router.push("/admin/dashboard")
+   router.replace("/admin/dashboard")
 
   }
 
