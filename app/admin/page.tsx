@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { useRouter } from "next/navigation"
 
-export default function AdminDashboard() {
+export default function AdminDashboard(){
 
 const router = useRouter()
 
@@ -106,11 +106,11 @@ loadDashboard()
 
 return(
 
-<div className="p-10 text-white max-w-7xl mx-auto">
+<div className="p-6 md:p-10 text-white max-w-7xl mx-auto">
 
 {/* HEADER */}
 
-<h1 className="text-3xl font-bold mb-2">
+<h1 className="text-2xl md:text-3xl font-bold mb-2">
 {schoolName} Dashboard
 </h1>
 
@@ -121,26 +121,26 @@ Welcome to your school ERP dashboard
 
 {/* STATS */}
 
-<div className="grid md:grid-cols-4 gap-6 mb-10">
+<div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-10">
 
-<div className="bg-white/10 p-6 rounded-xl">
-<p className="text-gray-400 text-sm">Students</p>
-<h2 className="text-3xl font-bold mt-2">{students}</h2>
+<div className="bg-white/10 backdrop-blur border border-white/10 p-5 rounded-xl">
+<p className="text-gray-400 text-xs md:text-sm">Students</p>
+<h2 className="text-2xl md:text-3xl font-bold mt-2">{students}</h2>
 </div>
 
-<div className="bg-white/10 p-6 rounded-xl">
-<p className="text-gray-400 text-sm">Teachers</p>
-<h2 className="text-3xl font-bold mt-2">{teachers}</h2>
+<div className="bg-white/10 backdrop-blur border border-white/10 p-5 rounded-xl">
+<p className="text-gray-400 text-xs md:text-sm">Teachers</p>
+<h2 className="text-2xl md:text-3xl font-bold mt-2">{teachers}</h2>
 </div>
 
-<div className="bg-white/10 p-6 rounded-xl">
-<p className="text-gray-400 text-sm">Classes</p>
-<h2 className="text-3xl font-bold mt-2">{classes}</h2>
+<div className="bg-white/10 backdrop-blur border border-white/10 p-5 rounded-xl">
+<p className="text-gray-400 text-xs md:text-sm">Classes</p>
+<h2 className="text-2xl md:text-3xl font-bold mt-2">{classes}</h2>
 </div>
 
-<div className="bg-white/10 p-6 rounded-xl">
-<p className="text-gray-400 text-sm">Fees Collected</p>
-<h2 className="text-3xl font-bold mt-2">₹{fees}</h2>
+<div className="bg-white/10 backdrop-blur border border-white/10 p-5 rounded-xl">
+<p className="text-gray-400 text-xs md:text-sm">Fees Collected</p>
+<h2 className="text-2xl md:text-3xl font-bold mt-2">₹{fees}</h2>
 </div>
 
 </div>
@@ -148,32 +148,32 @@ Welcome to your school ERP dashboard
 
 {/* QUICK ACTIONS */}
 
-<div className="grid md:grid-cols-4 gap-6 mb-10">
+<div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-10">
 
 <button
-className="bg-purple-600 p-4 rounded-xl"
 onClick={()=>router.push("/admin/students/create")}
+className="bg-white/10 backdrop-blur border border-white/10 p-4 rounded-xl hover:bg-white/20 transition"
 >
 Add Student
 </button>
 
 <button
-className="bg-blue-600 p-4 rounded-xl"
 onClick={()=>router.push("/admin/teachers/add")}
+className="bg-white/10 backdrop-blur border border-white/10 p-4 rounded-xl hover:bg-white/20 transition"
 >
 Add Teacher
 </button>
 
 <button
-className="bg-green-600 p-4 rounded-xl"
 onClick={()=>router.push("/admin/classes")}
+className="bg-white/10 backdrop-blur border border-white/10 p-4 rounded-xl hover:bg-white/20 transition"
 >
 Manage Classes
 </button>
 
 <button
-className="bg-yellow-600 p-4 rounded-xl"
 onClick={()=>router.push("/admin/fees")}
+className="bg-white/10 backdrop-blur border border-white/10 p-4 rounded-xl hover:bg-white/20 transition"
 >
 Collect Fees
 </button>
@@ -181,75 +181,73 @@ Collect Fees
 </div>
 
 
-{/* LOWER GRID */}
+{/* LOWER SECTION */}
 
-<div className="grid md:grid-cols-2 gap-8">
-
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
 
 {/* RECENT STUDENTS */}
 
-<div className="bg-white/10 p-6 rounded-xl">
+<div className="bg-white/10 backdrop-blur border border-white/10 p-6 rounded-xl">
 
-<h2 className="text-xl mb-4">
+<h2 className="text-lg md:text-xl mb-4">
 Recent Students
 </h2>
 
-<table className="w-full text-sm">
-
-<tbody>
+<div className="space-y-3">
 
 {recentStudents.map(s=>(
-<tr key={s.id}>
-<td className="py-2">{s.name}</td>
 
-<td>
+<div
+key={s.id}
+className="flex justify-between items-center border-b border-white/10 pb-2"
+>
+
+<p>{s.name}</p>
+
 <button
-className="text-blue-400"
+className="text-blue-400 text-sm"
 onClick={()=>router.push(`/admin/students/${s.id}`)}
 >
 View
 </button>
-</td>
 
-</tr>
+</div>
+
 ))}
 
-</tbody>
-
-</table>
+</div>
 
 </div>
 
 
 {/* RECENT PAYMENTS */}
 
-<div className="bg-white/10 p-6 rounded-xl">
+<div className="bg-white/10 backdrop-blur border border-white/10 p-6 rounded-xl">
 
-<h2 className="text-xl mb-4">
+<h2 className="text-lg md:text-xl mb-4">
 Recent Payments
 </h2>
 
-<table className="w-full text-sm">
-
-<tbody>
+<div className="space-y-3">
 
 {recentPayments.map(p=>(
-<tr key={p.id}>
 
-<td className="py-2">
-₹{p.amount}
-</td>
+<div
+key={p.id}
+className="flex justify-between border-b border-white/10 pb-2"
+>
 
-<td>
+<p>₹{p.amount}</p>
+
+<p className="text-gray-400 text-sm">
 {p.date}
-</td>
+</p>
 
-</tr>
+</div>
+
 ))}
 
-</tbody>
-
-</table>
+</div>
 
 </div>
 
