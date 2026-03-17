@@ -4,90 +4,208 @@ import { useEffect, useState } from "react"
 import Card from "@/components/ui/Card"
 import Input from "@/components/ui/Input"
 import Button from "@/components/ui/Button"
-import { createClass, getClasses } from "@/services/classes.service"
+import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { useSchool } from "@/hooks/useSchool"
 
-export default function ClassesPage() {
+export default function ClassesPage(){
 
-  const { user } = useAuth()
-  const schoolId = useSchool(user?.id)
+const { user } = useAuth()
+const schoolId = useSchool(user?.id)
 
-  const [classes,setClasses] = useState<any[]>([])
-  const [name,setName] = useState("")
+const [classes,setClasses] = useState<any[]>([])
+const [sections,setSections] = useState<any[]>([])
 
-  const load = async () => {
+const [className,setClassName] = useState("")
+const [sectionName,setSectionName] = useState("")
+const [selectedClass,setSelectedClass] = useState("")
 
-    const data = await getClasses()
-    setClasses(data)
+/* LOAD */
 
-  }
+const load = async()=>{
 
-  useEffect(() => {
+const { data:classData } = await supabase
+.from("classes")
+.select("*")
+.eq("school_id",schoolId)
 
-    if (schoolId) load()
+setClasses(classData || [])
 
-  },[schoolId])
+const { data:sectionData } = await supabase
+.from("sections")
+.select("*")
+.eq("school_id",schoolId)
 
-  const submit = async () => {
+setSections(sectionData || [])
 
-    await createClass({
-      id: crypto.randomUUID(),
-      school_id: schoolId,
-      name
-    })
+}
 
-    setName("")
-    load()
+useEffect(()=>{
+if(schoolId) load()
+},[schoolId])
 
-  }
 
-  return (
+/* CREATE CLASS */
 
-    <div className="space-y-6">
+const createClass = async()=>{
 
-      <h1 className="text-2xl">Classes</h1>
+await supabase
+.from("classes")
+.insert({
+id:crypto.randomUUID(),
+school_id:schoolId,
+name:className
+})
 
-      <Card>
+setClassName("")
+load()
 
-        <div className="flex gap-4 mb-6">
+}
 
-          <Input
-          placeholder="Class Name"
-          value={name}
-          onChange={(e)=>setName(e.target.value)}
-          />
 
-          <Button color="green" onClick={submit}>
-            Save
-          </Button>
+/* CREATE SECTION */
 
-        </div>
+const createSection = async()=>{
 
-        <table className="w-full text-sm border border-white/20">
+await supabase
+.from("sections")
+.insert({
+id:crypto.randomUUID(),
+school_id:schoolId,
+class_id:selectedClass,
+name:sectionName
+})
 
-          <thead>
-            <tr>
-              <th className="border p-2">Class</th>
-            </tr>
-          </thead>
+setSectionName("")
+load()
 
-          <tbody>
+}
 
-            {classes.map((c)=>(
-              <tr key={c.id}>
-                <td className="border p-2">{c.name}</td>
-              </tr>
-            ))}
 
-          </tbody>
+return(
 
-        </table>
+<div className="space-y-6">
 
-      </Card>
+<h1 className="text-2xl">
+Classes & Sections
+</h1>
 
-    </div>
+<Card>
 
-  )
+{/* CREATE CLASS */}
+
+<div className="flex flex-wrap gap-4 mb-6">
+
+<Input
+placeholder="Class Name"
+value={className}
+onChange={(e)=>setClassName(e.target.value)}
+/>
+
+<Button color="green" onClick={createClass}>
+Add Class
+</Button>
+
+</div>
+
+
+{/* CREATE SECTION */}
+
+<div className="flex flex-wrap gap-4 mb-6">
+
+<select
+className="bg-white/10 border border-white/20 p-2 rounded"
+value={selectedClass}
+onChange={(e)=>setSelectedClass(e.target.value)}
+>
+
+<option value="">
+Select Class
+</option>
+
+{classes.map(c=>(
+<option key={c.id} value={c.id}>
+{c.name}
+</option>
+))}
+
+</select>
+
+<Input
+placeholder="Section Name (A,B,C)"
+value={sectionName}
+onChange={(e)=>setSectionName(e.target.value)}
+/>
+
+<Button color="green" onClick={createSection}>
+Add Section
+</Button>
+
+</div>
+
+
+{/* TABLE */}
+
+<table className="w-full text-sm border border-white/20">
+
+<thead>
+
+<tr>
+
+<th className="border p-2">Class</th>
+<th className="border p-2">Sections</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{classes.map((c)=>{
+
+const classSections = sections.filter(
+(s)=>s.class_id===c.id
+)
+
+return(
+
+<tr key={c.id}>
+
+<td className="border p-2">
+{c.name}
+</td>
+
+<td className="border p-2">
+
+<div className="flex flex-wrap gap-2">
+
+{classSections.map((s)=>(
+<span
+key={s.id}
+className="bg-white/10 border border-white/20 px-3 py-1 rounded"
+>
+{s.name}
+</span>
+))}
+
+</div>
+
+</td>
+
+</tr>
+
+)
+
+})}
+
+</tbody>
+
+</table>
+
+</Card>
+
+</div>
+
+)
 
 }
