@@ -1,19 +1,17 @@
-export const dynamic = "force-dynamic"
-
 "use client"
 
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 
-export default function VerifyPage(){
+export default function VerifyPage() {
 
   const router = useRouter()
   const params = useSearchParams()
 
   const email = params.get("email") || ""
 
-  const [otp,setOtp] = useState("")
+  const [otp, setOtp] = useState("")
 
   const verify = async () => {
 
@@ -23,7 +21,7 @@ export default function VerifyPage(){
       type: "email"
     })
 
-    if(error){
+    if (error) {
       alert(error.message)
       return
     }
@@ -31,10 +29,8 @@ export default function VerifyPage(){
     router.push("/admin")
   }
 
-  return(
-
+  return (
     <div className="min-h-screen flex items-center justify-center bg-[#020c1b]">
-
       <div className="bg-[#1c2235] p-8 rounded-xl w-[380px]">
 
         <h2 className="text-white text-xl mb-6 text-center">
@@ -44,7 +40,7 @@ export default function VerifyPage(){
         <input
           placeholder="OTP Code"
           value={otp}
-          onChange={(e)=>setOtp(e.target.value)}
+          onChange={(e) => setOtp(e.target.value)}
           className="w-full p-3 mb-4 rounded bg-gray-200"
         />
 
@@ -56,7 +52,6 @@ export default function VerifyPage(){
         </button>
 
       </div>
-
     </div>
   )
 }
