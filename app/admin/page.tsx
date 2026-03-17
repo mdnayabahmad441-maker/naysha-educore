@@ -26,7 +26,7 @@ const schoolId = await getSchoolId()
 
 if(!schoolId) return
 
-/* SCHOOL NAME */
+/* SCHOOL */
 
 const { data:school } = await supabase
 .from("schools")
@@ -38,7 +38,7 @@ if(school){
 setSchoolName(school.name)
 }
 
-/* STUDENT COUNT */
+/* COUNTS */
 
 const { count:studentCount } = await supabase
 .from("students")
@@ -47,16 +47,12 @@ const { count:studentCount } = await supabase
 
 setStudents(studentCount || 0)
 
-/* TEACHER COUNT */
-
 const { count:teacherCount } = await supabase
 .from("teachers")
 .select("*",{count:"exact",head:true})
 .eq("school_id",schoolId)
 
 setTeachers(teacherCount || 0)
-
-/* CLASS COUNT */
 
 const { count:classCount } = await supabase
 .from("classes")
@@ -123,24 +119,24 @@ Welcome to your school ERP dashboard
 
 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-10">
 
-<div className="bg-white/10 backdrop-blur border border-white/10 p-5 rounded-xl">
-<p className="text-gray-400 text-xs md:text-sm">Students</p>
-<h2 className="text-2xl md:text-3xl font-bold mt-2">{students}</h2>
+<div className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[110px] flex flex-col items-center justify-center text-center">
+<p className="text-gray-400 text-sm">Students</p>
+<h2 className="text-2xl md:text-3xl font-bold">{students}</h2>
 </div>
 
-<div className="bg-white/10 backdrop-blur border border-white/10 p-5 rounded-xl">
-<p className="text-gray-400 text-xs md:text-sm">Teachers</p>
-<h2 className="text-2xl md:text-3xl font-bold mt-2">{teachers}</h2>
+<div className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[110px] flex flex-col items-center justify-center text-center">
+<p className="text-gray-400 text-sm">Teachers</p>
+<h2 className="text-2xl md:text-3xl font-bold">{teachers}</h2>
 </div>
 
-<div className="bg-white/10 backdrop-blur border border-white/10 p-5 rounded-xl">
-<p className="text-gray-400 text-xs md:text-sm">Classes</p>
-<h2 className="text-2xl md:text-3xl font-bold mt-2">{classes}</h2>
+<div className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[110px] flex flex-col items-center justify-center text-center">
+<p className="text-gray-400 text-sm">Classes</p>
+<h2 className="text-2xl md:text-3xl font-bold">{classes}</h2>
 </div>
 
-<div className="bg-white/10 backdrop-blur border border-white/10 p-5 rounded-xl">
-<p className="text-gray-400 text-xs md:text-sm">Fees Collected</p>
-<h2 className="text-2xl md:text-3xl font-bold mt-2">₹{fees}</h2>
+<div className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[110px] flex flex-col items-center justify-center text-center">
+<p className="text-gray-400 text-sm">Fees Collected</p>
+<h2 className="text-2xl md:text-3xl font-bold break-words">₹{fees}</h2>
 </div>
 
 </div>
@@ -152,28 +148,28 @@ Welcome to your school ERP dashboard
 
 <button
 onClick={()=>router.push("/admin/students/create")}
-className="bg-white/10 backdrop-blur border border-white/10 p-4 rounded-xl hover:bg-white/20 transition"
+className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[90px] flex items-center justify-center text-center hover:bg-white/20 transition"
 >
 Add Student
 </button>
 
 <button
 onClick={()=>router.push("/admin/teachers/add")}
-className="bg-white/10 backdrop-blur border border-white/10 p-4 rounded-xl hover:bg-white/20 transition"
+className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[90px] flex items-center justify-center text-center hover:bg-white/20 transition"
 >
 Add Teacher
 </button>
 
 <button
 onClick={()=>router.push("/admin/classes")}
-className="bg-white/10 backdrop-blur border border-white/10 p-4 rounded-xl hover:bg-white/20 transition"
+className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[90px] flex items-center justify-center text-center hover:bg-white/20 transition"
 >
 Manage Classes
 </button>
 
 <button
 onClick={()=>router.push("/admin/fees")}
-className="bg-white/10 backdrop-blur border border-white/10 p-4 rounded-xl hover:bg-white/20 transition"
+className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[90px] flex items-center justify-center text-center hover:bg-white/20 transition"
 >
 Collect Fees
 </button>
@@ -202,7 +198,7 @@ key={s.id}
 className="flex justify-between items-center border-b border-white/10 pb-2"
 >
 
-<p>{s.name}</p>
+<p className="truncate">{s.name}</p>
 
 <button
 className="text-blue-400 text-sm"
@@ -239,7 +235,7 @@ className="flex justify-between border-b border-white/10 pb-2"
 
 <p>₹{p.amount}</p>
 
-<p className="text-gray-400 text-sm">
+<p className="text-gray-400 text-sm truncate">
 {p.date}
 </p>
 
