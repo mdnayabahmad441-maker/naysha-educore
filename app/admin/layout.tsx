@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
 
   const router = useRouter()
+  const pathname = usePathname()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -41,76 +42,125 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
+  const linkStyle = (path:string) =>
+    `flex items-center gap-3 px-3 py-2 rounded-md transition
+     ${pathname === path
+        ? "bg-blue-600 text-white"
+        : "text-gray-300 hover:bg-white/10 hover:text-white"}`
+
   return (
 
     <div className="flex min-h-screen bg-[#020c1b] text-white">
 
       {/* SIDEBAR */}
-      <div className="w-64 bg-[#0b1a33] p-6">
+      <aside className="w-64 bg-[#0b1a33] border-r border-white/10 p-6 flex flex-col">
 
-        <h1 className="text-xl font-bold mb-6">
+        <h1 className="text-xl font-bold mb-8">
           NaySha EduCore
         </h1>
 
-        <nav className="space-y-4 text-gray-300">
+        <nav className="flex flex-col gap-1 text-sm">
 
-          <Link href="/admin">Dashboard</Link>
+          <Link href="/admin" className={linkStyle("/admin")}>
+            📊 Dashboard
+          </Link>
 
-          <div className="text-gray-500 mt-4 text-sm">
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
             Academics
-          </div>
+          </p>
 
-          <Link href="/admin/students">Students</Link>
-          <Link href="/admin/teachers">Teachers</Link>
-          <Link href="/admin/classes">Classes</Link>
-          <Link href="/admin/subjects">Subjects</Link>
+          <Link href="/admin/students" className={linkStyle("/admin/students")}>
+            👨‍🎓 Students
+          </Link>
 
-          <div className="text-gray-500 mt-4 text-sm">
+          <Link href="/admin/teachers" className={linkStyle("/admin/teachers")}>
+            👨‍🏫 Teachers
+          </Link>
+
+          <Link href="/admin/classes" className={linkStyle("/admin/classes")}>
+            🏫 Classes
+          </Link>
+
+          <Link href="/admin/subjects" className={linkStyle("/admin/subjects")}>
+            📚 Subjects
+          </Link>
+
+
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
             Attendance
-          </div>
+          </p>
 
-          <Link href="/admin/attendance">Attendance</Link>
+          <Link href="/admin/attendance" className={linkStyle("/admin/attendance")}>
+            📅 Attendance
+          </Link>
 
-          <div className="text-gray-500 mt-4 text-sm">
+
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
             Examinations
-          </div>
+          </p>
 
-          <Link href="/admin/create-exam">Create Exam</Link>
-          <Link href="/admin/marks">Marks Entry</Link>
-          <Link href="/admin/results">Results</Link>
+          <Link href="/admin/create-exam" className={linkStyle("/admin/create-exam")}>
+            📝 Create Exam
+          </Link>
 
-          <div className="text-gray-500 mt-4 text-sm">
+          <Link href="/admin/marks" className={linkStyle("/admin/marks")}>
+            ✏️ Marks Entry
+          </Link>
+
+          <Link href="/admin/results" className={linkStyle("/admin/results")}>
+            📄 Results
+          </Link>
+
+
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
             Finance
-          </div>
+          </p>
 
-          <Link href="/admin/fees">Fees</Link>
-          <Link href="/admin/payments">Payments</Link>
+          <Link href="/admin/fees" className={linkStyle("/admin/fees")}>
+            💰 Fees
+          </Link>
 
-          <Link href="/admin/reports">Reports</Link>
-          <Link href="/admin/settings">Settings</Link>
+          <Link href="/admin/payments" className={linkStyle("/admin/payments")}>
+            💳 Payments
+          </Link>
+
+          <Link href="/admin/reports" className={linkStyle("/admin/reports")}>
+            📈 Reports
+          </Link>
+
+          <Link href="/admin/settings" className={linkStyle("/admin/settings")}>
+            ⚙️ Settings
+          </Link>
 
         </nav>
 
-      </div>
+      </aside>
 
 
-      {/* MAIN CONTENT */}
-      <div className="flex-1">
+      {/* MAIN AREA */}
+      <div className="flex-1 flex flex-col">
 
         {/* TOPBAR */}
-        <div className="flex justify-end p-6 bg-[#0b1a33]">
+        <header className="flex justify-between items-center px-8 py-4 bg-[#0b1a33] border-b border-white/10">
+
+          <h2 className="text-lg font-semibold">
+            Admin Panel
+          </h2>
+
           <button
             onClick={logout}
-            className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded"
+            className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-md text-sm"
           >
             Logout
           </button>
-        </div>
+
+        </header>
+
 
         {/* PAGE CONTENT */}
-        <div className="p-10">
+        <main className="flex-1 p-10">
           {children}
-        </div>
+        </main>
 
       </div>
 
