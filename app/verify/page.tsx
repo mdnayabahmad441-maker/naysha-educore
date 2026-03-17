@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 
-export default function VerifyPage(){
+export default function VerifyClient(){
 
   const router = useRouter()
   const params = useSearchParams()
@@ -27,7 +27,6 @@ export default function VerifyPage(){
     }
 
     router.push("/admin/dashboard")
-
   }
 
   return(
@@ -57,7 +56,5 @@ export default function VerifyPage(){
       </div>
 
     </div>
-
   )
-
 }
