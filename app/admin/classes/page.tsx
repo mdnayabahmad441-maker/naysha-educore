@@ -20,9 +20,11 @@ const [className,setClassName] = useState("")
 const [sectionName,setSectionName] = useState("")
 const [selectedClass,setSelectedClass] = useState("")
 
-/* LOAD */
+/* LOAD DATA */
 
-const load = async()=>{
+const loadData = async()=>{
+
+if(!schoolId) return
 
 const { data:classData } = await supabase
 .from("classes")
@@ -40,14 +42,21 @@ setSections(sectionData || [])
 
 }
 
-useEffect(()=>{
-if(schoolId) load()
-},[schoolId])
+/* LOAD WHEN SCHOOL READY */
 
+useEffect(()=>{
+
+if(!schoolId) return
+
+loadData()
+
+},[schoolId])
 
 /* CREATE CLASS */
 
-const createClass = async()=>{
+const addClass = async()=>{
+
+if(!className || !schoolId) return
 
 await supabase
 .from("classes")
@@ -58,14 +67,15 @@ name:className
 })
 
 setClassName("")
-load()
+loadData()
 
 }
 
-
 /* CREATE SECTION */
 
-const createSection = async()=>{
+const addSection = async()=>{
+
+if(!sectionName || !selectedClass || !schoolId) return
 
 await supabase
 .from("sections")
@@ -77,10 +87,9 @@ name:sectionName
 })
 
 setSectionName("")
-load()
+loadData()
 
 }
-
 
 return(
 
@@ -92,7 +101,7 @@ Classes & Sections
 
 <Card>
 
-{/* CREATE CLASS */}
+{/* ADD CLASS */}
 
 <div className="flex flex-wrap gap-4 mb-6">
 
@@ -102,14 +111,14 @@ value={className}
 onChange={(e)=>setClassName(e.target.value)}
 />
 
-<Button color="green" onClick={createClass}>
+<Button color="green" onClick={addClass}>
 Add Class
 </Button>
 
 </div>
 
 
-{/* CREATE SECTION */}
+{/* ADD SECTION */}
 
 <div className="flex flex-wrap gap-4 mb-6">
 
@@ -123,7 +132,7 @@ onChange={(e)=>setSelectedClass(e.target.value)}
 Select Class
 </option>
 
-{classes.map(c=>(
+{classes.map((c)=>(
 <option key={c.id} value={c.id}>
 {c.name}
 </option>
@@ -137,7 +146,7 @@ value={sectionName}
 onChange={(e)=>setSectionName(e.target.value)}
 />
 
-<Button color="green" onClick={createSection}>
+<Button color="green" onClick={addSection}>
 Add Section
 </Button>
 
@@ -149,14 +158,10 @@ Add Section
 <table className="w-full text-sm border border-white/20">
 
 <thead>
-
 <tr>
-
 <th className="border p-2">Class</th>
 <th className="border p-2">Sections</th>
-
 </tr>
-
 </thead>
 
 <tbody>
