@@ -15,16 +15,23 @@ export default function StudentForm({ reload }: any){
   const [selectedClass,setSelectedClass] = useState("")
   const [selectedSection,setSelectedSection] = useState("")
 
+  const [loading,setLoading] = useState(false)
+
   // LOAD CLASSES
   const loadClasses = async () => {
 
     const schoolId = await getSchoolId()
     if (!schoolId) return
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("classes")
       .select("*")
       .eq("school_id", schoolId)
+
+    if(error){
+      console.error("Classes Error:", error)
+      return
+    }
 
     setClasses(data || [])
   }
@@ -35,10 +42,15 @@ export default function StudentForm({ reload }: any){
     const schoolId = await getSchoolId()
     if (!schoolId) return
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("sections")
       .select("*")
       .eq("school_id", schoolId)
+
+    if(error){
+      console.error("Sections Error:", error)
+      return
+    }
 
     setSections(data || [])
   }
@@ -48,30 +60,59 @@ export default function StudentForm({ reload }: any){
     loadSections()
   },[])
 
-  // FILTER SECTIONS BASED ON CLASS
+  // FILTER SECTIONS BY CLASS
   const filteredSections = sections.filter(
-    s => s.class_id === selectedClass
+    (s) => s.class_id === selectedClass
   )
 
+  // SAVE STUDENT
   const save = async () => {
+
+    setLoading(true)
 
     const schoolId = await getSchoolId()
 
-    if(!selectedClass || !selectedSection){
-      alert("Select class & section")
+    if (!schoolId) {
+      alert("School not found")
+      setLoading(false)
       return
     }
 
-    await supabase.from("students").insert([
-      {
-        id: crypto.randomUUID(),
-        name,
-        email,
-        class_id: selectedClass,
-        section_id: selectedSection,
-        school_id: schoolId
-      }
-    ])
+    if (!name || !email || !selectedClass || !selectedSection) {
+      alert("Please fill all fields")
+      setLoading(false)
+      return
+    }
+
+    console.log({
+      name,
+      email,
+      selectedClass,
+      selectedSection,
+      schoolId
+    })
+
+    const { error } = await supabase
+      .from("students")
+      .insert([
+        {
+          id: crypto.randomUUID(),
+          name: name.trim(),
+          email: email.trim(),
+          class_id: selectedClass,
+          section_id: selectedSection,
+          school_id: schoolId
+        }
+      ])
+
+    if (error) {
+      console.error("INSERT ERROR:", error)
+      alert(error.message)
+      setLoading(false)
+      return
+    }
+
+    alert("Student Added ✅")
 
     setName("")
     setEmail("")
@@ -79,64 +120,72 @@ export default function StudentForm({ reload }: any){
     setSelectedSection("")
 
     reload()
+
+    setLoading(false)
   }
 
-  return(
+  return (
 
-    <div className="flex flex-wrap gap-4">
+    <div className="flex flex-wrap gap-4 items-center">
 
+      {/* NAME */}
       <input
         placeholder="Student Name"
         value={name}
         onChange={(e)=>setName(e.target.value)}
-        className="p-2 bg-gray-800 rounded"
+        className="p-3 bg-white/10 border border-white/20 rounded-lg outline-none"
       />
 
+      {/* EMAIL */}
       <input
         placeholder="Email"
         value={email}
         onChange={(e)=>setEmail(e.target.value)}
-        className="p-2 bg-gray-800 rounded"
+        className="p-3 bg-white/10 border border-white/20 rounded-lg outline-none"
       />
 
-      {/* CLASS DROPDOWN */}
+      {/* CLASS */}
       <select
         value={selectedClass}
         onChange={(e)=>{
           setSelectedClass(e.target.value)
           setSelectedSection("") // reset section
         }}
-        className="p-2 bg-gray-800 rounded"
+        className="p-3 bg-white/10 border border-white/20 rounded-lg"
       >
         <option value="">Select Class</option>
 
-        {classes.map(c=>(
+        {classes.map((c)=>(
           <option key={c.id} value={c.id}>
             {c.name}
           </option>
         ))}
+
       </select>
 
-      {/* SECTION DROPDOWN */}
+      {/* SECTION */}
       <select
         value={selectedSection}
         onChange={(e)=>setSelectedSection(e.target.value)}
-        className="p-2 bg-gray-800 rounded"
+        className="p-3 bg-white/10 border border-white/20 rounded-lg"
       >
         <option value="">Select Section</option>
 
-        {filteredSections.map(s=>(
+        {filteredSections.map((s)=>(
           <option key={s.id} value={s.id}>
             {s.name}
           </option>
         ))}
+
       </select>
 
+      {/* SAVE BUTTON */}
       <button
         onClick={save}
-        className="bg-blue-600 px-4 rounded"
+        disabled={loading}
+        className="px-6 py-3 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 transition"
       >
-        Save
+        {loading ? "Saving..." : "Save"}
       </button>
 
     </div>
