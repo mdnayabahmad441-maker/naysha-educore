@@ -8,6 +8,9 @@ export default function StudentForm({ reload }: any){
 
   const [name,setName] = useState("")
   const [email,setEmail] = useState("")
+  const [roll,setRoll] = useState("")
+
+  const [photo,setPhoto] = useState<File | null>(null)
 
   const [classes,setClasses] = useState<any[]>([])
   const [sections,setSections] = useState<any[]>([])
@@ -18,74 +21,82 @@ export default function StudentForm({ reload }: any){
   const [schoolId,setSchoolId] = useState<string | null>(null)
   const [loading,setLoading] = useState(false)
 
-  // ✅ LOAD SCHOOL ONLY ONCE
+  // ✅ GET SCHOOL
   useEffect(()=>{
-    const init = async () => {
+    const init = async ()=>{
       const id = await getSchoolId()
       setSchoolId(id)
     }
     init()
   },[])
 
-  // ✅ LOAD DATA AFTER SCHOOL
+  // ✅ LOAD DATA
   useEffect(()=>{
     if(!schoolId) return
     loadClasses()
     loadSections()
   },[schoolId])
 
-  // LOAD CLASSES
-  const loadClasses = async () => {
-    const { data, error } = await supabase
+  const loadClasses = async ()=>{
+    const { data } = await supabase
       .from("classes")
       .select("*")
       .eq("school_id", schoolId)
 
-    if(error){
-      console.error("Classes Error:", error)
-      return
-    }
-
     setClasses(data || [])
   }
 
-  // LOAD SECTIONS
-  const loadSections = async () => {
-    const { data, error } = await supabase
+  const loadSections = async ()=>{
+    const { data } = await supabase
       .from("sections")
       .select("*")
       .eq("school_id", schoolId)
 
-    if(error){
-      console.error("Sections Error:", error)
-      return
-    }
-
     setSections(data || [])
   }
 
-  // FILTER SECTIONS BASED ON CLASS
   const filteredSections = sections.filter(
-    (s) => s.class_id === selectedClass
+    (s)=>s.class_id === selectedClass
   )
 
-  // ✅ FINAL FIXED SAVE FUNCTION
-  const save = async () => {
+  // ✅ SAVE STUDENT (FINAL FIXED)
+  const save = async ()=>{
 
-    try {
+    try{
 
-      if (!schoolId) {
+      if(!schoolId){
         alert("School not found")
         return
       }
 
-      if (!name || !email || !selectedClass || !selectedSection) {
+      if(!name || !email || !selectedClass || !selectedSection){
         alert("Fill all fields")
         return
       }
 
       setLoading(true)
 
+      let photoUrl = ""
+
+      // 🔥 UPLOAD IMAGE
+      if(photo){
+        const fileName = `${Date.now()}-${photo.name}`
+
+        const { error: uploadError } = await supabase.storage
+          .from("students")
+          .upload(fileName, photo)
+
+        if(uploadError){
+          console.error(uploadError)
+          alert("Image upload failed")
+          setLoading(false)
+          return
+        }
+
+        photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/students/${fileName}`
+      }
+
+      // 🔥 INSERT
       const { error } = await supabase
         .from("students")
         .insert([
@@ -93,37 +104,38 @@ export default function StudentForm({ reload }: any){
             id: crypto.randomUUID(),
             name: name.trim(),
             email: email.trim(),
+            roll_number: roll,
             class_id: selectedClass,
             section_id: selectedSection,
-            school_id: schoolId
+            school_id: schoolId,
+            photo: photoUrl
           }
         ])
 
-      if (error) {
-        console.error("INSERT ERROR:", error)
+      if(error){
+        console.error(error)
         alert(error.message)
         return
       }
 
-      // RESET FORM
+      // RESET
       setName("")
       setEmail("")
+      setRoll("")
+      setPhoto(null)
       setSelectedClass("")
       setSelectedSection("")
 
-      // SAFE RELOAD
-      if (reload) {
-        await reload()
-      }
+      if(reload) await reload()
 
-    } catch (err) {
-      console.error("SAVE ERROR:", err)
-    } finally {
-      setLoading(false) // ✅ ALWAYS runs
+    }catch(err){
+      console.error(err)
+    }finally{
+      setLoading(false)
     }
   }
 
-  return (
+  return(
 
     <div className="flex flex-wrap gap-4 items-center">
 
@@ -132,7 +144,7 @@ export default function StudentForm({ reload }: any){
         placeholder="Student Name"
         value={name}
         onChange={(e)=>setName(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 transition"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500"
       />
 
       {/* EMAIL */}
@@ -140,7 +152,23 @@ export default function StudentForm({ reload }: any){
         placeholder="Email"
         value={email}
         onChange={(e)=>setEmail(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 transition"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500"
+      />
+
+      {/* ROLL */}
+      <input
+        placeholder="Roll Number"
+        value={roll}
+        onChange={(e)=>setRoll(e.target.value)}
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500"
+      />
+
+      {/* PHOTO */}
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e)=>setPhoto(e.target.files?.[0] || null)}
+        className="text-white text-sm"
       />
 
       {/* CLASS */}
@@ -150,12 +178,12 @@ export default function StudentForm({ reload }: any){
           setSelectedClass(e.target.value)
           setSelectedSection("")
         }}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white outline-none focus:ring-2 focus:ring-blue-500 transition"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
       >
-        <option value="" className="bg-[#0b1220]">Select Class</option>
+        <option value="">Select Class</option>
 
-        {classes.map((c)=>(
-          <option key={c.id} value={c.id} className="bg-[#0b1220]">
+        {classes.map(c=>(
+          <option key={c.id} value={c.id}>
             {c.name}
           </option>
         ))}
@@ -165,12 +193,12 @@ export default function StudentForm({ reload }: any){
       <select
         value={selectedSection}
         onChange={(e)=>setSelectedSection(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white outline-none focus:ring-2 focus:ring-blue-500 transition"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
       >
-        <option value="" className="bg-[#0b1220]">Select Section</option>
+        <option value="">Select Section</option>
 
-        {filteredSections.map((s)=>(
-          <option key={s.id} value={s.id} className="bg-[#0b1220]">
+        {filteredSections.map(s=>(
+          <option key={s.id} value={s.id}>
             {s.name}
           </option>
         ))}
@@ -180,7 +208,7 @@ export default function StudentForm({ reload }: any){
       <button
         onClick={save}
         disabled={loading}
-        className="px-6 py-3 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md hover:bg-white/20 transition text-white font-medium"
+        className="px-6 py-3 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md hover:bg-white/20 transition text-white font-medium disabled:opacity-50"
       >
         {loading ? "Saving..." : "Save"}
       </button>

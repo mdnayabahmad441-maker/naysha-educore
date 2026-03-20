@@ -6,253 +6,269 @@ import { useParams } from "next/navigation"
 
 export default function StudentProfile(){
 
-const { id } = useParams()
+  const { id } = useParams()
 
-const [tab,setTab] = useState("profile")
+  const [tab,setTab] = useState("profile")
 
-const [student,setStudent] = useState<any>(null)
-const [parent,setParent] = useState<any>(null)
-const [documents,setDocuments] = useState<any[]>([])
-const [attendance,setAttendance] = useState<any[]>([])
-const [payments,setPayments] = useState<any[]>([])
+  const [student,setStudent] = useState<any>(null)
+  const [parent,setParent] = useState<any>(null)
+  const [documents,setDocuments] = useState<any[]>([])
+  const [attendance,setAttendance] = useState<any[]>([])
+  const [payments,setPayments] = useState<any[]>([])
 
-useEffect(()=>{
+  useEffect(()=>{
 
-const load = async()=>{
+    const load = async()=>{
 
-/* STUDENT */
+      // ✅ STUDENT WITH CLASS + SECTION
+      const { data:studentData } = await supabase
+        .from("students")
+        .select(`
+          *,
+          classes(name),
+          sections(name)
+        `)
+        .eq("id",id)
+        .single()
 
-const { data:studentData } = await supabase
-.from("students")
-.select("*")
-.eq("id",id)
-.single()
+      setStudent(studentData)
 
-setStudent(studentData)
+      // ✅ PARENT
+      const { data:parentData } = await supabase
+        .from("parents")
+        .select("*")
+        .eq("student_id",id)
+        .maybeSingle()
 
-/* PARENTS */
+      setParent(parentData)
 
-const { data:parentData } = await supabase
-.from("parents")
-.select("*")
-.eq("student_id",id)
-.single()
+      // ✅ DOCUMENTS
+      const { data:docData } = await supabase
+        .from("student_documents")
+        .select("*")
+        .eq("student_id",id)
 
-setParent(parentData)
+      setDocuments(docData || [])
 
-/* DOCUMENTS */
+      // ✅ ATTENDANCE
+      const { data:attData } = await supabase
+        .from("attendance")
+        .select("*")
+        .eq("student_id",id)
+        .order("date",{ascending:false})
 
-const { data:docData } = await supabase
-.from("student_documents")
-.select("*")
-.eq("student_id",id)
+      setAttendance(attData || [])
 
-setDocuments(docData || [])
+      // ✅ PAYMENTS
+      const { data:payData } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("student_id",id)
+        .order("date",{ascending:false})
 
-/* ATTENDANCE */
+      setPayments(payData || [])
 
-const { data:attData } = await supabase
-.from("attendance")
-.select("*")
-.eq("student_id",id)
+    }
 
-setAttendance(attData || [])
+    load()
 
-/* PAYMENTS */
+  },[id])
 
-const { data:payData } = await supabase
-.from("payments")
-.select("*")
-.eq("student_id",id)
+  if(!student){
+    return <div className="p-10 text-white">Loading...</div>
+  }
 
-setPayments(payData || [])
+  return(
 
-}
+    <div className="p-6 md:p-10 text-white max-w-6xl mx-auto">
 
-load()
+      {/* HEADER */}
+      <div className="bg-white/10 border border-white/10 rounded-xl p-6 mb-6 flex flex-col md:flex-row gap-6 items-center">
 
-},[])
+        {/* PHOTO */}
+        {student.photo && (
+          <img
+            src={student.photo}
+            className="w-28 h-28 rounded-full object-cover border border-white/20"
+          />
+        )}
 
-if(!student) return <div className="p-10 text-white">Loading...</div>
+        <div>
 
-return(
+          <h1 className="text-2xl font-semibold">
+            {student.name}
+          </h1>
 
-<div className="p-10 text-white max-w-5xl mx-auto">
+          <p className="text-gray-400 mt-1">
+            {student.email}
+          </p>
 
-<h1 className="text-2xl mb-6">
-{student.name}
-</h1>
+          <div className="text-sm text-gray-300 mt-3 space-y-1">
+            <p>Roll: {student.roll_number || "-"}</p>
+            <p>Class: {student.classes?.name || "-"}</p>
+            <p>Section: {student.sections?.name || "-"}</p>
+          </div>
 
-{/* PHOTO */}
+        </div>
 
-{student.photo_url && (
-<img
-src={student.photo_url}
-className="w-32 h-32 rounded mb-6"
-/>
-)}
+      </div>
 
-{/* TABS */}
+      {/* TABS */}
+      <div className="flex flex-wrap gap-3 mb-6">
 
-<div className="flex gap-4 mb-8">
+        {["profile","attendance","payments","documents","reportcards"].map(t=>(
+          <button
+            key={t}
+            onClick={()=>setTab(t)}
+            className={`px-4 py-2 rounded-xl border ${
+              tab===t
+                ? "bg-white/20 border-white/20"
+                : "bg-white/5 border-white/10"
+            }`}
+          >
+            {t.toUpperCase()}
+          </button>
+        ))}
 
-<button onClick={()=>setTab("profile")}>Profile</button>
+      </div>
 
-<button onClick={()=>setTab("attendance")}>Attendance</button>
+      {/* PROFILE */}
+      {tab==="profile" && (
 
-<button onClick={()=>setTab("payments")}>Payments</button>
+        <div className="bg-white/10 p-6 rounded-xl space-y-6">
 
-<button onClick={()=>setTab("documents")}>Documents</button>
+          <div>
+            <h2 className="text-lg mb-3">Student Details</h2>
 
-<button onClick={()=>setTab("reportcards")}>Report Cards</button>
+            <p>Name: {student.name}</p>
+            <p>Email: {student.email}</p>
+            <p>Roll: {student.roll_number}</p>
+          </div>
 
-</div>
+          <div>
+            <h2 className="text-lg mb-3">Parents</h2>
 
+            <p>Father: {parent?.father_name || "-"}</p>
+            <p>Mother: {parent?.mother_name || "-"}</p>
+            <p>Phone: {parent?.phone || "-"}</p>
+            <p>Email: {parent?.email || "-"}</p>
+          </div>
 
-{/* PROFILE TAB */}
+        </div>
 
-{tab==="profile" && (
+      )}
 
-<div>
+      {/* ATTENDANCE */}
+      {tab==="attendance" && (
 
-<h2 className="text-xl mb-4">Student Details</h2>
+        <div className="bg-white/10 p-6 rounded-xl">
 
-<p>Name: {student.name}</p>
+          <h2 className="text-lg mb-4">Attendance</h2>
 
-<p>Admission No: {student.admission_no}</p>
+          <table className="w-full text-sm border border-white/10">
 
-<h2 className="text-xl mt-6 mb-4">Parents</h2>
+            <thead>
+              <tr>
+                <th className="p-2 border">Date</th>
+                <th className="p-2 border">Status</th>
+              </tr>
+            </thead>
 
-<p>Father: {parent?.father_name}</p>
+            <tbody>
 
-<p>Mother: {parent?.mother_name}</p>
+              {attendance.map(a=>(
+                <tr key={a.id}>
+                  <td className="p-2 border">{a.date}</td>
+                  <td className="p-2 border">
+                    {a.status === "present"
+                      ? "✅ Present"
+                      : "❌ Absent"}
+                  </td>
+                </tr>
+              ))}
 
-<p>Phone: {parent?.phone}</p>
+            </tbody>
 
-<p>Email: {parent?.email}</p>
+          </table>
 
-</div>
+        </div>
 
-)}
+      )}
 
+      {/* PAYMENTS */}
+      {tab==="payments" && (
 
-{/* ATTENDANCE TAB */}
+        <div className="bg-white/10 p-6 rounded-xl">
 
-{tab==="attendance" && (
+          <h2 className="text-lg mb-4">Payments</h2>
 
-<div>
+          <table className="w-full text-sm border border-white/10">
 
-<h2 className="text-xl mb-4">Attendance</h2>
+            <thead>
+              <tr>
+                <th className="p-2 border">Date</th>
+                <th className="p-2 border">Amount</th>
+              </tr>
+            </thead>
 
-<table className="w-full border border-white/20">
+            <tbody>
 
-<thead>
-<tr>
-<th className="border p-2">Date</th>
-<th className="border p-2">Status</th>
-</tr>
-</thead>
+              {payments.map(p=>(
+                <tr key={p.id}>
+                  <td className="p-2 border">{p.date}</td>
+                  <td className="p-2 border">₹{p.amount}</td>
+                </tr>
+              ))}
 
-<tbody>
+            </tbody>
 
-{attendance.map(a=>(
-<tr key={a.id}>
-<td className="border p-2">{a.date}</td>
-<td className="border p-2">{a.status}</td>
-</tr>
-))}
+          </table>
 
-</tbody>
+        </div>
 
-</table>
+      )}
 
-</div>
+      {/* DOCUMENTS */}
+      {tab==="documents" && (
 
-)}
+        <div className="bg-white/10 p-6 rounded-xl">
 
+          <h2 className="text-lg mb-4">Documents</h2>
 
-{/* PAYMENTS TAB */}
+          {documents.length === 0 && (
+            <p className="text-gray-400">No documents uploaded</p>
+          )}
 
-{tab==="payments" && (
+          {documents.map(d=>(
+            <a
+              key={d.id}
+              href={d.file_url}
+              target="_blank"
+              className="block text-blue-400 mb-2"
+            >
+              {d.document_type}
+            </a>
+          ))}
 
-<div>
+        </div>
 
-<h2 className="text-xl mb-4">Payment History</h2>
+      )}
 
-<table className="w-full border border-white/20">
+      {/* REPORT CARDS */}
+      {tab==="reportcards" && (
 
-<thead>
-<tr>
-<th className="border p-2">Date</th>
-<th className="border p-2">Amount</th>
-</tr>
-</thead>
+        <div className="bg-white/10 p-6 rounded-xl">
 
-<tbody>
+          <h2 className="text-lg mb-4">Report Cards</h2>
 
-{payments.map(p=>(
-<tr key={p.id}>
-<td className="border p-2">{p.date}</td>
-<td className="border p-2">₹{p.amount}</td>
-</tr>
-))}
+          <p className="text-gray-400">
+            No report cards generated yet
+          </p>
 
-</tbody>
+        </div>
 
-</table>
+      )}
 
-</div>
-
-)}
-
-
-{/* DOCUMENTS TAB */}
-
-{tab==="documents" && (
-
-<div>
-
-<h2 className="text-xl mb-4">Documents</h2>
-
-{documents.map(d=>(
-<div key={d.id} className="mb-2">
-
-<a
-href={d.file_url}
-target="_blank"
-className="text-blue-400"
->
-
-{d.document_type}
-
-</a>
-
-</div>
-))}
-
-</div>
-
-)}
-
-
-{/* REPORT CARD TAB */}
-
-{tab==="reportcards" && (
-
-<div>
-
-<h2 className="text-xl mb-4">
-Report Cards
-</h2>
-
-<p>No report cards generated yet</p>
-
-</div>
-
-)}
-
-</div>
-
-)
-
+    </div>
+  )
 }
