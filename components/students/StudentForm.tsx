@@ -18,7 +18,7 @@ export default function StudentForm({ reload }: any){
   const [schoolId,setSchoolId] = useState<string | null>(null)
   const [loading,setLoading] = useState(false)
 
-  // ✅ LOAD SCHOOL ONLY ONCE
+  // ✅ LOAD SCHOOL ONCE
   useEffect(()=>{
     const init = async () => {
       const id = await getSchoolId()
@@ -27,54 +27,37 @@ export default function StudentForm({ reload }: any){
     init()
   },[])
 
-  // ✅ LOAD DATA ONLY AFTER SCHOOL ID
+  // ✅ LOAD DATA AFTER SCHOOL
   useEffect(()=>{
-
     if(!schoolId) return
-
     loadClasses()
     loadSections()
-
   },[schoolId])
 
-  // LOAD CLASSES
   const loadClasses = async () => {
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("classes")
       .select("*")
       .eq("school_id", schoolId)
 
-    if(error){
-      console.error("Classes Error:", error)
-      return
-    }
-
     setClasses(data || [])
   }
 
-  // LOAD SECTIONS
   const loadSections = async () => {
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("sections")
       .select("*")
       .eq("school_id", schoolId)
 
-    if(error){
-      console.error("Sections Error:", error)
-      return
-    }
-
     setSections(data || [])
   }
 
-  // FILTER SECTIONS
+  // ✅ FILTER SECTIONS
   const filteredSections = sections.filter(
     (s) => s.class_id === selectedClass
   )
 
-  // SAVE
+  // ✅ SAVE
   const save = async () => {
 
     if (!schoolId) {
@@ -103,13 +86,11 @@ export default function StudentForm({ reload }: any){
       ])
 
     if (error) {
-      console.error("INSERT ERROR:", error)
+      console.error(error)
       alert(error.message)
       setLoading(false)
       return
     }
-
-    alert("Student Added ✅")
 
     setName("")
     setEmail("")
@@ -117,7 +98,6 @@ export default function StudentForm({ reload }: any){
     setSelectedSection("")
 
     reload()
-
     setLoading(false)
   }
 
@@ -125,55 +105,60 @@ export default function StudentForm({ reload }: any){
 
     <div className="flex flex-wrap gap-4 items-center">
 
+      {/* NAME */}
       <input
         placeholder="Student Name"
         value={name}
         onChange={(e)=>setName(e.target.value)}
-        className="p-3 bg-white/10 border border-white/20 rounded-lg outline-none"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 transition"
       />
 
+      {/* EMAIL */}
       <input
         placeholder="Email"
         value={email}
         onChange={(e)=>setEmail(e.target.value)}
-        className="p-3 bg-white/10 border border-white/20 rounded-lg outline-none"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 transition"
       />
 
+      {/* CLASS */}
       <select
         value={selectedClass}
         onChange={(e)=>{
           setSelectedClass(e.target.value)
           setSelectedSection("")
         }}
-        className="p-3 bg-white/10 border border-white/20 rounded-lg"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white outline-none focus:ring-2 focus:ring-blue-500 transition"
       >
-        <option value="">Select Class</option>
+        <option value="" className="bg-[#0b1220]">Select Class</option>
 
         {classes.map((c)=>(
-          <option key={c.id} value={c.id}>
+          <option key={c.id} value={c.id} className="bg-[#0b1220]">
             {c.name}
           </option>
         ))}
       </select>
 
+      {/* SECTION */}
       <select
         value={selectedSection}
         onChange={(e)=>setSelectedSection(e.target.value)}
-        className="p-3 bg-white/10 border border-white/20 rounded-lg"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white outline-none focus:ring-2 focus:ring-blue-500 transition"
       >
-        <option value="">Select Section</option>
+        <option value="" className="bg-[#0b1220]">Select Section</option>
 
         {filteredSections.map((s)=>(
-          <option key={s.id} value={s.id}>
+          <option key={s.id} value={s.id} className="bg-[#0b1220]">
             {s.name}
           </option>
         ))}
       </select>
 
+      {/* BUTTON */}
       <button
         onClick={save}
         disabled={loading}
-        className="px-6 py-3 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 transition"
+        className="px-6 py-3 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md hover:bg-white/20 transition text-white font-medium"
       >
         {loading ? "Saving..." : "Save"}
       </button>
