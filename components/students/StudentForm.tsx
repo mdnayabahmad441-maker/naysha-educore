@@ -8,39 +8,59 @@ export default function StudentForm({ reload }: any){
 
   const [name,setName] = useState("")
   const [email,setEmail] = useState("")
-  const [classes,setClasses] = useState<any[]>([])
-  const [selectedClass,setSelectedClass] = useState("")
 
+  const [classes,setClasses] = useState<any[]>([])
+  const [sections,setSections] = useState<any[]>([])
+
+  const [selectedClass,setSelectedClass] = useState("")
+  const [selectedSection,setSelectedSection] = useState("")
+
+  // LOAD CLASSES
   const loadClasses = async () => {
 
     const schoolId = await getSchoolId()
-
-    console.log("StudentForm schoolId:", schoolId)
-
     if (!schoolId) return
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("classes")
       .select("*")
       .eq("school_id", schoolId)
 
-    console.log("StudentForm classes:", data)
-
-    if(error){
-      console.error(error)
-      return
-    }
-
     setClasses(data || [])
+  }
+
+  // LOAD SECTIONS
+  const loadSections = async () => {
+
+    const schoolId = await getSchoolId()
+    if (!schoolId) return
+
+    const { data } = await supabase
+      .from("sections")
+      .select("*")
+      .eq("school_id", schoolId)
+
+    setSections(data || [])
   }
 
   useEffect(()=>{
     loadClasses()
+    loadSections()
   },[])
+
+  // FILTER SECTIONS BASED ON CLASS
+  const filteredSections = sections.filter(
+    s => s.class_id === selectedClass
+  )
 
   const save = async () => {
 
     const schoolId = await getSchoolId()
+
+    if(!selectedClass || !selectedSection){
+      alert("Select class & section")
+      return
+    }
 
     await supabase.from("students").insert([
       {
@@ -48,6 +68,7 @@ export default function StudentForm({ reload }: any){
         name,
         email,
         class_id: selectedClass,
+        section_id: selectedSection,
         school_id: schoolId
       }
     ])
@@ -55,13 +76,14 @@ export default function StudentForm({ reload }: any){
     setName("")
     setEmail("")
     setSelectedClass("")
+    setSelectedSection("")
 
     reload()
   }
 
   return(
 
-    <div className="flex gap-4">
+    <div className="flex flex-wrap gap-4">
 
       <input
         placeholder="Student Name"
@@ -77,9 +99,13 @@ export default function StudentForm({ reload }: any){
         className="p-2 bg-gray-800 rounded"
       />
 
+      {/* CLASS DROPDOWN */}
       <select
         value={selectedClass}
-        onChange={(e)=>setSelectedClass(e.target.value)}
+        onChange={(e)=>{
+          setSelectedClass(e.target.value)
+          setSelectedSection("") // reset section
+        }}
         className="p-2 bg-gray-800 rounded"
       >
         <option value="">Select Class</option>
@@ -89,7 +115,21 @@ export default function StudentForm({ reload }: any){
             {c.name}
           </option>
         ))}
+      </select>
 
+      {/* SECTION DROPDOWN */}
+      <select
+        value={selectedSection}
+        onChange={(e)=>setSelectedSection(e.target.value)}
+        className="p-2 bg-gray-800 rounded"
+      >
+        <option value="">Select Section</option>
+
+        {filteredSections.map(s=>(
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
       </select>
 
       <button
