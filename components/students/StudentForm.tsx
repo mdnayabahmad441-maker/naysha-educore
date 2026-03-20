@@ -1,81 +1,88 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import Button from "@/components/ui/Button"
+import { getSchoolId } from "@/lib/school"
 
-export default function StudentForm({onSaved}:any){
+export default function StudentForm({ reload }: any){
 
   const [name,setName] = useState("")
   const [email,setEmail] = useState("")
-  const [classId,setClassId] = useState("")
-  const [sectionId,setSectionId] = useState("")
-
   const [classes,setClasses] = useState<any[]>([])
-  const [sections,setSections] = useState<any[]>([])
+  const [selectedClass,setSelectedClass] = useState("")
 
-  useEffect(()=>{
+  const loadClasses = async () => {
 
-    const load = async()=>{
+    const schoolId = await getSchoolId()
 
-      const {data:c}=await supabase.from("classes").select("*")
-      const {data:s}=await supabase.from("sections").select("*")
+    console.log("StudentForm schoolId:", schoolId)
 
-      setClasses(c||[])
-      setSections(s||[])
+    if (!schoolId) return
 
+    const { data, error } = await supabase
+      .from("classes")
+      .select("*")
+      .eq("school_id", schoolId)
+
+    console.log("StudentForm classes:", data)
+
+    if(error){
+      console.error(error)
+      return
     }
 
-    load()
+    setClasses(data || [])
+  }
 
+  useEffect(()=>{
+    loadClasses()
   },[])
 
-  const submit = async()=>{
+  const save = async () => {
 
-    const {error}=await supabase
-      .from("students")
-      .insert({
-        id:crypto.randomUUID(),
+    const schoolId = await getSchoolId()
+
+    await supabase.from("students").insert([
+      {
+        id: crypto.randomUUID(),
         name,
         email,
-        class_id:classId,
-        section_id:sectionId
-      })
-
-    if(error) console.error(error)
+        class_id: selectedClass,
+        school_id: schoolId
+      }
+    ])
 
     setName("")
     setEmail("")
-    setClassId("")
-    setSectionId("")
+    setSelectedClass("")
 
-    onSaved()
-
+    reload()
   }
 
   return(
 
-    <div className="flex gap-4 mb-6">
+    <div className="flex gap-4">
 
       <input
-      className="bg-slate-800 border border-white/20 p-2 rounded"
-      placeholder="Student Name"
-      value={name}
-      onChange={(e)=>setName(e.target.value)}
+        placeholder="Student Name"
+        value={name}
+        onChange={(e)=>setName(e.target.value)}
+        className="p-2 bg-gray-800 rounded"
       />
 
       <input
-      className="bg-slate-800 border border-white/20 p-2 rounded"
-      placeholder="Email"
-      value={email}
-      onChange={(e)=>setEmail(e.target.value)}
+        placeholder="Email"
+        value={email}
+        onChange={(e)=>setEmail(e.target.value)}
+        className="p-2 bg-gray-800 rounded"
       />
 
       <select
-      className="bg-slate-800 border border-white/20 p-2 rounded"
-      onChange={(e)=>setClassId(e.target.value)}
+        value={selectedClass}
+        onChange={(e)=>setSelectedClass(e.target.value)}
+        className="p-2 bg-gray-800 rounded"
       >
-        <option>Select Class</option>
+        <option value="">Select Class</option>
 
         {classes.map(c=>(
           <option key={c.id} value={c.id}>
@@ -85,26 +92,13 @@ export default function StudentForm({onSaved}:any){
 
       </select>
 
-      <select
-      className="bg-slate-800 border border-white/20 p-2 rounded"
-      onChange={(e)=>setSectionId(e.target.value)}
+      <button
+        onClick={save}
+        className="bg-blue-600 px-4 rounded"
       >
-        <option>Select Section</option>
-
-        {sections.map(s=>(
-          <option key={s.id} value={s.id}>
-            {s.name}
-          </option>
-        ))}
-
-      </select>
-
-      <Button color="green" onClick={submit}>
         Save
-      </Button>
+      </button>
 
     </div>
-
   )
-
 }
