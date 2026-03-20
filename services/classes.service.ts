@@ -1,9 +1,25 @@
-import { getAll, createItem } from "./base.service"
+import { supabase } from "@/lib/supabase"
+import { getSchoolId } from "@/lib/school"
 
-export function getClasses(){
-  return getAll("classes")
-}
+export const getClasses = async () => {
 
-export function createClass(data:any){
-  return createItem("classes",data)
+  const schoolId = await getSchoolId()
+
+  console.log("Using schoolId:", schoolId)
+
+  if (!schoolId) return []
+
+  const { data, error } = await supabase
+    .from("classes")
+    .select("*")
+    .eq("school_id", schoolId)
+
+  if (error) {
+    console.error("Classes fetch error:", error)
+    return []
+  }
+
+  console.log("Filtered Classes:", data)
+
+  return data || []
 }
