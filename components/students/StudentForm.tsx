@@ -18,7 +18,7 @@ export default function StudentForm({ reload }: any){
   const [schoolId,setSchoolId] = useState<string | null>(null)
   const [loading,setLoading] = useState(false)
 
-  // ✅ LOAD SCHOOL ONCE
+  // ✅ LOAD SCHOOL ONLY ONCE
   useEffect(()=>{
     const init = async () => {
       const id = await getSchoolId()
@@ -34,71 +34,93 @@ export default function StudentForm({ reload }: any){
     loadSections()
   },[schoolId])
 
+  // LOAD CLASSES
   const loadClasses = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("classes")
       .select("*")
       .eq("school_id", schoolId)
 
+    if(error){
+      console.error("Classes Error:", error)
+      return
+    }
+
     setClasses(data || [])
   }
 
+  // LOAD SECTIONS
   const loadSections = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("sections")
       .select("*")
       .eq("school_id", schoolId)
 
+    if(error){
+      console.error("Sections Error:", error)
+      return
+    }
+
     setSections(data || [])
   }
 
-  // ✅ FILTER SECTIONS
+  // FILTER SECTIONS BASED ON CLASS
   const filteredSections = sections.filter(
     (s) => s.class_id === selectedClass
   )
 
-  // ✅ SAVE
+  // ✅ FINAL FIXED SAVE FUNCTION
   const save = async () => {
 
-    if (!schoolId) {
-      alert("School not found")
-      return
+    try {
+
+      if (!schoolId) {
+        alert("School not found")
+        return
+      }
+
+      if (!name || !email || !selectedClass || !selectedSection) {
+        alert("Fill all fields")
+        return
+      }
+
+      setLoading(true)
+
+      const { error } = await supabase
+        .from("students")
+        .insert([
+          {
+            id: crypto.randomUUID(),
+            name: name.trim(),
+            email: email.trim(),
+            class_id: selectedClass,
+            section_id: selectedSection,
+            school_id: schoolId
+          }
+        ])
+
+      if (error) {
+        console.error("INSERT ERROR:", error)
+        alert(error.message)
+        return
+      }
+
+      // RESET FORM
+      setName("")
+      setEmail("")
+      setSelectedClass("")
+      setSelectedSection("")
+
+      // SAFE RELOAD
+      if (reload) {
+        await reload()
+      }
+
+    } catch (err) {
+      console.error("SAVE ERROR:", err)
+    } finally {
+      setLoading(false) // ✅ ALWAYS runs
     }
-
-    if (!name || !email || !selectedClass || !selectedSection) {
-      alert("Fill all fields")
-      return
-    }
-
-    setLoading(true)
-
-    const { error } = await supabase
-      .from("students")
-      .insert([
-        {
-          id: crypto.randomUUID(),
-          name: name.trim(),
-          email: email.trim(),
-          class_id: selectedClass,
-          section_id: selectedSection,
-          school_id: schoolId
-        }
-      ])
-
-    if (error) {
-      console.error(error)
-      alert(error.message)
-      setLoading(false)
-      return
-    }
-
-    setName("")
-    setEmail("")
-    setSelectedClass("")
-    setSelectedSection("")
-
-    reload()
-    setLoading(false)
   }
 
   return (
