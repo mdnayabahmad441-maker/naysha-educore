@@ -15,13 +15,30 @@ export default function StudentForm({ reload }: any){
   const [selectedClass,setSelectedClass] = useState("")
   const [selectedSection,setSelectedSection] = useState("")
 
+  const [schoolId,setSchoolId] = useState<string | null>(null)
   const [loading,setLoading] = useState(false)
+
+  // ✅ LOAD SCHOOL ONLY ONCE
+  useEffect(()=>{
+    const init = async () => {
+      const id = await getSchoolId()
+      setSchoolId(id)
+    }
+    init()
+  },[])
+
+  // ✅ LOAD DATA ONLY AFTER SCHOOL ID
+  useEffect(()=>{
+
+    if(!schoolId) return
+
+    loadClasses()
+    loadSections()
+
+  },[schoolId])
 
   // LOAD CLASSES
   const loadClasses = async () => {
-
-    const schoolId = await getSchoolId()
-    if (!schoolId) return
 
     const { data, error } = await supabase
       .from("classes")
@@ -39,9 +56,6 @@ export default function StudentForm({ reload }: any){
   // LOAD SECTIONS
   const loadSections = async () => {
 
-    const schoolId = await getSchoolId()
-    if (!schoolId) return
-
     const { data, error } = await supabase
       .from("sections")
       .select("*")
@@ -55,42 +69,25 @@ export default function StudentForm({ reload }: any){
     setSections(data || [])
   }
 
-  useEffect(()=>{
-    loadClasses()
-    loadSections()
-  },[])
-
-  // FILTER SECTIONS BY CLASS
+  // FILTER SECTIONS
   const filteredSections = sections.filter(
     (s) => s.class_id === selectedClass
   )
 
-  // SAVE STUDENT
+  // SAVE
   const save = async () => {
-
-    setLoading(true)
-
-    const schoolId = await getSchoolId()
 
     if (!schoolId) {
       alert("School not found")
-      setLoading(false)
       return
     }
 
     if (!name || !email || !selectedClass || !selectedSection) {
-      alert("Please fill all fields")
-      setLoading(false)
+      alert("Fill all fields")
       return
     }
 
-    console.log({
-      name,
-      email,
-      selectedClass,
-      selectedSection,
-      schoolId
-    })
+    setLoading(true)
 
     const { error } = await supabase
       .from("students")
@@ -128,7 +125,6 @@ export default function StudentForm({ reload }: any){
 
     <div className="flex flex-wrap gap-4 items-center">
 
-      {/* NAME */}
       <input
         placeholder="Student Name"
         value={name}
@@ -136,7 +132,6 @@ export default function StudentForm({ reload }: any){
         className="p-3 bg-white/10 border border-white/20 rounded-lg outline-none"
       />
 
-      {/* EMAIL */}
       <input
         placeholder="Email"
         value={email}
@@ -144,12 +139,11 @@ export default function StudentForm({ reload }: any){
         className="p-3 bg-white/10 border border-white/20 rounded-lg outline-none"
       />
 
-      {/* CLASS */}
       <select
         value={selectedClass}
         onChange={(e)=>{
           setSelectedClass(e.target.value)
-          setSelectedSection("") // reset section
+          setSelectedSection("")
         }}
         className="p-3 bg-white/10 border border-white/20 rounded-lg"
       >
@@ -160,10 +154,8 @@ export default function StudentForm({ reload }: any){
             {c.name}
           </option>
         ))}
-
       </select>
 
-      {/* SECTION */}
       <select
         value={selectedSection}
         onChange={(e)=>setSelectedSection(e.target.value)}
@@ -176,10 +168,8 @@ export default function StudentForm({ reload }: any){
             {s.name}
           </option>
         ))}
-
       </select>
 
-      {/* SAVE BUTTON */}
       <button
         onClick={save}
         disabled={loading}
