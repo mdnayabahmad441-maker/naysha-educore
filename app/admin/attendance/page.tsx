@@ -16,8 +16,7 @@ export default function AttendancePage(){
   const [selectedSection,setSelectedSection] = useState("")
 
   const [attendance,setAttendance] = useState<any>({})
-
-  const today = new Date().toISOString().split("T")[0]
+  const [loading,setLoading] = useState(false)
 
   // ✅ INIT SCHOOL
   useEffect(()=>{
@@ -46,88 +45,118 @@ export default function AttendancePage(){
 
   // ✅ LOAD SECTIONS
   useEffect(()=>{
-    if(!selectedClass) return
+    if(!selectedClass || !schoolId) return
 
     const load = async ()=>{
       const { data } = await supabase
         .from("sections")
         .select("*")
         .eq("class_id", selectedClass)
+        .eq("school_id", schoolId)
 
       setSections(data || [])
     }
 
     load()
-  },[selectedClass])
+  },[selectedClass, schoolId])
 
   // ✅ LOAD STUDENTS
   useEffect(()=>{
-    if(!selectedSection) return
+    if(!selectedSection || !schoolId) return
 
     const load = async ()=>{
       const { data } = await supabase
         .from("students")
         .select("*")
         .eq("section_id", selectedSection)
+        .eq("school_id", schoolId)
 
       setStudents(data || [])
     }
 
     load()
-  },[selectedSection])
+  },[selectedSection, schoolId])
 
-  // ✅ MARK ATTENDANCE
-  const mark = (id:string,status:string)=>{
+  // ✅ TOGGLE ATTENDANCE
+  const setStatus = (studentId:string, status:string)=>{
     setAttendance((prev:any)=>({
       ...prev,
-      [id]: status
+      [studentId]: status
     }))
   }
 
-  // ✅ SAVE ATTENDANCE
+  // 🔥 SAVE ATTENDANCE (FINAL FIXED)
   const saveAttendance = async ()=>{
 
-    if(!schoolId) return
-
-    const records = students.map(s=>({
-      id: crypto.randomUUID(),
-      student_id: s.id,
-      class_id: selectedClass,
-      section_id: selectedSection,
-      school_id: schoolId,
-      date: today,
-      status: attendance[s.id] || "absent"
-    }))
-
-    const { error } = await supabase
-      .from("attendance")
-      .upsert(records)
-
-    if(error){
-      alert("Error saving attendance")
-      console.error(error)
+    if(!schoolId || !selectedClass || !selectedSection){
+      alert("Select class & section")
       return
     }
 
-    alert("Attendance Saved ✅")
+    if(students.length === 0){
+      alert("No students found")
+      return
+    }
+
+    setLoading(true)
+
+    try{
+
+      const today = new Date().toISOString().split("T")[0]
+
+      const payload = students.map((s:any)=>({
+        id: crypto.randomUUID(),
+        student_id: s.id,
+        class_id: selectedClass,     // ✅ REQUIRED
+        section_id: selectedSection,
+        school_id: schoolId,         // ✅ MULTI-TENANT FIX
+        status: attendance[s.id] || "present",
+        date: today
+      }))
+
+      const { error } = await supabase
+        .from("attendance")
+        .insert(payload)
+
+      if(error){
+        console.error(error)
+        alert(error.message)
+        return
+      }
+
+      alert("Attendance saved successfully")
+
+      // RESET
+      setAttendance({})
+
+    }catch(err){
+      console.error(err)
+      alert("Something went wrong")
+    }finally{
+      setLoading(false)
+    }
   }
 
   return(
 
-    <div className="p-6 md:p-10 text-white max-w-7xl mx-auto">
+    <div className="p-6 md:p-10 text-white max-w-6xl mx-auto">
 
       <h1 className="text-2xl mb-6 font-semibold">
         Attendance
       </h1>
 
-      <div className="bg-white/10 backdrop-blur-lg p-6 rounded-xl space-y-4">
+      <div className="bg-white/10 p-6 rounded-xl space-y-6">
 
         {/* SELECTORS */}
-        <div className="flex gap-4 flex-wrap">
+        <div className="flex flex-wrap gap-4">
 
           <select
             value={selectedClass}
-            onChange={(e)=>setSelectedClass(e.target.value)}
+            onChange={(e)=>{
+              setSelectedClass(e.target.value)
+              setSelectedSection("")
+              setStudents([])
+            }}
             className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10"
           >
             <option value="">Select Class</option>
@@ -149,56 +178,63 @@ export default function AttendancePage(){
 
         </div>
 
-        {/* STUDENTS */}
-        <div className="space-y-2">
+        {/* STUDENTS LIST */}
+        <div className="space-y-3">
 
-          {students.map(s=>(
-            <div
-              key={s.id}
-              className="flex justify-between items-center bg-white/5 p-3 rounded-lg"
-            >
-              <span>{s.name}</span>
+          {students.map((s:any)=>{
 
-              <div className="flex gap-2">
+            const current = attendance[s.id] || "present"
 
-                <button
-                  onClick={()=>mark(s.id,"present")}
-                  className={`px-3 py-1 rounded ${
-                    attendance[s.id]==="present"
-                      ? "bg-green-600"
-                      : "bg-white/10"
-                  }`}
-                >
-                  Present
-                </button>
+            return(
 
-                <button
-                  onClick={()=>mark(s.id,"absent")}
-                  className={`px-3 py-1 rounded ${
-                    attendance[s.id]==="absent"
-                      ? "bg-red-600"
-                      : "bg-white/10"
-                  }`}
-                >
-                  Absent
-                </button>
+              <div
+                key={s.id}
+                className="flex items-center justify-between bg-white/5 p-4 rounded-xl"
+              >
+
+                <span>{s.name}</span>
+
+                <div className="flex gap-2">
+
+                  <button
+                    onClick={()=>setStatus(s.id,"present")}
+                    className={`px-4 py-2 rounded-lg ${
+                      current === "present"
+                        ? "bg-green-500"
+                        : "bg-white/10"
+                    }`}
+                  >
+                    Present
+                  </button>
+
+                  <button
+                    onClick={()=>setStatus(s.id,"absent")}
+                    className={`px-4 py-2 rounded-lg ${
+                      current === "absent"
+                        ? "bg-red-500"
+                        : "bg-white/10"
+                    }`}
+                  >
+                    Absent
+                  </button>
+
+                </div>
 
               </div>
 
-            </div>
-          ))}
+            )
+          })}
 
         </div>
 
-        {/* SAVE */}
-        {students.length > 0 && (
-          <button
-            onClick={saveAttendance}
-            className="mt-4 px-6 py-3 rounded-xl bg-white/20 hover:bg-white/30"
-          >
-            Save Attendance
-          </button>
-        )}
+        {/* SAVE BUTTON */}
+        <button
+          onClick={saveAttendance}
+          disabled={loading}
+          className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50"
+        >
+          {loading ? "Saving..." : "Save Attendance"}
+        </button>
 
       </div>
 
