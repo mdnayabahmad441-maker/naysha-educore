@@ -1,125 +1,120 @@
 "use client"
 
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
-export default function OnboardingPage() {
+export default function Onboarding() {
 
-  const [name,setName] = useState("")
-  const [subdomain,setSubdomain] = useState("")
-  const [email,setEmail] = useState("")
-  const [phone,setPhone] = useState("")
-  const [loading,setLoading] = useState(false)
+  const router = useRouter()
 
-  const createSchool = async()=>{
+  const [form, setForm] = useState({
+    school_name: "",
+    domain: "",
+    email: "",
+    phone: "",
+    username: "",
+    pin: ""
+  })
 
-    if(!name || !subdomain){
-      alert("School name and domain required")
+  const [loading, setLoading] = useState(false)
+
+  const handleChange = (e:any) => {
+    setForm({ ...form, [e.target.name]: e.target.value })
+  }
+
+  const createSchool = async () => {
+
+    const { school_name, domain, email, username, pin } = form
+
+    if (!school_name || !domain || !email || !username || !pin) {
+      alert("Fill all fields")
       return
     }
 
     setLoading(true)
 
-    try{
+    const res = await fetch("/api/onboarding", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(form)
+    })
 
-      // check if subdomain exists
-      const { data:existing } = await supabase
-        .from("schools")
-        .select("id")
-        .eq("subdomain",subdomain)
-        .single()
-
-      if(existing){
-        alert("Domain already taken")
-        setLoading(false)
-        return
-      }
-
-      // create school
-      const { error } = await supabase
-        .from("schools")
-        .insert({
-          name,
-          subdomain,
-          email,
-          phone
-        })
-
-      if(error){
-        alert(error.message)
-        setLoading(false)
-        return
-      }
-
-      // redirect to school domain
-      window.location.href =
-        `https://${subdomain}.naysha.online/admin/dashboard`
-
-    }
-    catch(err){
-      console.error(err)
-      alert("Something went wrong")
-    }
+    const data = await res.json()
 
     setLoading(false)
 
+    if (!res.ok) {
+      alert(data.error)
+      return
+    }
+
+    alert("School created successfully")
+
+    router.push("/login")
   }
 
-  return(
+  return (
 
-    <div className="min-h-screen flex items-center justify-center bg-slate-950">
+    <div className="min-h-screen flex items-center justify-center bg-[#020c1b] text-white">
 
-      <div className="bg-slate-900 p-8 rounded-xl w-[400px]">
+      <div className="bg-[#0b1a33] p-8 rounded-xl w-[420px]">
 
-        <h1 className="text-white text-2xl mb-6">
+        <h2 className="text-xl font-semibold mb-6 text-center">
           Create Your School ERP
-        </h1>
+        </h2>
 
-        <input
-          className="w-full mb-4 p-3 rounded bg-slate-800 text-white"
-          placeholder="School Name"
-          value={name}
-          onChange={(e)=>setName(e.target.value)}
-        />
+        <input name="school_name" placeholder="School Name"
+          onChange={handleChange}
+          className="input" />
 
-        <input
-          className="w-full mb-4 p-3 rounded bg-slate-800 text-white"
-          placeholder="School Domain"
-          value={subdomain}
-          onChange={(e)=>
-            setSubdomain(
-              e.target.value
-                .toLowerCase()
-                .replace(/[^a-z0-9]/g,"")
-            )
-          }
-        />
+        <input name="domain" placeholder="School Domain (subdomain)"
+          onChange={handleChange}
+          className="input" />
 
-        <input
-          className="w-full mb-4 p-3 rounded bg-slate-800 text-white"
-          placeholder="Email"
-          value={email}
-          onChange={(e)=>setEmail(e.target.value)}
-        />
+        <input name="email" placeholder="Email"
+          onChange={handleChange}
+          className="input" />
 
-        <input
-          className="w-full mb-6 p-3 rounded bg-slate-800 text-white"
-          placeholder="Phone"
-          value={phone}
-          onChange={(e)=>setPhone(e.target.value)}
-        />
+        <input name="phone" placeholder="Phone"
+          onChange={handleChange}
+          className="input" />
+
+        {/* 🔥 NEW SECTION */}
+        <p className="text-sm text-gray-400 mt-4 mb-2">
+          Admin Login Setup
+        </p>
+
+        <input name="username" placeholder="Create Username"
+          onChange={handleChange}
+          className="input" />
+
+        <input name="pin" type="password" placeholder="Create PIN"
+          onChange={handleChange}
+          className="input" />
 
         <button
           onClick={createSchool}
-          className="w-full bg-green-600 text-white p-3 rounded"
+          className="w-full mt-4 bg-green-600 py-3 rounded-lg"
         >
           {loading ? "Creating..." : "Create School"}
         </button>
 
       </div>
 
+      <style jsx>{`
+        .input {
+          width: 100%;
+          margin-bottom: 12px;
+          padding: 12px;
+          border-radius: 8px;
+          background: #020c1b;
+          border: 1px solid rgba(255,255,255,0.1);
+          outline: none;
+        }
+      `}</style>
+
     </div>
-
   )
-
 }
