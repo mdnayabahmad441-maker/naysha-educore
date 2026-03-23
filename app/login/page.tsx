@@ -2,12 +2,15 @@
 
 import { useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
 
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
+  // ✅ FIXED FUNCTION
   const sendOTP = async () => {
 
     if (!email) {
@@ -20,7 +23,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${location.origin}/auth/callback`
+        shouldCreateUser: true
       }
     })
 
@@ -31,7 +34,8 @@ export default function LoginPage() {
       return
     }
 
-    alert("OTP sent to your email")
+    // 🔥 REDIRECT TO VERIFY PAGE
+    router.push(`/verify?email=${email}`)
   }
 
   return (
@@ -130,6 +134,5 @@ export default function LoginPage() {
       </div>
 
     </div>
-
   )
 }

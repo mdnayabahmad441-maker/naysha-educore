@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
 
 export default function Onboarding() {
 
@@ -11,9 +12,7 @@ export default function Onboarding() {
     schoolName: "",
     domain: "",
     email: "",
-    phone: "",
-    username: "",
-    pin: ""
+    phone: ""
   })
 
   const [loading, setLoading] = useState(false)
@@ -24,58 +23,49 @@ export default function Onboarding() {
 
   const createSchool = async () => {
 
-    const { schoolName, domain, email, phone, username, pin } = form
+    const { schoolName, domain, email, phone } = form
 
-    // ✅ FULL VALIDATION
-    if (!schoolName || !domain || !email || !phone || !username || !pin) {
+    if (!schoolName || !domain || !email || !phone) {
       alert("Fill all fields")
       return
     }
 
     setLoading(true)
 
-    try {
-      const res = await fetch("/api/onboarding", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(form)
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        alert(data.error || "Something went wrong")
-        return
+    // 🔥 STEP 1: SEND OTP
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true
       }
+    })
 
-      alert("School created successfully")
+    setLoading(false)
 
-      router.push("/login")
-
-    } catch (err) {
-      console.error(err)
-      alert("Server error")
-    } finally {
-      setLoading(false)
+    if (error) {
+      alert(error.message)
+      return
     }
+
+    // 🔥 STEP 2: SAVE DATA TEMPORARILY
+    localStorage.setItem("onboardingData", JSON.stringify(form))
+
+    // 🔥 STEP 3: REDIRECT TO VERIFY
+    router.push(`/verify?email=${email}&type=onboarding`)
   }
 
   return (
 
     <div className="min-h-screen flex items-center justify-center bg-[#020c1b] text-white">
 
-      <div className="bg-[#0b1a33] p-8 rounded-xl w-[420px]">
+      <div className="bg-gradient-to-br from-blue-600/40 to-blue-900/40 backdrop-blur p-8 rounded-xl w-[420px]">
 
         <h2 className="text-xl font-semibold mb-6 text-center">
           Create Your School ERP
         </h2>
 
-        {/* ✅ FIXED NAME */}
         <input
           name="schoolName"
-          value={form.schoolName}
           placeholder="School Name"
           onChange={handleChange}
           className="input"
@@ -83,7 +73,6 @@ export default function Onboarding() {
 
         <input
           name="domain"
-          value={form.domain}
           placeholder="School Domain (subdomain)"
           onChange={handleChange}
           className="input"
@@ -91,7 +80,6 @@ export default function Onboarding() {
 
         <input
           name="email"
-          value={form.email}
           placeholder="Email"
           onChange={handleChange}
           className="input"
@@ -99,40 +87,16 @@ export default function Onboarding() {
 
         <input
           name="phone"
-          value={form.phone}
           placeholder="Phone"
-          onChange={handleChange}
-          className="input"
-        />
-
-        {/* 🔥 ADMIN SECTION */}
-        <p className="text-sm text-gray-400 mt-4 mb-2">
-          Admin Login Setup
-        </p>
-
-        <input
-          name="username"
-          value={form.username}
-          placeholder="Create Username"
-          onChange={handleChange}
-          className="input"
-        />
-
-        <input
-          name="pin"
-          type="password"
-          value={form.pin}
-          placeholder="Create PIN"
           onChange={handleChange}
           className="input"
         />
 
         <button
           onClick={createSchool}
-          disabled={loading}
-          className="w-full mt-4 bg-green-600 py-3 rounded-lg hover:bg-green-700 transition"
+          className="w-full mt-4 bg-green-500 hover:bg-green-600 py-3 rounded-lg"
         >
-          {loading ? "Creating..." : "Create School"}
+          {loading ? "Sending OTP..." : "Create School"}
         </button>
 
       </div>
