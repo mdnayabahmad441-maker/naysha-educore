@@ -99,15 +99,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             Examinations
           </p>
 
-          <Link href="/admin/create-exam" className={linkStyle("/admin/create-exam")}>
+          <Link href="/admin/exams" className={linkStyle("/admin/create-exam")}>
             📝 Create Exam
           </Link>
 
-          <Link href="/admin/marks" className={linkStyle("/admin/marks")}>
+          <Link href="/admin/exams/marks" className={linkStyle("/admin/marks")}>
             ✏️ Marks Entry
           </Link>
 
-          <Link href="/admin/results" className={linkStyle("/admin/results")}>
+          <Link href="/admin/exams/results" className={linkStyle("/admin/results")}>
             📄 Results
           </Link>
 
