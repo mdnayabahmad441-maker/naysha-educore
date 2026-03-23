@@ -1,160 +1,132 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
 
 export default function LoginPage() {
 
-  const router = useRouter()
-
-  const [username, setUsername] = useState("")
-  const [pin, setPin] = useState("")
+  const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const login = async () => {
+  const sendOTP = async () => {
 
-    if (!username || !pin) {
-      alert("Enter username & PIN")
+    if (!email) {
+      alert("Enter your email")
       return
     }
 
     setLoading(true)
 
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ username, pin })
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${location.origin}/auth/callback`
+      }
     })
-
-    const data = await res.json()
 
     setLoading(false)
 
-    if (!res.ok) {
-      alert(data.error)
+    if (error) {
+      alert(error.message)
       return
     }
 
-    // ✅ Save session
-    document.cookie = `user=${JSON.stringify(data.user)}; path=/`
-
-    router.push("/admin")
+    alert("OTP sent to your email")
   }
 
   return (
 
-    <div className="min-h-screen flex bg-[#020c1b] text-white">
+    <div className="min-h-screen bg-[#020c1b] text-white">
 
-      {/* LEFT SIDE (DESIGN SAME AS BEFORE) */}
-      <div className="w-1/2 p-16 flex flex-col justify-center">
-
-        <h1 className="text-4xl font-bold mb-6">
-          Modern ERP for Schools
+      {/* HEADER */}
+      <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
+        <h1 className="text-xl md:text-2xl font-bold">
+          NaySha EduCore
         </h1>
+        <span className="text-xs md:text-sm text-gray-400">
+          Smart School ERP SaaS
+        </span>
+      </div>
 
-        <p className="text-gray-400 mb-10">
-          NaySha EduCore is a modern cloud-based school ERP platform designed to simplify school management.
-        </p>
+      {/* HERO */}
+      <div className="max-w-7xl mx-auto px-6 py-10 grid md:grid-cols-2 gap-10 items-center">
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* LEFT CONTENT */}
+        <div>
 
-          <div className="bg-[#0b1a33] p-4 rounded-lg">
-            📊 Student Management
+          <h2 className="text-3xl md:text-4xl font-bold mb-6 leading-tight">
+            Modern ERP for <br /> Smart Schools
+          </h2>
+
+          <p className="text-gray-400 mb-8 leading-relaxed">
+            NaySha EduCore is a powerful cloud-based School ERP designed to manage
+            students, teachers, attendance, exams, fees, and reports — all in one place.
+            Built for scalability, simplicity, and real-time insights.
+          </p>
+
+          {/* FEATURES */}
+          <div className="grid grid-cols-2 gap-4 text-sm">
+
+            {[
+              "📚 Student Management",
+              "🧑‍🏫 Teacher Management",
+              "📊 Analytics Dashboard",
+              "📝 Exams & Results",
+              "💰 Fees & Payments",
+              "📅 Attendance Tracking"
+            ].map((item, i) => (
+              <div
+                key={i}
+                className="bg-white/10 border border-white/10 backdrop-blur rounded-xl p-4"
+              >
+                {item}
+              </div>
+            ))}
+
           </div>
 
-          <div className="bg-[#0b1a33] p-4 rounded-lg">
-            👨‍🏫 Teacher Management
-          </div>
+        </div>
 
-          <div className="bg-[#0b1a33] p-4 rounded-lg">
-            📝 Exams & Report Cards
-          </div>
+        {/* LOGIN CARD */}
+        <div className="w-full max-w-md mx-auto">
 
-          <div className="bg-[#0b1a33] p-4 rounded-lg">
-            💰 Fees & Payments
-          </div>
+          <div className="bg-white/10 border border-white/20 backdrop-blur rounded-xl p-6 md:p-8">
 
-          <div className="bg-[#0b1a33] p-4 rounded-lg">
-            📈 Analytics Dashboard
-          </div>
+            <h3 className="text-xl font-semibold mb-6 text-center">
+              Login with Email OTP
+            </h3>
 
-          <div className="bg-[#0b1a33] p-4 rounded-lg">
-            📅 Attendance Tracking
+            <input
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 mb-4 rounded bg-slate-800 border border-white/20 outline-none"
+            />
+
+            <button
+              onClick={sendOTP}
+              className="w-full bg-blue-600 hover:bg-blue-700 transition p-3 rounded"
+            >
+              {loading ? "Sending OTP..." : "Send OTP"}
+            </button>
+
+            {/* CREATE SCHOOL */}
+            <p className="text-gray-400 text-sm mt-4 text-center">
+              New school?
+              <a href="/onboarding" className="text-blue-400 ml-1 hover:underline">
+                Create School
+              </a>
+            </p>
+
           </div>
 
         </div>
 
       </div>
 
-      {/* RIGHT SIDE (LOGIN CARD) */}
-      <div className="w-1/2 flex items-center justify-center">
-
-        <div className="bg-[#0b1a33] p-8 rounded-xl w-[400px]">
-
-          <h2 className="text-xl font-semibold mb-6 text-center">
-            Login to Your School ERP
-          </h2>
-
-          {/* USERNAME */}
-          <input
-            placeholder="Username"
-            value={username}
-            onChange={(e)=>setUsername(e.target.value)}
-            className="w-full mb-4 px-4 py-3 rounded-lg bg-[#020c1b] border border-white/10 outline-none"
-          />
-
-          {/* PIN */}
-          <input
-            type="password"
-            placeholder="PIN"
-            value={pin}
-            onChange={(e)=>setPin(e.target.value)}
-            className="w-full mb-4 px-4 py-3 rounded-lg bg-[#020c1b] border border-white/10 outline-none"
-          />
-
-          {/* LOGIN BUTTON */}
-          <button
-            onClick={login}
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg"
-          >
-            {loading ? "Logging in..." : "Login"}
-          </button>
-
-          {/* LINKS */}
-          <div className="text-center mt-4 text-sm text-gray-400">
-
-            {/* ✅ FIXED CLICKABLE VERIFY */}
-            <p>
-              First time?{" "}
-              <a
-                href="/verify"
-                className="text-blue-400 hover:underline"
-              >
-                Verify email to setup
-              </a>
-            </p>
-
-          </div>
-
-          {/* DIVIDER */}
-          <div className="flex items-center my-6 text-gray-500 text-sm">
-            <div className="flex-1 h-px bg-white/10"></div>
-            <span className="px-3">OR</span>
-            <div className="flex-1 h-px bg-white/10"></div>
-          </div>
-
-          {/* ✅ CREATE SCHOOL BUTTON */}
-          <a href="/onboarding">
-            <button className="w-full border border-white/20 py-3 rounded-lg hover:bg-white/10">
-              Create New School
-            </button>
-          </a>
-
-        </div>
-
+      {/* FOOTER */}
+      <div className="text-center text-gray-500 text-xs md:text-sm pb-6">
+        © {new Date().getFullYear()} NaySha EduCore • Built for modern schools
       </div>
 
     </div>

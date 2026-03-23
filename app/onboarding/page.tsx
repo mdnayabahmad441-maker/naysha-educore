@@ -8,7 +8,7 @@ export default function Onboarding() {
   const router = useRouter()
 
   const [form, setForm] = useState({
-    school_name: "",
+    schoolName: "",
     domain: "",
     email: "",
     phone: "",
@@ -18,41 +18,48 @@ export default function Onboarding() {
 
   const [loading, setLoading] = useState(false)
 
-  const handleChange = (e:any) => {
+  const handleChange = (e: any) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
   const createSchool = async () => {
 
-    const { school_name, domain, email, username, pin } = form
+    const { schoolName, domain, email, phone, username, pin } = form
 
-    if (!school_name || !domain || !email || !username || !pin) {
+    // ✅ FULL VALIDATION
+    if (!schoolName || !domain || !email || !phone || !username || !pin) {
       alert("Fill all fields")
       return
     }
 
     setLoading(true)
 
-    const res = await fetch("/api/onboarding", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(form)
-    })
+    try {
+      const res = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(form)
+      })
 
-    const data = await res.json()
+      const data = await res.json()
 
-    setLoading(false)
+      if (!res.ok) {
+        alert(data.error || "Something went wrong")
+        return
+      }
 
-    if (!res.ok) {
-      alert(data.error)
-      return
+      alert("School created successfully")
+
+      router.push("/login")
+
+    } catch (err) {
+      console.error(err)
+      alert("Server error")
+    } finally {
+      setLoading(false)
     }
-
-    alert("School created successfully")
-
-    router.push("/login")
   }
 
   return (
@@ -65,38 +72,65 @@ export default function Onboarding() {
           Create Your School ERP
         </h2>
 
-        <input name="school_name" placeholder="School Name"
+        {/* ✅ FIXED NAME */}
+        <input
+          name="schoolName"
+          value={form.schoolName}
+          placeholder="School Name"
           onChange={handleChange}
-          className="input" />
+          className="input"
+        />
 
-        <input name="domain" placeholder="School Domain (subdomain)"
+        <input
+          name="domain"
+          value={form.domain}
+          placeholder="School Domain (subdomain)"
           onChange={handleChange}
-          className="input" />
+          className="input"
+        />
 
-        <input name="email" placeholder="Email"
+        <input
+          name="email"
+          value={form.email}
+          placeholder="Email"
           onChange={handleChange}
-          className="input" />
+          className="input"
+        />
 
-        <input name="phone" placeholder="Phone"
+        <input
+          name="phone"
+          value={form.phone}
+          placeholder="Phone"
           onChange={handleChange}
-          className="input" />
+          className="input"
+        />
 
-        {/* 🔥 NEW SECTION */}
+        {/* 🔥 ADMIN SECTION */}
         <p className="text-sm text-gray-400 mt-4 mb-2">
           Admin Login Setup
         </p>
 
-        <input name="username" placeholder="Create Username"
+        <input
+          name="username"
+          value={form.username}
+          placeholder="Create Username"
           onChange={handleChange}
-          className="input" />
+          className="input"
+        />
 
-        <input name="pin" type="password" placeholder="Create PIN"
+        <input
+          name="pin"
+          type="password"
+          value={form.pin}
+          placeholder="Create PIN"
           onChange={handleChange}
-          className="input" />
+          className="input"
+        />
 
         <button
           onClick={createSchool}
-          className="w-full mt-4 bg-green-600 py-3 rounded-lg"
+          disabled={loading}
+          className="w-full mt-4 bg-green-600 py-3 rounded-lg hover:bg-green-700 transition"
         >
           {loading ? "Creating..." : "Create School"}
         </button>
