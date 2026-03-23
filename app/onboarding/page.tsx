@@ -25,6 +25,7 @@ export default function Onboarding() {
 
     const { schoolName, domain, email, phone } = form
 
+    // ✅ VALIDATION
     if (!schoolName || !domain || !email || !phone) {
       alert("Fill all fields")
       return
@@ -32,7 +33,7 @@ export default function Onboarding() {
 
     setLoading(true)
 
-    // 🔥 STEP 1: SEND OTP
+    // 🔥 SEND OTP
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -47,10 +48,10 @@ export default function Onboarding() {
       return
     }
 
-    // 🔥 STEP 2: SAVE DATA TEMPORARILY
+    // 🔥 STORE DATA TEMPORARILY
     localStorage.setItem("onboardingData", JSON.stringify(form))
 
-    // 🔥 STEP 3: REDIRECT TO VERIFY
+    // 🔥 IMPORTANT FIX (type=onboarding)
     router.push(`/verify?email=${email}&type=onboarding`)
   }
 
