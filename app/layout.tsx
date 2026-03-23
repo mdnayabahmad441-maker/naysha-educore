@@ -1,4 +1,5 @@
 import "./globals.css"
+import { SchoolProvider } from "@/context/SchoolContext"
 
 export const metadata = {
   title: "NaySha EduCore ERP",
@@ -10,10 +11,18 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+
   return (
     <html lang="en">
-      <body>
-        {children}
+      <body className="bg-[#020817] text-white">
+
+        {/* 🌍 GLOBAL SCHOOL CONTEXT */}
+        <SchoolProvider>
+
+          {children}
+
+        </SchoolProvider>
+
       </body>
     </html>
   )

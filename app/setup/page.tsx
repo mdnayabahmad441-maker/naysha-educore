@@ -1,9 +1,11 @@
 "use client"
 
 import { useState } from "react"
+import { supabase } from "@/lib/supabase"
+import { hashPin } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 
-export default function LoginPage(){
+export default function SetupPage(){
 
   const router = useRouter()
 
@@ -11,32 +13,34 @@ export default function LoginPage(){
   const [pin,setPin] = useState("")
   const [loading,setLoading] = useState(false)
 
-  const login = async ()=>{
+  const setup = async ()=>{
 
-    if(!username || !pin){
-      alert("Enter username and pin")
+    const { data:userData } = await supabase.auth.getUser()
+
+    const user = userData.user
+
+    if(!user){
+      alert("Login first")
       return
     }
 
     setLoading(true)
 
-    const res = await fetch("/api/login",{
-      method:"POST",
-      body:JSON.stringify({ username, pin })
-    })
+    const hashed = await hashPin(pin)
 
-    const data = await res.json()
+    await supabase.from("admin_users").insert([
+      {
+        id:user.id,
+        email:user.email,
+        username,
+        pin:hashed,
+        school_id:null // you can attach later
+      }
+    ])
 
-    if(data.error){
-      alert(data.error)
-      setLoading(false)
-      return
-    }
+    alert("Setup complete")
 
-    // SAVE SESSION
-    localStorage.setItem("user", JSON.stringify(data.user))
-
-    router.push("/admin")
+    router.push("/login")
   }
 
   return(
@@ -45,7 +49,7 @@ export default function LoginPage(){
 
       <div className="bg-white/10 p-8 rounded-xl w-96 space-y-4">
 
-        <h1 className="text-xl">Login</h1>
+        <h1 className="text-xl">Setup Account</h1>
 
         <input
           placeholder="Username"
@@ -56,22 +60,18 @@ export default function LoginPage(){
 
         <input
           type="password"
-          placeholder="PIN"
+          placeholder="Set PIN"
           value={pin}
           onChange={(e)=>setPin(e.target.value)}
           className="w-full p-3 bg-[#0b1220] rounded"
         />
 
         <button
-          onClick={login}
-          className="w-full bg-blue-600 p-3 rounded"
+          onClick={setup}
+          className="w-full bg-green-600 p-3 rounded"
         >
-          {loading ? "Logging..." : "Login"}
+          {loading ? "Saving..." : "Save"}
         </button>
-
-        <p className="text-sm text-gray-400">
-          First time? Verify email to setup
-        </p>
 
       </div>
 

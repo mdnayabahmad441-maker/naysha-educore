@@ -4,13 +4,17 @@ import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { useSchool } from "@/context/SchoolContext"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
 
   const router = useRouter()
   const pathname = usePathname()
+  const school = useSchool()
+
   const [loading, setLoading] = useState(true)
 
+  // 🔐 AUTH CHECK
   useEffect(() => {
 
     const checkAuth = async () => {
@@ -29,24 +33,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   }, [])
 
+  // 🔓 LOGOUT
   const logout = async () => {
     await supabase.auth.signOut()
     router.push("/login")
   }
 
-  if (loading) {
+  if (loading || !school) {
     return (
-      <div className="p-10 text-white bg-[#020c1b] min-h-screen">
-        Checking authentication...
+      <div className="p-10 text-white bg-[#020c1b] min-h-screen flex items-center justify-center">
+        Loading...
       </div>
     )
   }
 
-  const linkStyle = (path:string) =>
-    `flex items-center gap-3 px-3 py-2 rounded-md transition
-     ${pathname === path
+  // 🔥 ACTIVE LINK FIX (works for nested routes)
+  const linkStyle = (path: string) =>
+    `flex items-center gap-3 px-3 py-2 rounded-md transition ${
+      pathname.startsWith(path)
         ? "bg-blue-600 text-white"
-        : "text-gray-300 hover:bg-white/10 hover:text-white"}`
+        : "text-gray-300 hover:bg-white/10 hover:text-white"
+    }`
 
   return (
 
@@ -55,8 +62,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* SIDEBAR */}
       <aside className="w-64 bg-[#0b1a33] border-r border-white/10 p-6 flex flex-col">
 
+        {/* 🔥 SCHOOL NAME DYNAMIC */}
         <h1 className="text-xl font-bold mb-8">
-          NaySha EduCore
+          {school?.name || "NaySha EduCore"}
         </h1>
 
         <nav className="flex flex-col gap-1 text-sm">
@@ -65,6 +73,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📊 Dashboard
           </Link>
 
+          {/* ACADEMICS */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
             Academics
           </p>
@@ -85,7 +94,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📚 Subjects
           </Link>
 
-
+          {/* ATTENDANCE */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
             Attendance
           </p>
@@ -94,24 +103,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📅 Attendance
           </Link>
 
-
+          {/* EXAMS */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
             Examinations
           </p>
 
-          <Link href="/admin/exams" className={linkStyle("/admin/create-exam")}>
+          {/* ✅ FIXED ROUTES */}
+          <Link href="/admin/exams/create" className={linkStyle("/admin/exams/create")}>
             📝 Create Exam
           </Link>
 
-          <Link href="/admin/exams/marks" className={linkStyle("/admin/marks")}>
+          <Link href="/admin/exams/marks" className={linkStyle("/admin/exams/marks")}>
             ✏️ Marks Entry
           </Link>
 
-          <Link href="/admin/exams/results" className={linkStyle("/admin/results")}>
+          <Link href="/admin/exams/result" className={linkStyle("/admin/exams/result")}>
             📄 Results
           </Link>
 
-
+          {/* FINANCE */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
             Finance
           </p>
@@ -136,16 +146,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       </aside>
 
-
       {/* MAIN AREA */}
       <div className="flex-1 flex flex-col">
 
         {/* TOPBAR */}
         <header className="flex justify-between items-center px-8 py-4 bg-[#0b1a33] border-b border-white/10">
 
-          <h2 className="text-lg font-semibold">
-            Admin Panel
-          </h2>
+          <div>
+            <h2 className="text-lg font-semibold">
+              Admin Panel
+            </h2>
+
+            {/* 🔥 SHOW TENANT */}
+            <p className="text-xs text-gray-400">
+              {school?.subdomain}.naysha.online
+            </p>
+          </div>
 
           <button
             onClick={logout}
@@ -156,8 +172,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         </header>
 
-
-        {/* PAGE CONTENT */}
+        {/* CONTENT */}
         <main className="flex-1 p-10">
           {children}
         </main>
@@ -165,6 +180,5 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
 
     </div>
-
   )
 }
