@@ -10,7 +10,6 @@ export default function VerifyClient() {
   const params = useSearchParams()
 
   const email = params.get("email") || ""
-  const type = params.get("type") || "login"
 
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
@@ -30,27 +29,54 @@ export default function VerifyClient() {
       type: "email"
     })
 
-    setLoading(false)
-
     if (error) {
+      setLoading(false)
       alert(error.message)
       return
     }
 
-    // 🔥 IMPORTANT LOGIC
-    if (type === "onboarding") {
+    // 🔥 CHECK ONBOARDING DATA
+    const stored = localStorage.getItem("onboardingData")
+
+    if (stored) {
+
+      const data = JSON.parse(stored)
+
+      console.log("Creating school:", data)
+
+      const { error: dbError } = await supabase
+        .from("schools")
+        .insert({
+          name: data.schoolName,
+          domain: data.domain,
+          email: data.email,
+          phone: data.phone
+        })
+
+      if (dbError) {
+        setLoading(false)
+        alert(dbError.message)
+        return
+      }
+
+      localStorage.removeItem("onboardingData")
+
+      alert("School created successfully")
+
       router.push("/login")
-    } else {
-      router.push("/admin")
+      return
     }
+
+    // 🔥 NORMAL LOGIN
+    router.push("/admin")
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#020c1b]">
+    <div className="min-h-screen flex items-center justify-center bg-[#020c1b] text-white">
 
       <div className="bg-gradient-to-br from-blue-700 to-indigo-900 p-8 rounded-xl w-[380px]">
 
-        <h2 className="text-white text-xl mb-6 text-center">
+        <h2 className="text-xl mb-6 text-center">
           Enter OTP
         </h2>
 
@@ -58,17 +84,18 @@ export default function VerifyClient() {
           placeholder="OTP Code"
           value={otp}
           onChange={(e)=>setOtp(e.target.value)}
-          className="w-full p-3 mb-4 rounded bg-gray-200"
+          className="w-full p-3 mb-4 rounded bg-gray-200 text-black"
         />
 
         <button
           onClick={verify}
-          className="w-full bg-green-500 p-3 rounded text-white"
+          className="w-full bg-green-500 p-3 rounded"
         >
           {loading ? "Verifying..." : "Verify"}
         </button>
 
       </div>
+
     </div>
   )
 }
