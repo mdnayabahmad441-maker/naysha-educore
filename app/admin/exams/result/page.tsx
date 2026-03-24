@@ -13,8 +13,7 @@ export default function ResultPage(){
 
   const [students,setStudents] = useState<any[]>([])
   const [subjects,setSubjects] = useState<any[]>([])
-  const [marks,setMarks] = useState<any[]>([])
-
+  const [marksMap,setMarksMap] = useState<any>({})
   const [results,setResults] = useState<any[]>([])
 
   // INIT
@@ -26,27 +25,19 @@ export default function ResultPage(){
     init()
   },[])
 
-  // LOAD EXAMS (ONLY PUBLISHED)
+  // LOAD PUBLISHED EXAMS
   useEffect(()=>{
     if(!schoolId) return
 
     const load = async ()=>{
 
       const { data } = await supabase
-        .from("results")
-        .select("exam_id")
-
-      if(!data) return
-
-      const examIds = data.map(r=>r.exam_id)
-
-      const { data:examData } = await supabase
         .from("exams")
         .select("*")
-        .in("id", examIds)
         .eq("school_id", schoolId)
+        .eq("is_published", true)
 
-      setExams(examData || [])
+      setExams(data || [])
     }
 
     load()
@@ -57,11 +48,12 @@ export default function ResultPage(){
 
     setSelectedExam(exam)
 
-    let class_id = exam.class_id
-
     if(exam.is_all_classes){
-      return alert("Use report card system for all classes")
+      alert("Use report card page for all classes")
+      return
     }
+
+    const class_id = exam.class_id
 
     // STUDENTS
     const { data:studentsData } = await supabase
@@ -72,85 +64,48 @@ export default function ResultPage(){
 
     setStudents(studentsData || [])
 
-    // SUBJECTS
+    // ✅ SUBJECTS (CLASS BASED)
     const { data:subjectData } = await supabase
-      .from("subjects")
-      .select("*")
-      .eq("school_id", schoolId)
+      .from("class_subjects")
+      .select("subjects(*)")
+      .eq("class_id", class_id)
 
-    setSubjects(subjectData || [])
+    const formattedSubjects = subjectData?.map((s:any)=>s.subjects) || []
+    setSubjects(formattedSubjects)
 
     // MARKS
     const { data:marksData } = await supabase
       .from("marks")
       .select("*")
       .eq("exam_id", exam.id)
+      .eq("school_id", schoolId)
 
-    setMarks(marksData || [])
+    // ✅ FAST LOOKUP MAP
+    const map:any = {}
 
-    calculateResults(studentsData || [], subjectData || [], marksData || [])
-  }
-
-  // CALCULATE RESULT
-  const calculateResults = (students:any[], subjects:any[], marks:any[])=>{
-
-    const res:any[] = []
-
-    students.forEach(s=>{
-
-      let total = 0
-      let obtained = 0
-      let fail = false
-
-      const subjectMarks:any = {}
-
-      subjects.forEach(sub=>{
-
-        const m = marks.find(
-          (mk)=>mk.student_id===s.id && mk.subject_id===sub.id
-        )
-
-        const val = m?.marks_obtained || 0
-
-        subjectMarks[sub.name] = val
-
-        obtained += val
-        total += 100
-
-        if(val < 33){
-          fail = true
-        }
-
-      })
-
-      const percent = Math.round((obtained/total)*100)
-
-      res.push({
-        student: s.name,
-        subjectMarks,
-        obtained,
-        percent,
-        status: fail ? "Fail" : "Pass"
-      })
-
+    marksData?.forEach((m:any)=>{
+      map[`${m.student_id}_${m.subject_id}`] = m.marks_obtained
     })
 
-    // RANK
-    res.sort((a,b)=>b.obtained - a.obtained)
+    setMarksMap(map)
 
-    res.forEach((r,i)=>{
-      r.rank = i + 1
-    })
+    // RESULTS (FROM DB)
+    const { data:resultData } = await supabase
+      .from("results")
+      .select("*")
+      .eq("exam_id", exam.id)
+      .eq("school_id", schoolId)
+      .order("rank")
 
-    setResults(res)
+    setResults(resultData || [])
   }
 
   // COLOR LOGIC
   const getColor = (p:number)=>{
-    if(p < 33) return "bg-red-800"
-    if(p <= 60) return "bg-yellow-500"
-    if(p <= 80) return "bg-green-400"
-    return "bg-green-700"
+    if(p < 33) return "bg-red-900"
+    if(p <= 60) return "bg-yellow-600"
+    if(p <= 80) return "bg-green-500"
+    return "bg-green-800"
   }
 
   return(
@@ -178,11 +133,12 @@ export default function ResultPage(){
 
         <div className="overflow-auto">
 
-          <table className="min-w-full border border-white/20">
+          <table className="min-w-full border border-white/20 text-sm">
 
             <thead>
               <tr>
 
+                <th className="border p-2">Rank</th>
                 <th className="border p-2">Student</th>
 
                 {subjects.map(s=>(
@@ -193,32 +149,49 @@ export default function ResultPage(){
 
                 <th className="border p-2">Total</th>
                 <th className="border p-2">%</th>
-                <th className="border p-2">Rank</th>
-                <th className="border p-2">Status</th>
+                <th className="border p-2">Grade</th>
 
               </tr>
             </thead>
 
             <tbody>
 
-              {results.map((r,i)=>(
-                <tr key={i} className={getColor(r.percent)}>
+              {results.map((r:any)=>{
 
-                  <td className="border p-2">{r.student}</td>
+                const student = students.find(s=>s.id === r.student_id)
 
-                  {subjects.map(s=>(
-                    <td key={s.id} className="border p-2">
-                      {r.subjectMarks[s.name]}
+                return(
+                  <tr key={r.id} className={getColor(r.percentage)}>
+
+                    <td className="border p-2">
+                      {r.rank === 1 ? "🥇" :
+                       r.rank === 2 ? "🥈" :
+                       r.rank === 3 ? "🥉" :
+                       r.rank}
                     </td>
-                  ))}
 
-                  <td className="border p-2">{r.obtained}</td>
-                  <td className="border p-2">{r.percent}%</td>
-                  <td className="border p-2">{r.rank}</td>
-                  <td className="border p-2">{r.status}</td>
+                    <td className="border p-2">
+                      {student?.name}
+                    </td>
 
-                </tr>
-              ))}
+                    {subjects.map(sub=>{
+
+                      const val = marksMap[`${student?.id}_${sub.id}`] || "-"
+
+                      return(
+                        <td key={sub.id} className="border p-2">
+                          {val}
+                        </td>
+                      )
+                    })}
+
+                    <td className="border p-2">{r.total}</td>
+                    <td className="border p-2">{r.percentage.toFixed(1)}%</td>
+                    <td className="border p-2">{r.grade}</td>
+
+                  </tr>
+                )
+              })}
 
             </tbody>
 
