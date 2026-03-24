@@ -1,56 +1,28 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
-import { getSchoolId } from "@/lib/school"
 import StudentForm from "@/components/students/StudentForm"
+import { dbGet } from "@/lib/db"
 
 export default function StudentsPage(){
 
   const [students,setStudents] = useState<any[]>([])
-  const [schoolId,setSchoolId] = useState<string | null>(null)
+  const [loading,setLoading] = useState(true)
 
-  // ✅ GET SCHOOL ID ONCE
-  useEffect(()=>{
-    const init = async () => {
-      const id = await getSchoolId()
-      console.log("School ID:", id)
-      setSchoolId(id)
-    }
-    init()
-  },[])
-
-  // ✅ LOAD STUDENTS
+  // LOAD STUDENTS (MULTI-TENANT SAFE)
   const loadStudents = async () => {
 
-    if(!schoolId){
-      console.log("No schoolId yet")
-      return
-    }
+    setLoading(true)
 
-    console.log("Fetching for school:", schoolId)
-
-    const { data, error } = await supabase
-      .from("students")
-      .select("*")
-      .eq("school_id", schoolId)
-
-    if(error){
-      console.error("Fetch error:", error)
-      return
-    }
-
-    console.log("Fetched students:", data)
-
+    const data = await dbGet("students")
     setStudents(data || [])
+
+    setLoading(false)
   }
 
-  // ✅ RUN AFTER SCHOOL ID SET
   useEffect(()=>{
-    if(schoolId){
-      loadStudents()
-    }
-  },[schoolId])
+    loadStudents()
+  },[])
 
   return(
 
@@ -79,7 +51,13 @@ export default function StudentsPage(){
 
           <tbody>
 
-            {students.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={2} className="p-4 text-center text-gray-400">
+                  Loading...
+                </td>
+              </tr>
+            ) : students.length === 0 ? (
               <tr>
                 <td colSpan={2} className="p-4 text-center text-gray-400">
                   No students found

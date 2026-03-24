@@ -4,17 +4,18 @@ import { useEffect, useState } from "react"
 import Card from "@/components/ui/Card"
 import Input from "@/components/ui/Input"
 import Button from "@/components/ui/Button"
-import { createSubject, getSubjects } from "@/services/subjects.service"
+import { dbGet, dbInsert } from "@/lib/db"
 
 export default function SubjectsPage() {
 
   const [subjects,setSubjects] = useState<any[]>([])
   const [name,setName] = useState("")
 
+  // LOAD SUBJECTS (MULTI-TENANT SAFE)
   const load = async () => {
 
-    const data = await getSubjects()
-    setSubjects(data)
+    const data = await dbGet("subjects")
+    setSubjects(data || [])
 
   }
 
@@ -22,11 +23,12 @@ export default function SubjectsPage() {
     load()
   },[])
 
+  // ADD SUBJECT
   const submit = async () => {
 
     if(!name) return
 
-    await createSubject({
+    await dbInsert("subjects", {
       id: crypto.randomUUID(),
       name
     })
@@ -52,7 +54,7 @@ export default function SubjectsPage() {
             onChange={(e)=>setName(e.target.value)}
           />
 
-          <Button color="green" onClick={submit}>
+          <Button onClick={submit}>
             Save
           </Button>
 
@@ -64,7 +66,7 @@ export default function SubjectsPage() {
 
             <thead>
               <tr>
-                <th className="border p-2">Subject</th>
+                <th className="border p-2 text-left">Subject</th>
               </tr>
             </thead>
 

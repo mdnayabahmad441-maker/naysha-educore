@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { getSchoolId } from "@/lib/school"
+import { dbGet, dbInsert } from "@/lib/db"
 
 export default function StudentForm({ reload }: any){
 
@@ -18,56 +18,29 @@ export default function StudentForm({ reload }: any){
   const [selectedClass,setSelectedClass] = useState("")
   const [selectedSection,setSelectedSection] = useState("")
 
-  const [schoolId,setSchoolId] = useState<string | null>(null)
   const [loading,setLoading] = useState(false)
 
-  // ✅ GET SCHOOL
+  // ✅ LOAD CLASSES + SECTIONS (AUTO MULTI-TENANT)
   useEffect(()=>{
-    const init = async ()=>{
-      const id = await getSchoolId()
-      setSchoolId(id)
+    const load = async ()=>{
+      const cls = await dbGet("classes")
+      const sec = await dbGet("sections")
+
+      setClasses(cls || [])
+      setSections(sec || [])
     }
-    init()
+
+    load()
   },[])
-
-  // ✅ LOAD DATA
-  useEffect(()=>{
-    if(!schoolId) return
-    loadClasses()
-    loadSections()
-  },[schoolId])
-
-  const loadClasses = async ()=>{
-    const { data } = await supabase
-      .from("classes")
-      .select("*")
-      .eq("school_id", schoolId)
-
-    setClasses(data || [])
-  }
-
-  const loadSections = async ()=>{
-    const { data } = await supabase
-      .from("sections")
-      .select("*")
-      .eq("school_id", schoolId)
-
-    setSections(data || [])
-  }
 
   const filteredSections = sections.filter(
     (s)=>s.class_id === selectedClass
   )
 
-  // ✅ SAVE STUDENT (FINAL FIXED)
+  // ✅ SAVE STUDENT (CLEAN + SAFE)
   const save = async ()=>{
 
     try{
-
-      if(!schoolId){
-        alert("School not found")
-        return
-      }
 
       if(!name || !email || !selectedClass || !selectedSection){
         alert("Fill all fields")
@@ -78,7 +51,7 @@ export default function StudentForm({ reload }: any){
 
       let photoUrl = ""
 
-      // 🔥 UPLOAD IMAGE
+      // 🔥 IMAGE UPLOAD (KEEP SUPABASE DIRECT)
       if(photo){
         const fileName = `${Date.now()}-${photo.name}`
 
@@ -89,34 +62,22 @@ export default function StudentForm({ reload }: any){
         if(uploadError){
           console.error(uploadError)
           alert("Image upload failed")
-          setLoading(false)
           return
         }
 
         photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/students/${fileName}`
       }
 
-      // 🔥 INSERT
-      const { error } = await supabase
-        .from("students")
-        .insert([
-          {
-            id: crypto.randomUUID(),
-            name: name.trim(),
-            email: email.trim(),
-            roll_number: roll,
-            class_id: selectedClass,
-            section_id: selectedSection,
-            school_id: schoolId,
-            photo: photoUrl
-          }
-        ])
-
-      if(error){
-        console.error(error)
-        alert(error.message)
-        return
-      }
+      // 🔥 INSERT (AUTO SCHOOL_ID)
+      await dbInsert("students", {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        email: email.trim(),
+        roll_number: roll,
+        class_id: selectedClass,
+        section_id: selectedSection,
+        photo: photoUrl
+      })
 
       // RESET
       setName("")
@@ -144,7 +105,7 @@ export default function StudentForm({ reload }: any){
         placeholder="Student Name"
         value={name}
         onChange={(e)=>setName(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400"
       />
 
       {/* EMAIL */}
@@ -152,7 +113,7 @@ export default function StudentForm({ reload }: any){
         placeholder="Email"
         value={email}
         onChange={(e)=>setEmail(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400"
       />
 
       {/* ROLL */}
@@ -160,7 +121,7 @@ export default function StudentForm({ reload }: any){
         placeholder="Roll Number"
         value={roll}
         onChange={(e)=>setRoll(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400"
       />
 
       {/* PHOTO */}

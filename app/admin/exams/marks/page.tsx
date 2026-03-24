@@ -19,6 +19,7 @@ export default function MarksPage(){
 
   const [marks,setMarks] = useState<any>({})
 
+  // INIT
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -27,37 +28,29 @@ export default function MarksPage(){
     init()
   },[])
 
+  // LOAD EXAMS
   useEffect(()=>{
     if(!schoolId) return
 
-    const load = async ()=>{
-      const { data } = await supabase
-        .from("exams")
-        .select("*")
-        .eq("school_id", schoolId)
-
-      setExams(data || [])
-    }
-
-    load()
+    supabase
+      .from("exams")
+      .select("*")
+      .eq("school_id", schoolId)
+      .then(({data})=>setExams(data || []))
   },[schoolId])
 
+  // LOAD CLASSES
   useEffect(()=>{
     if(!schoolId) return
 
-    const load = async ()=>{
-      const { data } = await supabase
-        .from("classes")
-        .select("*")
-        .eq("school_id", schoolId)
-
-      setClasses(data || [])
-    }
-
-    load()
+    supabase
+      .from("classes")
+      .select("*")
+      .eq("school_id", schoolId)
+      .then(({data})=>setClasses(data || []))
   },[schoolId])
 
-  // 🔥 LOAD DATA
+  // LOAD DATA
   const loadData = async (exam:any, classId?:string)=>{
 
     let class_id = exam.class_id
@@ -77,17 +70,17 @@ export default function MarksPage(){
 
     setStudents(studentsData || [])
 
-    // ✅ FIXED SUBJECTS (CLASS BASED)
+    // 🔥 SUBJECTS FROM EXAM
     const { data:subjectData } = await supabase
-      .from("class_subjects")
+      .from("exam_subjects")
       .select("subjects(*)")
-      .eq("class_id", class_id)
+      .eq("exam_id", exam.id)
 
     const formatted = subjectData?.map((s:any)=>s.subjects) || []
     setSubjects(formatted)
   }
 
-  const handleExamChange = async (id:string)=>{
+  const handleExamChange = (id:string)=>{
     const exam = exams.find(e=>e.id === id)
     setSelectedExam(exam)
     setStudents([])
@@ -99,7 +92,7 @@ export default function MarksPage(){
     }
   }
 
-  const handleClassChange = async (classId:string)=>{
+  const handleClassChange = (classId:string)=>{
     setSelectedClass(classId)
     loadData(selectedExam, classId)
   }
@@ -111,15 +104,16 @@ export default function MarksPage(){
     }))
   }
 
-  // 🔥 GRADE
   const getGrade = (p:number)=>{
-    if(p>=80) return "A"
+    if(p>=90) return "A+"
+    if(p>=75) return "A"
     if(p>=60) return "B"
-    if(p>=40) return "C"
+    if(p>=50) return "C"
+    if(p>=33) return "D"
     return "F"
   }
 
-  // 🔥 SAVE (UPSERT)
+  // SAVE
   const saveMarks = async ()=>{
 
     if(!selectedExam) return
@@ -146,7 +140,7 @@ export default function MarksPage(){
     }
 
     if(rows.length === 0){
-      alert("Enter marks first")
+      alert("Enter marks")
       return
     }
 
@@ -155,115 +149,89 @@ export default function MarksPage(){
     alert("Marks saved ✅")
   }
 
-  // 🔥 PUBLISH WITH RANKING
-  const publishResult = async () => {
+  // PUBLISH
+  const publishResult = async ()=>{
 
-  if (!selectedExam) return
+    if(!selectedExam) return
 
-  // GET MARKS
-  const { data: marksData } = await supabase
-    .from("marks")
-    .select("*")
-    .eq("exam_id", selectedExam.id)
-    .eq("school_id", schoolId)
+    const { data } = await supabase
+      .from("marks")
+      .select("*")
+      .eq("exam_id", selectedExam.id)
+      .eq("school_id", schoolId)
 
-  if (!marksData || marksData.length === 0) {
-    alert("No marks found")
-    return
+    if(!data) return
+
+    const grouped:any = {}
+
+    data.forEach((m:any)=>{
+      if(!grouped[m.student_id]){
+        grouped[m.student_id] = { total:0, subjects:0, fail:false }
+      }
+
+      grouped[m.student_id].total += m.marks_obtained
+      grouped[m.student_id].subjects += 1
+
+      if(m.marks_obtained < 33){
+        grouped[m.student_id].fail = true
+      }
+    })
+
+    let results = Object.entries(grouped).map(([student_id,val]:any)=>{
+
+      const percentage = (val.total/(val.subjects*100))*100
+
+      return {
+        id: crypto.randomUUID(),
+        school_id: schoolId,
+        exam_id: selectedExam.id,
+        student_id,
+        total: val.total,
+        percentage,
+        status: val.fail ? "FAIL":"PASS",
+        grade: getGrade(percentage)
+      }
+    })
+
+    results.sort((a,b)=>b.total - a.total)
+
+    results = results.map((r,i)=>({
+      ...r,
+      rank: i+1
+    }))
+
+    await supabase.from("results").upsert(results)
+
+    await supabase
+      .from("exams")
+      .update({ is_published: true })
+      .eq("id", selectedExam.id)
+
+    alert("Result Published 🚀")
   }
 
-  // GROUP BY STUDENT
-  const grouped: any = {}
-
-  marksData.forEach((m: any) => {
-    if (!grouped[m.student_id]) {
-      grouped[m.student_id] = {
-        total: 0,
-        subjects: 0,
-        fail: false
-      }
-    }
-
-    grouped[m.student_id].total += m.marks_obtained
-    grouped[m.student_id].subjects += 1
-
-    if (m.marks_obtained < 33) {
-      grouped[m.student_id].fail = true
-    }
-  })
-
-  // CONVERT TO ARRAY
-  let results = Object.entries(grouped).map(([student_id, val]: any) => {
-
-    const percentage = (val.total / (val.subjects * 100)) * 100
-
-    let grade = "F"
-
-    if (percentage >= 90) grade = "A+"
-    else if (percentage >= 75) grade = "A"
-    else if (percentage >= 60) grade = "B"
-    else if (percentage >= 50) grade = "C"
-    else if (percentage >= 33) grade = "D"
-
-    return {
-      id: crypto.randomUUID(),
-      school_id: schoolId,
-      exam_id: selectedExam.id,
-      student_id,
-      total: val.total,
-      percentage,
-      status: val.fail ? "FAIL" : "PASS",
-      grade
-    }
-  })
-
-  // SORT FOR RANK
-  results.sort((a, b) => b.total - a.total)
-
-  results = results.map((r, i) => ({
-    ...r,
-    rank: i + 1
-  }))
-
-  // SAVE TO DB
-  await supabase.from("results").upsert(results)
-
-  // MARK EXAM PUBLISHED
-  await supabase
-    .from("exams")
-    .update({ is_published: true })
-    .eq("id", selectedExam.id)
-
-  alert("Result Published 🚀")
-}
-
   return(
+    <div className="p-6 text-white space-y-6">
 
-    <div className="p-6 md:p-10 text-white space-y-6">
+      <h1 className="text-2xl">Marks Entry</h1>
 
-      <h1 className="text-2xl font-semibold">Marks Entry</h1>
-
-      <select onChange={(e)=>handleExamChange(e.target.value)} className="p-3 bg-[#0b1220] rounded-xl">
+      <select onChange={(e)=>handleExamChange(e.target.value)} className="p-3 bg-[#0b1220] rounded">
         <option>Select Exam</option>
-        {exams.map(e=>(
-          <option key={e.id} value={e.id}>{e.name}</option>
-        ))}
+        {exams.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
       </select>
 
       {selectedExam?.is_all_classes && (
-        <select onChange={(e)=>handleClassChange(e.target.value)} className="p-3 bg-[#0b1220] rounded-xl">
+        <select onChange={(e)=>handleClassChange(e.target.value)} className="p-3 bg-[#0b1220] rounded">
           <option>Select Class</option>
-          {classes.map(c=>(
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
+          {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       )}
 
-      {students.length > 0 && subjects.length > 0 && (
+      {students.length > 0 && (
 
         <div className="overflow-auto">
 
-          <table className="min-w-full border border-white/20">
+          <table className="min-w-full border">
 
             <thead>
               <tr>
@@ -297,7 +265,7 @@ export default function MarksPage(){
                             type="number"
                             value={val}
                             onChange={(e)=>updateMarks(st.id, sub.id, e.target.value)}
-                            className="w-20 p-1 bg-[#0b1220]"
+                            className="w-20 bg-[#0b1220]"
                           />
                         </td>
                       )
@@ -319,13 +287,8 @@ export default function MarksPage(){
 
       {students.length > 0 && (
         <div className="flex gap-4">
-          <button onClick={saveMarks} className="px-6 py-3 bg-green-600 rounded-xl">
-            Save Marks
-          </button>
-
-          <button onClick={publishResult} className="px-6 py-3 bg-blue-600 rounded-xl">
-            Publish Result
-          </button>
+          <button onClick={saveMarks} className="px-6 py-3 bg-white/10 rounded">Save</button>
+          <button onClick={publishResult} className="px-6 py-3 bg-white/10 rounded">Publish</button>
         </div>
       )}
 
