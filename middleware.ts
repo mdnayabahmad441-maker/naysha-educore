@@ -7,7 +7,7 @@ export function middleware(request: NextRequest) {
   const host = request.headers.get("host") || ""
 
   // =========================
-  // 🚨 IMPORTANT BYPASS (FIXES YOUR CURRENT ERROR)
+  // 🚨 BYPASS IMPORTANT ROUTES
   // =========================
 
   if (
@@ -22,45 +22,28 @@ export function middleware(request: NextRequest) {
   }
 
   // =========================
-  // 🔹 SUBDOMAIN (TENANT)
+  // 🌐 SAFE SUBDOMAIN HANDLING
   // =========================
 
   const subdomain = host.split(".")[0]
 
   const headers = new Headers(request.headers)
 
+  // ✅ only set tenant for REAL subdomains
   if (
     subdomain &&
     subdomain !== "www" &&
     subdomain !== "naysha" &&
+    subdomain !== "erp" && // 🔥 IMPORTANT FIX
     !host.includes("localhost")
   ) {
     headers.set("x-tenant", subdomain)
   }
 
   // =========================
-  // 🔐 AUTH PROTECTION
+  // ❌ REMOVE AUTH FROM MIDDLEWARE
   // =========================
-
-  const isAdminRoute = url.pathname.startsWith("/admin")
-
-  const userCookie = request.cookies.get("user")?.value
-
-  if (isAdminRoute && !userCookie) {
-    return NextResponse.redirect(new URL("/login", request.url))
-  }
-
-  // =========================
-  // 🚫 BLOCK LOGIN IF LOGGED IN
-  // =========================
-
-  if (url.pathname === "/login" && userCookie) {
-    return NextResponse.redirect(new URL("/admin", request.url))
-  }
-
-  // =========================
-  // ✅ CONTINUE REQUEST
-  // =========================
+  // (handled in frontend with Supabase)
 
   return NextResponse.next({
     request: {
