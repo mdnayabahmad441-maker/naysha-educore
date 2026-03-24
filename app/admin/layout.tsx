@@ -39,7 +39,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.push("/login")
   }
 
-  // ✅ FIXED (REMOVED school BLOCK)
   if (loading) {
     return (
       <div className="p-10 text-white bg-[#020c1b] min-h-screen flex items-center justify-center">
@@ -48,7 +47,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
-  // 🔥 ACTIVE LINK FIX (works for nested routes)
   const linkStyle = (path: string) =>
     `flex items-center gap-3 px-3 py-2 rounded-md transition ${
       pathname.startsWith(path)
@@ -63,7 +61,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* SIDEBAR */}
       <aside className="w-64 bg-[#0b1a33] border-r border-white/10 p-6 flex flex-col">
 
-        {/* 🔥 SCHOOL NAME (SAFE) */}
         <h1 className="text-xl font-bold mb-8">
           {school?.name || "NaySha EduCore"}
         </h1>
@@ -121,6 +118,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📄 Results
           </Link>
 
+          <Link href="/admin/exams/reportcard" className={linkStyle("/admin/exams/reportcard")}>
+            📑 Report Cards
+          </Link>
+
           {/* FINANCE */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
             Finance
@@ -137,6 +138,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/admin/reports" className={linkStyle("/admin/reports")}>
             📈 Reports
           </Link>
+
+          {/* ✅ NEW SYSTEM SECTION */}
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
+            System
+          </p>
 
           <Link href="/admin/settings" className={linkStyle("/admin/settings")}>
             ⚙️ Settings
