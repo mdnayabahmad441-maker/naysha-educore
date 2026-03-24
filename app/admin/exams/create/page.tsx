@@ -10,6 +10,7 @@ export default function CreateExamPage(){
 
   const [examName,setExamName] = useState("")
   const [date,setDate] = useState("")
+
   const [isAllClasses,setIsAllClasses] = useState(true)
   const [selectedClass,setSelectedClass] = useState("")
 
@@ -20,7 +21,7 @@ export default function CreateExamPage(){
   const [marksConfig,setMarksConfig] = useState<any>({})
   const [exams,setExams] = useState<any[]>([])
 
-  // INIT
+  // ================= INIT =================
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -29,30 +30,54 @@ export default function CreateExamPage(){
     init()
   },[])
 
-  // LOAD CLASSES
+  // ================= LOAD CLASSES =================
   useEffect(()=>{
     if(!schoolId) return
 
-    supabase.from("classes")
-      .select("*")
-      .eq("school_id", schoolId)
-      .then(({data})=>setClasses(data || []))
+    const load = async ()=>{
+      const { data } = await supabase
+        .from("classes")
+        .select("*")
+        .eq("school_id", schoolId)
+
+      setClasses(data || [])
+    }
+
+    load()
   },[schoolId])
 
-  // LOAD SUBJECTS
+  // ================= LOAD SUBJECTS (FIXED) =================
   useEffect(()=>{
     if(!schoolId) return
 
-    supabase.from("subjects")
-      .select("*")
-      .eq("school_id", schoolId)
-      .then(({data})=>setSubjects(data || []))
+    const load = async ()=>{
+
+      // Try with school_id
+      let { data } = await supabase
+        .from("subjects")
+        .select("*")
+        .eq("school_id", schoolId)
+
+      // Fallback (VERY IMPORTANT)
+      if(!data || data.length === 0){
+        const res = await supabase
+          .from("subjects")
+          .select("*")
+
+        data = res.data
+      }
+
+      console.log("Subjects:", data)
+
+      setSubjects(data || [])
+    }
+
+    load()
   },[schoolId])
 
-  // LOAD EXAMS
+  // ================= LOAD EXAMS =================
   useEffect(()=>{
     if(!schoolId) return
-
     loadExams()
   },[schoolId])
 
@@ -65,7 +90,7 @@ export default function CreateExamPage(){
     setExams(data || [])
   }
 
-  // SUBJECT TOGGLE
+  // ================= SUBJECT SELECT =================
   const toggleSubject = (id:string)=>{
     setSelectedSubjects(prev =>
       prev.includes(id)
@@ -74,7 +99,14 @@ export default function CreateExamPage(){
     )
   }
 
-  // UPDATE MARKS
+  const selectAll = ()=>{
+    setSelectedSubjects(subjects.map(s=>s.id))
+  }
+
+  const clearAll = ()=>{
+    setSelectedSubjects([])
+  }
+
   const updateMarks = (subjectId:string,value:any)=>{
     setMarksConfig((prev:any)=>({
       ...prev,
@@ -82,11 +114,16 @@ export default function CreateExamPage(){
     }))
   }
 
-  // SAVE EXAM
+  // ================= SAVE EXAM =================
   const saveExam = async ()=>{
 
     if(!examName || !date){
       alert("Fill all fields")
+      return
+    }
+
+    if(selectedSubjects.length === 0){
+      alert("Select at least one subject")
       return
     }
 
@@ -103,21 +140,23 @@ export default function CreateExamPage(){
       }
     ])
 
-    // SUBJECT CONFIG
-    const rows = selectedSubjects.map(sub=>({
+    const rows = selectedSubjects.map(sub=>{
 
-      id: crypto.randomUUID(),
-      exam_id: examId,
-      subject_id: sub,
-      total_marks: Number(marksConfig[sub] || 100),
-      passing_marks: Math.ceil((marksConfig[sub] || 100) * 0.33)
-    }))
+      const total = Number(marksConfig[sub] || 100)
+
+      return {
+        id: crypto.randomUUID(),
+        exam_id: examId,
+        subject_id: sub,
+        total_marks: total,
+        passing_marks: Math.ceil(total * 0.33)
+      }
+    })
 
     await supabase.from("exam_subjects").insert(rows)
 
     alert("Exam Created ✅")
 
-    // RESET
     setExamName("")
     setDate("")
     setSelectedSubjects([])
@@ -126,7 +165,7 @@ export default function CreateExamPage(){
     loadExams()
   }
 
-  // DELETE
+  // ================= DELETE =================
   const deleteExam = async (id:string)=>{
     await supabase.from("exams").delete().eq("id", id)
     loadExams()
@@ -156,7 +195,7 @@ export default function CreateExamPage(){
         />
 
         {/* CLASS */}
-        <div className="flex gap-4">
+        <div className="flex gap-3">
 
           <button
             onClick={()=>setIsAllClasses(true)}
@@ -190,8 +229,22 @@ export default function CreateExamPage(){
           </select>
         )}
 
-        {/* SUBJECTS */}
+        {/* SUBJECT CONTROLS */}
+        <div className="flex gap-3">
+          <button onClick={selectAll} className="px-3 py-2 bg-white/10 rounded">
+            Select All
+          </button>
+          <button onClick={clearAll} className="px-3 py-2 bg-white/10 rounded">
+            Clear
+          </button>
+        </div>
+
+        {/* SUBJECT GRID */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+
+          {subjects.length === 0 && (
+            <p className="text-gray-400">No subjects found</p>
+          )}
 
           {subjects.map(s=>{
 
@@ -207,16 +260,25 @@ export default function CreateExamPage(){
                     : "bg-white/5 border-white/10"
                 }`}
               >
-                <p>{s.name}</p>
+                <div className="flex justify-between">
+                  <p>{s.name}</p>
+                  {selected && <span>✔</span>}
+                </div>
 
                 {selected && (
-                  <input
-                    type="number"
-                    placeholder="Marks"
-                    onClick={(e)=>e.stopPropagation()}
-                    onChange={(e)=>updateMarks(s.id,e.target.value)}
-                    className="mt-2 w-full p-2 bg-[#0b1220] rounded"
-                  />
+                  <>
+                    <input
+                      type="number"
+                      placeholder="Total Marks"
+                      onClick={(e)=>e.stopPropagation()}
+                      onChange={(e)=>updateMarks(s.id,e.target.value)}
+                      className="mt-2 w-full p-2 bg-[#0b1220] rounded"
+                    />
+
+                    <p className="text-xs text-gray-400 mt-1">
+                      Passing: {Math.ceil((marksConfig[s.id] || 100) * 0.33)}
+                    </p>
+                  </>
                 )}
               </div>
             )
@@ -246,20 +308,12 @@ export default function CreateExamPage(){
               <p className="text-sm text-gray-400">{e.date}</p>
             </div>
 
-            <div className="flex gap-2">
-
-              <button className="px-3 py-1 bg-white/10 rounded">
-                Edit
-              </button>
-
-              <button
-                onClick={()=>deleteExam(e.id)}
-                className="px-3 py-1 bg-white/10 rounded"
-              >
-                Delete
-              </button>
-
-            </div>
+            <button
+              onClick={()=>deleteExam(e.id)}
+              className="px-3 py-1 bg-white/10 rounded"
+            >
+              Delete
+            </button>
 
           </div>
         ))}
