@@ -6,41 +6,50 @@ export function middleware(request: NextRequest) {
   const url = request.nextUrl
   const host = request.headers.get("host") || ""
 
-  // 🔥 ALLOW PUBLIC ROUTES
+  // =========================
+  // 🚨 BYPASS IMPORTANT ROUTES
+  // =========================
+
   if (
     url.pathname.startsWith("/api") ||
+    url.pathname.startsWith("/onboarding") ||
     url.pathname.startsWith("/login") ||
     url.pathname.startsWith("/verify") ||
-    url.pathname.startsWith("/onboarding") ||
-    url.pathname.startsWith("/auth") ||
     url.pathname.startsWith("/_next") ||
     url.pathname.startsWith("/favicon")
   ) {
     return NextResponse.next()
   }
 
-  // 🔥 EXTRACT SUBDOMAIN
+  // =========================
+  // 🌐 SAFE SUBDOMAIN HANDLING
+  // =========================
+
   const subdomain = host.split(".")[0]
 
-  // ✅ ALLOW MAIN DOMAIN (erp)
+  const headers = new Headers(request.headers)
+
+  // ✅ only set tenant for REAL subdomains
   if (
-    subdomain === "erp" ||
-    subdomain === "www" ||
-    host.includes("localhost")
+    subdomain &&
+    subdomain !== "www" &&
+    subdomain !== "naysha" &&
+    subdomain !== "erp" && // 🔥 IMPORTANT FIX
+    !host.includes("localhost")
   ) {
-    return NextResponse.next()
+    headers.set("x-tenant", subdomain)
   }
 
-  // 🔥 PROTECT TENANT ROUTES
-  const isAdmin = url.pathname.startsWith("/admin")
+  // =========================
+  // ❌ REMOVE AUTH FROM MIDDLEWARE
+  // =========================
+  // (handled in frontend with Supabase)
 
-  const token = request.cookies.get("sb-access-token")
-
-  if (isAdmin && !token) {
-    return NextResponse.redirect(new URL("/login", request.url))
-  }
-
-  return NextResponse.next()
+  return NextResponse.next({
+    request: {
+      headers
+    }
+  })
 }
 
 export const config = {
