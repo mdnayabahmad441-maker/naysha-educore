@@ -39,7 +39,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.push("/login")
   }
 
-  if (loading || !school) {
+  // ✅ FIXED (REMOVED school BLOCK)
+  if (loading) {
     return (
       <div className="p-10 text-white bg-[#020c1b] min-h-screen flex items-center justify-center">
         Loading...
@@ -62,7 +63,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* SIDEBAR */}
       <aside className="w-64 bg-[#0b1a33] border-r border-white/10 p-6 flex flex-col">
 
-        {/* 🔥 SCHOOL NAME DYNAMIC */}
+        {/* 🔥 SCHOOL NAME (SAFE) */}
         <h1 className="text-xl font-bold mb-8">
           {school?.name || "NaySha EduCore"}
         </h1>
@@ -108,7 +109,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             Examinations
           </p>
 
-          {/* ✅ FIXED ROUTES */}
           <Link href="/admin/exams/create" className={linkStyle("/admin/exams/create")}>
             📝 Create Exam
           </Link>
@@ -157,9 +157,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               Admin Panel
             </h2>
 
-            {/* 🔥 SHOW TENANT */}
             <p className="text-xs text-gray-400">
-              {school?.subdomain}.naysha.online
+              {school?.subdomain ? `${school.subdomain}.naysha.online` : ""}
             </p>
           </div>
 
