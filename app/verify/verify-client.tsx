@@ -68,7 +68,20 @@ export default function VerifyClient() {
     }
 
     // 🔥 NORMAL LOGIN
-    router.push("/admin")
+   // 🔥 GET SCHOOL FROM DB
+const { data: school } = await supabase
+  .from("schools")
+  .select("subdomain")
+  .eq("email", email)
+  .single()
+
+if (!school) {
+  alert("School not found")
+  return
+}
+
+// 🔥 REDIRECT TO SUBDOMAIN
+window.location.href = `https://${school.subdomain}.naysha.online/admin`
   }
 
   return (
