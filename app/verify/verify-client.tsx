@@ -14,6 +14,15 @@ export default function VerifyClient() {
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
 
+  // 🚨 IF EMAIL MISSING
+  if (!email) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#020c1b] text-white">
+        <p>Email missing. Please login again.</p>
+      </div>
+    )
+  }
+
   const verify = async () => {
 
     if (!otp) {
@@ -23,6 +32,9 @@ export default function VerifyClient() {
 
     setLoading(true)
 
+    console.log("EMAIL:", email)
+
+    // 🔐 VERIFY OTP
     const { error } = await supabase.auth.verifyOtp({
       email,
       token: otp,
@@ -35,7 +47,9 @@ export default function VerifyClient() {
       return
     }
 
-    // 🔥 CHECK ONBOARDING DATA
+    // =========================
+    // 🔥 ONBOARDING FLOW
+    // =========================
     const stored = localStorage.getItem("onboardingData")
 
     if (stored) {
@@ -48,7 +62,7 @@ export default function VerifyClient() {
         .from("schools")
         .insert({
           name: data.schoolName,
-          domain: data.domain,
+          subdomain: data.domain?.toLowerCase().trim(), // ✅ FIXED
           email: data.email,
           phone: data.phone
         })
@@ -67,21 +81,26 @@ export default function VerifyClient() {
       return
     }
 
-    // 🔥 NORMAL LOGIN
-   // 🔥 GET SCHOOL FROM DB
-const { data: school } = await supabase
-  .from("schools")
-  .select("subdomain")
-  .eq("email", email)
-  .single()
+    // =========================
+    // 🔥 NORMAL LOGIN FLOW
+    // =========================
 
-if (!school) {
-  alert("School not found")
-  return
-}
+    const { data: school, error: schoolError } = await supabase
+      .from("schools")
+      .select("subdomain")
+      .eq("email", email)
+      .single()
 
-// 🔥 REDIRECT TO SUBDOMAIN
-window.location.href = `https://${school.subdomain}.naysha.online/admin`
+    if (schoolError || !school || !school.subdomain) {
+      setLoading(false)
+      alert("Subdomain not found. Please create school again.")
+      return
+    }
+
+    console.log("Redirecting to:", school.subdomain)
+
+    // 🔥 REDIRECT TO SUBDOMAIN
+    window.location.href = `https://${school.subdomain}.naysha.online/admin`
   }
 
   return (
