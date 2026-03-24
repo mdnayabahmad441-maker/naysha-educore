@@ -1,10 +1,9 @@
-import { Suspense } from "react"
-import VerifyClient from "./verify-client"
+import dynamic from "next/dynamic"
+
+const VerifyClient = dynamic(() => import("./verify-client"), {
+  ssr: false
+})
 
 export default function VerifyPage() {
-  return (
-    <Suspense fallback={<div className="text-white">Loading...</div>}>
-      <VerifyClient />
-    </Suspense>
-  )
+  return <VerifyClient />
 }
