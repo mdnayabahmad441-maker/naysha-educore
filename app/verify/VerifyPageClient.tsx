@@ -86,7 +86,12 @@ export default function VerifyPageClient() {
       return
     }
 
-    window.location.href = `https://${school.subdomain}.naysha.online/admin`
+   const { data: sessionData } = await supabase.auth.getSession()
+
+const access_token = sessionData.session?.access_token
+const refresh_token = sessionData.session?.refresh_token
+
+window.location.href = `https://${school.subdomain}.naysha.online/auth/callback?access_token=${access_token}&refresh_token=${refresh_token}`
   }
 
   return (
