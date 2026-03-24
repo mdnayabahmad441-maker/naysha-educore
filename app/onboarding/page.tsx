@@ -17,7 +17,7 @@ export default function Onboarding() {
 
   const [loading, setLoading] = useState(false)
 
-  const handleChange = (e:any) => {
+  const handleChange = (e: any) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
@@ -26,17 +26,15 @@ export default function Onboarding() {
     const { schoolName, domain, email, phone } = form
 
     if (!schoolName || !domain || !email || !phone) {
-      alert("All fields required")
+      alert("All fields are required")
       return
     }
 
     setLoading(true)
 
+    // ✅ Send OTP (NO redirect override)
     const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/verify`
-      }
+      email
     })
 
     setLoading(false)
@@ -46,7 +44,7 @@ export default function Onboarding() {
       return
     }
 
-    // 🔥 pass ALL data
+    // ✅ Pass ALL data to verify page
     const query = new URLSearchParams({
       email,
       type: "onboarding",
@@ -59,20 +57,46 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#020c1b]">
+    <div className="min-h-screen flex items-center justify-center bg-[#020c1b] text-white">
 
-      <div className="bg-gradient-to-br from-blue-700 to-indigo-900 p-8 rounded-xl w-[400px]">
+      <div className="bg-gradient-to-br from-blue-700 to-indigo-900 p-8 rounded-xl w-[420px] shadow-lg">
 
-        <h2 className="text-white text-xl mb-6 text-center">
+        <h2 className="text-xl font-semibold mb-6 text-center">
           Create Your School ERP
         </h2>
 
-        <input name="schoolName" placeholder="School Name" onChange={handleChange} className="input" />
-        <input name="domain" placeholder="School Domain (subdomain)" onChange={handleChange} className="input" />
-        <input name="email" placeholder="Email" onChange={handleChange} className="input" />
-        <input name="phone" placeholder="Phone" onChange={handleChange} className="input" />
+        <input
+          name="schoolName"
+          placeholder="School Name"
+          onChange={handleChange}
+          className="input"
+        />
 
-        <button onClick={sendOtp} className="w-full mt-3 bg-green-500 p-3 rounded text-white">
+        <input
+          name="domain"
+          placeholder="School Domain (subdomain)"
+          onChange={handleChange}
+          className="input"
+        />
+
+        <input
+          name="email"
+          placeholder="Email"
+          onChange={handleChange}
+          className="input"
+        />
+
+        <input
+          name="phone"
+          placeholder="Phone"
+          onChange={handleChange}
+          className="input"
+        />
+
+        <button
+          onClick={sendOtp}
+          className="w-full mt-4 bg-green-500 py-3 rounded-lg font-medium"
+        >
           {loading ? "Sending OTP..." : "Create School"}
         </button>
 
@@ -87,6 +111,7 @@ export default function Onboarding() {
           background: #020c1b;
           border: 1px solid rgba(255,255,255,0.1);
           color: white;
+          outline: none;
         }
       `}</style>
 
