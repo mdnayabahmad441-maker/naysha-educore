@@ -3,7 +3,7 @@ import VerifyClient from "./verify-client"
 
 export default function VerifyPage() {
   return (
-    <Suspense fallback={<div className="text-white text-center mt-20">Loading...</div>}>
+    <Suspense fallback={<div className="text-white">Loading...</div>}>
       <VerifyClient />
     </Suspense>
   )

@@ -10,7 +10,7 @@ export default function VerifyClient() {
   const params = useSearchParams()
 
   const email = params.get("email") || ""
-  const type = params.get("type") || "login"   // ✅ FIX
+  const type = params.get("type") || "login"
 
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
@@ -30,80 +30,45 @@ export default function VerifyClient() {
       type: "email"
     })
 
+    setLoading(false)
+
     if (error) {
-      setLoading(false)
       alert(error.message)
       return
     }
 
-    console.log("TYPE:", type)
-
-    // 🔥 ONBOARDING FLOW
+    // 🔥 IMPORTANT LOGIC
     if (type === "onboarding") {
-
-      const stored = localStorage.getItem("onboardingData")
-
-      if (!stored) {
-        alert("Missing onboarding data")
-        setLoading(false)
-        return
-      }
-
-      const data = JSON.parse(stored)
-
-      const res = await fetch("/api/onboarding", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
-      })
-
-      const result = await res.json()
-
-      if (!res.ok) {
-        alert(result.error)
-        setLoading(false)
-        return
-      }
-
-      localStorage.removeItem("onboardingData")
-
-      alert("School created")
-
-      setLoading(false)
       router.push("/login")
-      return
+    } else {
+      router.push("/admin")
     }
-
-    // 🔥 NORMAL LOGIN
-    setLoading(false)
-    router.push("/admin")
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#020c1b]">
 
-      <div className="bg-[#1c2235] p-8 rounded-xl w-[380px] text-white">
+      <div className="bg-gradient-to-br from-blue-700 to-indigo-900 p-8 rounded-xl w-[380px]">
 
-        <h2 className="text-xl mb-6 text-center">Enter OTP</h2>
+        <h2 className="text-white text-xl mb-6 text-center">
+          Enter OTP
+        </h2>
 
         <input
-          placeholder="OTP"
+          placeholder="OTP Code"
           value={otp}
           onChange={(e)=>setOtp(e.target.value)}
-          className="w-full p-3 mb-4 rounded bg-gray-200 text-black"
+          className="w-full p-3 mb-4 rounded bg-gray-200"
         />
 
         <button
           onClick={verify}
-          className="w-full bg-green-600 p-3 rounded"
+          className="w-full bg-green-500 p-3 rounded text-white"
         >
           {loading ? "Verifying..." : "Verify"}
         </button>
 
       </div>
-
     </div>
   )
 }
