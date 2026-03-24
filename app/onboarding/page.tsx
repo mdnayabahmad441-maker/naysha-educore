@@ -1,154 +1,98 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
-export default function Onboarding(){
+export default function OnboardingPage() {
 
   const router = useRouter()
 
-  const [form,setForm] = useState({
-    schoolName: "",
-    subdomain: "",
-    email: "",
-    phone: ""
-  })
+  const [schoolName, setSchoolName] = useState("")
+  const [subdomain, setSubdomain] = useState("")
+  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const [loading,setLoading] = useState(false)
+  const createSchool = async () => {
 
-  const handleChange = (e:any)=>{
-    setForm({...form, [e.target.name]: e.target.value})
-  }
-
-  // 🔥 STEP 1: SEND OTP
-  const sendOtp = async ()=>{
-
-    if(!form.email){
-      alert("Enter email")
-      return
-    }
-
-    setLoading(true)
-
-    const { error } = await supabase.auth.signInWithOtp({
-      email: form.email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/verify?onboarding=true`
-      }
-    })
-
-    setLoading(false)
-
-    if(error){
-      alert(error.message)
-      return
-    }
-
-    alert("OTP sent to email")
-  }
-
-  // 🔥 STEP 2: CREATE SCHOOL AFTER VERIFY
-  const createSchool = async ()=>{
-
-    const { schoolName, subdomain, phone } = form
-
-    if(!schoolName || !subdomain){
+    if (!schoolName || !subdomain || !email) {
       alert("Fill all fields")
       return
     }
 
     setLoading(true)
 
-    // 🔥 GET USER (CRITICAL STEP 2)
-    const { data: { user } } = await supabase.auth.getUser()
+    // 🔥 STORE TEMP DATA
+    localStorage.setItem("onboardingData", JSON.stringify({
+      schoolName,
+      subdomain,
+      email,
+      phone
+    }))
 
-    if(!user){
-      alert("User not authenticated")
-      setLoading(false)
-      return
-    }
-
-    const { error } = await supabase
-      .from("schools")
-      .insert([
-        {
-          id: crypto.randomUUID(),
-          name: schoolName,
-          subdomain: subdomain,
-          phone: phone,
-          user_id: user.id   // ✅ CRITICAL (SAAS SECURITY)
-        }
-      ])
+    // 🔐 SEND OTP
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true
+      }
+    })
 
     setLoading(false)
 
-    if(error){
+    if (error) {
       alert(error.message)
       return
     }
 
-    alert("School Created ✅")
-
-    router.push("/admin")
+    // 🔥 GO TO VERIFY
+    router.push(`/verify?email=${email}`)
   }
 
-  return(
+  return (
 
     <div className="min-h-screen flex items-center justify-center bg-[#020c1b] text-white">
 
-      <div className="bg-[#0b1a33] p-8 rounded-xl w-[420px] space-y-4">
+      <div className="bg-[#0b1a33] p-8 rounded-xl w-[420px]">
 
-        <h2 className="text-xl font-semibold text-center">
+        <h2 className="text-xl font-semibold mb-6 text-center">
           Create Your School
         </h2>
 
-        {/* SCHOOL NAME */}
         <input
-          name="schoolName"
           placeholder="School Name"
-          onChange={handleChange}
+          value={schoolName}
+          onChange={(e)=>setSchoolName(e.target.value)}
           className="input"
         />
 
-        {/* SUBDOMAIN */}
         <input
-          name="subdomain"
-          placeholder="Subdomain (e.g. abc)"
-          onChange={handleChange}
+          placeholder="Subdomain (example: abc)"
+          value={subdomain}
+          onChange={(e)=>setSubdomain(e.target.value)}
           className="input"
         />
 
-        {/* EMAIL */}
         <input
-          name="email"
           placeholder="Email"
-          onChange={handleChange}
+          value={email}
+          onChange={(e)=>setEmail(e.target.value)}
           className="input"
         />
 
-        {/* PHONE */}
         <input
-          name="phone"
           placeholder="Phone"
-          onChange={handleChange}
+          value={phone}
+          onChange={(e)=>setPhone(e.target.value)}
           className="input"
         />
 
-        {/* SEND OTP */}
-        <button
-          onClick={sendOtp}
-          className="w-full bg-blue-600 py-3 rounded"
-        >
-          Send OTP
-        </button>
-
-        {/* CREATE SCHOOL */}
         <button
           onClick={createSchool}
-          className="w-full bg-green-600 py-3 rounded"
+          className="w-full mt-4 bg-green-600 py-3 rounded-lg"
         >
-          {loading ? "Creating..." : "Create School"}
+          {loading ? "Sending OTP..." : "Create School"}
         </button>
 
       </div>
@@ -156,11 +100,13 @@ export default function Onboarding(){
       <style jsx>{`
         .input {
           width: 100%;
+          margin-bottom: 12px;
           padding: 12px;
           border-radius: 8px;
           background: #020c1b;
           border: 1px solid rgba(255,255,255,0.1);
           outline: none;
+          color: white;
         }
       `}</style>
 
