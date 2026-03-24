@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = "force-dynamic"
+
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
@@ -14,7 +16,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const [loading, setLoading] = useState(true)
 
-  // 🔐 AUTH CHECK
+  // 🔐 AUTH CHECK (FIXED)
   useEffect(() => {
 
     const checkAuth = async () => {
@@ -22,7 +24,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       const { data } = await supabase.auth.getSession()
 
       if (!data.session) {
-        router.replace("/login")
+        window.location.href = "/login" // 🔥 HARD REDIRECT
       } else {
         setLoading(false)
       }
@@ -31,12 +33,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     checkAuth()
 
+    // 🔥 LISTEN FOR SESSION CHANGE (VERY IMPORTANT)
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!session) {
+          window.location.href = "/login"
+        }
+      }
+    )
+
+    return () => {
+      listener.subscription.unsubscribe()
+    }
+
   }, [])
 
-  // 🔓 LOGOUT
+  // 🔓 LOGOUT (FIXED)
   const logout = async () => {
     await supabase.auth.signOut()
-    router.push("/login")
+    window.location.href = "/login" // 🔥 HARD REDIRECT
   }
 
   if (loading) {
@@ -139,7 +154,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📈 Reports
           </Link>
 
-          {/* ✅ NEW SYSTEM SECTION */}
+          {/* SYSTEM */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
             System
           </p>
