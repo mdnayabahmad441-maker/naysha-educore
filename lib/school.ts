@@ -4,7 +4,6 @@ let cachedSchoolId: string | null = null
 
 export async function getSchoolId() {
 
-  // prevent multiple DB calls (VERY IMPORTANT)
   if (cachedSchoolId) return cachedSchoolId
 
   if (typeof window === "undefined") return null
@@ -14,32 +13,43 @@ export async function getSchoolId() {
 
   let subdomain = host.split(".")[0]
 
-  // localhost handling
+  // ✅ HANDLE LOCALHOST
   if (host.includes("localhost")) {
     subdomain = "default"
   }
 
-  // main domain handling
+  // ✅ HANDLE ROOT DOMAIN
   if (subdomain === "erp" || subdomain === "www") {
     subdomain = "default"
   }
 
-  console.log("SUBDOMAIN:", subdomain)
+  console.log("FINAL SUBDOMAIN:", subdomain)
 
+  // 🔥 TRY FIND SCHOOL
   const { data, error } = await supabase
     .from("schools")
     .select("id")
     .eq("subdomain", subdomain)
-    .single()   // 🔥 use single (not maybeSingle)
+    .maybeSingle()
 
-  if (error) {
-    console.error("School lookup error:", error)
-    return null
-  }
-
+  // ✅ IF NOT FOUND → FALLBACK TO DEFAULT
   if (!data) {
-    console.error("No school found for subdomain:", subdomain)
-    return null
+
+    console.warn("No school for subdomain, trying default...")
+
+    const fallback = await supabase
+      .from("schools")
+      .select("id")
+      .eq("subdomain", "default")
+      .maybeSingle()
+
+    if (!fallback.data) {
+      console.error("No default school found ❌")
+      return null
+    }
+
+    cachedSchoolId = fallback.data.id
+    return fallback.data.id
   }
 
   cachedSchoolId = data.id
