@@ -22,17 +22,16 @@ export function middleware(request: NextRequest) {
   // 🔥 EXTRACT SUBDOMAIN
   const subdomain = host.split(".")[0]
 
-  // 🔥 BLOCK INVALID SUBDOMAIN
+  // ✅ ALLOW MAIN DOMAIN (erp)
   if (
-    !subdomain ||
-    subdomain === "www" ||
     subdomain === "erp" ||
+    subdomain === "www" ||
     host.includes("localhost")
   ) {
-    return NextResponse.redirect(new URL("/login", request.url))
+    return NextResponse.next()
   }
 
-  // 🔥 PROTECT ADMIN ROUTES
+  // 🔥 PROTECT TENANT ROUTES
   const isAdmin = url.pathname.startsWith("/admin")
 
   const token = request.cookies.get("sb-access-token")
