@@ -16,6 +16,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
   const school = useSchool()
 
   const [loading, setLoading] = useState(true)
+  const [open, setOpen] = useState(false) // 🔥 MOBILE SIDEBAR
 
   useEffect(() => {
 
@@ -30,13 +31,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
 
       const roleData = await getUserRole()
 
-      if (!roleData) {
-        window.location.href = "/login"
-        return
-      }
-
-      // 🔥 ONLY TEACHER ALLOWED
-      if (roleData.role !== "teacher") {
+      if (!roleData || roleData.role !== "teacher") {
         window.location.href = "/unauthorized"
         return
       }
@@ -67,14 +62,14 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
 
   if (loading) {
     return (
-      <div className="p-10 text-white bg-[#020c1b] min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen bg-[#020c1b] text-white">
         Loading...
       </div>
     )
   }
 
   const linkStyle = (path: string) =>
-    `flex items-center gap-3 px-3 py-2 rounded-md transition ${
+    `flex items-center gap-3 px-3 py-3 rounded-md transition ${
       pathname.startsWith(path)
         ? "bg-blue-600 text-white"
         : "text-gray-300 hover:bg-white/10 hover:text-white"
@@ -84,14 +79,28 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
 
     <div className="flex min-h-screen bg-[#020c1b] text-white">
 
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-[#0b1a33] border-r border-white/10 p-6 flex flex-col">
+      {/* ================= MOBILE OVERLAY ================= */}
+      {open && (
+        <div
+          onClick={()=>setOpen(false)}
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+        />
+      )}
 
-        <h1 className="text-xl font-bold mb-8">
+      {/* ================= SIDEBAR ================= */}
+      <aside className={`
+        fixed md:static z-50
+        w-64 h-full
+        bg-[#0b1a33] border-r border-white/10 p-6 flex flex-col
+        transform transition-transform duration-300
+        ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}>
+
+        <h1 className="text-lg md:text-xl font-bold mb-8">
           {school?.name || "Teacher Panel"}
         </h1>
 
-        <nav className="flex flex-col gap-1 text-sm">
+        <nav className="flex flex-col gap-2 text-sm">
 
           <Link href="/teacher" className={linkStyle("/teacher")}>
             📊 Dashboard
@@ -109,7 +118,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
             📅 Attendance
           </Link>
 
-          <Link href="/teacher/exams" className={linkStyle("/teacher/exams")}>
+          <Link href="/teacher/exams/create" className={linkStyle("/teacher/exams")}>
             📝 Create Exam
           </Link>
 
@@ -121,31 +130,47 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
 
       </aside>
 
-      {/* MAIN */}
+      {/* ================= MAIN ================= */}
       <div className="flex-1 flex flex-col">
 
-        <header className="flex justify-between items-center px-8 py-4 bg-[#0b1a33] border-b border-white/10">
+        {/* TOPBAR */}
+        <header className="flex justify-between items-center px-4 md:px-8 py-4 bg-[#0b1a33] border-b border-white/10">
 
-          <div>
-            <h2 className="text-lg font-semibold">
-              Teacher Panel
-            </h2>
+          {/* LEFT */}
+          <div className="flex items-center gap-3">
 
-            <p className="text-xs text-gray-400">
-              {school?.subdomain ? `${school.subdomain}.naysha.online` : ""}
-            </p>
+            {/* 🔥 MENU BUTTON (MOBILE) */}
+            <button
+              onClick={()=>setOpen(true)}
+              className="md:hidden text-xl"
+            >
+              ☰
+            </button>
+
+            <div>
+              <h2 className="text-base md:text-lg font-semibold">
+                Teacher Panel
+              </h2>
+
+              <p className="text-xs text-gray-400">
+                {school?.subdomain ? `${school.subdomain}.naysha.online` : ""}
+              </p>
+            </div>
+
           </div>
 
+          {/* RIGHT */}
           <button
             onClick={logout}
-            className="bg-red-600 px-4 py-2 rounded-md text-sm"
+            className="bg-red-600 hover:bg-red-700 px-3 md:px-4 py-2 rounded-md text-xs md:text-sm"
           >
             Logout
           </button>
 
         </header>
 
-        <main className="flex-1 p-10">
+        {/* CONTENT */}
+        <main className="flex-1 p-4 md:p-10">
           {children}
         </main>
 
