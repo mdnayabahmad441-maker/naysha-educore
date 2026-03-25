@@ -11,21 +11,35 @@ export default function CallbackClient() {
 
   useEffect(() => {
 
-    const access_token = params.get("access_token")
-    const refresh_token = params.get("refresh_token")
+    const handleAuth = async () => {
 
-    if (!access_token || !refresh_token) {
-      router.push("/login")
-      return
+      const access_token = params.get("access_token")
+      const refresh_token = params.get("refresh_token")
+      const next = params.get("next") || "/admin" // 🔥 IMPORTANT
+
+      if (!access_token || !refresh_token) {
+        router.replace("/login")
+        return
+      }
+
+      // 🔥 SET SESSION SAFELY
+      const { error } = await supabase.auth.setSession({
+        access_token,
+        refresh_token
+      })
+
+      if (error) {
+        console.error("Session error:", error)
+        router.replace("/login")
+        return
+      }
+
+      // 🔥 CLEAN REDIRECT (VERY IMPORTANT)
+      router.replace(next)
+
     }
 
-    // 🔥 SET SESSION
-    supabase.auth.setSession({
-      access_token,
-      refresh_token
-    }).then(() => {
-      router.push("/admin")
-    })
+    handleAuth()
 
   }, [])
 
