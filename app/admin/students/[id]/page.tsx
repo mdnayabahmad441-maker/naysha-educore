@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { useParams } from "next/navigation"
-import { getUserRole } from "@/lib/getUserRole" // ✅ ADDED
+import { useParams, useRouter } from "next/navigation" // ✅ UPDATED
+import { getUserRole } from "@/lib/getUserRole"
 
 export default function StudentProfile(){
 
   const { id } = useParams()
+  const router = useRouter() // ✅ ADDED
 
   const [tab,setTab] = useState("profile")
 
@@ -17,7 +18,6 @@ export default function StudentProfile(){
   const [attendance,setAttendance] = useState<any[]>([])
   const [payments,setPayments] = useState<any[]>([])
 
-  // 🔥 ROLE BLOCK (ADDED)
   useEffect(() => {
     const checkRole = async () => {
       const roleData = await getUserRole()
@@ -34,7 +34,6 @@ export default function StudentProfile(){
 
     const load = async()=>{
 
-      // ✅ STUDENT WITH CLASS + SECTION
       const { data:studentData } = await supabase
         .from("students")
         .select(`
@@ -47,7 +46,6 @@ export default function StudentProfile(){
 
       setStudent(studentData)
 
-      // ✅ PARENT
       const { data:parentData } = await supabase
         .from("parents")
         .select("*")
@@ -56,7 +54,6 @@ export default function StudentProfile(){
 
       setParent(parentData)
 
-      // ✅ DOCUMENTS
       const { data:docData } = await supabase
         .from("student_documents")
         .select("*")
@@ -64,7 +61,6 @@ export default function StudentProfile(){
 
       setDocuments(docData || [])
 
-      // ✅ ATTENDANCE
       const { data:attData } = await supabase
         .from("attendance")
         .select("*")
@@ -73,7 +69,6 @@ export default function StudentProfile(){
 
       setAttendance(attData || [])
 
-      // ✅ PAYMENTS
       const { data:payData } = await supabase
         .from("payments")
         .select("*")
@@ -122,6 +117,14 @@ export default function StudentProfile(){
             <p>Class: {student.classes?.name || "-"}</p>
             <p>Section: {student.sections?.name || "-"}</p>
           </div>
+
+          {/* ✅ EDIT BUTTON ADDED */}
+          <button
+            onClick={()=>router.push(`/admin/students/${id}/edit`)}
+            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm"
+          >
+            Edit Student
+          </button>
 
         </div>
 
