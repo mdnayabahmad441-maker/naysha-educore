@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
-import { getUserRole } from "@/lib/getUserRole" // ✅ ADDED
+import { getUserRole } from "@/lib/getUserRole"
 
 export default function MarksPage(){
 
   const [schoolId,setSchoolId] = useState<string | null>(null)
-  const [userRole,setUserRole] = useState("") // ✅ ADDED
+  const [userRole,setUserRole] = useState<string | null>(null) // 🔥 safer
 
   const [exams,setExams] = useState<any[]>([])
   const [selectedExam,setSelectedExam] = useState<any>(null)
@@ -21,19 +21,23 @@ export default function MarksPage(){
 
   const [marks,setMarks] = useState<any>({})
 
+  // =========================
   // INIT
+  // =========================
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
-      const roleData = await getUserRole() // ✅ ADDED
+      const roleData = await getUserRole()
 
       setSchoolId(id)
-      setUserRole(roleData?.role || "")
+      setUserRole(roleData?.role || null)
     }
     init()
   },[])
 
+  // =========================
   // LOAD EXAMS
+  // =========================
   useEffect(()=>{
     if(!schoolId) return
 
@@ -44,7 +48,9 @@ export default function MarksPage(){
       .then(({data})=>setExams(data || []))
   },[schoolId])
 
+  // =========================
   // LOAD CLASSES
+  // =========================
   useEffect(()=>{
     if(!schoolId) return
 
@@ -55,7 +61,9 @@ export default function MarksPage(){
       .then(({data})=>setClasses(data || []))
   },[schoolId])
 
+  // =========================
   // LOAD DATA
+  // =========================
   const loadData = async (exam:any, classId?:string)=>{
 
     let class_id = exam.class_id
@@ -75,7 +83,7 @@ export default function MarksPage(){
 
     setStudents(studentsData || [])
 
-    // SUBJECTS FROM EXAM
+    // SUBJECTS
     const { data:subjectData } = await supabase
       .from("exam_subjects")
       .select("subjects(*)")
@@ -93,7 +101,7 @@ export default function MarksPage(){
     setSubjects([])
     setSelectedClass("")
 
-    if(!exam?.is_all_classes){
+    if(exam && !exam.is_all_classes){
       loadData(exam)
     }
   }
@@ -119,12 +127,14 @@ export default function MarksPage(){
     return "F"
   }
 
-  // SAVE
+  // =========================
+  // SAVE MARKS
+  // =========================
   const saveMarks = async ()=>{
 
     if(!selectedExam) return
 
-    const rows = []
+    const rows:any[] = []
 
     for(let s of students){
       for(let sub of subjects){
@@ -155,11 +165,14 @@ export default function MarksPage(){
     alert("Marks saved ✅")
   }
 
-  // PUBLISH (ADMIN ONLY)
+  // =========================
+  // PUBLISH RESULT (ADMIN ONLY)
+  // =========================
   const publishResult = async ()=>{
 
-    if(userRole === "teacher"){
-      alert("You are not allowed to publish results")
+    // 🔥 DOUBLE SECURITY
+    if(userRole !== "admin"){
+      alert("Only admin can publish results")
       return
     }
 
@@ -302,8 +315,8 @@ export default function MarksPage(){
             Save
           </button>
 
-          {/* 🔥 HIDE FOR TEACHER */}
-          {userRole !== "teacher" && (
+          {/* 🔥 ADMIN ONLY */}
+          {userRole === "admin" && (
             <button onClick={publishResult} className="px-6 py-3 bg-white/10 rounded">
               Publish
             </button>
