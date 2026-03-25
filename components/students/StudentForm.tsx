@@ -9,7 +9,6 @@ export default function StudentForm({ reload }: any){
   const [name,setName] = useState("")
   const [email,setEmail] = useState("")
   const [roll,setRoll] = useState("")
-
   const [photo,setPhoto] = useState<File | null>(null)
 
   const [classes,setClasses] = useState<any[]>([])
@@ -20,12 +19,10 @@ export default function StudentForm({ reload }: any){
 
   const [loading,setLoading] = useState(false)
 
-  // ✅ NEW PARENT STATES (ADDED)
   const [parentName,setParentName] = useState("")
   const [parentEmail,setParentEmail] = useState("")
   const [parentPhone,setParentPhone] = useState("")
 
-  // LOAD DATA
   useEffect(()=>{
     const load = async ()=>{
       const cls = await dbGet("classes")
@@ -34,7 +31,6 @@ export default function StudentForm({ reload }: any){
       setClasses(cls || [])
       setSections(sec || [])
     }
-
     load()
   },[])
 
@@ -42,7 +38,6 @@ export default function StudentForm({ reload }: any){
     (s)=>s.class_id === selectedClass
   )
 
-  // SAVE
   const save = async ()=>{
 
     try{
@@ -71,10 +66,8 @@ export default function StudentForm({ reload }: any){
         photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/students/${fileName}`
       }
 
-      // 🔥 CREATE STUDENT ID FIRST (IMPORTANT)
       const studentId = crypto.randomUUID()
 
-      // INSERT STUDENT
       await dbInsert("students", {
         id: studentId,
         name: name.trim(),
@@ -85,12 +78,7 @@ export default function StudentForm({ reload }: any){
         photo: photoUrl
       })
 
-      // =========================
-      // 🔥 CREATE PARENT (ADDED)
-      // =========================
-
       if(parentEmail){
-
         await dbInsert("parents", {
           id: crypto.randomUUID(),
           student_id: studentId,
@@ -98,7 +86,6 @@ export default function StudentForm({ reload }: any){
           email: parentEmail.trim(),
           phone: parentPhone
         })
-
       }
 
       // RESET
@@ -108,8 +95,6 @@ export default function StudentForm({ reload }: any){
       setPhoto(null)
       setSelectedClass("")
       setSelectedSection("")
-
-      // RESET PARENT (ADDED)
       setParentName("")
       setParentEmail("")
       setParentPhone("")
@@ -125,98 +110,116 @@ export default function StudentForm({ reload }: any){
 
   return(
 
-    <div className="flex flex-wrap gap-4 items-center">
+    <div className="space-y-6">
 
-      {/* STUDENT FIELDS */}
+      {/* ================= STUDENT SECTION ================= */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
 
-      <input
-        placeholder="Student Name"
-        value={name}
-        onChange={(e)=>setName(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
-      />
+        <h2 className="text-lg font-semibold">Student Details</h2>
 
-      <input
-        placeholder="Student Email"
-        value={email}
-        onChange={(e)=>setEmail(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
-      />
+        <div className="grid md:grid-cols-2 gap-4">
 
-      <input
-        placeholder="Roll Number"
-        value={roll}
-        onChange={(e)=>setRoll(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
-      />
+          <input
+            placeholder="Student Name"
+            value={name}
+            onChange={(e)=>setName(e.target.value)}
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+          />
 
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e)=>setPhoto(e.target.files?.[0] || null)}
-        className="text-white text-sm"
-      />
+          <input
+            placeholder="Student Email"
+            value={email}
+            onChange={(e)=>setEmail(e.target.value)}
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+          />
 
-      {/* CLASS */}
-      <select
-        value={selectedClass}
-        onChange={(e)=>{
-          setSelectedClass(e.target.value)
-          setSelectedSection("")
-        }}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
-      >
-        <option value="">Select Class</option>
-        {classes.map(c=>(
-          <option key={c.id} value={c.id}>{c.name}</option>
-        ))}
-      </select>
+          <input
+            placeholder="Roll Number"
+            value={roll}
+            onChange={(e)=>setRoll(e.target.value)}
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+          />
 
-      {/* SECTION */}
-      <select
-        value={selectedSection}
-        onChange={(e)=>setSelectedSection(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
-      >
-        <option value="">Select Section</option>
-        {filteredSections.map(s=>(
-          <option key={s.id} value={s.id}>{s.name}</option>
-        ))}
-      </select>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e)=>setPhoto(e.target.files?.[0] || null)}
+            className="text-sm text-gray-300"
+          />
 
-      {/* ========================= */}
-      {/* 🔥 PARENT FIELDS (ADDED) */}
-      {/* ========================= */}
+          <select
+            value={selectedClass}
+            onChange={(e)=>{
+              setSelectedClass(e.target.value)
+              setSelectedSection("")
+            }}
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
+          >
+            <option value="">Select Class</option>
+            {classes.map(c=>(
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
 
-      <input
-        placeholder="Parent Name"
-        value={parentName}
-        onChange={(e)=>setParentName(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
-      />
+          <select
+            value={selectedSection}
+            onChange={(e)=>setSelectedSection(e.target.value)}
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
+          >
+            <option value="">Select Section</option>
+            {filteredSections.map(s=>(
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
 
-      <input
-        placeholder="Parent Email (for login)"
-        value={parentEmail}
-        onChange={(e)=>setParentEmail(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
-      />
+        </div>
 
-      <input
-        placeholder="Parent Phone"
-        value={parentPhone}
-        onChange={(e)=>setParentPhone(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
-      />
+      </div>
+
+      {/* ================= PARENT SECTION ================= */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+
+        <h2 className="text-lg font-semibold">Parent Details</h2>
+
+        <div className="grid md:grid-cols-3 gap-4">
+
+          <input
+            placeholder="Parent Name"
+            value={parentName}
+            onChange={(e)=>setParentName(e.target.value)}
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+          />
+
+          <input
+            placeholder="Parent Email (for login)"
+            value={parentEmail}
+            onChange={(e)=>setParentEmail(e.target.value)}
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+          />
+
+          <input
+            placeholder="Parent Phone"
+            value={parentPhone}
+            onChange={(e)=>setParentPhone(e.target.value)}
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+          />
+
+        </div>
+
+      </div>
 
       {/* BUTTON */}
-      <button
-        onClick={save}
-        disabled={loading}
-        className="px-6 py-3 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md hover:bg-white/20 transition text-white font-medium"
-      >
-        {loading ? "Saving..." : "Save"}
-      </button>
+      <div className="flex justify-end">
+
+        <button
+          onClick={save}
+          disabled={loading}
+          className="px-8 py-3 rounded-xl font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-90 transition text-white"
+        >
+          {loading ? "Saving..." : "Save Student"}
+        </button>
+
+      </div>
 
     </div>
   )

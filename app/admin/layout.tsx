@@ -7,7 +7,7 @@ import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useSchool } from "@/context/SchoolContext"
-import { getUserRole } from "@/lib/getUserRole" // ✅ NEW
+import { getUserRole } from "@/lib/getUserRole"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
 
@@ -17,7 +17,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const [loading, setLoading] = useState(true)
 
-  // 🔐 AUTH + ROLE CHECK (UPDATED)
   useEffect(() => {
 
     const checkAuth = async () => {
@@ -29,7 +28,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return
       }
 
-      // ✅ ROLE CHECK (NEW)
       const roleData = await getUserRole()
 
       if (!roleData) {
@@ -47,7 +45,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     checkAuth()
 
-    // 🔥 SESSION LISTENER
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (!session) {
@@ -62,7 +59,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   }, [])
 
-  // 🔓 LOGOUT (NO CHANGE IN LOGIC)
   const logout = async () => {
     await supabase.auth.signOut()
     window.location.href = "/login"
@@ -77,9 +73,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const linkStyle = (path: string) =>
-    `flex items-center gap-3 px-3 py-2 rounded-md transition ${
+    `flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 ${
       pathname.startsWith(path)
-        ? "bg-blue-600 text-white"
+        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
         : "text-gray-300 hover:bg-white/10 hover:text-white"
     }`
 
@@ -88,20 +84,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="flex min-h-screen bg-[#020c1b] text-white">
 
       {/* SIDEBAR */}
-      <aside className="w-64 bg-[#0b1a33] border-r border-white/10 p-6 flex flex-col">
+      <aside className="w-64 bg-white/5 backdrop-blur-xl border-r border-white/10 p-6 flex flex-col">
 
-        <h1 className="text-xl font-bold mb-8">
+        <h1 className="text-xl font-bold mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
           {school?.name || "NaySha EduCore"}
         </h1>
 
-        <nav className="flex flex-col gap-1 text-sm">
+        <nav className="flex flex-col gap-2 text-sm">
 
           <Link href="/admin" className={linkStyle("/admin")}>
             📊 Dashboard
           </Link>
 
           {/* ACADEMICS */}
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
             Academics
           </p>
 
@@ -122,7 +118,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Link>
 
           {/* ATTENDANCE */}
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
             Attendance
           </p>
 
@@ -131,7 +127,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Link>
 
           {/* EXAMS */}
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
             Examinations
           </p>
 
@@ -152,7 +148,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Link>
 
           {/* FINANCE */}
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
             Finance
           </p>
 
@@ -169,7 +165,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Link>
 
           {/* SYSTEM */}
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
             System
           </p>
 
@@ -185,10 +181,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex-1 flex flex-col">
 
         {/* TOPBAR */}
-        <header className="flex justify-between items-center px-8 py-4 bg-[#0b1a33] border-b border-white/10">
+        <header className="flex justify-between items-center px-8 py-4 bg-white/5 backdrop-blur-xl border-b border-white/10">
 
           <div>
-            <h2 className="text-lg font-semibold">
+            <h2 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
               Admin Panel
             </h2>
 
@@ -199,7 +195,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <button
             onClick={logout}
-            className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-md text-sm"
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-red-500 to-pink-500 hover:opacity-90 transition"
           >
             Logout
           </button>

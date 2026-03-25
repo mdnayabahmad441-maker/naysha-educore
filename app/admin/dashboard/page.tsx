@@ -89,32 +89,53 @@ export default function DashboardPage() {
 
   return(
 
-    <div className="p-6 md:p-8 text-white">
+    <div className="p-6 md:p-10 text-white space-y-8">
 
-      <h1 className="text-2xl md:text-3xl font-semibold mb-6">
-        School Dashboard
-      </h1>
+      {/* HEADER */}
+      <div>
+        <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          Dashboard Overview
+        </h1>
 
+        <p className="text-gray-400 mt-2 text-sm">
+          Monitor your school performance in real-time
+        </p>
+      </div>
+
+
+      {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
-        <Card>
-          <h2 className="text-gray-300 text-sm">Students</h2>
-          <p className="text-3xl font-semibold mt-2">{students}</p>
+        <Card className="hover:scale-[1.02] transition-all duration-300">
+          <div className="flex justify-between items-center">
+            <h2 className="text-gray-400 text-sm">Students</h2>
+            <span className="text-blue-400 text-lg">👨‍🎓</span>
+          </div>
+          <p className="text-3xl font-bold mt-3">{students}</p>
         </Card>
 
-        <Card>
-          <h2 className="text-gray-300 text-sm">Teachers</h2>
-          <p className="text-3xl font-semibold mt-2">{teachers}</p>
+        <Card className="hover:scale-[1.02] transition-all duration-300">
+          <div className="flex justify-between items-center">
+            <h2 className="text-gray-400 text-sm">Teachers</h2>
+            <span className="text-purple-400 text-lg">👨‍🏫</span>
+          </div>
+          <p className="text-3xl font-bold mt-3">{teachers}</p>
         </Card>
 
-        <Card>
-          <h2 className="text-gray-300 text-sm">Classes</h2>
-          <p className="text-3xl font-semibold mt-2">{classes}</p>
+        <Card className="hover:scale-[1.02] transition-all duration-300">
+          <div className="flex justify-between items-center">
+            <h2 className="text-gray-400 text-sm">Classes</h2>
+            <span className="text-green-400 text-lg">🏫</span>
+          </div>
+          <p className="text-3xl font-bold mt-3">{classes}</p>
         </Card>
 
-        <Card>
-          <h2 className="text-gray-300 text-sm">Attendance</h2>
-          <p className="text-3xl font-semibold mt-2">--</p>
+        <Card className="hover:scale-[1.02] transition-all duration-300">
+          <div className="flex justify-between items-center">
+            <h2 className="text-gray-400 text-sm">Attendance</h2>
+            <span className="text-yellow-400 text-lg">📊</span>
+          </div>
+          <p className="text-3xl font-bold mt-3">--</p>
         </Card>
 
       </div>
