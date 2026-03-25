@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import StudentForm from "@/components/students/StudentForm"
 import { dbGet } from "@/lib/db"
 import { useRouter } from "next/navigation"
+import { getUserRole } from "@/lib/getUserRole" // ✅ ADDED
 
 export default function StudentsPage(){
 
@@ -14,7 +15,23 @@ export default function StudentsPage(){
   const [loading,setLoading] = useState(true)
   const [search,setSearch] = useState("")
 
+  const [role,setRole] = useState<string | null>(null) // ✅ ADDED
+
+  // =========================
+  // LOAD ROLE
+  // =========================
+  useEffect(()=>{
+    const loadRole = async()=>{
+      const r = await getUserRole()
+      setRole(r?.role || null)
+    }
+
+    loadRole()
+  },[])
+
+  // =========================
   // LOAD STUDENTS
+  // =========================
   const loadStudents = async () => {
 
     setLoading(true)
@@ -30,7 +47,9 @@ export default function StudentsPage(){
     loadStudents()
   },[])
 
-  // 🔍 SEARCH FILTER
+  // =========================
+  // SEARCH FILTER
+  // =========================
   useEffect(()=>{
     const f = students.filter(s =>
       s.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -38,6 +57,20 @@ export default function StudentsPage(){
     )
     setFiltered(f)
   },[search,students])
+
+  // =========================
+  // HANDLE VIEW
+  // =========================
+  const handleView = (id:string)=>{
+
+    // ❌ BLOCK TEACHER
+    if(role === "teacher"){
+      alert("Not allowed")
+      return
+    }
+
+    router.push(`/admin/students/${id}`)
+  }
 
   return(
 
@@ -63,17 +96,18 @@ export default function StudentsPage(){
 
       </div>
 
-      {/* FORM */}
-      <div className="bg-white/10 backdrop-blur-lg border border-white/10 p-6 rounded-xl">
-        <StudentForm reload={loadStudents}/>
-      </div>
+      {/* FORM (ONLY ADMIN) */}
+      {role === "admin" && (
+        <div className="bg-white/10 backdrop-blur-lg border border-white/10 p-6 rounded-xl">
+          <StudentForm reload={loadStudents}/>
+        </div>
+      )}
 
       {/* TABLE */}
       <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
 
         <table className="w-full text-sm">
 
-          {/* HEADER */}
           <thead className="bg-white/10 text-gray-300">
             <tr>
               <th className="p-4 text-left">Student</th>
@@ -82,7 +116,6 @@ export default function StudentsPage(){
             </tr>
           </thead>
 
-          {/* BODY */}
           <tbody>
 
             {loading ? (
@@ -104,7 +137,6 @@ export default function StudentsPage(){
                   className="border-t border-white/10 hover:bg-white/5 transition"
                 >
 
-                  {/* NAME + AVATAR */}
                   <td className="p-4 flex items-center gap-3">
 
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-sm font-semibold">
@@ -120,17 +152,20 @@ export default function StudentsPage(){
 
                   </td>
 
-                  {/* EMAIL */}
                   <td className="p-4 text-gray-300">
                     {s.email}
                   </td>
 
-                  {/* ACTION */}
                   <td className="p-4 text-right">
 
                     <button
-                      onClick={()=>router.push(`/admin/students/${s.id}`)}
-                      className="px-4 py-2 text-xs rounded-lg bg-white/10 hover:bg-white/20 transition"
+                      onClick={()=>handleView(s.id)}
+                      disabled={role === "teacher"} // 🔥 UI BLOCK
+                      className={`px-4 py-2 text-xs rounded-lg transition ${
+                        role === "teacher"
+                          ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                          : "bg-white/10 hover:bg-white/20"
+                      }`}
                     >
                       View
                     </button>
