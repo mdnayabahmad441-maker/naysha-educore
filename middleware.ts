@@ -3,53 +3,92 @@ import type { NextRequest } from "next/server"
 
 export function middleware(request: NextRequest) {
 
-  const url = request.nextUrl
+  const url = request.nextUrl.clone()
   const host = request.headers.get("host") || ""
+  const pathname = url.pathname
 
   // =========================
   // 🚨 BYPASS IMPORTANT ROUTES
   // =========================
-
   if (
-    url.pathname.startsWith("/api") ||
-    url.pathname.startsWith("/onboarding") ||
-    url.pathname.startsWith("/login") ||
-    url.pathname.startsWith("/verify") ||
-    url.pathname.startsWith("/_next") ||
-    url.pathname.startsWith("/favicon")
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/verify") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon")
   ) {
     return NextResponse.next()
   }
 
   // =========================
-  // 🌐 SAFE SUBDOMAIN HANDLING
+  // 🌐 SUBDOMAIN (UNCHANGED)
   // =========================
-
   const subdomain = host.split(".")[0]
-
   const headers = new Headers(request.headers)
 
-  // ✅ only set tenant for REAL subdomains
   if (
     subdomain &&
     subdomain !== "www" &&
     subdomain !== "naysha" &&
-    subdomain !== "erp" && // 🔥 IMPORTANT FIX
+    subdomain !== "erp" &&
     !host.includes("localhost")
   ) {
     headers.set("x-tenant", subdomain)
   }
 
   // =========================
-  // ❌ REMOVE AUTH FROM MIDDLEWARE
+  // 🔐 AUTH CHECK (ADDED)
   // =========================
-  // (handled in frontend with Supabase)
+  const token = request.cookies.get("sb-access-token")?.value
 
-  return NextResponse.next({
-    request: {
-      headers
-    }
+  if (
+    !token &&
+    (
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/teacher") ||
+      pathname.startsWith("/parent")
+    )
+  ) {
+    url.pathname = "/login"
+    return NextResponse.redirect(url)
+  }
+
+  // =========================
+  // 🔐 ROLE CHECK (ADDED)
+  // =========================
+  const role = request.cookies.get("user-role")?.value
+
+  if (pathname.startsWith("/admin") && role !== "admin") {
+    url.pathname = "/unauthorized"
+    return NextResponse.redirect(url)
+  }
+
+  if (pathname.startsWith("/teacher") && role !== "teacher") {
+    url.pathname = "/unauthorized"
+    return NextResponse.redirect(url)
+  }
+
+  if (pathname.startsWith("/parent") && role !== "parent") {
+    url.pathname = "/unauthorized"
+    return NextResponse.redirect(url)
+  }
+
+  // =========================
+  // 🔥 PREVENT BACK BUTTON CACHE
+  // =========================
+  const response = NextResponse.next({
+    request: { headers }
   })
+
+  response.headers.set(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate"
+  )
+  response.headers.set("Pragma", "no-cache")
+  response.headers.set("Expires", "0")
+
+  return response
 }
 
 export const config = {

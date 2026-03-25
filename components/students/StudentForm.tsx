@@ -20,7 +20,12 @@ export default function StudentForm({ reload }: any){
 
   const [loading,setLoading] = useState(false)
 
-  // ✅ LOAD CLASSES + SECTIONS (AUTO MULTI-TENANT)
+  // ✅ NEW PARENT STATES (ADDED)
+  const [parentName,setParentName] = useState("")
+  const [parentEmail,setParentEmail] = useState("")
+  const [parentPhone,setParentPhone] = useState("")
+
+  // LOAD DATA
   useEffect(()=>{
     const load = async ()=>{
       const cls = await dbGet("classes")
@@ -37,7 +42,7 @@ export default function StudentForm({ reload }: any){
     (s)=>s.class_id === selectedClass
   )
 
-  // ✅ SAVE STUDENT (CLEAN + SAFE)
+  // SAVE
   const save = async ()=>{
 
     try{
@@ -51,7 +56,6 @@ export default function StudentForm({ reload }: any){
 
       let photoUrl = ""
 
-      // 🔥 IMAGE UPLOAD (KEEP SUPABASE DIRECT)
       if(photo){
         const fileName = `${Date.now()}-${photo.name}`
 
@@ -60,7 +64,6 @@ export default function StudentForm({ reload }: any){
           .upload(fileName, photo)
 
         if(uploadError){
-          console.error(uploadError)
           alert("Image upload failed")
           return
         }
@@ -68,9 +71,12 @@ export default function StudentForm({ reload }: any){
         photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/students/${fileName}`
       }
 
-      // 🔥 INSERT (AUTO SCHOOL_ID)
+      // 🔥 CREATE STUDENT ID FIRST (IMPORTANT)
+      const studentId = crypto.randomUUID()
+
+      // INSERT STUDENT
       await dbInsert("students", {
-        id: crypto.randomUUID(),
+        id: studentId,
         name: name.trim(),
         email: email.trim(),
         roll_number: roll,
@@ -79,6 +85,22 @@ export default function StudentForm({ reload }: any){
         photo: photoUrl
       })
 
+      // =========================
+      // 🔥 CREATE PARENT (ADDED)
+      // =========================
+
+      if(parentEmail){
+
+        await dbInsert("parents", {
+          id: crypto.randomUUID(),
+          student_id: studentId,
+          name: parentName,
+          email: parentEmail.trim(),
+          phone: parentPhone
+        })
+
+      }
+
       // RESET
       setName("")
       setEmail("")
@@ -86,6 +108,11 @@ export default function StudentForm({ reload }: any){
       setPhoto(null)
       setSelectedClass("")
       setSelectedSection("")
+
+      // RESET PARENT (ADDED)
+      setParentName("")
+      setParentEmail("")
+      setParentPhone("")
 
       if(reload) await reload()
 
@@ -100,31 +127,29 @@ export default function StudentForm({ reload }: any){
 
     <div className="flex flex-wrap gap-4 items-center">
 
-      {/* NAME */}
+      {/* STUDENT FIELDS */}
+
       <input
         placeholder="Student Name"
         value={name}
         onChange={(e)=>setName(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
       />
 
-      {/* EMAIL */}
       <input
-        placeholder="Email"
+        placeholder="Student Email"
         value={email}
         onChange={(e)=>setEmail(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
       />
 
-      {/* ROLL */}
       <input
         placeholder="Roll Number"
         value={roll}
         onChange={(e)=>setRoll(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400"
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
       />
 
-      {/* PHOTO */}
       <input
         type="file"
         accept="image/*"
@@ -142,11 +167,8 @@ export default function StudentForm({ reload }: any){
         className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
       >
         <option value="">Select Class</option>
-
         {classes.map(c=>(
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
+          <option key={c.id} value={c.id}>{c.name}</option>
         ))}
       </select>
 
@@ -157,19 +179,41 @@ export default function StudentForm({ reload }: any){
         className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
       >
         <option value="">Select Section</option>
-
         {filteredSections.map(s=>(
-          <option key={s.id} value={s.id}>
-            {s.name}
-          </option>
+          <option key={s.id} value={s.id}>{s.name}</option>
         ))}
       </select>
+
+      {/* ========================= */}
+      {/* 🔥 PARENT FIELDS (ADDED) */}
+      {/* ========================= */}
+
+      <input
+        placeholder="Parent Name"
+        value={parentName}
+        onChange={(e)=>setParentName(e.target.value)}
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
+      />
+
+      <input
+        placeholder="Parent Email (for login)"
+        value={parentEmail}
+        onChange={(e)=>setParentEmail(e.target.value)}
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
+      />
+
+      <input
+        placeholder="Parent Phone"
+        value={parentPhone}
+        onChange={(e)=>setParentPhone(e.target.value)}
+        className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
+      />
 
       {/* BUTTON */}
       <button
         onClick={save}
         disabled={loading}
-        className="px-6 py-3 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md hover:bg-white/20 transition text-white font-medium disabled:opacity-50"
+        className="px-6 py-3 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md hover:bg-white/20 transition text-white font-medium"
       >
         {loading ? "Saving..." : "Save"}
       </button>

@@ -6,10 +6,10 @@ import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { getUserRole } from "@/lib/getUserRole"
 import { useSchool } from "@/context/SchoolContext"
-import { getUserRole } from "@/lib/getUserRole" // ✅ NEW
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function TeacherLayout({ children }: { children: React.ReactNode }) {
 
   const router = useRouter()
   const pathname = usePathname()
@@ -17,7 +17,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const [loading, setLoading] = useState(true)
 
-  // 🔐 AUTH + ROLE CHECK (UPDATED)
   useEffect(() => {
 
     const checkAuth = async () => {
@@ -29,7 +28,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return
       }
 
-      // ✅ ROLE CHECK (NEW)
       const roleData = await getUserRole()
 
       if (!roleData) {
@@ -37,7 +35,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return
       }
 
-      if (roleData.role !== "admin") {
+      // 🔥 ONLY TEACHER ALLOWED
+      if (roleData.role !== "teacher") {
         window.location.href = "/unauthorized"
         return
       }
@@ -47,7 +46,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     checkAuth()
 
-    // 🔥 SESSION LISTENER
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (!session) {
@@ -62,7 +60,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   }, [])
 
-  // 🔓 LOGOUT (NO CHANGE IN LOGIC)
   const logout = async () => {
     await supabase.auth.signOut()
     window.location.href = "/login"
@@ -91,105 +88,47 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside className="w-64 bg-[#0b1a33] border-r border-white/10 p-6 flex flex-col">
 
         <h1 className="text-xl font-bold mb-8">
-          {school?.name || "NaySha EduCore"}
+          {school?.name || "Teacher Panel"}
         </h1>
 
         <nav className="flex flex-col gap-1 text-sm">
 
-          <Link href="/admin" className={linkStyle("/admin")}>
+          <Link href="/teacher" className={linkStyle("/teacher")}>
             📊 Dashboard
           </Link>
 
-          {/* ACADEMICS */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
             Academics
           </p>
 
-          <Link href="/admin/students" className={linkStyle("/admin/students")}>
+          <Link href="/teacher/students" className={linkStyle("/teacher/students")}>
             👨‍🎓 Students
           </Link>
 
-          <Link href="/admin/teachers" className={linkStyle("/admin/teachers")}>
-            👨‍🏫 Teachers
-          </Link>
-
-          <Link href="/admin/classes" className={linkStyle("/admin/classes")}>
-            🏫 Classes
-          </Link>
-
-          <Link href="/admin/subjects" className={linkStyle("/admin/subjects")}>
-            📚 Subjects
-          </Link>
-
-          {/* ATTENDANCE */}
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
-            Attendance
-          </p>
-
-          <Link href="/admin/attendance" className={linkStyle("/admin/attendance")}>
+          <Link href="/teacher/attendance" className={linkStyle("/teacher/attendance")}>
             📅 Attendance
           </Link>
 
-          {/* EXAMS */}
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
-            Examinations
-          </p>
-
-          <Link href="/admin/exams/create" className={linkStyle("/admin/exams/create")}>
+          <Link href="/teacher/exams" className={linkStyle("/teacher/exams")}>
             📝 Create Exam
           </Link>
 
-          <Link href="/admin/exams/marks" className={linkStyle("/admin/exams/marks")}>
-            ✏️ Marks Entry
-          </Link>
-
-          <Link href="/admin/exams/result" className={linkStyle("/admin/exams/result")}>
-            📄 Results
-          </Link>
-
-          <Link href="/admin/exams/reportcard" className={linkStyle("/admin/exams/reportcard")}>
-            📑 Report Cards
-          </Link>
-
-          {/* FINANCE */}
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
-            Finance
-          </p>
-
-          <Link href="/admin/fees" className={linkStyle("/admin/fees")}>
-            💰 Fees
-          </Link>
-
-          <Link href="/admin/payments" className={linkStyle("/admin/payments")}>
-            💳 Payments
-          </Link>
-
-          <Link href="/admin/reports" className={linkStyle("/admin/reports")}>
-            📈 Reports
-          </Link>
-
-          {/* SYSTEM */}
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">
-            System
-          </p>
-
-          <Link href="/admin/settings" className={linkStyle("/admin/settings")}>
-            ⚙️ Settings
+          <Link href="/teacher/marks" className={linkStyle("/teacher/marks")}>
+            ✏️ Enter Marks
           </Link>
 
         </nav>
 
       </aside>
 
-      {/* MAIN AREA */}
+      {/* MAIN */}
       <div className="flex-1 flex flex-col">
 
-        {/* TOPBAR */}
         <header className="flex justify-between items-center px-8 py-4 bg-[#0b1a33] border-b border-white/10">
 
           <div>
             <h2 className="text-lg font-semibold">
-              Admin Panel
+              Teacher Panel
             </h2>
 
             <p className="text-xs text-gray-400">
@@ -199,14 +138,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <button
             onClick={logout}
-            className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-md text-sm"
+            className="bg-red-600 px-4 py-2 rounded-md text-sm"
           >
             Logout
           </button>
 
         </header>
 
-        {/* CONTENT */}
         <main className="flex-1 p-10">
           {children}
         </main>

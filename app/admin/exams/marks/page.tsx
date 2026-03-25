@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
+import { getUserRole } from "@/lib/getUserRole" // ✅ ADDED
 
 export default function MarksPage(){
 
   const [schoolId,setSchoolId] = useState<string | null>(null)
+  const [userRole,setUserRole] = useState("") // ✅ ADDED
 
   const [exams,setExams] = useState<any[]>([])
   const [selectedExam,setSelectedExam] = useState<any>(null)
@@ -23,7 +25,10 @@ export default function MarksPage(){
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
+      const roleData = await getUserRole() // ✅ ADDED
+
       setSchoolId(id)
+      setUserRole(roleData?.role || "")
     }
     init()
   },[])
@@ -70,7 +75,7 @@ export default function MarksPage(){
 
     setStudents(studentsData || [])
 
-    // 🔥 SUBJECTS FROM EXAM
+    // SUBJECTS FROM EXAM
     const { data:subjectData } = await supabase
       .from("exam_subjects")
       .select("subjects(*)")
@@ -82,12 +87,13 @@ export default function MarksPage(){
 
   const handleExamChange = (id:string)=>{
     const exam = exams.find(e=>e.id === id)
+
     setSelectedExam(exam)
     setStudents([])
     setSubjects([])
     setSelectedClass("")
 
-    if(!exam.is_all_classes){
+    if(!exam?.is_all_classes){
       loadData(exam)
     }
   }
@@ -149,8 +155,13 @@ export default function MarksPage(){
     alert("Marks saved ✅")
   }
 
-  // PUBLISH
+  // PUBLISH (ADMIN ONLY)
   const publishResult = async ()=>{
+
+    if(userRole === "teacher"){
+      alert("You are not allowed to publish results")
+      return
+    }
 
     if(!selectedExam) return
 
@@ -193,9 +204,9 @@ export default function MarksPage(){
       }
     })
 
-    results.sort((a,b)=>b.total - a.total)
+    results.sort((a:any,b:any)=>b.total - a.total)
 
-    results = results.map((r,i)=>({
+    results = results.map((r:any,i:number)=>({
       ...r,
       rank: i+1
     }))
@@ -287,8 +298,17 @@ export default function MarksPage(){
 
       {students.length > 0 && (
         <div className="flex gap-4">
-          <button onClick={saveMarks} className="px-6 py-3 bg-white/10 rounded">Save</button>
-          <button onClick={publishResult} className="px-6 py-3 bg-white/10 rounded">Publish</button>
+          <button onClick={saveMarks} className="px-6 py-3 bg-white/10 rounded">
+            Save
+          </button>
+
+          {/* 🔥 HIDE FOR TEACHER */}
+          {userRole !== "teacher" && (
+            <button onClick={publishResult} className="px-6 py-3 bg-white/10 rounded">
+              Publish
+            </button>
+          )}
+
         </div>
       )}
 

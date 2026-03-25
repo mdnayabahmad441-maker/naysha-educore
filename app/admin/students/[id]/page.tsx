@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useParams } from "next/navigation"
+import { getUserRole } from "@/lib/getUserRole" // ✅ ADDED
 
 export default function StudentProfile(){
 
@@ -15,6 +16,19 @@ export default function StudentProfile(){
   const [documents,setDocuments] = useState<any[]>([])
   const [attendance,setAttendance] = useState<any[]>([])
   const [payments,setPayments] = useState<any[]>([])
+
+  // 🔥 ROLE BLOCK (ADDED)
+  useEffect(() => {
+    const checkRole = async () => {
+      const roleData = await getUserRole()
+
+      if (roleData?.role === "teacher") {
+        window.location.href = "/unauthorized"
+      }
+    }
+
+    checkRole()
+  }, [])
 
   useEffect(()=>{
 

@@ -4,10 +4,13 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { useRouter } from "next/navigation"
+import { getUserRole } from "@/lib/getUserRole" // ✅ ADDED
 
 export default function AdminDashboard(){
 
 const router = useRouter()
+
+const [role,setRole] = useState("") // ✅ ADDED
 
 const [schoolName,setSchoolName] = useState("")
 const [students,setStudents] = useState(0)
@@ -23,6 +26,9 @@ useEffect(()=>{
 const loadDashboard = async()=>{
 
 const schoolId = await getSchoolId()
+const roleData = await getUserRole() // ✅ ADDED
+
+setRole(roleData?.role || "")
 
 if(!schoolId) return
 
@@ -61,16 +67,16 @@ const { count:classCount } = await supabase
 
 setClasses(classCount || 0)
 
-/* FEES */
-
+/* FEES (ADMIN ONLY) */
+if(roleData?.role !== "teacher"){
 const { data:payments } = await supabase
 .from("payments")
 .select("amount")
 .eq("school_id",schoolId)
 
 const total = payments?.reduce((sum:any,p:any)=>sum+p.amount,0) || 0
-
 setFees(total)
+}
 
 /* RECENT STUDENTS */
 
@@ -83,8 +89,9 @@ const { data:studentsList } = await supabase
 
 setRecentStudents(studentsList || [])
 
-/* RECENT PAYMENTS */
+/* RECENT PAYMENTS (ADMIN ONLY) */
 
+if(roleData?.role !== "teacher"){
 const { data:paymentsList } = await supabase
 .from("payments")
 .select("id,amount,date")
@@ -93,6 +100,7 @@ const { data:paymentsList } = await supabase
 .limit(5)
 
 setRecentPayments(paymentsList || [])
+}
 
 }
 
@@ -107,7 +115,7 @@ return(
 {/* HEADER */}
 
 <h1 className="text-2xl md:text-3xl font-bold mb-2">
-{schoolName} Dashboard
+{role === "teacher" ? "Teacher Dashboard" : `${schoolName} Dashboard`}
 </h1>
 
 <p className="text-gray-400 mb-10">
@@ -124,20 +132,26 @@ Welcome to your school ERP dashboard
 <h2 className="text-2xl md:text-3xl font-bold">{students}</h2>
 </div>
 
+{/* TEACHERS (HIDE FOR TEACHER ROLE) */}
+{role !== "teacher" && (
 <div className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[110px] flex flex-col items-center justify-center text-center">
 <p className="text-gray-400 text-sm">Teachers</p>
 <h2 className="text-2xl md:text-3xl font-bold">{teachers}</h2>
 </div>
+)}
 
 <div className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[110px] flex flex-col items-center justify-center text-center">
 <p className="text-gray-400 text-sm">Classes</p>
 <h2 className="text-2xl md:text-3xl font-bold">{classes}</h2>
 </div>
 
+{/* FEES (ADMIN ONLY) */}
+{role !== "teacher" && (
 <div className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[110px] flex flex-col items-center justify-center text-center">
 <p className="text-gray-400 text-sm">Fees Collected</p>
 <h2 className="text-2xl md:text-3xl font-bold break-words">₹{fees}</h2>
 </div>
+)}
 
 </div>
 
@@ -153,12 +167,15 @@ className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[90
 Add Student
 </button>
 
+{/* ADMIN ONLY */}
+{role !== "teacher" && (
 <button
 onClick={()=>router.push("/admin/teachers/add")}
 className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[90px] flex items-center justify-center text-center hover:bg-white/20 transition"
 >
 Add Teacher
 </button>
+)}
 
 <button
 onClick={()=>router.push("/admin/classes")}
@@ -167,12 +184,34 @@ className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[90
 Manage Classes
 </button>
 
+{/* ADMIN ONLY */}
+{role !== "teacher" && (
 <button
 onClick={()=>router.push("/admin/fees")}
 className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[90px] flex items-center justify-center text-center hover:bg-white/20 transition"
 >
 Collect Fees
 </button>
+)}
+
+{/* TEACHER ONLY */}
+{role === "teacher" && (
+<>
+<button
+onClick={()=>router.push("/admin/exams/marks")}
+className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[90px] flex items-center justify-center text-center hover:bg-white/20 transition"
+>
+Enter Marks
+</button>
+
+<button
+onClick={()=>router.push("/admin/exams/create")}
+className="bg-white/10 backdrop-blur border border-white/10 rounded-xl min-h-[90px] flex items-center justify-center text-center hover:bg-white/20 transition"
+>
+Create Exam
+</button>
+</>
+)}
 
 </div>
 
@@ -200,12 +239,15 @@ className="flex justify-between items-center border-b border-white/10 pb-2"
 
 <p className="truncate">{s.name}</p>
 
+{/* 🔥 BLOCK PROFILE FOR TEACHER */}
+{role !== "teacher" && (
 <button
 className="text-blue-400 text-sm"
 onClick={()=>router.push(`/admin/students/${s.id}`)}
 >
 View
 </button>
+)}
 
 </div>
 
@@ -216,8 +258,9 @@ View
 </div>
 
 
-{/* RECENT PAYMENTS */}
+{/* RECENT PAYMENTS (ADMIN ONLY) */}
 
+{role !== "teacher" && (
 <div className="bg-white/10 backdrop-blur border border-white/10 p-6 rounded-xl">
 
 <h2 className="text-lg md:text-xl mb-4">
@@ -246,6 +289,7 @@ className="flex justify-between border-b border-white/10 pb-2"
 </div>
 
 </div>
+)}
 
 </div>
 

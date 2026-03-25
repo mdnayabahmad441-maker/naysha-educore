@@ -31,6 +31,7 @@ export default function VerifyPageClient() {
 
     setLoading(true)
 
+    // 🔐 VERIFY OTP
     const { error } = await supabase.auth.verifyOtp({
       email,
       token: otp,
@@ -43,14 +44,27 @@ export default function VerifyPageClient() {
       return
     }
 
-    // 🔥 ONBOARDING
+    // 🔥 GET USER
+    const { data: userData } = await supabase.auth.getUser()
+
+    if (!userData?.user) {
+      setLoading(false)
+      alert("User not found")
+      return
+    }
+
+    const userId = userData.user.id
+
+    // =========================
+    // 🔥 ONBOARDING FLOW
+    // =========================
     const stored = localStorage.getItem("onboardingData")
 
     if (stored) {
 
       const data = JSON.parse(stored)
 
-      const { error: dbError } = await supabase
+      const { data: newSchool, error: dbError } = await supabase
         .from("schools")
         .insert({
           name: data.schoolName,
@@ -58,12 +72,21 @@ export default function VerifyPageClient() {
           email: data.email,
           phone: data.phone
         })
+        .select()
+        .single()
 
-      if (dbError) {
+      if (dbError || !newSchool) {
         setLoading(false)
-        alert(dbError.message)
+        alert(dbError?.message || "School creation failed")
         return
       }
+
+      // CREATE ADMIN PROFILE
+      await supabase.from("profiles").upsert({
+        id: userId,
+        school_id: newSchool.id,
+        role: "admin"
+      })
 
       localStorage.removeItem("onboardingData")
 
@@ -73,10 +96,66 @@ export default function VerifyPageClient() {
       return
     }
 
-    // 🔥 LOGIN FLOW
+    // =========================
+    // 🔥 🆕 PARENT CHECK (ADDED)
+    // =========================
+    const { data: parent } = await supabase
+      .from("parents")
+      .select("id, student_id")
+      .eq("email", email)
+      .maybeSingle()
+
+    if (parent) {
+
+      // 🔥 GET STUDENT → SCHOOL
+      const { data: student } = await supabase
+        .from("students")
+        .select("school_id")
+        .eq("id", parent.student_id)
+        .single()
+
+      if (!student?.school_id) {
+        alert("Parent linked school not found")
+        return
+      }
+
+      // 🔥 GET SCHOOL
+      const { data: school } = await supabase
+        .from("schools")
+        .select("subdomain")
+        .eq("id", student.school_id)
+        .single()
+
+      if (!school?.subdomain) {
+        alert("School not found")
+        return
+      }
+
+      // 🔥 CREATE PROFILE (PARENT ROLE)
+      await supabase.from("profiles").upsert({
+        id: userId,
+        school_id: student.school_id,
+        role: "parent"
+      })
+
+      // 🔥 GET TOKENS
+      const { data: sessionData } = await supabase.auth.getSession()
+
+      const access_token = sessionData.session?.access_token
+      const refresh_token = sessionData.session?.refresh_token
+
+      // 🔥 REDIRECT TO PARENT PANEL
+      window.location.href = `https://${school.subdomain}.naysha.online/auth/callback?access_token=${access_token}&refresh_token=${refresh_token}&next=/parent`
+
+      return
+    }
+
+    // =========================
+    // 🔥 ADMIN / TEACHER FLOW
+    // =========================
     const { data: school, error: schoolError } = await supabase
       .from("schools")
-      .select("subdomain")
+      .select("id, subdomain")
       .eq("email", email)
       .single()
 
@@ -86,12 +165,32 @@ export default function VerifyPageClient() {
       return
     }
 
-   const { data: sessionData } = await supabase.auth.getSession()
+    // ENSURE PROFILE
+    await supabase.from("profiles").upsert({
+      id: userId,
+      school_id: school.id,
+      role: "admin"
+    })
 
-const access_token = sessionData.session?.access_token
-const refresh_token = sessionData.session?.refresh_token
+    // GET ROLE
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single()
 
-window.location.href = `https://${school.subdomain}.naysha.online/auth/callback?access_token=${access_token}&refresh_token=${refresh_token}`
+    const role = profile?.role || "admin"
+
+    // TOKENS
+    const { data: sessionData } = await supabase.auth.getSession()
+
+    const access_token = sessionData.session?.access_token
+    const refresh_token = sessionData.session?.refresh_token
+
+    const redirectPath =
+      role === "teacher" ? "/teacher" : "/admin"
+
+    window.location.href = `https://${school.subdomain}.naysha.online/auth/callback?access_token=${access_token}&refresh_token=${refresh_token}&next=${redirectPath}`
   }
 
   return (
