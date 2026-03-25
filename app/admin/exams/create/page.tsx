@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { dbGet, dbInsert, dbDelete } from "@/lib/db"
+import { getUserRole } from "@/lib/getUserRole" // ✅ ADDED
 
 export default function CreateExamPage(){
 
@@ -18,9 +19,20 @@ export default function CreateExamPage(){
   const [marksConfig,setMarksConfig] = useState<any>({})
   const [exams,setExams] = useState<any[]>([])
 
+  const [role,setRole] = useState<string | null>(null) // ✅ ADDED
+
+  // =========================
   // LOAD ALL
+  // =========================
   useEffect(()=>{
     load()
+
+    const loadRole = async()=>{
+      const r = await getUserRole()
+      setRole(r?.role || null)
+    }
+
+    loadRole()
   },[])
 
   const load = async ()=>{
@@ -48,7 +60,9 @@ export default function CreateExamPage(){
     }))
   }
 
+  // =========================
   // SAVE EXAM
+  // =========================
   const saveExam = async ()=>{
 
     if(!examName || !date){
@@ -104,7 +118,16 @@ export default function CreateExamPage(){
     load()
   }
 
+  // =========================
+  // DELETE (ADMIN ONLY)
+  // =========================
   const deleteExam = async (id:string)=>{
+
+    if(role !== "admin"){
+      alert("Not allowed")
+      return
+    }
+
     await dbDelete("exams", id)
     load()
   }
@@ -118,7 +141,6 @@ export default function CreateExamPage(){
       {/* FORM */}
       <div className="bg-white/5 border border-white/10 p-6 rounded-xl space-y-4">
 
-        {/* NAME */}
         <input
           placeholder="Exam Name"
           value={examName}
@@ -126,7 +148,6 @@ export default function CreateExamPage(){
           className="w-full p-3 rounded bg-[#0b1220]"
         />
 
-        {/* DATE */}
         <input
           type="date"
           value={date}
@@ -134,7 +155,6 @@ export default function CreateExamPage(){
           className="w-full p-3 rounded bg-[#0b1220]"
         />
 
-        {/* CLASS TYPE */}
         <div className="flex gap-3">
 
           <button
@@ -157,7 +177,6 @@ export default function CreateExamPage(){
 
         </div>
 
-        {/* CLASS SELECT */}
         {!isAllClasses && (
           <select
             value={selectedClass}
@@ -171,7 +190,6 @@ export default function CreateExamPage(){
           </select>
         )}
 
-        {/* SUBJECT ACTIONS */}
         <div className="flex gap-3">
           <button onClick={selectAll} className="px-3 py-2 bg-white/10 rounded">
             Select All
@@ -181,7 +199,6 @@ export default function CreateExamPage(){
           </button>
         </div>
 
-        {/* SUBJECT GRID */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
 
           {subjects.map(s=>{
@@ -246,12 +263,15 @@ export default function CreateExamPage(){
               <p className="text-sm text-gray-400">{e.date}</p>
             </div>
 
-            <button
-              onClick={()=>deleteExam(e.id)}
-              className="px-3 py-1 bg-white/10 rounded"
-            >
-              Delete
-            </button>
+            {/* 🔥 ADMIN ONLY DELETE */}
+            {role === "admin" && (
+              <button
+                onClick={()=>deleteExam(e.id)}
+                className="px-3 py-1 bg-white/10 rounded"
+              >
+                Delete
+              </button>
+            )}
 
           </div>
         ))}
