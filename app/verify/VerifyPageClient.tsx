@@ -81,7 +81,6 @@ export default function VerifyPageClient() {
         return
       }
 
-      // CREATE ADMIN PROFILE
       await supabase.from("profiles").upsert({
         id: userId,
         school_id: newSchool.id,
@@ -97,7 +96,7 @@ export default function VerifyPageClient() {
     }
 
     // =========================
-    // 🔥 🆕 PARENT CHECK (ADDED)
+    // 🔥 PARENT FLOW
     // =========================
     const { data: parent } = await supabase
       .from("parents")
@@ -107,7 +106,6 @@ export default function VerifyPageClient() {
 
     if (parent) {
 
-      // 🔥 GET STUDENT → SCHOOL
       const { data: student } = await supabase
         .from("students")
         .select("school_id")
@@ -119,7 +117,6 @@ export default function VerifyPageClient() {
         return
       }
 
-      // 🔥 GET SCHOOL
       const { data: school } = await supabase
         .from("schools")
         .select("subdomain")
@@ -131,22 +128,14 @@ export default function VerifyPageClient() {
         return
       }
 
-      // 🔥 CREATE PROFILE (PARENT ROLE)
       await supabase.from("profiles").upsert({
         id: userId,
         school_id: student.school_id,
         role: "parent"
       })
 
-      // 🔥 GET TOKENS
-      const { data: sessionData } = await supabase.auth.getSession()
-
-      const access_token = sessionData.session?.access_token
-      const refresh_token = sessionData.session?.refresh_token
-
-      // 🔥 REDIRECT TO PARENT PANEL
-      window.location.href = `https://${school.subdomain}.naysha.online/auth/callback?access_token=${access_token}&refresh_token=${refresh_token}&next=/parent`
-
+      // ✅ CLEAN REDIRECT (NO TOKENS)
+      window.location.href = `https://${school.subdomain}.naysha.online/parent`
       return
     }
 
@@ -165,14 +154,12 @@ export default function VerifyPageClient() {
       return
     }
 
-    // ENSURE PROFILE
     await supabase.from("profiles").upsert({
       id: userId,
       school_id: school.id,
       role: "admin"
     })
 
-    // GET ROLE
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -181,16 +168,11 @@ export default function VerifyPageClient() {
 
     const role = profile?.role || "admin"
 
-    // TOKENS
-    const { data: sessionData } = await supabase.auth.getSession()
-
-    const access_token = sessionData.session?.access_token
-    const refresh_token = sessionData.session?.refresh_token
-
     const redirectPath =
       role === "teacher" ? "/teacher" : "/admin"
 
-    window.location.href = `https://${school.subdomain}.naysha.online/auth/callback?access_token=${access_token}&refresh_token=${refresh_token}&next=${redirectPath}`
+    // ✅ CLEAN REDIRECT (NO TOKENS)
+    window.location.href = `https://${school.subdomain}.naysha.online${redirectPath}`
   }
 
   return (
