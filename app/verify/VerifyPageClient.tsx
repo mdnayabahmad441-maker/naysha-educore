@@ -134,13 +134,44 @@ export default function VerifyPageClient() {
         role: "parent"
       })
 
-      // ✅ CLEAN REDIRECT (NO TOKENS)
       window.location.href = `https://${school.subdomain}.naysha.online/parent`
       return
     }
 
     // =========================
-    // 🔥 ADMIN / TEACHER FLOW
+    // 🔥 TEACHER FLOW (NEW)
+    // =========================
+    const { data: teacher } = await supabase
+      .from("teachers")
+      .select("id, school_id")
+      .eq("email", email)
+      .maybeSingle()
+
+    if (teacher) {
+
+      const { data: school } = await supabase
+        .from("schools")
+        .select("subdomain")
+        .eq("id", teacher.school_id)
+        .single()
+
+      if (!school?.subdomain) {
+        alert("School not found")
+        return
+      }
+
+      await supabase.from("profiles").upsert({
+        id: userId,
+        school_id: teacher.school_id,
+        role: "teacher"
+      })
+
+      window.location.href = `https://${school.subdomain}.naysha.online/teacher`
+      return
+    }
+
+    // =========================
+    // 🔥 ADMIN FLOW
     // =========================
     const { data: school, error: schoolError } = await supabase
       .from("schools")
@@ -160,19 +191,7 @@ export default function VerifyPageClient() {
       role: "admin"
     })
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .single()
-
-    const role = profile?.role || "admin"
-
-    const redirectPath =
-      role === "teacher" ? "/teacher" : "/admin"
-
-    // ✅ CLEAN REDIRECT (NO TOKENS)
-    window.location.href = `https://${school.subdomain}.naysha.online${redirectPath}`
+    window.location.href = `https://${school.subdomain}.naysha.online/admin`
   }
 
   return (
