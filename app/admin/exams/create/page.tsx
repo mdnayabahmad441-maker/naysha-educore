@@ -1,38 +1,34 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { dbGet, dbInsert, dbDelete } from "@/lib/db"
-import { getUserRole } from "@/lib/getUserRole" // ✅ ADDED
+import { supabase } from "@/lib/supabase"
+import { dbGet } from "@/lib/db"
+import { getUserRole } from "@/lib/getUserRole"
 
 export default function CreateExamPage(){
 
   const [examName,setExamName] = useState("")
   const [date,setDate] = useState("")
-
-  const [isAllClasses,setIsAllClasses] = useState(true)
   const [selectedClass,setSelectedClass] = useState("")
+  const [isAllClasses,setIsAllClasses] = useState(true)
 
   const [classes,setClasses] = useState<any[]>([])
   const [subjects,setSubjects] = useState<any[]>([])
+  const [filteredSubjects,setFilteredSubjects] = useState<any[]>([])
+
   const [selectedSubjects,setSelectedSubjects] = useState<string[]>([])
-
   const [marksConfig,setMarksConfig] = useState<any>({})
+
   const [exams,setExams] = useState<any[]>([])
+  const [role,setRole] = useState<string | null>(null)
 
-  const [role,setRole] = useState<string | null>(null) // ✅ ADDED
+  const [editingId,setEditingId] = useState<string | null>(null)
 
-  // =========================
-  // LOAD ALL
-  // =========================
+  // ================= LOAD =================
   useEffect(()=>{
     load()
 
-    const loadRole = async()=>{
-      const r = await getUserRole()
-      setRole(r?.role || null)
-    }
-
-    loadRole()
+    getUserRole().then(r=>setRole(r?.role || null))
   },[])
 
   const load = async ()=>{
@@ -41,7 +37,20 @@ export default function CreateExamPage(){
     setExams(await dbGet("exams"))
   }
 
-  // SUBJECT TOGGLE
+  // ================= SUBJECT FILTER =================
+  useEffect(()=>{
+
+    if(isAllClasses){
+      setFilteredSubjects(subjects)
+    }else{
+      setFilteredSubjects(
+        subjects.filter(s=>s.class_id === selectedClass)
+      )
+    }
+
+  },[selectedClass,isAllClasses,subjects])
+
+  // ================= SUBJECT SELECT =================
   const toggleSubject = (id:string)=>{
     setSelectedSubjects(prev =>
       prev.includes(id)
@@ -50,77 +59,108 @@ export default function CreateExamPage(){
     )
   }
 
-  const selectAll = ()=> setSelectedSubjects(subjects.map(s=>s.id))
-  const clearAll = ()=> setSelectedSubjects([])
-
-  const updateMarks = (subjectId:string,value:any)=>{
-    setMarksConfig((prev:any)=>({
-      ...prev,
-      [subjectId]: value
-    }))
+  const updateMarks = (id:string,val:any)=>{
+    setMarksConfig((p:any)=>({...p,[id]:val}))
   }
 
-  // =========================
-  // SAVE EXAM
-  // =========================
+  // ================= SAVE =================
   const saveExam = async ()=>{
 
-    if(!examName || !date){
-      alert("Fill all fields")
-      return
-    }
+    try{
 
-    if(!isAllClasses && !selectedClass){
-      alert("Select class")
-      return
-    }
+      if(!examName || !date){
+        alert("Fill all fields")
+        return
+      }
 
-    if(selectedSubjects.length === 0){
-      alert("Select subjects")
-      return
-    }
+      const examId = editingId || crypto.randomUUID()
 
-    const examId = crypto.randomUUID()
+      // UPSERT EXAM
+      const { error: examError } = await supabase
+        .from("exams")
+        .upsert({
+          id: examId,
+          name: examName,
+          class_id: isAllClasses ? null : selectedClass,
+          is_all_classes: isAllClasses,
+          date,
+          is_published: false
+        })
 
-    await dbInsert("exams", {
-      id: examId,
-      name: examName,
-      class_id: isAllClasses ? null : selectedClass,
-      is_all_classes: isAllClasses,
-      date,
-      is_published: false
-    })
+      if(examError){
+        alert(examError.message)
+        return
+      }
 
-    const rows = selectedSubjects.map(sub=>{
-      const total = Number(marksConfig[sub] || 100)
+      // DELETE OLD SUBJECTS IF EDIT
+      if(editingId){
+        await supabase
+          .from("exam_subjects")
+          .delete()
+          .eq("exam_id", examId)
+      }
 
-      return {
+      // INSERT SUBJECTS
+      const rows = selectedSubjects.map(s=>({
         id: crypto.randomUUID(),
         exam_id: examId,
-        subject_id: sub,
-        total_marks: total,
-        passing_marks: Math.ceil(total * 0.33)
+        subject_id: s,
+        total_marks: Number(marksConfig[s] || 100),
+        passing_marks: Math.ceil((marksConfig[s] || 100) * 0.33)
+      }))
+
+      const { error: subError } = await supabase
+        .from("exam_subjects")
+        .insert(rows)
+
+      if(subError){
+        alert(subError.message)
+        return
       }
-    })
 
-    await dbInsert("exam_subjects", rows)
+      alert(editingId ? "Updated ✅" : "Created ✅")
 
-    alert("Exam Created ✅")
+      // RESET
+      setExamName("")
+      setDate("")
+      setSelectedSubjects([])
+      setMarksConfig({})
+      setEditingId(null)
 
-    // RESET
-    setExamName("")
-    setDate("")
-    setSelectedSubjects([])
-    setMarksConfig({})
-    setSelectedClass("")
-    setIsAllClasses(true)
+      load()
 
-    load()
+    }catch(err){
+      console.error(err)
+    }
   }
 
-  // =========================
-  // DELETE (ADMIN ONLY)
-  // =========================
+  // ================= EDIT =================
+  const editExam = async (exam:any)=>{
+
+    setEditingId(exam.id)
+    setExamName(exam.name)
+    setDate(exam.date)
+    setIsAllClasses(exam.is_all_classes)
+    setSelectedClass(exam.class_id || "")
+
+    const { data } = await supabase
+      .from("exam_subjects")
+      .select("*")
+      .eq("exam_id", exam.id)
+
+    if(data){
+      setSelectedSubjects(data.map(d=>d.subject_id))
+
+      const config:any = {}
+      data.forEach(d=>{
+        config[d.subject_id] = d.total_marks
+      })
+
+      setMarksConfig(config)
+    }
+  }
+
+  // ================= DELETE =================
   const deleteExam = async (id:string)=>{
 
     if(role !== "admin"){
@@ -128,53 +168,37 @@ export default function CreateExamPage(){
       return
     }
 
-    await dbDelete("exams", id)
+    await supabase.from("exam_subjects").delete().eq("exam_id", id)
+    await supabase.from("exams").delete().eq("id", id)
+
     load()
   }
 
   return(
 
-    <div className="p-6 md:p-10 text-white space-y-6">
+    <div className="p-6 text-white space-y-6">
 
-      <h1 className="text-2xl font-semibold">Create Exam</h1>
+      <h1 className="text-2xl">Create Exam</h1>
 
-      {/* FORM */}
-      <div className="bg-white/5 border border-white/10 p-6 rounded-xl space-y-4">
+      <div className="bg-white/5 p-6 rounded-xl space-y-4">
 
         <input
-          placeholder="Exam Name"
           value={examName}
           onChange={(e)=>setExamName(e.target.value)}
-          className="w-full p-3 rounded bg-[#0b1220]"
+          placeholder="Exam Name"
+          className="w-full p-3 bg-[#0b1220] rounded"
         />
 
         <input
           type="date"
           value={date}
           onChange={(e)=>setDate(e.target.value)}
-          className="w-full p-3 rounded bg-[#0b1220]"
+          className="w-full p-3 bg-[#0b1220] rounded"
         />
 
         <div className="flex gap-3">
-
-          <button
-            onClick={()=>setIsAllClasses(true)}
-            className={`px-4 py-2 rounded ${
-              isAllClasses ? "bg-white/20" : "bg-white/5"
-            }`}
-          >
-            All Classes
-          </button>
-
-          <button
-            onClick={()=>setIsAllClasses(false)}
-            className={`px-4 py-2 rounded ${
-              !isAllClasses ? "bg-white/20" : "bg-white/5"
-            }`}
-          >
-            Specific Class
-          </button>
-
+          <button onClick={()=>setIsAllClasses(true)}>All</button>
+          <button onClick={()=>setIsAllClasses(false)}>Specific</button>
         </div>
 
         {!isAllClasses && (
@@ -190,18 +214,9 @@ export default function CreateExamPage(){
           </select>
         )}
 
-        <div className="flex gap-3">
-          <button onClick={selectAll} className="px-3 py-2 bg-white/10 rounded">
-            Select All
-          </button>
-          <button onClick={clearAll} className="px-3 py-2 bg-white/10 rounded">
-            Clear
-          </button>
-        </div>
+        <div className="grid grid-cols-2 gap-3">
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-
-          {subjects.map(s=>{
+          {filteredSubjects.map(s=>{
 
             const selected = selectedSubjects.includes(s.id)
 
@@ -209,69 +224,63 @@ export default function CreateExamPage(){
               <div
                 key={s.id}
                 onClick={()=>toggleSubject(s.id)}
-                className={`p-3 rounded border cursor-pointer ${
-                  selected
-                    ? "bg-white/20 border-white/30"
-                    : "bg-white/5 border-white/10"
+                className={`p-3 rounded ${
+                  selected ? "bg-white/20" : "bg-white/5"
                 }`}
               >
-                <div className="flex justify-between">
-                  <p>{s.name}</p>
-                  {selected && <span>✔</span>}
-                </div>
+                <p>{s.name}</p>
 
                 {selected && (
-                  <>
-                    <input
-                      type="number"
-                      placeholder="Total Marks"
-                      onClick={(e)=>e.stopPropagation()}
-                      onChange={(e)=>updateMarks(s.id,e.target.value)}
-                      className="mt-2 w-full p-2 bg-[#0b1220] rounded"
-                    />
-
-                    <p className="text-xs text-gray-400 mt-1">
-                      Passing: {Math.ceil((marksConfig[s.id] || 100) * 0.33)}
-                    </p>
-                  </>
+                  <input
+                    type="number"
+                    onClick={(e)=>e.stopPropagation()}
+                    onChange={(e)=>updateMarks(s.id,e.target.value)}
+                    className="mt-2 w-full p-2 bg-[#0b1220]"
+                  />
                 )}
+
               </div>
             )
           })}
 
         </div>
 
-        <button
-          onClick={saveExam}
-          className="w-full p-3 bg-white/10 rounded"
-        >
-          Save Exam
+        <button onClick={saveExam} className="w-full p-3 bg-white/10 rounded">
+          {editingId ? "Update Exam" : "Save Exam"}
         </button>
 
       </div>
 
-      {/* EXAMS LIST */}
-      <div className="bg-white/5 border border-white/10 p-6 rounded-xl">
-
-        <h2 className="mb-4">Created Exams</h2>
+      {/* LIST */}
+      <div className="bg-white/5 p-6 rounded-xl">
 
         {exams.map(e=>(
-          <div key={e.id} className="flex justify-between border-b border-white/10 py-2">
+          <div key={e.id} className="flex justify-between border-b py-2">
 
             <div>
               <p>{e.name}</p>
               <p className="text-sm text-gray-400">{e.date}</p>
             </div>
 
-            {/* 🔥 ADMIN ONLY DELETE */}
-            {role === "admin" && (
+            <div className="flex gap-2">
+
               <button
-                onClick={()=>deleteExam(e.id)}
+                onClick={()=>editExam(e)}
                 className="px-3 py-1 bg-white/10 rounded"
               >
-                Delete
+                Edit
               </button>
-            )}
+
+              {role === "admin" && (
+                <button
+                  onClick={()=>deleteExam(e.id)}
+                  className="px-3 py-1 bg-red-500/20 rounded"
+                >
+                  Delete
+                </button>
+              )}
+
+            </div>
 
           </div>
         ))}
