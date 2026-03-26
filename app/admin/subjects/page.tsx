@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Card from "@/components/ui/Card"
 import Input from "@/components/ui/Input"
 import Button from "@/components/ui/Button"
-import { dbGet, dbInsert } from "@/lib/db"
+import { dbGet, dbInsert, dbDelete } from "@/lib/db"
 
 export default function SubjectsPage() {
 
@@ -39,11 +39,23 @@ export default function SubjectsPage() {
     await dbInsert("subjects", {
       id: crypto.randomUUID(),
       name,
-      class_id: selectedClass // ✅ NEW
+      class_id: selectedClass
     })
 
     setName("")
     setSelectedClass("")
+    load()
+  }
+
+  // 🗑 DELETE SUBJECT
+  const remove = async (id:string) => {
+
+    const confirmDelete = confirm("Delete this subject?")
+
+    if(!confirmDelete) return
+
+    await dbDelete("subjects", id)
+
     load()
   }
 
@@ -92,6 +104,7 @@ export default function SubjectsPage() {
               <tr>
                 <th className="border p-2 text-left">Class</th>
                 <th className="border p-2 text-left">Subject</th>
+                <th className="border p-2 text-left">Action</th>
               </tr>
             </thead>
 
@@ -105,6 +118,16 @@ export default function SubjectsPage() {
                   <tr key={s.id}>
                     <td className="border p-2">{cls?.name || "-"}</td>
                     <td className="border p-2">{s.name}</td>
+
+                    <td className="border p-2">
+                      <button
+                        onClick={()=>remove(s.id)}
+                        className="px-3 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20"
+                      >
+                        Delete
+                      </button>
+                    </td>
+
                   </tr>
                 )
               })}
