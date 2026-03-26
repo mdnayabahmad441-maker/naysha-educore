@@ -8,22 +8,42 @@ export default function FeesPage(){
 
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
+  const [classes,setClasses] = useState<any[]>([])
+  const [sections,setSections] = useState<any[]>([])
   const [students,setStudents] = useState<any[]>([])
+
   const [fees,setFees] = useState<any[]>([])
   const [payments,setPayments] = useState<any[]>([])
 
+  const [selectedClass,setSelectedClass] = useState("")
+  const [selectedSection,setSelectedSection] = useState("")
   const [selectedStudent,setSelectedStudent] = useState("")
-  const [amount,setAmount] = useState("")
 
   const [selectedFee,setSelectedFee] = useState("")
   const [payAmount,setPayAmount] = useState("")
+
+  // 🔥 FEE BREAKDOWN
+  const [feeInputs,setFeeInputs] = useState({
+    tuition: "",
+    transport: "",
+    hostel: "",
+    misc: "",
+    other: ""
+  })
+
+  const totalAmount =
+    Number(feeInputs.tuition || 0) +
+    Number(feeInputs.transport || 0) +
+    Number(feeInputs.hostel || 0) +
+    Number(feeInputs.misc || 0) +
+    Number(feeInputs.other || 0)
 
   // 📊 SUMMARY
   const totalFees = fees.reduce((s,f)=>s + f.total_amount,0)
   const totalPaid = fees.reduce((s,f)=>s + f.paid_amount,0)
   const totalPending = totalFees - totalPaid
 
-  // INIT SCHOOL
+  // INIT
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -32,21 +52,36 @@ export default function FeesPage(){
     init()
   },[])
 
-  // LOAD STUDENTS
+  // LOAD CLASSES
   useEffect(()=>{
     if(!schoolId) return
 
-    const load = async ()=>{
-      const { data } = await supabase
-        .from("students")
-        .select("id,name")
-        .eq("school_id", schoolId)
-
-      setStudents(data || [])
-    }
-
-    load()
+    supabase.from("classes")
+      .select("*")
+      .eq("school_id",schoolId)
+      .then(({data})=>setClasses(data || []))
   },[schoolId])
+
+  // LOAD SECTIONS
+  useEffect(()=>{
+    if(!selectedClass) return
+
+    supabase.from("sections")
+      .select("*")
+      .eq("class_id",selectedClass)
+      .then(({data})=>setSections(data || []))
+  },[selectedClass])
+
+  // LOAD STUDENTS
+  useEffect(()=>{
+    if(!selectedClass || !selectedSection) return
+
+    supabase.from("students")
+      .select("*")
+      .eq("class_id",selectedClass)
+      .eq("section_id",selectedSection)
+      .then(({data})=>setStudents(data || []))
+  },[selectedClass,selectedSection])
 
   // LOAD FEES
   const loadFees = async ()=>{
@@ -54,10 +89,7 @@ export default function FeesPage(){
 
     const { data } = await supabase
       .from("fees")
-      .select(`
-        *,
-        students(name)
-      `)
+      .select(`*, students(name)`)
       .eq("school_id", schoolId)
 
     setFees(data || [])
@@ -69,10 +101,7 @@ export default function FeesPage(){
 
     const { data } = await supabase
       .from("payments")
-      .select(`
-        *,
-        students(name)
-      `)
+      .select(`*, students(name)`)
       .eq("school_id", schoolId)
       .order("date",{ascending:false})
 
@@ -84,50 +113,71 @@ export default function FeesPage(){
     loadPayments()
   },[schoolId])
 
-  // ➕ ADD FEE
-  const addFee = async ()=>{
-    if(!selectedStudent || !amount) return
+  // ➕ CREATE FEE (🔥 MAIN LOGIC)
+  const createFee = async ()=>{
 
-    await supabase.from("fees").insert([
-      {
-        id: crypto.randomUUID(),
-        student_id: selectedStudent,
-        school_id: schoolId,
-        total_amount: Number(amount)
-      }
-    ])
+    if(!selectedStudent){
+      alert("Select student")
+      return
+    }
 
-    setAmount("")
+    const feeId = crypto.randomUUID()
+
+    // CREATE MAIN FEE
+    await supabase.from("fees").insert([{
+      id: feeId,
+      student_id: selectedStudent,
+      school_id: schoolId,
+      total_amount: totalAmount,
+      paid_amount: 0,
+      status: "pending"
+    }])
+
+    // CREATE BREAKDOWN
+    const items = Object.entries(feeInputs)
+      .filter(([_,v])=>Number(v) > 0)
+      .map(([type,amount])=>({
+        fee_id: feeId,
+        type,
+        amount: Number(amount)
+      }))
+
+    if(items.length > 0){
+      await supabase.from("fee_items").insert(items)
+    }
+
+    // RESET
+    setFeeInputs({
+      tuition:"",
+      transport:"",
+      hostel:"",
+      misc:"",
+      other:""
+    })
+
     loadFees()
   }
 
-  // 💰 PAY + RECEIPT
+  // 💰 PAY
   const pay = async ()=>{
 
     if(!selectedFee || !payAmount) return
 
     const fee = fees.find(f=>f.id === selectedFee)
-
     if(!fee) return
 
     const newPaid = fee.paid_amount + Number(payAmount)
 
-    const receiptNumber = "RCPT-" + Date.now()
+    await supabase.from("payments").insert([{
+      id: crypto.randomUUID(),
+      student_id: fee.student_id,
+      fee_id: selectedFee,
+      amount: Number(payAmount),
+      school_id: schoolId,
+      receipt_number: "RCPT-"+Date.now(),
+      date: new Date()
+    }])
 
-    // INSERT PAYMENT
-    await supabase.from("payments").insert([
-      {
-        id: crypto.randomUUID(),
-        student_id: fee.student_id,
-        fee_id: selectedFee,
-        amount: Number(payAmount),
-        school_id: schoolId,
-        receipt_number: receiptNumber,
-        date: new Date()
-      }
-    ])
-
-    // UPDATE FEE
     await supabase
       .from("fees")
       .update({
@@ -137,7 +187,6 @@ export default function FeesPage(){
       .eq("id", selectedFee)
 
     setPayAmount("")
-
     loadFees()
     loadPayments()
   }
@@ -150,66 +199,73 @@ export default function FeesPage(){
 
       {/* 📊 SUMMARY */}
       <div className="grid md:grid-cols-3 gap-6">
-
         <div className="bg-white/10 p-6 rounded-xl">
-          <p className="text-gray-400 text-sm">Total Fees</p>
-          <h2 className="text-2xl font-bold mt-2">₹{totalFees}</h2>
+          <p>Total Fees</p>
+          <h2>₹{totalFees}</h2>
         </div>
-
         <div className="bg-white/10 p-6 rounded-xl">
-          <p className="text-gray-400 text-sm">Collected</p>
-          <h2 className="text-2xl font-bold mt-2 text-green-400">₹{totalPaid}</h2>
+          <p>Collected</p>
+          <h2 className="text-green-400">₹{totalPaid}</h2>
         </div>
-
         <div className="bg-white/10 p-6 rounded-xl">
-          <p className="text-gray-400 text-sm">Pending</p>
-          <h2 className="text-2xl font-bold mt-2 text-yellow-400">₹{totalPending}</h2>
+          <p>Pending</p>
+          <h2 className="text-yellow-400">₹{totalPending}</h2>
         </div>
+      </div>
+
+      {/* 🎯 FILTER */}
+      <div className="bg-white/10 p-6 rounded-xl flex gap-4 flex-wrap">
+
+        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)}>
+          <option>Select Class</option>
+          {classes.map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
+        </select>
+
+        <select value={selectedSection} onChange={(e)=>setSelectedSection(e.target.value)}>
+          <option>Select Section</option>
+          {sections.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
+        </select>
+
+        <select value={selectedStudent} onChange={(e)=>setSelectedStudent(e.target.value)}>
+          <option>Select Student</option>
+          {students.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
+        </select>
 
       </div>
 
-      {/* ➕ ADD FEE */}
-      <div className="bg-white/10 p-6 rounded-xl flex flex-wrap gap-4">
+      {/* 🧾 FEE BREAKDOWN */}
+      <div className="bg-white/10 p-6 rounded-xl grid md:grid-cols-2 gap-4">
 
-        <select
-          value={selectedStudent}
-          onChange={(e)=>setSelectedStudent(e.target.value)}
-          className="p-3 bg-[#0b1220] rounded-xl border border-white/10"
-        >
-          <option value="">Select Student</option>
-          {students.map(s=>(
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
+        {Object.keys(feeInputs).map(key=>(
+          <input
+            key={key}
+            placeholder={key.toUpperCase()}
+            value={(feeInputs as any)[key]}
+            onChange={(e)=>setFeeInputs(prev=>({...prev,[key]:e.target.value}))}
+            className="p-3 bg-[#0b1220] rounded"
+          />
+        ))}
 
-        <input
-          placeholder="Total Fee"
-          value={amount}
-          onChange={(e)=>setAmount(e.target.value)}
-          className="p-3 bg-[#0b1220] rounded-xl border border-white/10"
-        />
+        <div className="col-span-2 text-xl font-bold">
+          Total: ₹{totalAmount}
+        </div>
 
-        <button
-          onClick={addFee}
-          className="px-6 py-3 rounded-xl bg-purple-600"
-        >
-          Assign Fee
+        <button onClick={createFee} className="bg-purple-600 p-3 rounded">
+          Generate Fee
         </button>
 
       </div>
 
       {/* 💰 PAYMENT */}
-      <div className="bg-white/10 p-6 rounded-xl flex flex-wrap gap-4">
+      <div className="bg-white/10 p-6 rounded-xl flex gap-4 flex-wrap">
 
-        <select
-          value={selectedFee}
-          onChange={(e)=>setSelectedFee(e.target.value)}
-          className="p-3 bg-[#0b1220] rounded-xl border border-white/10"
-        >
-          <option value="">Select Fee</option>
-          {fees.map(f=>(
+        <select value={selectedFee} onChange={(e)=>setSelectedFee(e.target.value)}>
+          <option>Select Fee</option>
+          {fees
+            .filter(f=>!selectedStudent || f.student_id === selectedStudent)
+            .map(f=>(
             <option key={f.id} value={f.id}>
-              {f.students?.name} (₹{f.total_amount})
+              {f.students?.name} ₹{f.total_amount}
             </option>
           ))}
         </select>
@@ -218,103 +274,11 @@ export default function FeesPage(){
           placeholder="Pay Amount"
           value={payAmount}
           onChange={(e)=>setPayAmount(e.target.value)}
-          className="p-3 bg-[#0b1220] rounded-xl border border-white/10"
         />
 
-        <button
-          onClick={pay}
-          className="px-6 py-3 rounded-xl bg-blue-600"
-        >
+        <button onClick={pay} className="bg-blue-600 p-3 rounded">
           Collect Payment
         </button>
-
-      </div>
-
-      {/* 📋 FEES TABLE */}
-      <div className="bg-white/10 p-6 rounded-xl overflow-x-auto">
-
-        <table className="w-full text-sm">
-
-          <thead className="bg-white/10">
-            <tr>
-              <th className="p-3 text-left">Student</th>
-              <th className="p-3 text-left">Total</th>
-              <th className="p-3 text-left">Paid</th>
-              <th className="p-3 text-left">Remaining</th>
-              <th className="p-3 text-left">Status</th>
-            </tr>
-          </thead>
-
-          <tbody>
-
-            {fees.map(f=>{
-
-              const remaining = f.total_amount - f.paid_amount
-
-              return(
-                <tr key={f.id} className="border-t border-white/10">
-
-                  <td className="p-3">{f.students?.name}</td>
-                  <td className="p-3">₹{f.total_amount}</td>
-                  <td className="p-3 text-green-400">₹{f.paid_amount}</td>
-                  <td className="p-3 text-yellow-400">₹{remaining}</td>
-
-                  <td className="p-3">
-                    {f.status === "paid"
-                      ? "✅ Paid"
-                      : "⚠ Pending"}
-                  </td>
-
-                </tr>
-              )
-            })}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-      {/* 🧾 PAYMENTS / RECEIPTS */}
-      <div className="bg-white/10 p-6 rounded-xl">
-
-        <h2 className="mb-4 text-lg">Receipts</h2>
-
-        <table className="w-full text-sm">
-
-          <thead className="bg-white/10">
-            <tr>
-              <th className="p-3">Student</th>
-              <th className="p-3">Amount</th>
-              <th className="p-3">Date</th>
-              <th className="p-3">Receipt</th>
-            </tr>
-          </thead>
-
-          <tbody>
-
-            {payments.map(p=>(
-              <tr key={p.id} className="border-t border-white/10">
-
-                <td className="p-3">{p.students?.name}</td>
-                <td className="p-3">₹{p.amount}</td>
-                <td className="p-3">{p.date}</td>
-
-                <td className="p-3">
-                  <button
-                    onClick={()=>window.open(`/admin/fees/receipt/${p.id}`)}
-                    className="text-blue-400 hover:underline"
-                  >
-                    View
-                  </button>
-                </td>
-
-              </tr>
-            ))}
-
-          </tbody>
-
-        </table>
 
       </div>
 
