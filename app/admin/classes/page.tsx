@@ -64,7 +64,7 @@ export default function ClassesPage(){
 
     <div className="space-y-6">
 
-      <h1 className="text-2xl font-semibold">Classes & Sections</h1>
+      <h1 className="text-2xl font-semibold text-white">Classes & Sections</h1>
 
       <div className="bg-white/10 p-6 rounded-xl backdrop-blur-md border border-white/10">
 
@@ -73,7 +73,7 @@ export default function ClassesPage(){
           placeholder="Class Name"
           value={className}
           onChange={(e)=>setClassName(e.target.value)}
-          className="w-full p-3 mb-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-400"
+          className="w-full p-3 mb-4 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:border-white/30"
         />
 
         <button
@@ -87,12 +87,18 @@ export default function ClassesPage(){
         <select
           value={selectedClass}
           onChange={(e)=>setSelectedClass(e.target.value)}
-          className="w-full p-3 mb-4 bg-white/5 border border-white/10 rounded-xl text-white"
+          className="w-full p-3 mb-4 bg-[#0b1220] border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/30"
         >
-          <option value="">Select Class</option>
+          <option value="" className="bg-[#0b1220] text-gray-300">
+            Select Class
+          </option>
 
           {classes.map((c)=>(
-            <option key={c.id} value={c.id}>
+            <option
+              key={c.id}
+              value={c.id}
+              className="bg-[#0b1220] text-white"
+            >
               {c.name}
             </option>
           ))}
@@ -102,7 +108,7 @@ export default function ClassesPage(){
           placeholder="Section Name (A,B,C)"
           value={sectionName}
           onChange={(e)=>setSectionName(e.target.value)}
-          className="w-full p-3 mb-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-400"
+          className="w-full p-3 mb-4 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:border-white/30"
         />
 
         <button
@@ -117,7 +123,7 @@ export default function ClassesPage(){
       {/* TABLE */}
       <div className="bg-white/10 p-6 rounded-xl backdrop-blur-md border border-white/10">
 
-        <table className="w-full text-sm border border-white/10">
+        <table className="w-full text-sm border border-white/10 text-white">
 
           <thead>
             <tr>
@@ -150,5 +156,6 @@ export default function ClassesPage(){
       </div>
 
     </div>
+
   )
 }
