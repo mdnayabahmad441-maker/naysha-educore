@@ -23,6 +23,7 @@ export default function FeesPage(){
   const [payAmount,setPayAmount] = useState("")
 
   const [saving,setSaving] = useState(false)
+  const [generating,setGenerating] = useState(false) // 🔥 NEW
 
   const [feeInputs,setFeeInputs] = useState({
     tuition: "",
@@ -42,6 +43,18 @@ export default function FeesPage(){
   const totalFees = fees.reduce((s,f)=>s + f.total_amount,0)
   const totalPaid = fees.reduce((s,f)=>s + f.paid_amount,0)
   const totalPending = totalFees - totalPaid
+
+  // 🔥 PAYABLE CALCULATION
+  const getPayable = (fee:any)=>{
+    const today = new Date()
+    const discountDate = new Date(fee.discount_last_date)
+
+    if(fee.discount_amount && today <= discountDate){
+      return fee.total_amount - fee.discount_amount
+    }
+
+    return fee.total_amount
+  }
 
   // INIT
   useEffect(()=>{
@@ -113,7 +126,65 @@ export default function FeesPage(){
     loadPayments()
   },[schoolId])
 
-  // CREATE FEE
+  // 🔥 AUTO GENERATE FEES
+  const generateFees = async ()=>{
+
+    if(!schoolId){
+      alert("School not loaded")
+      return
+    }
+
+    setGenerating(true)
+
+    const { data: allStudents } = await supabase
+      .from("students")
+      .select("*")
+      .eq("school_id", schoolId)
+
+    for (const s of allStudents || []) {
+
+      const { data: structure } = await supabase
+        .from("fee_structures")
+        .select("*")
+        .eq("class_id", s.class_id)
+        .single()
+
+      if(!structure) continue
+
+      const total =
+        structure.tuition +
+        structure.transport +
+        structure.hostel +
+        structure.misc +
+        structure.other
+
+      const today = new Date()
+
+      const discountDate = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        structure.discount_last_date
+      )
+
+      await supabase.from("fees").insert({
+        id: crypto.randomUUID(),
+        student_id: s.id,
+        school_id: schoolId,
+        total_amount: total,
+        paid_amount: 0,
+        status: "pending",
+        discount_amount: structure.discount_amount,
+        discount_last_date: discountDate,
+        due_date: discountDate
+      })
+    }
+
+    alert("Monthly fees generated ✅")
+    loadFees()
+    setGenerating(false)
+  }
+
+  // CREATE FEE (MANUAL)
   const createFee = async ()=>{
 
     if(saving) return
@@ -139,7 +210,7 @@ export default function FeesPage(){
 
       const feeId = crypto.randomUUID()
 
-      const { error: feeError } = await supabase.from("fees").insert([{
+      await supabase.from("fees").insert([{
         id: feeId,
         student_id: selectedStudent,
         school_id: schoolId,
@@ -147,12 +218,6 @@ export default function FeesPage(){
         paid_amount: 0,
         status: "pending"
       }])
-
-      if(feeError){
-        alert(feeError.message)
-        setSaving(false)
-        return
-      }
 
       const items = Object.entries(feeInputs)
         .filter(([_,v]) => v !== "" && Number(v) > 0)
@@ -184,13 +249,20 @@ export default function FeesPage(){
     setSaving(false)
   }
 
-  // PAY
+  // 💰 PAY (UPDATED WITH DISCOUNT LOGIC)
   const pay = async ()=>{
 
     if(!selectedFee || !payAmount) return
 
     const fee = fees.find(f=>f.id === selectedFee)
     if(!fee) return
+
+    const payable = getPayable(fee)
+
+    if(Number(payAmount) > payable){
+      alert("Amount exceeds payable")
+      return
+    }
 
     const newPaid = fee.paid_amount + Number(payAmount)
 
@@ -223,6 +295,14 @@ export default function FeesPage(){
 
       <h1 className="text-2xl font-semibold">Fees Dashboard</h1>
 
+      {/* 🔥 AUTO BUTTON */}
+      <button
+        onClick={generateFees}
+        className="bg-purple-700 px-6 py-3 rounded-xl"
+      >
+        {generating ? "Generating..." : "Generate Monthly Fees"}
+      </button>
+
       {/* SUMMARY */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
@@ -246,113 +326,20 @@ export default function FeesPage(){
       {/* FILTER */}
       <div className="bg-white/10 p-6 rounded-xl flex flex-col md:flex-row gap-4">
 
-        <select
-          value={selectedClass}
-          onChange={(e)=>setSelectedClass(e.target.value)}
-          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl w-full"
-        >
+        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="bg-[#0b1220] p-3 rounded-xl w-full">
           <option value="">Select Class</option>
-          {classes.map(c=>(
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
+          {classes.map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
         </select>
 
-        <select
-          value={selectedSection}
-          onChange={(e)=>setSelectedSection(e.target.value)}
-          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl w-full"
-        >
+        <select value={selectedSection} onChange={(e)=>setSelectedSection(e.target.value)} className="bg-[#0b1220] p-3 rounded-xl w-full">
           <option value="">Select Section</option>
-          {sections.map(s=>(
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
+          {sections.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
         </select>
 
-        <select
-          value={selectedStudent}
-          onChange={(e)=>setSelectedStudent(e.target.value)}
-          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl w-full"
-        >
-          <option value="">
-            Select Student ({students.length})
-          </option>
-          {students.map(s=>(
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
+        <select value={selectedStudent} onChange={(e)=>setSelectedStudent(e.target.value)} className="bg-[#0b1220] p-3 rounded-xl w-full">
+          <option value="">Select Student ({students.length})</option>
+          {students.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
         </select>
-
-      </div>
-
-      {/* FEE BREAKDOWN */}
-      <div className="bg-white/10 p-6 rounded-xl space-y-4">
-
-        <h2 className="text-lg font-semibold">Create Fee</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-          {Object.keys(feeInputs).map(key=>(
-            <input
-              key={key}
-              placeholder={key.toUpperCase()}
-              value={(feeInputs as any)[key]}
-              onChange={(e)=>setFeeInputs(prev=>({...prev,[key]:e.target.value}))}
-              className="p-3 bg-[#0b1220] border border-white/10 rounded-xl"
-            />
-          ))}
-
-        </div>
-
-        <div className="text-xl font-bold">
-          Total: ₹{totalAmount}
-        </div>
-
-        <button
-          onClick={createFee}
-          disabled={saving}
-          className="w-full md:w-auto bg-purple-600 px-6 py-3 rounded-xl"
-        >
-          {saving ? "Saving..." : "Generate Fee"}
-        </button>
-
-      </div>
-
-      {/* PAYMENT */}
-      <div className="bg-white/10 p-6 rounded-xl space-y-4">
-
-        <h2 className="text-lg font-semibold">Collect Payment</h2>
-
-        <div className="flex flex-col md:flex-row gap-4">
-
-          <select
-            value={selectedFee}
-            onChange={(e)=>setSelectedFee(e.target.value)}
-            className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl w-full"
-          >
-            <option value="">Select Fee</option>
-            {fees
-              .filter(f=>!selectedStudent || f.student_id === selectedStudent)
-              .map(f=>(
-              <option key={f.id} value={f.id}>
-                {f.students?.name} ₹{f.total_amount}
-              </option>
-            ))}
-          </select>
-
-          <input
-            placeholder="Pay Amount"
-            value={payAmount}
-            onChange={(e)=>setPayAmount(e.target.value)}
-            className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl w-full"
-          />
-
-          <button
-            onClick={pay}
-            className="bg-blue-600 px-6 py-3 rounded-xl"
-          >
-            Collect
-          </button>
-
-        </div>
 
       </div>
 
