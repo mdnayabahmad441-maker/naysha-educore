@@ -22,29 +22,14 @@ export default function FeesPage(){
   const [selectedFee,setSelectedFee] = useState("")
   const [payAmount,setPayAmount] = useState("")
 
-  const [saving,setSaving] = useState(false)
-  const [generating,setGenerating] = useState(false) // 🔥 NEW
+  const [generating,setGenerating] = useState(false)
 
-  const [feeInputs,setFeeInputs] = useState({
-    tuition: "",
-    transport: "",
-    hostel: "",
-    misc: "",
-    other: ""
-  })
-
-  const totalAmount =
-    Number(feeInputs.tuition || 0) +
-    Number(feeInputs.transport || 0) +
-    Number(feeInputs.hostel || 0) +
-    Number(feeInputs.misc || 0) +
-    Number(feeInputs.other || 0)
-
+  // 📊 SUMMARY
   const totalFees = fees.reduce((s,f)=>s + f.total_amount,0)
   const totalPaid = fees.reduce((s,f)=>s + f.paid_amount,0)
   const totalPending = totalFees - totalPaid
 
-  // 🔥 PAYABLE CALCULATION
+  // 🔥 PAYABLE WITH DISCOUNT
   const getPayable = (fee:any)=>{
     const today = new Date()
     const discountDate = new Date(fee.discount_last_date)
@@ -136,6 +121,10 @@ export default function FeesPage(){
 
     setGenerating(true)
 
+    const today = new Date()
+    const month = today.getMonth()
+    const year = today.getFullYear()
+
     const { data: allStudents } = await supabase
       .from("students")
       .select("*")
@@ -143,6 +132,18 @@ export default function FeesPage(){
 
     for (const s of allStudents || []) {
 
+      // ❌ prevent duplicate month fee
+      const { data: existing } = await supabase
+        .from("fees")
+        .select("id")
+        .eq("student_id", s.id)
+        .gte("created_at", new Date(year, month, 1).toISOString())
+        .lte("created_at", new Date(year, month + 1, 0).toISOString())
+        .maybeSingle()
+
+      if(existing) continue
+
+      // 📦 get structure
       const { data: structure } = await supabase
         .from("fee_structures")
         .select("*")
@@ -151,18 +152,24 @@ export default function FeesPage(){
 
       if(!structure) continue
 
-      const total =
-        structure.tuition +
-        structure.transport +
-        structure.hostel +
-        structure.misc +
-        structure.other
+      // 🔥 student_type logic
+      let total = 0
 
-      const today = new Date()
+      if(s.student_type === "hosteler"){
+        total = structure.tuition + structure.hostel
+      }
+      else if(s.student_type === "day_scholar_transport"){
+        total = structure.tuition + structure.transport
+      }
+      else{
+        total = structure.tuition
+      }
+
+      total += (structure.misc || 0) + (structure.other || 0)
 
       const discountDate = new Date(
-        today.getFullYear(),
-        today.getMonth(),
+        year,
+        month,
         structure.discount_last_date
       )
 
@@ -180,76 +187,12 @@ export default function FeesPage(){
     }
 
     alert("Monthly fees generated ✅")
+
     loadFees()
     setGenerating(false)
   }
 
-  // CREATE FEE (MANUAL)
-  const createFee = async ()=>{
-
-    if(saving) return
-
-    if(!schoolId){
-      alert("School not loaded")
-      return
-    }
-
-    if(!selectedStudent){
-      alert("Select student")
-      return
-    }
-
-    if(totalAmount <= 0){
-      alert("Enter valid fee amount")
-      return
-    }
-
-    setSaving(true)
-
-    try{
-
-      const feeId = crypto.randomUUID()
-
-      await supabase.from("fees").insert([{
-        id: feeId,
-        student_id: selectedStudent,
-        school_id: schoolId,
-        total_amount: totalAmount,
-        paid_amount: 0,
-        status: "pending"
-      }])
-
-      const items = Object.entries(feeInputs)
-        .filter(([_,v]) => v !== "" && Number(v) > 0)
-        .map(([type,amount])=>({
-          id: crypto.randomUUID(),
-          fee_id: feeId,
-          type,
-          amount: Number(amount)
-        }))
-
-      if(items.length > 0){
-        await supabase.from("fee_items").insert(items)
-      }
-
-      setFeeInputs({
-        tuition:"",
-        transport:"",
-        hostel:"",
-        misc:"",
-        other:""
-      })
-
-      loadFees()
-
-    }catch(err){
-      console.error(err)
-    }
-
-    setSaving(false)
-  }
-
-  // 💰 PAY (UPDATED WITH DISCOUNT LOGIC)
+  // 💰 PAY
   const pay = async ()=>{
 
     if(!selectedFee || !payAmount) return
@@ -266,7 +209,7 @@ export default function FeesPage(){
 
     const newPaid = fee.paid_amount + Number(payAmount)
 
-    await supabase.from("payments").insert([{
+    await supabase.from("payments").insert({
       id: crypto.randomUUID(),
       student_id: fee.student_id,
       fee_id: selectedFee,
@@ -274,7 +217,7 @@ export default function FeesPage(){
       school_id: schoolId,
       receipt_number: "RCPT-"+Date.now(),
       date: new Date()
-    }])
+    })
 
     await supabase
       .from("fees")
@@ -291,14 +234,14 @@ export default function FeesPage(){
 
   return(
 
-    <div className="p-4 md:p-10 text-white max-w-7xl mx-auto space-y-6">
+    <div className="p-6 md:p-10 text-white max-w-7xl mx-auto space-y-6">
 
       <h1 className="text-2xl font-semibold">Fees Dashboard</h1>
 
-      {/* 🔥 AUTO BUTTON */}
+      {/* GENERATE */}
       <button
         onClick={generateFees}
-        className="bg-purple-700 px-6 py-3 rounded-xl"
+        className="bg-white/10 border border-white/10 px-6 py-3 rounded-xl hover:bg-white/20"
       >
         {generating ? "Generating..." : "Generate Monthly Fees"}
       </button>
@@ -340,6 +283,34 @@ export default function FeesPage(){
           <option value="">Select Student ({students.length})</option>
           {students.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
         </select>
+
+      </div>
+
+      {/* PAYMENT */}
+      <div className="bg-white/10 p-6 rounded-xl flex flex-col md:flex-row gap-4">
+
+        <select value={selectedFee} onChange={(e)=>setSelectedFee(e.target.value)} className="bg-[#0b1220] p-3 rounded-xl w-full">
+          <option value="">Select Fee</option>
+          {fees.map(f=>(
+            <option key={f.id} value={f.id}>
+              {f.students?.name} ₹{getPayable(f)}
+            </option>
+          ))}
+        </select>
+
+        <input
+          value={payAmount}
+          onChange={(e)=>setPayAmount(e.target.value)}
+          placeholder="Amount"
+          className="bg-[#0b1220] p-3 rounded-xl w-full"
+        />
+
+        <button
+          onClick={pay}
+          className="bg-white/10 border border-white/10 px-6 py-3 rounded-xl hover:bg-white/20"
+        >
+          Collect
+        </button>
 
       </div>
 
