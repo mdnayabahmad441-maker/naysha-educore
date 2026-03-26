@@ -9,14 +9,19 @@ import { dbGet, dbInsert } from "@/lib/db"
 export default function SubjectsPage() {
 
   const [subjects,setSubjects] = useState<any[]>([])
-  const [name,setName] = useState("")
+  const [classes,setClasses] = useState<any[]>([])
 
-  // LOAD SUBJECTS (MULTI-TENANT SAFE)
+  const [name,setName] = useState("")
+  const [selectedClass,setSelectedClass] = useState("")
+
+  // LOAD DATA
   const load = async () => {
 
-    const data = await dbGet("subjects")
-    setSubjects(data || [])
+    const sub = await dbGet("subjects")
+    const cls = await dbGet("classes")
 
+    setSubjects(sub || [])
+    setClasses(cls || [])
   }
 
   useEffect(()=>{
@@ -26,16 +31,20 @@ export default function SubjectsPage() {
   // ADD SUBJECT
   const submit = async () => {
 
-    if(!name) return
+    if(!name || !selectedClass){
+      alert("Enter subject + select class")
+      return
+    }
 
     await dbInsert("subjects", {
       id: crypto.randomUUID(),
-      name
+      name,
+      class_id: selectedClass // ✅ NEW
     })
 
     setName("")
+    setSelectedClass("")
     load()
-
   }
 
   return (
@@ -46,7 +55,22 @@ export default function SubjectsPage() {
 
       <Card>
 
-        <div className="flex gap-4 mb-6">
+        <div className="flex gap-4 mb-6 flex-wrap">
+
+          {/* CLASS SELECT */}
+          <select
+            value={selectedClass}
+            onChange={(e)=>setSelectedClass(e.target.value)}
+            className="bg-[#0b1220] border border-white/10 p-3 rounded-xl text-white"
+          >
+            <option value="">Select Class</option>
+
+            {classes.map(c=>(
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
 
           <Input
             placeholder="Subject Name"
@@ -66,17 +90,24 @@ export default function SubjectsPage() {
 
             <thead>
               <tr>
+                <th className="border p-2 text-left">Class</th>
                 <th className="border p-2 text-left">Subject</th>
               </tr>
             </thead>
 
             <tbody>
 
-              {subjects.map((s)=>(
-                <tr key={s.id}>
-                  <td className="border p-2">{s.name}</td>
-                </tr>
-              ))}
+              {subjects.map((s)=>{
+
+                const cls = classes.find(c=>c.id === s.class_id)
+
+                return(
+                  <tr key={s.id}>
+                    <td className="border p-2">{cls?.name || "-"}</td>
+                    <td className="border p-2">{s.name}</td>
+                  </tr>
+                )
+              })}
 
             </tbody>
 
