@@ -18,7 +18,7 @@ export default function PaymentsPage(){
 
   const [loading,setLoading] = useState(false)
 
-  // 🔥 INIT SCHOOL
+  // INIT SCHOOL
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -27,7 +27,7 @@ export default function PaymentsPage(){
     init()
   },[])
 
-  // 🔥 LOAD STUDENTS
+  // LOAD STUDENTS
   useEffect(()=>{
     if(!schoolId) return
 
@@ -44,26 +44,25 @@ export default function PaymentsPage(){
 
   },[schoolId])
 
-  // 🔥 LOAD FEES BASED ON STUDENT
+  // LOAD FEES
   useEffect(()=>{
-
     if(!studentId) return
 
     const loadFees = async ()=>{
-
       const { data } = await supabase
         .from("fees")
         .select("*")
         .eq("student_id", studentId)
+        .eq("school_id", schoolId)
 
       setFees(data || [])
     }
 
     loadFees()
 
-  },[studentId])
+  },[studentId,schoolId])
 
-  // 💰 SAVE PAYMENT
+  // 💰 SAVE PAYMENT (🔥 FULL FIX)
   const save = async ()=>{
 
     if(!studentId || !feeId || !amount){
@@ -73,43 +72,74 @@ export default function PaymentsPage(){
 
     setLoading(true)
 
-    const { error } = await supabase
-      .from("payments")
-      .insert({
-        id: crypto.randomUUID(),
-        student_id: studentId,
-        fee_id: feeId,
-        amount: Number(amount),
-        school_id: schoolId,
-        receipt_number: "RCPT-"+Date.now(),
-        date: new Date()
-      })
+    try{
 
-    if(error){
-      console.error(error)
-      alert(error.message)
-      setLoading(false)
-      return
+      const fee = fees.find(f=>f.id === feeId)
+      if(!fee){
+        alert("Fee not found")
+        setLoading(false)
+        return
+      }
+
+      const payAmount = Number(amount)
+      const newPaid = (fee.paid_amount || 0) + payAmount
+
+      // ✅ INSERT PAYMENT
+      const { error: paymentError } = await supabase
+        .from("payments")
+        .insert({
+          id: crypto.randomUUID(),
+          student_id: studentId,
+          fee_id: feeId,
+          amount: payAmount,
+          school_id: schoolId,
+          receipt_number: "RCPT-"+Date.now(),
+          date: new Date()
+        })
+
+      if(paymentError){
+        alert(paymentError.message)
+        setLoading(false)
+        return
+      }
+
+      // ✅ UPDATE FEE (🔥 IMPORTANT)
+      const { error: feeError } = await supabase
+        .from("fees")
+        .update({
+          paid_amount: newPaid,
+          status: newPaid >= fee.total_amount ? "paid" : "pending"
+        })
+        .eq("id", feeId)
+        .eq("school_id", schoolId)
+
+      if(feeError){
+        alert(feeError.message)
+        setLoading(false)
+        return
+      }
+
+      alert("Payment successful ✅")
+
+      setAmount("")
+      setFeeId("")
+
+    }catch(err){
+      console.error(err)
     }
-
-    alert("Payment added ✅")
-
-    // RESET
-    setAmount("")
-    setFeeId("")
 
     setLoading(false)
   }
 
   return(
 
-    <div className="p-10 text-white max-w-7xl mx-auto space-y-6">
+    <div className="p-6 md:p-10 text-white max-w-7xl mx-auto space-y-6">
 
       <h1 className="text-2xl font-semibold">
         Fee Payments
       </h1>
 
-      <div className="flex flex-wrap gap-4 items-center">
+      <div className="bg-white/10 p-6 rounded-xl flex flex-wrap gap-4">
 
         {/* STUDENT */}
         <select
@@ -118,7 +148,7 @@ export default function PaymentsPage(){
             setStudentId(e.target.value)
             setFeeId("")
           }}
-          className="bg-slate-800 border border-white/20 p-3 rounded"
+          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl"
         >
           <option value="">Select Student</option>
 
@@ -127,14 +157,13 @@ export default function PaymentsPage(){
               {s.name}
             </option>
           ))}
-
         </select>
 
         {/* FEES */}
         <select
           value={feeId}
           onChange={(e)=>setFeeId(e.target.value)}
-          className="bg-slate-800 border border-white/20 p-3 rounded"
+          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl"
         >
           <option value="">Select Fee</option>
 
@@ -143,7 +172,6 @@ export default function PaymentsPage(){
               ₹{f.total_amount} ({f.status})
             </option>
           ))}
-
         </select>
 
         {/* AMOUNT */}
@@ -151,10 +179,9 @@ export default function PaymentsPage(){
           value={amount}
           onChange={(e)=>setAmount(e.target.value)}
           placeholder="Enter Amount"
-          className="bg-slate-800 border border-white/20 p-3 rounded"
+          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl"
         />
 
-        {/* BUTTON */}
         <Button
           color="green"
           onClick={save}
@@ -168,5 +195,4 @@ export default function PaymentsPage(){
     </div>
 
   )
-
 }

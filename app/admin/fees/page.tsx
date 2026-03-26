@@ -22,9 +22,8 @@ export default function FeesPage(){
   const [selectedFee,setSelectedFee] = useState("")
   const [payAmount,setPayAmount] = useState("")
 
-  const [saving,setSaving] = useState(false) // 🔥 NEW
+  const [saving,setSaving] = useState(false)
 
-  // 🔥 FEE BREAKDOWN
   const [feeInputs,setFeeInputs] = useState({
     tuition: "",
     transport: "",
@@ -40,7 +39,6 @@ export default function FeesPage(){
     Number(feeInputs.misc || 0) +
     Number(feeInputs.other || 0)
 
-  // 📊 SUMMARY
   const totalFees = fees.reduce((s,f)=>s + f.total_amount,0)
   const totalPaid = fees.reduce((s,f)=>s + f.paid_amount,0)
   const totalPending = totalFees - totalPaid
@@ -115,7 +113,7 @@ export default function FeesPage(){
     loadPayments()
   },[schoolId])
 
-  // ➕ CREATE FEE (🔥 FIXED)
+  // CREATE FEE
   const createFee = async ()=>{
 
     if(saving) return
@@ -141,7 +139,6 @@ export default function FeesPage(){
 
       const feeId = crypto.randomUUID()
 
-      // ✅ CREATE MAIN FEE
       const { error: feeError } = await supabase.from("fees").insert([{
         id: feeId,
         student_id: selectedStudent,
@@ -152,35 +149,24 @@ export default function FeesPage(){
       }])
 
       if(feeError){
-        console.error("FEE ERROR:", feeError)
         alert(feeError.message)
         setSaving(false)
         return
       }
 
-      // ✅ CREATE BREAKDOWN (FIXED)
       const items = Object.entries(feeInputs)
         .filter(([_,v]) => v !== "" && Number(v) > 0)
         .map(([type,amount])=>({
-          id: crypto.randomUUID(), // 🔥 IMPORTANT FIX
+          id: crypto.randomUUID(),
           fee_id: feeId,
           type,
           amount: Number(amount)
         }))
 
       if(items.length > 0){
-
-        const { error: itemError } = await supabase
-          .from("fee_items")
-          .insert(items)
-
-        if(itemError){
-          console.error("ITEM ERROR:", itemError)
-          alert(itemError.message)
-        }
+        await supabase.from("fee_items").insert(items)
       }
 
-      // RESET
       setFeeInputs({
         tuition:"",
         transport:"",
@@ -198,7 +184,7 @@ export default function FeesPage(){
     setSaving(false)
   }
 
-  // 💰 PAY (UNCHANGED)
+  // PAY
   const pay = async ()=>{
 
     if(!selectedFee || !payAmount) return
@@ -233,67 +219,97 @@ export default function FeesPage(){
 
   return(
 
-    <div className="p-6 md:p-10 text-white max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-10 text-white max-w-7xl mx-auto space-y-6">
 
       <h1 className="text-2xl font-semibold">Fees Dashboard</h1>
 
       {/* SUMMARY */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
         <div className="bg-white/10 p-6 rounded-xl">
-          <p>Total Fees</p>
-          <h2>₹{totalFees}</h2>
+          <p className="text-sm text-gray-400">Total Fees</p>
+          <h2 className="text-xl font-bold mt-2">₹{totalFees}</h2>
         </div>
+
         <div className="bg-white/10 p-6 rounded-xl">
-          <p>Collected</p>
-          <h2 className="text-green-400">₹{totalPaid}</h2>
+          <p className="text-sm text-gray-400">Collected</p>
+          <h2 className="text-xl font-bold mt-2 text-green-400">₹{totalPaid}</h2>
         </div>
+
         <div className="bg-white/10 p-6 rounded-xl">
-          <p>Pending</p>
-          <h2 className="text-yellow-400">₹{totalPending}</h2>
+          <p className="text-sm text-gray-400">Pending</p>
+          <h2 className="text-xl font-bold mt-2 text-yellow-400">₹{totalPending}</h2>
         </div>
+
       </div>
 
       {/* FILTER */}
-      <div className="bg-white/10 p-6 rounded-xl flex gap-4 flex-wrap">
+      <div className="bg-white/10 p-6 rounded-xl flex flex-col md:flex-row gap-4">
 
-        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)}>
-          <option>Select Class</option>
-          {classes.map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
+        <select
+          value={selectedClass}
+          onChange={(e)=>setSelectedClass(e.target.value)}
+          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl w-full"
+        >
+          <option value="">Select Class</option>
+          {classes.map(c=>(
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
         </select>
 
-        <select value={selectedSection} onChange={(e)=>setSelectedSection(e.target.value)}>
-          <option>Select Section</option>
-          {sections.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
+        <select
+          value={selectedSection}
+          onChange={(e)=>setSelectedSection(e.target.value)}
+          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl w-full"
+        >
+          <option value="">Select Section</option>
+          {sections.map(s=>(
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
         </select>
 
-        <select value={selectedStudent} onChange={(e)=>setSelectedStudent(e.target.value)}>
-          <option>Select Student</option>
-          {students.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
+        <select
+          value={selectedStudent}
+          onChange={(e)=>setSelectedStudent(e.target.value)}
+          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl w-full"
+        >
+          <option value="">
+            Select Student ({students.length})
+          </option>
+          {students.map(s=>(
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
         </select>
 
       </div>
 
       {/* FEE BREAKDOWN */}
-      <div className="bg-white/10 p-6 rounded-xl grid md:grid-cols-2 gap-4">
+      <div className="bg-white/10 p-6 rounded-xl space-y-4">
 
-        {Object.keys(feeInputs).map(key=>(
-          <input
-            key={key}
-            placeholder={key.toUpperCase()}
-            value={(feeInputs as any)[key]}
-            onChange={(e)=>setFeeInputs(prev=>({...prev,[key]:e.target.value}))}
-            className="p-3 bg-[#0b1220] rounded"
-          />
-        ))}
+        <h2 className="text-lg font-semibold">Create Fee</h2>
 
-        <div className="col-span-2 text-xl font-bold">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {Object.keys(feeInputs).map(key=>(
+            <input
+              key={key}
+              placeholder={key.toUpperCase()}
+              value={(feeInputs as any)[key]}
+              onChange={(e)=>setFeeInputs(prev=>({...prev,[key]:e.target.value}))}
+              className="p-3 bg-[#0b1220] border border-white/10 rounded-xl"
+            />
+          ))}
+
+        </div>
+
+        <div className="text-xl font-bold">
           Total: ₹{totalAmount}
         </div>
 
         <button
           onClick={createFee}
           disabled={saving}
-          className="bg-purple-600 p-3 rounded"
+          className="w-full md:w-auto bg-purple-600 px-6 py-3 rounded-xl"
         >
           {saving ? "Saving..." : "Generate Fee"}
         </button>
@@ -301,28 +317,42 @@ export default function FeesPage(){
       </div>
 
       {/* PAYMENT */}
-      <div className="bg-white/10 p-6 rounded-xl flex gap-4 flex-wrap">
+      <div className="bg-white/10 p-6 rounded-xl space-y-4">
 
-        <select value={selectedFee} onChange={(e)=>setSelectedFee(e.target.value)}>
-          <option>Select Fee</option>
-          {fees
-            .filter(f=>!selectedStudent || f.student_id === selectedStudent)
-            .map(f=>(
-            <option key={f.id} value={f.id}>
-              {f.students?.name} ₹{f.total_amount}
-            </option>
-          ))}
-        </select>
+        <h2 className="text-lg font-semibold">Collect Payment</h2>
 
-        <input
-          placeholder="Pay Amount"
-          value={payAmount}
-          onChange={(e)=>setPayAmount(e.target.value)}
-        />
+        <div className="flex flex-col md:flex-row gap-4">
 
-        <button onClick={pay} className="bg-blue-600 p-3 rounded">
-          Collect Payment
-        </button>
+          <select
+            value={selectedFee}
+            onChange={(e)=>setSelectedFee(e.target.value)}
+            className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl w-full"
+          >
+            <option value="">Select Fee</option>
+            {fees
+              .filter(f=>!selectedStudent || f.student_id === selectedStudent)
+              .map(f=>(
+              <option key={f.id} value={f.id}>
+                {f.students?.name} ₹{f.total_amount}
+              </option>
+            ))}
+          </select>
+
+          <input
+            placeholder="Pay Amount"
+            value={payAmount}
+            onChange={(e)=>setPayAmount(e.target.value)}
+            className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl w-full"
+          />
+
+          <button
+            onClick={pay}
+            className="bg-blue-600 px-6 py-3 rounded-xl"
+          >
+            Collect
+          </button>
+
+        </div>
 
       </div>
 
