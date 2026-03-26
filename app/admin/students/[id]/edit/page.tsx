@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useParams, useRouter } from "next/navigation"
 import { getUserRole } from "@/lib/getUserRole"
+import { getSchoolId } from "@/lib/school" // ✅ ADDED
 
 export default function EditStudentPage(){
 
@@ -46,26 +47,22 @@ export default function EditStudentPage(){
 
     const load = async()=>{
 
-      // STUDENT
       const { data:student } = await supabase
         .from("students")
         .select("*")
         .eq("id",id)
         .single()
 
-      // PARENT
       const { data:parent } = await supabase
         .from("parents")
         .select("*")
         .eq("student_id",id)
         .maybeSingle()
 
-      // CLASSES
       const { data:cls } = await supabase
         .from("classes")
         .select("*")
 
-      // SECTIONS
       const { data:sec } = await supabase
         .from("sections")
         .select("*")
@@ -106,7 +103,7 @@ export default function EditStudentPage(){
     (s)=>s.class_id === form.class_id
   )
 
-  // 💾 SAVE
+  // 💾 SAVE (🔥 FULL FIXED)
   const save = async ()=>{
 
     if(!form.name || !form.email){
@@ -116,8 +113,10 @@ export default function EditStudentPage(){
 
     setLoading(true)
 
-    // UPDATE STUDENT
-    await supabase
+    const schoolId = await getSchoolId()
+
+    // ✅ UPDATE STUDENT
+    const { error: studentError } = await supabase
       .from("students")
       .update({
         name: form.name,
@@ -128,26 +127,36 @@ export default function EditStudentPage(){
       })
       .eq("id",id)
 
-    // UPDATE / INSERT PARENT
-    if(parentId){
-      await supabase
-        .from("parents")
-        .update({
-          name: form.parentName,
-          email: form.parentEmail,
-          phone: form.parentPhone
-        })
-        .eq("id",parentId)
-    }else{
-      await supabase
-        .from("parents")
-        .insert({
-          id: crypto.randomUUID(),
-          student_id: id,
-          name: form.parentName,
-          email: form.parentEmail,
-          phone: form.parentPhone
-        })
+    if(studentError){
+      console.error(studentError)
+      alert("Student update failed")
+      setLoading(false)
+      return
+    }
+
+    // ✅ UPSERT PARENT (🔥 FIXED)
+    const { error: parentError } = await supabase
+      .from("parents")
+      .upsert(
+        [
+          {
+            student_id: id,
+            school_id: schoolId, // 🔥 REQUIRED
+            name: form.parentName,
+            email: form.parentEmail,
+            phone: form.parentPhone
+          }
+        ],
+        {
+          onConflict: "student_id" // 🔥 IMPORTANT
+        }
+      )
+
+    if(parentError){
+      console.error(parentError)
+      alert("Parent save failed")
+      setLoading(false)
+      return
     }
 
     alert("Updated successfully ✅")
