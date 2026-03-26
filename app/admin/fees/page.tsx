@@ -22,6 +22,8 @@ export default function FeesPage(){
   const [selectedFee,setSelectedFee] = useState("")
   const [payAmount,setPayAmount] = useState("")
 
+  const [saving,setSaving] = useState(false) // 🔥 NEW
+
   // 🔥 FEE BREAKDOWN
   const [feeInputs,setFeeInputs] = useState({
     tuition: "",
@@ -113,52 +115,90 @@ export default function FeesPage(){
     loadPayments()
   },[schoolId])
 
-  // ➕ CREATE FEE (🔥 MAIN LOGIC)
+  // ➕ CREATE FEE (🔥 FIXED)
   const createFee = async ()=>{
+
+    if(saving) return
+
+    if(!schoolId){
+      alert("School not loaded")
+      return
+    }
 
     if(!selectedStudent){
       alert("Select student")
       return
     }
 
-    const feeId = crypto.randomUUID()
-
-    // CREATE MAIN FEE
-    await supabase.from("fees").insert([{
-      id: feeId,
-      student_id: selectedStudent,
-      school_id: schoolId,
-      total_amount: totalAmount,
-      paid_amount: 0,
-      status: "pending"
-    }])
-
-    // CREATE BREAKDOWN
-    const items = Object.entries(feeInputs)
-      .filter(([_,v])=>Number(v) > 0)
-      .map(([type,amount])=>({
-        fee_id: feeId,
-        type,
-        amount: Number(amount)
-      }))
-
-    if(items.length > 0){
-      await supabase.from("fee_items").insert(items)
+    if(totalAmount <= 0){
+      alert("Enter valid fee amount")
+      return
     }
 
-    // RESET
-    setFeeInputs({
-      tuition:"",
-      transport:"",
-      hostel:"",
-      misc:"",
-      other:""
-    })
+    setSaving(true)
 
-    loadFees()
+    try{
+
+      const feeId = crypto.randomUUID()
+
+      // ✅ CREATE MAIN FEE
+      const { error: feeError } = await supabase.from("fees").insert([{
+        id: feeId,
+        student_id: selectedStudent,
+        school_id: schoolId,
+        total_amount: totalAmount,
+        paid_amount: 0,
+        status: "pending"
+      }])
+
+      if(feeError){
+        console.error("FEE ERROR:", feeError)
+        alert(feeError.message)
+        setSaving(false)
+        return
+      }
+
+      // ✅ CREATE BREAKDOWN (FIXED)
+      const items = Object.entries(feeInputs)
+        .filter(([_,v]) => v !== "" && Number(v) > 0)
+        .map(([type,amount])=>({
+          id: crypto.randomUUID(), // 🔥 IMPORTANT FIX
+          fee_id: feeId,
+          type,
+          amount: Number(amount)
+        }))
+
+      if(items.length > 0){
+
+        const { error: itemError } = await supabase
+          .from("fee_items")
+          .insert(items)
+
+        if(itemError){
+          console.error("ITEM ERROR:", itemError)
+          alert(itemError.message)
+        }
+      }
+
+      // RESET
+      setFeeInputs({
+        tuition:"",
+        transport:"",
+        hostel:"",
+        misc:"",
+        other:""
+      })
+
+      loadFees()
+
+    }catch(err){
+      console.error(err)
+    }
+
+    setSaving(false)
   }
 
-  // 💰 PAY
+  // 💰 PAY (UNCHANGED)
   const pay = async ()=>{
 
     if(!selectedFee || !payAmount) return
@@ -197,7 +237,7 @@ export default function FeesPage(){
 
       <h1 className="text-2xl font-semibold">Fees Dashboard</h1>
 
-      {/* 📊 SUMMARY */}
+      {/* SUMMARY */}
       <div className="grid md:grid-cols-3 gap-6">
         <div className="bg-white/10 p-6 rounded-xl">
           <p>Total Fees</p>
@@ -213,7 +253,7 @@ export default function FeesPage(){
         </div>
       </div>
 
-      {/* 🎯 FILTER */}
+      {/* FILTER */}
       <div className="bg-white/10 p-6 rounded-xl flex gap-4 flex-wrap">
 
         <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)}>
@@ -233,7 +273,7 @@ export default function FeesPage(){
 
       </div>
 
-      {/* 🧾 FEE BREAKDOWN */}
+      {/* FEE BREAKDOWN */}
       <div className="bg-white/10 p-6 rounded-xl grid md:grid-cols-2 gap-4">
 
         {Object.keys(feeInputs).map(key=>(
@@ -250,13 +290,17 @@ export default function FeesPage(){
           Total: ₹{totalAmount}
         </div>
 
-        <button onClick={createFee} className="bg-purple-600 p-3 rounded">
-          Generate Fee
+        <button
+          onClick={createFee}
+          disabled={saving}
+          className="bg-purple-600 p-3 rounded"
+        >
+          {saving ? "Saving..." : "Generate Fee"}
         </button>
 
       </div>
 
-      {/* 💰 PAYMENT */}
+      {/* PAYMENT */}
       <div className="bg-white/10 p-6 rounded-xl flex gap-4 flex-wrap">
 
         <select value={selectedFee} onChange={(e)=>setSelectedFee(e.target.value)}>
