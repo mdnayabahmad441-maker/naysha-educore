@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
-import { sendClassNotification } from "@/lib/notifications"
+import { sendNotification } from "@/lib/notifications"
 
 export default function NotificationsPage(){
 
@@ -35,7 +35,6 @@ export default function NotificationsPage(){
 
     const load = async ()=>{
 
-      // 🔔 notifications
       const { data: notif } = await supabase
         .from("notifications")
         .select("*")
@@ -44,7 +43,6 @@ export default function NotificationsPage(){
 
       setNotifications(notif || [])
 
-      // 🎓 classes
       const { data: cls } = await supabase
         .from("classes")
         .select("*")
@@ -58,7 +56,7 @@ export default function NotificationsPage(){
   },[schoolId])
 
   // =========================
-  // SEND TO CLASS
+  // SEND TO CLASS (FIXED)
   // =========================
   const sendToClass = async ()=>{
 
@@ -67,13 +65,34 @@ export default function NotificationsPage(){
       return
     }
 
-    await sendClassNotification({
-      school_id: schoolId!,
-      class_id: selectedClass,
-      title,
-      message,
-      type: "general"
-    })
+    if(!schoolId){
+      alert("School not loaded")
+      return
+    }
+
+    // 🔥 GET STUDENTS OF CLASS
+    const { data: students } = await supabase
+      .from("students")
+      .select("id")
+      .eq("class_id", selectedClass)
+      .eq("school_id", schoolId)
+
+    // 🔥 LOOP + SEND (THIS FIXES YOUR ERROR)
+    for(const s of students || []){
+
+      try{
+        await sendNotification({
+          school_id: schoolId,
+          student_id: s.id,
+          title,
+          message,
+          type: "general"
+        })
+      }catch(err){
+        console.error("Notification failed:", err)
+      }
+
+    }
 
     alert("Notification sent ✅")
 
@@ -81,7 +100,7 @@ export default function NotificationsPage(){
     setMessage("")
     setSelectedClass("")
 
-    // 🔄 reload notifications
+    // 🔄 reload
     const { data } = await supabase
       .from("notifications")
       .select("*")
@@ -99,9 +118,7 @@ export default function NotificationsPage(){
         Notifications
       </h1>
 
-      {/* =========================
-          SEND PANEL
-      ========================= */}
+      {/* SEND PANEL */}
       <div className="bg-white/10 border border-white/10 p-6 rounded-xl space-y-4">
 
         <h2 className="text-lg font-semibold">
@@ -144,9 +161,7 @@ export default function NotificationsPage(){
 
       </div>
 
-      {/* =========================
-          NOTIFICATIONS LIST
-      ========================= */}
+      {/* LIST */}
       <div className="space-y-4">
 
         {notifications.length === 0 && (

@@ -91,6 +91,7 @@ export default function AttendancePage(){
 
   },[selectedSection, schoolId, selectedDate])
 
+  // ✅ SET STATUS
   const setStatus = (studentId:string, status:string)=>{
     setAttendance((prev:any)=>({
       ...prev,
@@ -98,7 +99,7 @@ export default function AttendancePage(){
     }))
   }
 
-  // 🔥 SAVE ATTENDANCE + SMART NOTIFICATIONS
+  // 🔥 SAVE ATTENDANCE + WHATSAPP
   const saveAttendance = async ()=>{
 
     if(!schoolId || !selectedClass || !selectedSection || !selectedDate){
@@ -139,23 +140,21 @@ export default function AttendancePage(){
         return
       }
 
-      // 🔥 SMART NOTIFICATION LOGIC
+      // 🔥 SMART NOTIFICATION LOGIC (UNCHANGED + CLEAN)
       for (const s of students){
 
         const status = attendance[s.id] || "present"
         const type = s.student_type?.toLowerCase()
 
-        // ✅ ABSENT → ALL
+        // ❌ ABSENT → ALL
         if(status === "absent"){
-
-          console.log("Absent notification:", s.name)
 
           try{
             await sendNotification({
               school_id: schoolId,
               student_id: s.id,
-              title: "Student Absent",
-              message: `Your child ${s.name} was absent on ${new Date(selectedDate).toLocaleDateString()}`,
+              title: "Student Absent ❌",
+              message: `${s.name} was absent on ${new Date(selectedDate).toLocaleDateString()}`,
               type: "attendance"
             })
           }catch(err){
@@ -170,14 +169,12 @@ export default function AttendancePage(){
           type !== "hosteler"
         ){
 
-          console.log("Present notification (day scholar):", s.name)
-
           try{
             await sendNotification({
               school_id: schoolId,
               student_id: s.id,
-              title: "Student Present",
-              message: `Your child ${s.name} is present on ${new Date(selectedDate).toLocaleDateString()}`,
+              title: "Student Present ✅",
+              message: `${s.name} is present on ${new Date(selectedDate).toLocaleDateString()}`,
               type: "attendance"
             })
           }catch(err){

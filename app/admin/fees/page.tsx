@@ -181,7 +181,6 @@ export default function FeesPage(){
     setGenerating(false)
   }
 
-  // 💰 PAY WITH EMAIL + NOTIFICATION
   const pay = async ()=>{
 
     if(!selectedFee || !payAmount) return
@@ -198,7 +197,6 @@ export default function FeesPage(){
 
     const newPaid = fee.paid_amount + Number(payAmount)
 
-    // ✅ PAYMENT INSERT
     await supabase.from("payments").insert({
       id: crypto.randomUUID(),
       student_id: fee.student_id,
@@ -209,7 +207,6 @@ export default function FeesPage(){
       date: new Date()
     })
 
-    // ✅ UPDATE FEE
     await supabase
       .from("fees")
       .update({
@@ -218,29 +215,18 @@ export default function FeesPage(){
       })
       .eq("id", selectedFee)
 
-    // 🔔 NOTIFICATION
+    // ✅ WHATSAPP
     if(schoolId){
+      const studentName = fee.students?.name || "Student"
+
       await sendNotification({
         school_id: schoolId,
         student_id: fee.student_id,
         title: "Payment Received",
-        message: `₹${payAmount} received successfully`,
+        message: `₹${payAmount} received for ${studentName}`,
         type: "fee"
       })
     }
-
-    // 📧 EMAIL (TEST VERSION)
-    await fetch("/api/send-email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        to: "mdnayabahmad441@gmail.com", // 🔥 replace with your email for testing
-        subject: "Payment Received",
-        message: `₹${payAmount} received successfully`
-      })
-    })
 
     setPayAmount("")
     loadFees()

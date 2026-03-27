@@ -1,4 +1,5 @@
 import { supabase } from "./supabase"
+import { sendWhatsApp } from "./whatsapp"
 
 export async function sendNotification({
   school_id,
@@ -14,6 +15,7 @@ export async function sendNotification({
   type: string
 }) {
 
+  // ✅ SAVE IN DB
   const { error } = await supabase
     .from("notifications")
     .insert({
@@ -27,38 +29,21 @@ export async function sendNotification({
   if (error) {
     console.error("Notification error:", error)
   }
-}
-export async function sendClassNotification({
-  school_id,
-  class_id,
-  title,
-  message,
-  type
-}: {
-  school_id: string
-  class_id: string
-  title: string
-  message: string
-  type: string
-}) {
 
-  // 🔥 GET ALL STUDENTS OF CLASS
-  const { data: students } = await supabase
-    .from("students")
-    .select("id")
-    .eq("class_id", class_id)
-    .eq("school_id", school_id)
+  // 🔥 GET PARENT PHONE
+  const { data: parent } = await supabase
+    .from("parents")
+    .select("phone")
+    .eq("student_id", student_id)
+    .single()
 
-  if(!students || students.length === 0) return
+  if(!parent?.phone) return
 
-  // 🔥 CREATE MULTIPLE NOTIFICATIONS
-  const rows = students.map(s => ({
-    school_id,
-    student_id: s.id,
-    title,
-    message,
-    type
-  }))
+  // 🔥 SEND WHATSAPP
+  try{
+    await sendWhatsApp(parent.phone, `${title}\n\n${message}`)
+  }catch(err){
+    console.error("WhatsApp failed:", err)
+  }
 
-  await supabase.from("notifications").insert(rows)
 }

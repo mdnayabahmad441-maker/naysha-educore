@@ -20,7 +20,8 @@
     "react-dom": "19.2.3",
     "react-to-print": "^3.3.0",
     "recharts": "^3.8.0",
-    "resend": "^6.9.4"
+    "resend": "^6.9.4",
+    "twilio": "^5.13.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",
@@ -28,6 +29,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/twilio": "^3.19.2",
     "autoprefixer": "^10.4.27",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
