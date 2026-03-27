@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { dbGet } from "@/lib/db"
-import { getUserRole } from "@/lib/getUserRole"
 import { getSchoolId } from "@/lib/school"
 
 export default function CreateExamPage(){
@@ -179,14 +178,6 @@ export default function CreateExamPage(){
     load()
   }
 
-  // ================= KEYBOARD =================
-  const handleKeyDown = (e:any)=>{
-    if(e.key === "Enter"){
-      e.preventDefault()
-      saveExam()
-    }
-  }
-
   return(
 
     <div className="p-6 text-white space-y-6">
@@ -198,7 +189,6 @@ export default function CreateExamPage(){
         <input
           value={examName}
           onChange={(e)=>setExamName(e.target.value)}
-          onKeyDown={handleKeyDown}
           placeholder="Exam Name"
           className="w-full p-3 bg-[#0b1220] rounded"
         />
@@ -207,7 +197,6 @@ export default function CreateExamPage(){
           type="date"
           value={date}
           onChange={(e)=>setDate(e.target.value)}
-          onKeyDown={handleKeyDown}
           className="w-full p-3 bg-[#0b1220] rounded"
         />
 
@@ -251,16 +240,15 @@ export default function CreateExamPage(){
                       type="number"
                       placeholder="Total Marks"
                       value={marksConfig[s.id]?.total || ""}
+                      onClick={(e)=>e.stopPropagation()}   // ✅ FIX
                       onChange={(e)=>updateMarks(s.id,e.target.value)}
-                      onKeyDown={(e)=>{
-                        if(e.key === "Enter"){
-                          e.stopPropagation()
-                        }
-                      }}
                       className="mt-2 w-full p-2 bg-[#0b1220]"
                     />
 
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p
+                      onClick={(e)=>e.stopPropagation()}   // ✅ EXTRA SAFE
+                      className="text-xs text-gray-400 mt-1"
+                    >
                       Passing: {marksConfig[s.id]?.passing || 0}
                     </p>
                   </>
@@ -278,7 +266,6 @@ export default function CreateExamPage(){
 
       </div>
 
-      {/* LIST */}
       <div className="bg-white/5 p-6 rounded-xl">
 
         {exams.map(e=>(
