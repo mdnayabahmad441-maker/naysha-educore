@@ -21,7 +21,6 @@ export default function ReportCardPage(){
 
   const reportRef = useRef<HTMLDivElement>(null)
 
-  // LOAD
   useEffect(()=>{
     load()
   },[])
@@ -33,7 +32,7 @@ export default function ReportCardPage(){
     setExams(await dbGet("exams"))
   }
 
-  // GENERATE REPORT
+  // ================= GENERATE =================
   const generateReport = async ()=>{
 
     if(!selectedStudent || !selectedExam){
@@ -55,8 +54,8 @@ export default function ReportCardPage(){
     buildReport(exSub || [], marksData || [])
   }
 
-  // BUILD REPORT
-  const buildReport = (exSub:any[], marksData:any[])=>{
+  // ================= BUILD =================
+  const buildReport = async (exSub:any[], marksData:any[])=>{
 
     let totalMarks = 0
     let obtainedMarks = 0
@@ -112,6 +111,18 @@ export default function ReportCardPage(){
       else grade = "D"
     }
 
+    // 🔥 SAVE RESULT TO DB
+    await supabase.from("results").insert({
+      student_id: selectedStudent,
+      exam_id: selectedExam,
+      class_id: selectedClass,
+      total_marks: totalMarks,
+      obtained_marks: obtainedMarks,
+      percentage: percentage,
+      result: finalResult,
+      grade: grade
+    })
+
     setReport({
       rows,
       totalMarks,
@@ -122,13 +133,12 @@ export default function ReportCardPage(){
     })
   }
 
-  // DOWNLOAD PDF
+  // ================= PDF =================
   const downloadPDF = async ()=>{
 
     if(!reportRef.current) return
 
     const canvas = await html2canvas(reportRef.current)
-
     const imgData = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p", "mm", "a4")
@@ -137,7 +147,6 @@ export default function ReportCardPage(){
     const imgHeight = (canvas.height * imgWidth) / canvas.width
 
     pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight)
-
     pdf.save("report-card.pdf")
   }
 
@@ -151,7 +160,6 @@ export default function ReportCardPage(){
 
       <h1 className="text-2xl">Report Card</h1>
 
-      {/* SELECTORS */}
       <div className="flex gap-4 flex-wrap">
 
         <select
@@ -189,21 +197,17 @@ export default function ReportCardPage(){
 
         <button
           onClick={generateReport}
-          className="px-4 py-2 bg-white/10 rounded hover:bg-white/20"
+          className="px-4 py-2 bg-white/10 rounded"
         >
           Generate
         </button>
 
       </div>
 
-      {/* REPORT */}
       {report && (
 
         <>
-          <div
-            ref={reportRef}
-            className="bg-white text-black p-6 rounded-xl"
-          >
+          <div ref={reportRef} className="bg-white text-black p-6 rounded-xl">
 
             <h2 className="text-xl font-bold mb-4">
               Student Report Card
@@ -229,9 +233,7 @@ export default function ReportCardPage(){
                     <td className="border p-2">{r.passing}</td>
                     <td className="border p-2">{r.obtained}</td>
                     <td className={`border p-2 ${
-                      r.status === "FAIL"
-                        ? "text-red-500"
-                        : "text-green-600"
+                      r.status === "FAIL" ? "text-red-500" : "text-green-600"
                     }`}>
                       {r.status}
                     </td>
@@ -242,21 +244,17 @@ export default function ReportCardPage(){
             </table>
 
             <div className="space-y-2">
-
               <p>Total Marks: {report.totalMarks}</p>
               <p>Obtained: {report.obtainedMarks}</p>
               <p>Percentage: {report.percentage.toFixed(2)}%</p>
 
               <p className={`text-lg font-bold ${
-                report.finalResult === "FAIL"
-                  ? "text-red-500"
-                  : "text-green-600"
+                report.finalResult === "FAIL" ? "text-red-500" : "text-green-600"
               }`}>
                 Final Result: {report.finalResult}
               </p>
 
               <p>Grade: {report.grade}</p>
-
             </div>
 
           </div>
