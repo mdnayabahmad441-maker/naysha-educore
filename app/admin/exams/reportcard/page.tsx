@@ -1,8 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { dbGet } from "@/lib/db"
+import jsPDF from "jspdf"
+import html2canvas from "html2canvas"
 
 export default function ReportCardPage(){
 
@@ -17,7 +19,9 @@ export default function ReportCardPage(){
 
   const [report,setReport] = useState<any>(null)
 
-  // ================= LOAD =================
+  const reportRef = useRef<HTMLDivElement>(null)
+
+  // LOAD
   useEffect(()=>{
     load()
   },[])
@@ -29,7 +33,7 @@ export default function ReportCardPage(){
     setExams(await dbGet("exams"))
   }
 
-  // ================= GENERATE =================
+  // GENERATE REPORT
   const generateReport = async ()=>{
 
     if(!selectedStudent || !selectedExam){
@@ -51,7 +55,7 @@ export default function ReportCardPage(){
     buildReport(exSub || [], marksData || [])
   }
 
-  // ================= BUILD =================
+  // BUILD REPORT
   const buildReport = (exSub:any[], marksData:any[])=>{
 
     let totalMarks = 0
@@ -118,7 +122,25 @@ export default function ReportCardPage(){
     })
   }
 
-  // ================= FILTER =================
+  // DOWNLOAD PDF
+  const downloadPDF = async ()=>{
+
+    if(!reportRef.current) return
+
+    const canvas = await html2canvas(reportRef.current)
+
+    const imgData = canvas.toDataURL("image/png")
+
+    const pdf = new jsPDF("p", "mm", "a4")
+
+    const imgWidth = 210
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+    pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight)
+
+    pdf.save("report-card.pdf")
+  }
+
   const filteredStudents = students.filter(
     s => s.class_id === selectedClass
   )
@@ -177,60 +199,76 @@ export default function ReportCardPage(){
       {/* REPORT */}
       {report && (
 
-        <div className="bg-white/5 p-6 rounded-xl">
+        <>
+          <div
+            ref={reportRef}
+            className="bg-white text-black p-6 rounded-xl"
+          >
 
-          <table className="w-full border text-sm mb-6">
+            <h2 className="text-xl font-bold mb-4">
+              Student Report Card
+            </h2>
 
-            <thead>
-              <tr>
-                <th className="border p-2">Subject</th>
-                <th className="border p-2">Total</th>
-                <th className="border p-2">Passing</th>
-                <th className="border p-2">Obtained</th>
-                <th className="border p-2">Result</th>
-              </tr>
-            </thead>
+            <table className="w-full border text-sm mb-6">
 
-            <tbody>
-              {report.rows.map((r:any,i:number)=>(
-                <tr key={i}>
-                  <td className="border p-2">{r.name}</td>
-                  <td className="border p-2">{r.total}</td>
-                  <td className="border p-2">{r.passing}</td>
-                  <td className="border p-2">{r.obtained}</td>
-                  <td className={`border p-2 ${
-                    r.status === "FAIL"
-                      ? "text-red-400"
-                      : "text-green-400"
-                  }`}>
-                    {r.status}
-                  </td>
+              <thead>
+                <tr>
+                  <th className="border p-2">Subject</th>
+                  <th className="border p-2">Total</th>
+                  <th className="border p-2">Passing</th>
+                  <th className="border p-2">Obtained</th>
+                  <th className="border p-2">Result</th>
                 </tr>
-              ))}
-            </tbody>
+              </thead>
 
-          </table>
+              <tbody>
+                {report.rows.map((r:any,i:number)=>(
+                  <tr key={i}>
+                    <td className="border p-2">{r.name}</td>
+                    <td className="border p-2">{r.total}</td>
+                    <td className="border p-2">{r.passing}</td>
+                    <td className="border p-2">{r.obtained}</td>
+                    <td className={`border p-2 ${
+                      r.status === "FAIL"
+                        ? "text-red-500"
+                        : "text-green-600"
+                    }`}>
+                      {r.status}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
 
-          {/* SUMMARY */}
-          <div className="space-y-2">
+            </table>
 
-            <p>Total Marks: {report.totalMarks}</p>
-            <p>Obtained: {report.obtainedMarks}</p>
-            <p>Percentage: {report.percentage.toFixed(2)}%</p>
+            <div className="space-y-2">
 
-            <p className={`text-xl font-bold ${
-              report.finalResult === "FAIL"
-                ? "text-red-400"
-                : "text-green-400"
-            }`}>
-              Final Result: {report.finalResult}
-            </p>
+              <p>Total Marks: {report.totalMarks}</p>
+              <p>Obtained: {report.obtainedMarks}</p>
+              <p>Percentage: {report.percentage.toFixed(2)}%</p>
 
-            <p>Grade: {report.grade}</p>
+              <p className={`text-lg font-bold ${
+                report.finalResult === "FAIL"
+                  ? "text-red-500"
+                  : "text-green-600"
+              }`}>
+                Final Result: {report.finalResult}
+              </p>
+
+              <p>Grade: {report.grade}</p>
+
+            </div>
 
           </div>
 
-        </div>
+          <button
+            onClick={downloadPDF}
+            className="px-4 py-2 bg-green-600 text-white rounded"
+          >
+            Download PDF
+          </button>
+
+        </>
 
       )}
 
