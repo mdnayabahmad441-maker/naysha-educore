@@ -9,52 +9,52 @@ export async function getSchoolId() {
   if (typeof window === "undefined") return null
 
   const host = window.location.hostname
-  console.log("HOST:", host)
-
   let subdomain = host.split(".")[0]
 
-  // ✅ HANDLE LOCALHOST
-  if (host.includes("localhost")) {
+  // LOCAL + ROOT FIX
+  if (host.includes("localhost") || subdomain === "www" || subdomain === "erp") {
     subdomain = "default"
   }
 
-  // ✅ HANDLE ROOT DOMAIN
-  if (subdomain === "erp" || subdomain === "www") {
-    subdomain = "default"
-  }
+  console.log("SUBDOMAIN:", subdomain)
 
-  console.log("FINAL SUBDOMAIN:", subdomain)
-
-  // 🔥 TRY FIND SCHOOL
+  // 🔍 TRY FIND SCHOOL
   const { data, error } = await supabase
     .from("schools")
-    .select("id")
+    .select("*")
     .eq("subdomain", subdomain)
     .maybeSingle()
 
-  // ✅ IF NOT FOUND → FALLBACK TO DEFAULT
-  if (!data) {
-
-    console.warn("No school for subdomain, trying default...")
-
-    const fallback = await supabase
-      .from("schools")
-      .select("id")
-      .eq("subdomain", "default")
-      .maybeSingle()
-
-    if (!fallback.data) {
-      console.error("No default school found ❌")
-      return null
-    }
-
-    cachedSchoolId = fallback.data.id
-    return fallback.data.id
+  if (error) {
+    console.error("Fetch error:", error)
   }
 
-  cachedSchoolId = data.id
+  // ✅ FOUND
+  if (data) {
+    cachedSchoolId = data.id
+    return data.id
+  }
 
-  console.log("School found:", data)
+  console.warn("School not found → creating new one...")
 
-  return data.id
+  // 🔥 AUTO CREATE SCHOOL
+  const { data: newSchool, error: insertError } = await supabase
+    .from("schools")
+    .insert({
+      name: subdomain.toUpperCase() + " School",
+      subdomain: subdomain
+    })
+    .select()
+    .single()
+
+  if (insertError) {
+    console.error("Create school error:", insertError)
+    return null
+  }
+
+  cachedSchoolId = newSchool.id
+
+  console.log("New school created:", newSchool)
+
+  return newSchool.id
 }
