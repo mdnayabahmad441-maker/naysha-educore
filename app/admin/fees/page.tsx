@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
+import { sendNotification } from "@/lib/notifications"
 
 export default function FeesPage(){
 
@@ -24,12 +25,10 @@ export default function FeesPage(){
 
   const [generating,setGenerating] = useState(false)
 
-  // 📊 SUMMARY
   const totalFees = fees.reduce((s,f)=>s + f.total_amount,0)
   const totalPaid = fees.reduce((s,f)=>s + f.paid_amount,0)
   const totalPending = totalFees - totalPaid
 
-  // 🔥 PAYABLE WITH DISCOUNT
   const getPayable = (fee:any)=>{
     const today = new Date()
     const discountDate = new Date(fee.discount_last_date)
@@ -41,7 +40,6 @@ export default function FeesPage(){
     return fee.total_amount
   }
 
-  // INIT
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -50,7 +48,6 @@ export default function FeesPage(){
     init()
   },[])
 
-  // LOAD CLASSES
   useEffect(()=>{
     if(!schoolId) return
 
@@ -60,7 +57,6 @@ export default function FeesPage(){
       .then(({data})=>setClasses(data || []))
   },[schoolId])
 
-  // LOAD SECTIONS
   useEffect(()=>{
     if(!selectedClass) return
 
@@ -70,7 +66,6 @@ export default function FeesPage(){
       .then(({data})=>setSections(data || []))
   },[selectedClass])
 
-  // LOAD STUDENTS
   useEffect(()=>{
     if(!selectedClass || !selectedSection) return
 
@@ -81,7 +76,6 @@ export default function FeesPage(){
       .then(({data})=>setStudents(data || []))
   },[selectedClass,selectedSection])
 
-  // LOAD FEES
   const loadFees = async ()=>{
     if(!schoolId) return
 
@@ -93,7 +87,6 @@ export default function FeesPage(){
     setFees(data || [])
   }
 
-  // LOAD PAYMENTS
   const loadPayments = async ()=>{
     if(!schoolId) return
 
@@ -111,7 +104,6 @@ export default function FeesPage(){
     loadPayments()
   },[schoolId])
 
-  // 🔥 AUTO GENERATE FEES
   const generateFees = async ()=>{
 
     if(!schoolId){
@@ -132,7 +124,6 @@ export default function FeesPage(){
 
     for (const s of allStudents || []) {
 
-      // ❌ prevent duplicate month fee
       const { data: existing } = await supabase
         .from("fees")
         .select("id")
@@ -143,7 +134,6 @@ export default function FeesPage(){
 
       if(existing) continue
 
-      // 📦 get structure
       const { data: structure } = await supabase
         .from("fee_structures")
         .select("*")
@@ -152,7 +142,6 @@ export default function FeesPage(){
 
       if(!structure) continue
 
-      // 🔥 student_type logic
       let total = 0
 
       if(s.student_type === "hosteler"){
@@ -192,7 +181,7 @@ export default function FeesPage(){
     setGenerating(false)
   }
 
-  // 💰 PAY
+  // 💰 PAY WITH EMAIL + NOTIFICATION
   const pay = async ()=>{
 
     if(!selectedFee || !payAmount) return
@@ -209,6 +198,7 @@ export default function FeesPage(){
 
     const newPaid = fee.paid_amount + Number(payAmount)
 
+    // ✅ PAYMENT INSERT
     await supabase.from("payments").insert({
       id: crypto.randomUUID(),
       student_id: fee.student_id,
@@ -219,6 +209,7 @@ export default function FeesPage(){
       date: new Date()
     })
 
+    // ✅ UPDATE FEE
     await supabase
       .from("fees")
       .update({
@@ -227,18 +218,40 @@ export default function FeesPage(){
       })
       .eq("id", selectedFee)
 
+    // 🔔 NOTIFICATION
+    if(schoolId){
+      await sendNotification({
+        school_id: schoolId,
+        student_id: fee.student_id,
+        title: "Payment Received",
+        message: `₹${payAmount} received successfully`,
+        type: "fee"
+      })
+    }
+
+    // 📧 EMAIL (TEST VERSION)
+    await fetch("/api/send-email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        to: "mdnayabahmad441@gmail.com", // 🔥 replace with your email for testing
+        subject: "Payment Received",
+        message: `₹${payAmount} received successfully`
+      })
+    })
+
     setPayAmount("")
     loadFees()
     loadPayments()
   }
 
   return(
-
     <div className="p-6 md:p-10 text-white max-w-7xl mx-auto space-y-6">
 
       <h1 className="text-2xl font-semibold">Fees Dashboard</h1>
 
-      {/* GENERATE */}
       <button
         onClick={generateFees}
         className="bg-white/10 border border-white/10 px-6 py-3 rounded-xl hover:bg-white/20"
@@ -246,7 +259,6 @@ export default function FeesPage(){
         {generating ? "Generating..." : "Generate Monthly Fees"}
       </button>
 
-      {/* SUMMARY */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
         <div className="bg-white/10 p-6 rounded-xl">
@@ -266,7 +278,6 @@ export default function FeesPage(){
 
       </div>
 
-      {/* FILTER */}
       <div className="bg-white/10 p-6 rounded-xl flex flex-col md:flex-row gap-4">
 
         <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="bg-[#0b1220] p-3 rounded-xl w-full">
@@ -286,7 +297,6 @@ export default function FeesPage(){
 
       </div>
 
-      {/* PAYMENT */}
       <div className="bg-white/10 p-6 rounded-xl flex flex-col md:flex-row gap-4">
 
         <select value={selectedFee} onChange={(e)=>setSelectedFee(e.target.value)} className="bg-[#0b1220] p-3 rounded-xl w-full">
