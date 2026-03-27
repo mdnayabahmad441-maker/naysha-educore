@@ -4,8 +4,11 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { dbGet } from "@/lib/db"
 import { getUserRole } from "@/lib/getUserRole"
+import { getSchoolId } from "@/lib/school" // ✅ ADDED
 
 export default function CreateExamPage(){
+
+  const [schoolId,setSchoolId] = useState<string | null>(null) // ✅ ADDED
 
   const [examName,setExamName] = useState("")
   const [date,setDate] = useState("")
@@ -27,8 +30,15 @@ export default function CreateExamPage(){
   // ================= LOAD =================
   useEffect(()=>{
     load()
-
     getUserRole().then(r=>setRole(r?.role || null))
+
+    // ✅ LOAD SCHOOL ID
+    const init = async ()=>{
+      const id = await getSchoolId()
+      setSchoolId(id)
+    }
+    init()
+
   },[])
 
   const load = async ()=>{
@@ -73,9 +83,14 @@ export default function CreateExamPage(){
         return
       }
 
+      if(!schoolId){ // ✅ SAFETY
+        alert("School not loaded")
+        return
+      }
+
       const examId = editingId || crypto.randomUUID()
 
-      // UPSERT EXAM
+      // 🔥 UPSERT EXAM (FIXED)
       const { error: examError } = await supabase
         .from("exams")
         .upsert({
@@ -84,7 +99,8 @@ export default function CreateExamPage(){
           class_id: isAllClasses ? null : selectedClass,
           is_all_classes: isAllClasses,
           date,
-          is_published: false
+          is_published: false,
+          school_id: schoolId // ✅ FIXED
         })
 
       if(examError){
@@ -100,13 +116,14 @@ export default function CreateExamPage(){
           .eq("exam_id", examId)
       }
 
-      // INSERT SUBJECTS
+      // 🔥 INSERT SUBJECTS (FIXED)
       const rows = selectedSubjects.map(s=>({
         id: crypto.randomUUID(),
         exam_id: examId,
         subject_id: s,
         total_marks: Number(marksConfig[s] || 100),
-        passing_marks: Math.ceil((marksConfig[s] || 100) * 0.33)
+        passing_marks: Math.ceil((marksConfig[s] || 100) * 0.33),
+        school_id: schoolId // ✅ FIXED
       }))
 
       const { error: subError } = await supabase
