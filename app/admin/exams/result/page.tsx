@@ -17,6 +17,7 @@ export default function ResultPage(){
     getSchoolId().then(setSchoolId)
   },[])
 
+  // LOAD EXAMS
   useEffect(()=>{
     if(!schoolId) return
 
@@ -28,7 +29,10 @@ export default function ResultPage(){
       .then(({data})=>setExams(data || []))
   },[schoolId])
 
+  // LOAD RESULT
   const loadResult = async (exam:any)=>{
+
+    if(!exam) return
 
     if(exam.is_all_classes){
       alert("Use report card for multi-class")
@@ -37,6 +41,7 @@ export default function ResultPage(){
 
     const class_id = exam.class_id
 
+    // STUDENTS
     const { data:studentsData } = await supabase
       .from("students")
       .select("*")
@@ -45,7 +50,7 @@ export default function ResultPage(){
 
     setStudents(studentsData || [])
 
-    // SUBJECTS FROM EXAM
+    // SUBJECTS
     const { data:subjectData } = await supabase
       .from("exam_subjects")
       .select("subjects(*)")
@@ -74,15 +79,23 @@ export default function ResultPage(){
       .select("*")
       .eq("exam_id", exam.id)
       .eq("school_id", schoolId)
-      .order("rank")
 
-    setResults(resultData || [])
+    // ✅ SORT + SAFE RANK
+    const sorted = (resultData || [])
+      .sort((a:any,b:any)=> (b.percentage || 0) - (a.percentage || 0))
+      .map((r:any,i:number)=>({
+        ...r,
+        rank: r.rank || i+1
+      }))
+
+    setResults(sorted)
   }
 
+  // COLOR LOGIC
   const getColor = (p:number)=>{
-    if(p<33) return "bg-red-900"
-    if(p<=60) return "bg-yellow-600"
-    if(p<=80) return "bg-green-500"
+    if(p < 33) return "bg-red-900"
+    if(p <= 60) return "bg-yellow-600"
+    if(p <= 80) return "bg-green-500"
     return "bg-green-800"
   }
 
@@ -92,6 +105,7 @@ export default function ResultPage(){
 
       <h1 className="text-2xl">Results</h1>
 
+      {/* SELECT EXAM */}
       <select
         onChange={(e)=>{
           const ex = exams.find(x=>x.id===e.target.value)
@@ -99,24 +113,27 @@ export default function ResultPage(){
         }}
         className="p-3 bg-[#0b1220]"
       >
-        <option>Select Exam</option>
+        <option value="">Select Exam</option>
         {exams.map(e=>(
           <option key={e.id} value={e.id}>{e.name}</option>
         ))}
       </select>
 
+      {/* TABLE */}
       {results.length > 0 && (
 
         <table className="w-full border text-sm">
 
           <thead>
             <tr>
-              <th>Rank</th>
-              <th>Name</th>
-              {subjects.map(s=><th key={s.id}>{s.name}</th>)}
-              <th>Total</th>
-              <th>%</th>
-              <th>Grade</th>
+              <th className="p-2">Rank</th>
+              <th className="p-2">Name</th>
+              {subjects.map(s=>(
+                <th key={s.id} className="p-2">{s.name}</th>
+              ))}
+              <th className="p-2">Total</th>
+              <th className="p-2">%</th>
+              <th className="p-2">Grade</th>
             </tr>
           </thead>
 
@@ -127,20 +144,25 @@ export default function ResultPage(){
               const st = students.find(s=>s.id === r.student_id)
 
               return(
-                <tr key={r.id} className={getColor(r.percentage)}>
+                <tr key={r.id} className={getColor(Number(r.percentage || 0))}>
 
-                  <td>{r.rank}</td>
-                  <td>{st?.name}</td>
+                  <td className="p-2 font-bold">{r.rank}</td>
+
+                  <td className="p-2">{st?.name || "Unknown"}</td>
 
                   {subjects.map(sub=>(
-                    <td key={sub.id}>
-                      {marksMap[`${st?.id}_${sub.id}`] || "-"}
+                    <td key={sub.id} className="p-2">
+                      {marksMap[`${st?.id}_${sub.id}`] ?? "-"}
                     </td>
                   ))}
 
-                  <td>{r.total}</td>
-                  <td>{r.percentage.toFixed(1)}%</td>
-                  <td>{r.grade}</td>
+                  <td className="p-2">{r.total_marks}</td>
+
+                  <td className="p-2">
+                    {Number(r.percentage || 0).toFixed(1)}%
+                  </td>
+
+                  <td className="p-2 font-semibold">{r.grade}</td>
 
                 </tr>
               )

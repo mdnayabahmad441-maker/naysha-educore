@@ -36,8 +36,8 @@ export default function ReportCardPage(){
   // ================= GENERATE =================
   const generateReport = async ()=>{
 
-    if(!selectedStudent || !selectedExam || !selectedClass){
-      alert("Select class + student + exam")
+    if(!selectedStudent || !selectedExam){
+      alert("Select student + exam")
       return
     }
 
@@ -112,9 +112,10 @@ export default function ReportCardPage(){
       else grade = "D"
     }
 
-    // ================= UPSERT FIX =================
+    // 🔥 GET SCHOOL ID
     const schoolId = await getSchoolId()
 
+    // 🔥 SAVE RESULT (UPSERT FIXED)
     const { error } = await supabase
       .from("results")
       .upsert({
@@ -134,12 +135,11 @@ export default function ReportCardPage(){
       })
 
     if(error){
-      console.error("UPSERT ERROR:", error)
+      console.error(error)
       alert("Error saving result: " + error.message)
       return
     }
 
-    // ================= SET REPORT =================
     setReport({
       rows,
       totalMarks,
@@ -177,7 +177,6 @@ export default function ReportCardPage(){
 
       <h1 className="text-2xl">Report Card</h1>
 
-      {/* SELECTORS */}
       <div className="flex gap-4 flex-wrap">
 
         <select
@@ -215,14 +214,13 @@ export default function ReportCardPage(){
 
         <button
           onClick={generateReport}
-          className="px-4 py-2 bg-white/10 rounded hover:bg-white/20"
+          className="px-4 py-2 bg-white/10 rounded"
         >
           Generate
         </button>
 
       </div>
 
-      {/* REPORT */}
       {report && (
 
         <>
@@ -252,9 +250,7 @@ export default function ReportCardPage(){
                     <td className="border p-2">{r.passing}</td>
                     <td className="border p-2">{r.obtained}</td>
                     <td className={`border p-2 ${
-                      r.status === "FAIL"
-                        ? "text-red-500"
-                        : "text-green-600"
+                      r.status === "FAIL" ? "text-red-500" : "text-green-600"
                     }`}>
                       {r.status}
                     </td>
@@ -265,21 +261,17 @@ export default function ReportCardPage(){
             </table>
 
             <div className="space-y-2">
-
               <p>Total Marks: {report.totalMarks}</p>
               <p>Obtained: {report.obtainedMarks}</p>
               <p>Percentage: {report.percentage.toFixed(2)}%</p>
 
               <p className={`text-lg font-bold ${
-                report.finalResult === "FAIL"
-                  ? "text-red-500"
-                  : "text-green-600"
+                report.finalResult === "FAIL" ? "text-red-500" : "text-green-600"
               }`}>
                 Final Result: {report.finalResult}
               </p>
 
               <p>Grade: {report.grade}</p>
-
             </div>
 
           </div>
