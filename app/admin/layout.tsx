@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic"
 
 import { useEffect, useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useSchool } from "@/context/SchoolContext"
@@ -11,7 +11,6 @@ import { getUserRole } from "@/lib/getUserRole"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
 
-  const router = useRouter()
   const pathname = usePathname()
   const school = useSchool()
 
@@ -30,12 +29,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       const roleData = await getUserRole()
 
-      if (!roleData) {
-        window.location.href = "/login"
-        return
-      }
-
-      if (roleData.role !== "admin") {
+      if (!roleData || roleData.role !== "admin") {
         window.location.href = "/unauthorized"
         return
       }
@@ -72,9 +66,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
+  // ✅ FIXED ACTIVE LOGIC
   const linkStyle = (path: string) =>
     `flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 ${
-      pathname.startsWith(path)
+      pathname === path || pathname.startsWith(path + "/")
         ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
         : "text-gray-300 hover:bg-white/10 hover:text-white"
     }`
@@ -92,6 +87,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         <nav className="flex flex-col gap-2 text-sm">
 
+          {/* DASHBOARD */}
           <Link href="/admin" className={linkStyle("/admin")}>
             📊 Dashboard
           </Link>
@@ -162,6 +158,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <Link href="/admin/reports" className={linkStyle("/admin/reports")}>
             📈 Reports
+          </Link>
+
+          {/* 🔥 NEW: COMMUNICATION */}
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
+            Communication
+          </p>
+
+          <Link href="/admin/notices" className={linkStyle("/admin/notices")}>
+            📢 Notices
           </Link>
 
           {/* SYSTEM */}
