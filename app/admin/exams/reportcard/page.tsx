@@ -52,7 +52,7 @@ export default function ReportCardPage(){
       .eq("student_id", selectedStudent)
       .eq("exam_id", selectedExam)
 
-    await buildReport(exSub || [], marksData || [])
+    buildReport(exSub || [], marksData || [])
   }
 
   // ================= BUILD =================
@@ -96,6 +96,7 @@ export default function ReportCardPage(){
 
     let finalResult = "PASS"
 
+    // 🔥 YOUR REQUIRED LOGIC
     if(hasFailedSubject){
       finalResult = "FAIL"
     } else if(percentage < 33){
@@ -112,32 +113,35 @@ export default function ReportCardPage(){
       else grade = "D"
     }
 
-    // 🔥 GET SCHOOL ID
-    const schoolId = await getSchoolId()
+    try{
+      const schoolId = await getSchoolId()
 
-    // 🔥 SAVE RESULT (UPSERT FIXED)
-    const { error } = await supabase
-      .from("results")
-      .upsert({
-        student_id: selectedStudent,
-        exam_id: selectedExam,
-        class_id: selectedClass,
-        school_id: schoolId,
+      // 🔥 FIXED UPSERT
+      const { error } = await supabase
+        .from("results")
+        .upsert({
+          student_id: selectedStudent,
+          exam_id: selectedExam,
+          class_id: selectedClass,
+          school_id: schoolId,
 
-        total_marks: totalMarks,
-        obtained_marks: obtainedMarks,
-        percentage: percentage,
+          total_marks: totalMarks,
+          obtained_marks: obtainedMarks,
+          percentage: percentage,
 
-        result: finalResult,
-        grade: grade
-      },{
-        onConflict: "student_id,exam_id,school_id"
-      })
+          result: finalResult,
+          grade: grade
+        },{
+          onConflict: "student_id,exam_id,school_id"
+        })
 
-    if(error){
-      console.error(error)
-      alert("Error saving result: " + error.message)
-      return
+      if(error){
+        console.error(error)
+        alert("Error saving result")
+      }
+
+    }catch(err){
+      console.error(err)
     }
 
     setReport({
@@ -177,6 +181,7 @@ export default function ReportCardPage(){
 
       <h1 className="text-2xl">Report Card</h1>
 
+      {/* SELECTORS */}
       <div className="flex gap-4 flex-wrap">
 
         <select
@@ -214,13 +219,14 @@ export default function ReportCardPage(){
 
         <button
           onClick={generateReport}
-          className="px-4 py-2 bg-white/10 rounded"
+          className="px-4 py-2 bg-white/10 rounded hover:bg-white/20"
         >
           Generate
         </button>
 
       </div>
 
+      {/* REPORT */}
       {report && (
 
         <>
@@ -250,7 +256,9 @@ export default function ReportCardPage(){
                     <td className="border p-2">{r.passing}</td>
                     <td className="border p-2">{r.obtained}</td>
                     <td className={`border p-2 ${
-                      r.status === "FAIL" ? "text-red-500" : "text-green-600"
+                      r.status === "FAIL"
+                        ? "text-red-500"
+                        : "text-green-600"
                     }`}>
                       {r.status}
                     </td>
@@ -261,17 +269,21 @@ export default function ReportCardPage(){
             </table>
 
             <div className="space-y-2">
+
               <p>Total Marks: {report.totalMarks}</p>
               <p>Obtained: {report.obtainedMarks}</p>
               <p>Percentage: {report.percentage.toFixed(2)}%</p>
 
               <p className={`text-lg font-bold ${
-                report.finalResult === "FAIL" ? "text-red-500" : "text-green-600"
+                report.finalResult === "FAIL"
+                  ? "text-red-500"
+                  : "text-green-600"
               }`}>
                 Final Result: {report.finalResult}
               </p>
 
               <p>Grade: {report.grade}</p>
+
             </div>
 
           </div>
