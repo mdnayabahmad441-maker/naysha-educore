@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { useParams, useRouter } from "next/navigation" // ✅ UPDATED
+import { useParams, useRouter } from "next/navigation"
 import { getUserRole } from "@/lib/getUserRole"
 
 export default function StudentProfile(){
 
   const { id } = useParams()
-  const router = useRouter() // ✅ ADDED
+  const router = useRouter()
 
   const [tab,setTab] = useState("profile")
 
@@ -17,6 +17,7 @@ export default function StudentProfile(){
   const [documents,setDocuments] = useState<any[]>([])
   const [attendance,setAttendance] = useState<any[]>([])
   const [payments,setPayments] = useState<any[]>([])
+  const [reports,setReports] = useState<any[]>([])
 
   useEffect(() => {
     const checkRole = async () => {
@@ -77,6 +78,18 @@ export default function StudentProfile(){
 
       setPayments(payData || [])
 
+      // 🔥 LOAD REPORT CARDS
+      const { data:reportData } = await supabase
+        .from("report_cards")
+        .select(`
+          *,
+          exams(name)
+        `)
+        .eq("student_id",id)
+        .order("created_at",{ascending:false})
+
+      setReports(reportData || [])
+
     }
 
     load()
@@ -94,7 +107,6 @@ export default function StudentProfile(){
       {/* HEADER */}
       <div className="bg-white/10 border border-white/10 rounded-xl p-6 mb-6 flex flex-col md:flex-row gap-6 items-center">
 
-        {/* PHOTO */}
         {student.photo && (
           <img
             src={student.photo}
@@ -118,7 +130,6 @@ export default function StudentProfile(){
             <p>Section: {student.sections?.name || "-"}</p>
           </div>
 
-          {/* ✅ EDIT BUTTON ADDED */}
           <button
             onClick={()=>router.push(`/admin/students/${id}/edit`)}
             className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm"
@@ -278,9 +289,40 @@ export default function StudentProfile(){
 
           <h2 className="text-lg mb-4">Report Cards</h2>
 
-          <p className="text-gray-400">
-            No report cards generated yet
-          </p>
+          {reports.length === 0 && (
+            <p className="text-gray-400">
+              No report cards generated yet
+            </p>
+          )}
+
+          <div className="space-y-3">
+
+            {reports.map(r=>(
+              <div
+                key={r.id}
+                className="flex justify-between items-center bg-white/5 p-3 rounded-lg"
+              >
+                <div>
+                  <p className="font-medium">
+                    {r.exams?.name || "Exam"}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {new Date(r.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+
+                <a
+                  href={r.file_url}
+                  target="_blank"
+                  className="px-3 py-1 bg-blue-600 rounded text-sm"
+                >
+                  View PDF
+                </a>
+
+              </div>
+            ))}
+
+          </div>
 
         </div>
 
