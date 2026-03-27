@@ -25,11 +25,10 @@ export default function ReportCardPage(){
   const [resultsList,setResultsList] = useState<any[]>([])
   const [role,setRole] = useState("")
 
-  const reportRef = useRef<HTMLDivElement>(null)
+  const darkRef = useRef<HTMLDivElement>(null)
+  const printRef = useRef<HTMLDivElement>(null)
 
-  useEffect(()=>{
-    init()
-  },[])
+  useEffect(()=>{ init() },[])
 
   useEffect(()=>{
     if(selectedClass && selectedExam){
@@ -56,7 +55,6 @@ export default function ReportCardPage(){
     setSchool(data)
   }
 
-  // ================= CHECK EXISTING =================
   const checkExisting = async ()=>{
     const schoolId = await getSchoolId()
 
@@ -72,7 +70,6 @@ export default function ReportCardPage(){
     return data
   }
 
-  // ================= LOAD CLASS RESULTS =================
   const loadResultsList = async ()=>{
     const schoolId = await getSchoolId()
 
@@ -87,7 +84,6 @@ export default function ReportCardPage(){
     setResultsList(data || [])
   }
 
-  // ================= GENERATE =================
   const generateReport = async ()=>{
 
     if(!selectedStudent || !selectedExam || !selectedClass){
@@ -98,7 +94,7 @@ export default function ReportCardPage(){
     const existing = await checkExisting()
 
     if(existing && role !== "admin"){
-      alert("Report already generated. Only admin can edit.")
+      alert("Already generated. Only admin can edit.")
       return
     }
 
@@ -117,41 +113,39 @@ export default function ReportCardPage(){
     await loadResultsList()
   }
 
-  // ================= BUILD =================
   const buildReport = async (exSub:any[], marksData:any[])=>{
 
     let totalMarks = 0
     let obtainedMarks = 0
-    let hasFailedSubject = false
+    let hasFailed = false
 
     const rows = exSub.map(s=>{
+      const subject = subjects.find(x=>x.id===s.subject_id)
+      const mark = marksData.find(m=>m.subject_id===s.subject_id)
 
-      const subject = subjects.find(sub=>sub.id === s.subject_id)
-      const markObj = marksData.find(m=>m.subject_id === s.subject_id)
-
-      const obtained = markObj?.marks_obtained || 0
+      const obtained = mark?.marks_obtained || 0
       const total = s.total_marks || 100
-      const passing = Math.ceil(total * 0.33)
+      const passing = Math.ceil(total*0.33)
 
       totalMarks += total
       obtainedMarks += obtained
 
-      const status = obtained >= passing ? "PASS" : "FAIL"
-      if(status === "FAIL") hasFailedSubject = true
+      const status = obtained>=passing ? "PASS":"FAIL"
+      if(status==="FAIL") hasFailed = true
 
-      return { name: subject?.name || "Unknown", total, passing, obtained, status }
+      return { name:subject?.name,total,passing,obtained,status }
     })
 
-    const percentage = (obtainedMarks / totalMarks) * 100
-    const finalResult = (hasFailedSubject || percentage < 33) ? "FAIL" : "PASS"
+    const percentage = (obtainedMarks/totalMarks)*100
+    const finalResult = (hasFailed || percentage<33) ? "FAIL":"PASS"
 
-    let grade = "F"
-    if(finalResult === "PASS"){
-      if(percentage >= 90) grade = "A+"
-      else if(percentage >= 75) grade = "A"
-      else if(percentage >= 60) grade = "B"
-      else if(percentage >= 50) grade = "C"
-      else grade = "D"
+    let grade="F"
+    if(finalResult==="PASS"){
+      if(percentage>=90) grade="A+"
+      else if(percentage>=75) grade="A"
+      else if(percentage>=60) grade="B"
+      else if(percentage>=50) grade="C"
+      else grade="D"
     }
 
     const schoolId = await getSchoolId()
@@ -187,20 +181,11 @@ export default function ReportCardPage(){
     setAlreadyGenerated(true)
   }
 
-  // ================= PDF + SAVE =================
-  const downloadPDF = async ()=>{
+  // ================= DARK PDF =================
+  const downloadDarkPDF = async ()=>{
+    if(!darkRef.current) return
 
-    if(!reportRef.current) return
-
-    const cloned = reportRef.current.cloneNode(true) as HTMLElement
-    cloned.style.background = "#ffffff"
-    cloned.style.color = "#000000"
-
-    document.body.appendChild(cloned)
-
-    const canvas = await html2canvas(cloned,{scale:2})
-    document.body.removeChild(cloned)
-
+    const canvas = await html2canvas(darkRef.current,{scale:2})
     const img = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p","mm","a4")
@@ -208,136 +193,83 @@ export default function ReportCardPage(){
     const h = (canvas.height*w)/canvas.width
 
     pdf.addImage(img,"PNG",0,0,w,h)
-
-    const blob = pdf.output("blob")
-
-    const schoolId = await getSchoolId()
-    const fileName = `${selectedStudent}-${selectedExam}.pdf`
-
-    await supabase.storage
-      .from("report-cards")
-      .upload(fileName, blob, { upsert: true })
-
-    const { data } = supabase.storage
-      .from("report-cards")
-      .getPublicUrl(fileName)
-
-    await supabase.from("report_cards").upsert({
-      student_id:selectedStudent,
-      exam_id:selectedExam,
-      class_id:selectedClass,
-      school_id:schoolId,
-      file_url:data.publicUrl
-    })
-
-    pdf.save("report-card.pdf")
+    pdf.save("report-dark.pdf")
   }
 
-  const filteredStudents = students.filter(s=>s.class_id === selectedClass)
-  const studentObj = students.find(s=>s.id === selectedStudent)
-  const classObj = classes.find(c=>c.id === selectedClass)
-  const examObj = exams.find(e=>e.id === selectedExam)
+  // ================= PRINT PDF =================
+  const downloadPrintPDF = async ()=>{
+    if(!printRef.current) return
+
+    const canvas = await html2canvas(printRef.current,{scale:2})
+    const img = canvas.toDataURL("image/png")
+
+    const pdf = new jsPDF("p","mm","a4")
+    const w = 210
+    const h = (canvas.height*w)/canvas.width
+
+    pdf.addImage(img,"PNG",0,0,w,h)
+    pdf.save("report-print.pdf")
+  }
+
+  const filteredStudents = students.filter(s=>s.class_id===selectedClass)
 
   return(
-
     <div className="p-6 text-white space-y-6">
 
-      <h1 className="text-2xl font-semibold">Report Card</h1>
+      <h1 className="text-2xl">Report Card</h1>
 
+      {/* SELECTORS */}
       <div className="flex gap-4 flex-wrap">
-
-        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="p-3 bg-[#0b1220] rounded">
-          <option value="">Select Class</option>
+        <select onChange={e=>setSelectedClass(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+          <option>Select Class</option>
           {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
 
-        <select value={selectedStudent} onChange={(e)=>setSelectedStudent(e.target.value)} className="p-3 bg-[#0b1220] rounded">
-          <option value="">Select Student</option>
+        <select onChange={e=>setSelectedStudent(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+          <option>Select Student</option>
           {filteredStudents.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
 
-        <select value={selectedExam} onChange={(e)=>setSelectedExam(e.target.value)} className="p-3 bg-[#0b1220] rounded">
-          <option value="">Select Exam</option>
+        <select onChange={e=>setSelectedExam(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+          <option>Select Exam</option>
           {exams.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
 
-        <button
-          onClick={generateReport}
-          className={`px-4 py-2 rounded ${
-            alreadyGenerated && role!=="admin"
-              ? "bg-gray-600"
-              : "bg-blue-600"
-          }`}
-        >
-          {alreadyGenerated ? "Already Generated" : "Generate"}
+        <button onClick={generateReport} className="px-4 py-2 bg-blue-600 rounded">
+          Generate
         </button>
-
       </div>
 
-      {/* STATUS */}
-      {alreadyGenerated && (
-        <div className="bg-green-600/20 border border-green-600 p-3 rounded">
-          Report already generated for {examObj?.name}
-        </div>
-      )}
-
-      {/* CLASS RESULTS */}
-      {resultsList.length>0 && (
-        <div className="bg-white/10 p-4 rounded-xl">
-          <h2 className="mb-4">Class Results (Rank Wise)</h2>
-
-          <table className="w-full text-sm">
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Name</th>
-                <th>%</th>
-                <th>Result</th>
-                <th>Grade</th>
-              </tr>
-            </thead>
-            <tbody>
-              {resultsList.map(r=>{
-                const st = students.find(s=>s.id===r.student_id)
-                return(
-                  <tr key={r.id}>
-                    <td>{r.rank}</td>
-                    <td>{st?.name}</td>
-                    <td>{r.percentage?.toFixed(2)}%</td>
-                    <td>{r.result}</td>
-                    <td>{r.grade}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
+      {/* BUTTONS */}
       {report && (
-        <>
-          <div ref={reportRef} className="bg-white text-black p-8 rounded-xl w-full max-w-4xl mx-auto">
-            <h2 className="text-xl font-bold">{school?.name}</h2>
-            <p><b>Name:</b> {studentObj?.name}</p>
-            <p><b>Rank:</b> {report.rank}</p>
-
-            <table className="w-full border mt-4">
-              <tbody>
-                {report.rows.map((r:any,i:number)=>(
-                  <tr key={i}>
-                    <td className="border p-2">{r.name}</td>
-                    <td className="border p-2">{r.obtained}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <button onClick={downloadPDF} className="px-4 py-2 bg-green-600 rounded">
-            Save & Download PDF
+        <div className="flex gap-4">
+          <button onClick={downloadDarkPDF} className="px-4 py-2 bg-indigo-600 rounded">
+            Download WhatsApp PDF
           </button>
-        </>
+
+          <button onClick={downloadPrintPDF} className="px-4 py-2 bg-yellow-600 rounded">
+            Download Print PDF
+          </button>
+        </div>
       )}
+
+      {/* HIDDEN TEMPLATES */}
+
+      {/* DARK */}
+      <div ref={darkRef} style={{position:"absolute",left:"-9999px"}}>
+        <div style={{padding:"30px",background:"#020617",color:"#fff"}}>
+          <h1>{school?.name}</h1>
+          <p>{report?.finalResult} - Grade {report?.grade}</p>
+        </div>
+      </div>
+
+      {/* PRINT */}
+      <div ref={printRef} style={{position:"absolute",left:"-9999px"}}>
+        <div style={{padding:"30px",background:"#fff",color:"#000"}}>
+          <h1>{school?.name}</h1>
+          <p>{report?.finalResult} - Grade {report?.grade}</p>
+        </div>
+      </div>
 
     </div>
   )
