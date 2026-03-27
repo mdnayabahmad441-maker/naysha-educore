@@ -123,44 +123,28 @@ export default function ReportCardPage(){
 
     const schoolId = await getSchoolId()
 
-    // ================= SAVE RESULT =================
-    const { error } = await supabase
+    await supabase
       .from("results")
       .upsert({
         student_id: selectedStudent,
         exam_id: selectedExam,
         class_id: selectedClass,
         school_id: schoolId,
-
         total_marks: totalMarks,
         obtained_marks: obtainedMarks,
         percentage: percentage,
-
         result: finalResult,
         grade: grade
       },{
         onConflict: "student_id,exam_id,school_id"
       })
 
-    if(error){
-      console.error(error)
-      alert("Error saving result")
-      return
-    }
-
-    // ================= CALCULATE RANK =================
-    const { error: rankError } = await supabase.rpc("calculate_ranks", {
+    await supabase.rpc("calculate_ranks", {
       p_exam_id: selectedExam,
       p_class_id: selectedClass,
       p_school_id: schoolId
     })
 
-    if(rankError){
-      console.error(rankError)
-      alert("Rank calculation failed")
-    }
-
-    // ================= FETCH UPDATED RANK =================
     const { data: resultRow } = await supabase
       .from("results")
       .select("rank")
@@ -180,12 +164,36 @@ export default function ReportCardPage(){
     })
   }
 
-  // ================= PDF =================
+  // ================= PDF FIXED =================
   const downloadPDF = async ()=>{
 
     if(!reportRef.current) return
 
-    const canvas = await html2canvas(reportRef.current, { scale: 2 })
+    // 🔥 CLONE NODE (avoid Tailwind styles)
+    const cloned = reportRef.current.cloneNode(true) as HTMLElement
+
+    // 🔥 FORCE SAFE STYLES (NO OKLCH / LAB)
+    cloned.style.background = "#ffffff"
+    cloned.style.color = "#000000"
+
+    // remove all problematic styles
+    const all = cloned.querySelectorAll("*")
+    all.forEach((el:any)=>{
+      el.style.color = "#000000"
+      el.style.backgroundColor = el.style.backgroundColor || "transparent"
+      el.style.boxShadow = "none"
+    })
+
+    document.body.appendChild(cloned)
+
+    const canvas = await html2canvas(cloned, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      useCORS: true
+    })
+
+    document.body.removeChild(cloned)
+
     const imgData = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p", "mm", "a4")
@@ -211,7 +219,6 @@ export default function ReportCardPage(){
 
       <h1 className="text-2xl font-semibold">Report Card</h1>
 
-      {/* SELECTORS */}
       <div className="flex gap-4 flex-wrap">
 
         <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="p-3 bg-[#0b1220] rounded">
@@ -235,13 +242,11 @@ export default function ReportCardPage(){
 
       </div>
 
-      {/* REPORT */}
       {report && (
 
         <>
           <div ref={reportRef} className="bg-white text-black p-8 rounded-xl w-full max-w-4xl mx-auto">
 
-            {/* HEADER */}
             <div className="text-center mb-6 border-b pb-4">
               <h2 className="text-2xl font-bold">{school?.name}</h2>
               <p className="text-sm">{school?.address}</p>
@@ -249,7 +254,6 @@ export default function ReportCardPage(){
               <h3 className="mt-2 text-lg font-semibold">Report Card</h3>
             </div>
 
-            {/* STUDENT INFO */}
             <div className="grid grid-cols-2 gap-4 text-sm mb-6">
               <p><b>Name:</b> {studentObj?.name}</p>
               <p><b>Class:</b> {classObj?.name}</p>
@@ -257,9 +261,8 @@ export default function ReportCardPage(){
               <p><b>Rank:</b> {report.rank}</p>
             </div>
 
-            {/* TABLE */}
             <table className="w-full border text-sm mb-6">
-              <thead className="bg-gray-100">
+              <thead style={{background:"#f3f4f6"}}>
                 <tr>
                   <th className="border p-2">Subject</th>
                   <th className="border p-2">Total</th>
@@ -275,9 +278,7 @@ export default function ReportCardPage(){
                     <td className="border p-2">{r.total}</td>
                     <td className="border p-2">{r.passing}</td>
                     <td className="border p-2">{r.obtained}</td>
-                    <td className={`border p-2 font-semibold ${
-                      r.status === "FAIL" ? "text-red-500" : "text-green-600"
-                    }`}>
+                    <td className="border p-2" style={{color: r.status==="FAIL"?"red":"green"}}>
                       {r.status}
                     </td>
                   </tr>
@@ -285,24 +286,19 @@ export default function ReportCardPage(){
               </tbody>
             </table>
 
-            {/* SUMMARY */}
-            <div className="flex justify-between items-center mt-6">
-
-              <div className="text-sm space-y-1">
+            <div className="flex justify-between mt-6">
+              <div>
                 <p>Total Marks: {report.totalMarks}</p>
                 <p>Obtained: {report.obtainedMarks}</p>
                 <p>Percentage: {report.percentage.toFixed(2)}%</p>
               </div>
 
               <div className="text-right">
-                <p className={`text-xl font-bold ${
-                  report.finalResult === "FAIL" ? "text-red-500" : "text-green-600"
-                }`}>
+                <p style={{color: report.finalResult==="FAIL"?"red":"green"}}>
                   {report.finalResult}
                 </p>
-                <p className="text-lg">Grade: {report.grade}</p>
+                <p>Grade: {report.grade}</p>
               </div>
-
             </div>
 
           </div>
