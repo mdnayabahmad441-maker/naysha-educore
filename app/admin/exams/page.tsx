@@ -20,7 +20,7 @@ export default function ExamsPage(){
 
   const [editingId,setEditingId] = useState<string | null>(null)
 
-  // INIT SCHOOL
+  // ================= INIT =================
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -29,15 +29,17 @@ export default function ExamsPage(){
     init()
   },[])
 
-  // LOAD CLASSES
+  // ================= LOAD CLASSES =================
   useEffect(()=>{
     if(!schoolId) return
 
     const load = async ()=>{
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("classes")
         .select("*")
         .eq("school_id", schoolId)
+
+      if(error) console.error(error)
 
       setClasses(data || [])
     }
@@ -45,15 +47,17 @@ export default function ExamsPage(){
     load()
   },[schoolId])
 
-  // LOAD SUBJECTS
+  // ================= LOAD SUBJECTS =================
   useEffect(()=>{
     if(!schoolId) return
 
     const load = async ()=>{
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("subjects")
         .select("*")
         .eq("school_id", schoolId)
+
+      if(error) console.error(error)
 
       setSubjects(data || [])
     }
@@ -61,11 +65,11 @@ export default function ExamsPage(){
     load()
   },[schoolId])
 
-  // LOAD EXAMS
+  // ================= LOAD EXAMS =================
   const loadExams = async ()=>{
     if(!schoolId) return
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("exams")
       .select(`
         *,
@@ -75,6 +79,11 @@ export default function ExamsPage(){
       .eq("school_id", schoolId)
       .order("created_at",{ascending:false})
 
+    if(error){
+      console.error(error)
+      return
+    }
+
     setExams(data || [])
   }
 
@@ -82,11 +91,21 @@ export default function ExamsPage(){
     loadExams()
   },[schoolId])
 
-  // SAVE EXAM
+  // ================= SAVE =================
   const saveExam = async ()=>{
 
     if(!name || !examDate){
       alert("Fill all required fields")
+      return
+    }
+
+    if(!isAllClasses && !selectedClass){
+      alert("Select class")
+      return
+    }
+
+    if(!selectedSubject){
+      alert("Select subject")
       return
     }
 
@@ -99,33 +118,56 @@ export default function ExamsPage(){
       is_all_classes: isAllClasses
     }
 
+    let error
+
     if(editingId){
 
-      await supabase
+      const res = await supabase
         .from("exams")
         .update(payload)
         .eq("id", editingId)
 
+      error = res.error
       setEditingId(null)
 
     }else{
 
-      await supabase
+      const res = await supabase
         .from("exams")
         .insert([{ id: crypto.randomUUID(), ...payload }])
+
+      error = res.error
+    }
+
+    if(error){
+      alert(error.message)
+      return
     }
 
     resetForm()
     loadExams()
   }
 
-  // DELETE
+  // ================= DELETE =================
   const deleteExam = async (id:string)=>{
-    await supabase.from("exams").delete().eq("id", id)
+
+    const confirmDelete = confirm("Delete this exam?")
+    if(!confirmDelete) return
+
+    const { error } = await supabase
+      .from("exams")
+      .delete()
+      .eq("id", id)
+
+    if(error){
+      alert(error.message)
+      return
+    }
+
     loadExams()
   }
 
-  // EDIT
+  // ================= EDIT =================
   const editExam = (e:any)=>{
     setName(e.name)
     setSelectedClass(e.class_id || "")
@@ -135,12 +177,14 @@ export default function ExamsPage(){
     setEditingId(e.id)
   }
 
+  // ================= RESET =================
   const resetForm = ()=>{
     setName("")
     setSelectedClass("")
     setSelectedSubject("")
     setExamDate("")
     setIsAllClasses(false)
+    setEditingId(null)
   }
 
   return(
@@ -159,7 +203,6 @@ export default function ExamsPage(){
           className="p-3 w-full bg-[#0b1220] rounded-xl"
         />
 
-        {/* ALL CLASSES */}
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -169,7 +212,6 @@ export default function ExamsPage(){
           All Classes
         </label>
 
-        {/* CLASS */}
         {!isAllClasses && (
           <select
             value={selectedClass}
@@ -183,7 +225,6 @@ export default function ExamsPage(){
           </select>
         )}
 
-        {/* SUBJECT */}
         <select
           value={selectedSubject}
           onChange={(e)=>setSelectedSubject(e.target.value)}
@@ -195,7 +236,6 @@ export default function ExamsPage(){
           ))}
         </select>
 
-        {/* DATE */}
         <input
           type="date"
           value={examDate}
@@ -203,7 +243,6 @@ export default function ExamsPage(){
           className="p-3 bg-[#0b1220] rounded-xl w-full"
         />
 
-        {/* BUTTONS */}
         <div className="flex gap-3">
 
           <button
@@ -249,10 +288,10 @@ export default function ExamsPage(){
                 <td className="p-3">{e.name}</td>
 
                 <td className="p-3">
-                  {e.is_all_classes ? "All Classes" : e.classes?.name}
+                  {e.is_all_classes ? "All Classes" : (e.classes?.name || "-")}
                 </td>
 
-                <td className="p-3">{e.subjects?.name}</td>
+                <td className="p-3">{e.subjects?.name || "-"}</td>
                 <td className="p-3">{e.exam_date}</td>
 
                 <td className="p-3 flex gap-2">
