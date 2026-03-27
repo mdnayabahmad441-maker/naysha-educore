@@ -11,8 +11,8 @@ export default function SubjectsPage() {
   const [subjects,setSubjects] = useState<any[]>([])
   const [classes,setClasses] = useState<any[]>([])
 
-  const [name,setName] = useState("")
   const [selectedClass,setSelectedClass] = useState("")
+  const [subjectInputs,setSubjectInputs] = useState<string[]>([""])
 
   // LOAD DATA
   const load = async () => {
@@ -28,21 +28,53 @@ export default function SubjectsPage() {
     load()
   },[])
 
-  // ADD SUBJECT
+  // ➕ ADD NEW INPUT FIELD
+  const addField = () => {
+    setSubjectInputs(prev => [...prev, ""])
+  }
+
+  // ❌ REMOVE FIELD
+  const removeField = (index:number) => {
+    const updated = [...subjectInputs]
+    updated.splice(index,1)
+    setSubjectInputs(updated)
+  }
+
+  // ✏️ UPDATE FIELD
+  const updateField = (value:string, index:number) => {
+    const updated = [...subjectInputs]
+    updated[index] = value
+    setSubjectInputs(updated)
+  }
+
+  // 💾 SAVE ALL SUBJECTS
   const submit = async () => {
 
-    if(!name || !selectedClass){
-      alert("Enter subject + select class")
+    if(!selectedClass){
+      alert("Select class")
       return
     }
 
-    await dbInsert("subjects", {
-      id: crypto.randomUUID(),
-      name,
-      class_id: selectedClass
-    })
+    const filtered = subjectInputs.filter(s => s.trim() !== "")
 
-    setName("")
+    if(filtered.length === 0){
+      alert("Enter at least one subject")
+      return
+    }
+
+    // 🔥 INSERT MULTIPLE
+    for (const name of filtered){
+
+      await dbInsert("subjects", {
+        id: crypto.randomUUID(),
+        name,
+        class_id: selectedClass
+      })
+
+    }
+
+    // RESET
+    setSubjectInputs([""])
     setSelectedClass("")
     load()
   }
@@ -51,11 +83,9 @@ export default function SubjectsPage() {
   const remove = async (id:string) => {
 
     const confirmDelete = confirm("Delete this subject?")
-
     if(!confirmDelete) return
 
     await dbDelete("subjects", id)
-
     load()
   }
 
@@ -67,13 +97,12 @@ export default function SubjectsPage() {
 
       <Card>
 
-        <div className="flex gap-4 mb-6 flex-wrap">
-
-          {/* CLASS SELECT */}
+        {/* CLASS SELECT */}
+        <div className="mb-6">
           <select
             value={selectedClass}
             onChange={(e)=>setSelectedClass(e.target.value)}
-            className="bg-[#0b1220] border border-white/10 p-3 rounded-xl text-white"
+            className="bg-[#0b1220] border border-white/10 p-3 rounded-xl text-white w-full"
           >
             <option value="">Select Class</option>
 
@@ -83,20 +112,49 @@ export default function SubjectsPage() {
               </option>
             ))}
           </select>
+        </div>
 
-          <Input
-            placeholder="Subject Name"
-            value={name}
-            onChange={(e)=>setName(e.target.value)}
-          />
+        {/* 🔥 MULTIPLE SUBJECT INPUTS */}
+        <div className="space-y-3 mb-6">
 
-          <Button onClick={submit}>
-            Save
-          </Button>
+          {subjectInputs.map((val,index)=>(
+            <div key={index} className="flex gap-3">
+
+              <Input
+                placeholder={`Subject ${index+1}`}
+                value={val}
+                onChange={(e)=>updateField(e.target.value,index)}
+              />
+
+              {subjectInputs.length > 1 && (
+                <button
+                  onClick={()=>removeField(index)}
+                  className="px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl"
+                >
+                  ✕
+                </button>
+              )}
+
+            </div>
+          ))}
+
+          {/* ADD MORE */}
+          <button
+            onClick={addField}
+            className="text-blue-400 text-sm"
+          >
+            + Add Another Subject
+          </button>
 
         </div>
 
-        <div className="overflow-x-auto">
+        {/* SAVE BUTTON */}
+        <Button onClick={submit}>
+          Save All Subjects
+        </Button>
+
+        {/* TABLE */}
+        <div className="overflow-x-auto mt-8">
 
           <table className="w-full text-sm border border-white/20">
 
