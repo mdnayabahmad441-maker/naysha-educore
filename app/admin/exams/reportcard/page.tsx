@@ -3,10 +3,13 @@
 import { useEffect, useState, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { dbGet } from "@/lib/db"
+import { getSchoolId } from "@/lib/school"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 
 export default function ReportCardPage(){
+
+  const [schoolId,setSchoolId] = useState<string | null>(null)
 
   const [classes,setClasses] = useState<any[]>([])
   const [students,setStudents] = useState<any[]>([])
@@ -21,8 +24,16 @@ export default function ReportCardPage(){
 
   const reportRef = useRef<HTMLDivElement>(null)
 
+  // ================= INIT =================
   useEffect(()=>{
     load()
+
+    const init = async ()=>{
+      const id = await getSchoolId()
+      setSchoolId(id)
+    }
+    init()
+
   },[])
 
   const load = async ()=>{
@@ -56,6 +67,11 @@ export default function ReportCardPage(){
 
   // ================= BUILD =================
   const buildReport = async (exSub:any[], marksData:any[])=>{
+
+    if(!schoolId){
+      alert("School not loaded")
+      return
+    }
 
     let totalMarks = 0
     let obtainedMarks = 0
@@ -111,17 +127,31 @@ export default function ReportCardPage(){
       else grade = "D"
     }
 
-    // 🔥 SAVE RESULT TO DB
-    await supabase.from("results").insert({
-      student_id: selectedStudent,
-      exam_id: selectedExam,
-      class_id: selectedClass,
-      total_marks: totalMarks,
-      obtained_marks: obtainedMarks,
-      percentage: percentage,
-      result: finalResult,
-      grade: grade
-    })
+    // 🔥 UPSERT RESULT (NO DUPLICATES)
+    const { error } = await supabase
+      .from("results")
+      .upsert({
+        student_id: selectedStudent,
+        exam_id: selectedExam,
+        class_id: selectedClass || null,
+
+        total_marks: totalMarks,
+        obtained_marks: obtainedMarks,
+        percentage: percentage,
+
+        result: finalResult,
+        grade: grade,
+
+        school_id: schoolId
+      }, {
+        onConflict: "student_id,exam_id"
+      })
+
+    if(error){
+      console.error(error)
+      alert(error.message)
+      return
+    }
 
     setReport({
       rows,
