@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
+import { sendNotification } from "@/lib/notifications" // ✅ ADDED
 
 export default function AttendancePage(){
 
@@ -20,13 +21,13 @@ export default function AttendancePage(){
 
   const [loading,setLoading] = useState(false)
 
-  // ✅ SET TODAY DEFAULT
+  // ✅ TODAY
   useEffect(()=>{
     const today = new Date().toISOString().split("T")[0]
     setSelectedDate(today)
   },[])
 
-  // ✅ INIT SCHOOL
+  // ✅ SCHOOL
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -35,46 +36,33 @@ export default function AttendancePage(){
     init()
   },[])
 
-  // ✅ LOAD CLASSES
+  // ✅ CLASSES
   useEffect(()=>{
     if(!schoolId) return
 
-    const load = async ()=>{
-      const { data } = await supabase
-        .from("classes")
-        .select("*")
-        .eq("school_id", schoolId)
-
-      setClasses(data || [])
-    }
-
-    load()
+    supabase.from("classes")
+      .select("*")
+      .eq("school_id", schoolId)
+      .then(({data})=>setClasses(data || []))
   },[schoolId])
 
-  // ✅ LOAD SECTIONS
+  // ✅ SECTIONS
   useEffect(()=>{
     if(!selectedClass || !schoolId) return
 
-    const load = async ()=>{
-      const { data } = await supabase
-        .from("sections")
-        .select("*")
-        .eq("class_id", selectedClass)
-        .eq("school_id", schoolId)
-
-      setSections(data || [])
-    }
-
-    load()
+    supabase.from("sections")
+      .select("*")
+      .eq("class_id", selectedClass)
+      .eq("school_id", schoolId)
+      .then(({data})=>setSections(data || []))
   },[selectedClass, schoolId])
 
-  // ✅ LOAD STUDENTS + EXISTING ATTENDANCE
+  // ✅ STUDENTS + EXISTING ATTENDANCE
   useEffect(()=>{
     if(!selectedSection || !schoolId || !selectedDate) return
 
     const load = async ()=>{
 
-      // STUDENTS
       const { data:studentsData } = await supabase
         .from("students")
         .select("*")
@@ -83,7 +71,6 @@ export default function AttendancePage(){
 
       setStudents(studentsData || [])
 
-      // EXISTING ATTENDANCE (IMPORTANT FIX)
       const { data:attendanceData } = await supabase
         .from("attendance")
         .select("*")
@@ -104,7 +91,6 @@ export default function AttendancePage(){
 
   },[selectedSection, schoolId, selectedDate])
 
-  // ✅ SET STATUS
   const setStatus = (studentId:string, status:string)=>{
     setAttendance((prev:any)=>({
       ...prev,
@@ -112,7 +98,7 @@ export default function AttendancePage(){
     }))
   }
 
-  // 🔥 SAVE ATTENDANCE (UPSERT FIX)
+  // 🔥 SAVE ATTENDANCE + NOTIFICATION
   const saveAttendance = async ()=>{
 
     if(!schoolId || !selectedClass || !selectedSection || !selectedDate){
@@ -134,7 +120,7 @@ export default function AttendancePage(){
         date: selectedDate
       }))
 
-      // 🔥 DELETE OLD (IMPORTANT)
+      // ❌ DELETE OLD
       await supabase
         .from("attendance")
         .delete()
@@ -142,7 +128,7 @@ export default function AttendancePage(){
         .eq("school_id", schoolId)
         .eq("date", selectedDate)
 
-      // 🔥 INSERT NEW
+      // ✅ INSERT NEW
       const { error } = await supabase
         .from("attendance")
         .insert(payload)
@@ -153,7 +139,32 @@ export default function AttendancePage(){
         return
       }
 
-      alert("Attendance saved successfully")
+      // 🔥 SEND NOTIFICATIONS (MAIN LOGIC)
+      for (const s of students){
+
+        const status = attendance[s.id] || "present"
+
+        if(status === "absent"){
+
+          console.log("Sending absent notification for:", s.name)
+
+          try{
+            await sendNotification({
+              school_id: schoolId,
+              student_id: s.id,
+              title: "Student Absent",
+              message: `Your child ${s.name} was marked absent on ${new Date(selectedDate).toLocaleDateString()}`,
+              type: "attendance"
+            })
+          }catch(err){
+            console.error("Notification failed:", err)
+          }
+
+        }
+
+      }
+
+      alert("Attendance saved successfully ✅")
 
     }catch(err){
       console.error(err)
@@ -201,7 +212,6 @@ export default function AttendancePage(){
             ))}
           </select>
 
-          {/* 🔥 DATE SELECTOR */}
           <input
             type="date"
             value={selectedDate}
