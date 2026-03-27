@@ -13,6 +13,7 @@ export default function ReportCardPage(){
   const [students,setStudents] = useState<any[]>([])
   const [subjects,setSubjects] = useState<any[]>([])
   const [exams,setExams] = useState<any[]>([])
+  const [school,setSchool] = useState<any>(null)
 
   const [selectedClass,setSelectedClass] = useState("")
   const [selectedStudent,setSelectedStudent] = useState("")
@@ -27,17 +28,27 @@ export default function ReportCardPage(){
   },[])
 
   const load = async ()=>{
+    const schoolId = await getSchoolId()
+
     setClasses(await dbGet("classes"))
     setStudents(await dbGet("students"))
     setSubjects(await dbGet("subjects"))
     setExams(await dbGet("exams"))
+
+    const { data: schoolData } = await supabase
+      .from("schools")
+      .select("*")
+      .eq("id", schoolId)
+      .single()
+
+    setSchool(schoolData)
   }
 
   // ================= GENERATE =================
   const generateReport = async ()=>{
 
-    if(!selectedStudent || !selectedExam){
-      alert("Select student + exam")
+    if(!selectedStudent || !selectedExam || !selectedClass){
+      alert("Select class + student + exam")
       return
     }
 
@@ -52,7 +63,7 @@ export default function ReportCardPage(){
       .eq("student_id", selectedStudent)
       .eq("exam_id", selectedExam)
 
-    buildReport(exSub || [], marksData || [])
+    await buildReport(exSub || [], marksData || [])
   }
 
   // ================= BUILD =================
@@ -96,10 +107,7 @@ export default function ReportCardPage(){
 
     let finalResult = "PASS"
 
-    // 🔥 YOUR REQUIRED LOGIC
-    if(hasFailedSubject){
-      finalResult = "FAIL"
-    } else if(percentage < 33){
+    if(hasFailedSubject || percentage < 33){
       finalResult = "FAIL"
     }
 
@@ -113,36 +121,53 @@ export default function ReportCardPage(){
       else grade = "D"
     }
 
-    try{
-      const schoolId = await getSchoolId()
+    const schoolId = await getSchoolId()
 
-      // 🔥 FIXED UPSERT
-      const { error } = await supabase
-        .from("results")
-        .upsert({
-          student_id: selectedStudent,
-          exam_id: selectedExam,
-          class_id: selectedClass,
-          school_id: schoolId,
+    // ================= SAVE RESULT =================
+    const { error } = await supabase
+      .from("results")
+      .upsert({
+        student_id: selectedStudent,
+        exam_id: selectedExam,
+        class_id: selectedClass,
+        school_id: schoolId,
 
-          total_marks: totalMarks,
-          obtained_marks: obtainedMarks,
-          percentage: percentage,
+        total_marks: totalMarks,
+        obtained_marks: obtainedMarks,
+        percentage: percentage,
 
-          result: finalResult,
-          grade: grade
-        },{
-          onConflict: "student_id,exam_id,school_id"
-        })
+        result: finalResult,
+        grade: grade
+      },{
+        onConflict: "student_id,exam_id,school_id"
+      })
 
-      if(error){
-        console.error(error)
-        alert("Error saving result")
-      }
-
-    }catch(err){
-      console.error(err)
+    if(error){
+      console.error(error)
+      alert("Error saving result")
+      return
     }
+
+    // ================= CALCULATE RANK =================
+    const { error: rankError } = await supabase.rpc("calculate_ranks", {
+      p_exam_id: selectedExam,
+      p_class_id: selectedClass,
+      p_school_id: schoolId
+    })
+
+    if(rankError){
+      console.error(rankError)
+      alert("Rank calculation failed")
+    }
+
+    // ================= FETCH UPDATED RANK =================
+    const { data: resultRow } = await supabase
+      .from("results")
+      .select("rank")
+      .eq("student_id", selectedStudent)
+      .eq("exam_id", selectedExam)
+      .eq("school_id", schoolId)
+      .single()
 
     setReport({
       rows,
@@ -150,7 +175,8 @@ export default function ReportCardPage(){
       obtainedMarks,
       percentage,
       finalResult,
-      grade
+      grade,
+      rank: resultRow?.rank || "-"
     })
   }
 
@@ -159,7 +185,7 @@ export default function ReportCardPage(){
 
     if(!reportRef.current) return
 
-    const canvas = await html2canvas(reportRef.current)
+    const canvas = await html2canvas(reportRef.current, { scale: 2 })
     const imgData = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p", "mm", "a4")
@@ -175,52 +201,35 @@ export default function ReportCardPage(){
     s => s.class_id === selectedClass
   )
 
+  const studentObj = students.find(s=>s.id === selectedStudent)
+  const classObj = classes.find(c=>c.id === selectedClass)
+  const examObj = exams.find(e=>e.id === selectedExam)
+
   return(
 
     <div className="p-6 text-white space-y-6">
 
-      <h1 className="text-2xl">Report Card</h1>
+      <h1 className="text-2xl font-semibold">Report Card</h1>
 
       {/* SELECTORS */}
       <div className="flex gap-4 flex-wrap">
 
-        <select
-          value={selectedClass}
-          onChange={(e)=>setSelectedClass(e.target.value)}
-          className="p-3 bg-[#0b1220] rounded"
-        >
+        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="p-3 bg-[#0b1220] rounded">
           <option value="">Select Class</option>
-          {classes.map(c=>(
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
+          {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
 
-        <select
-          value={selectedStudent}
-          onChange={(e)=>setSelectedStudent(e.target.value)}
-          className="p-3 bg-[#0b1220] rounded"
-        >
+        <select value={selectedStudent} onChange={(e)=>setSelectedStudent(e.target.value)} className="p-3 bg-[#0b1220] rounded">
           <option value="">Select Student</option>
-          {filteredStudents.map(s=>(
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
+          {filteredStudents.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
 
-        <select
-          value={selectedExam}
-          onChange={(e)=>setSelectedExam(e.target.value)}
-          className="p-3 bg-[#0b1220] rounded"
-        >
+        <select value={selectedExam} onChange={(e)=>setSelectedExam(e.target.value)} className="p-3 bg-[#0b1220] rounded">
           <option value="">Select Exam</option>
-          {exams.map(e=>(
-            <option key={e.id} value={e.id}>{e.name}</option>
-          ))}
+          {exams.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
 
-        <button
-          onClick={generateReport}
-          className="px-4 py-2 bg-white/10 rounded hover:bg-white/20"
-        >
+        <button onClick={generateReport} className="px-4 py-2 bg-blue-600 rounded">
           Generate
         </button>
 
@@ -230,15 +239,27 @@ export default function ReportCardPage(){
       {report && (
 
         <>
-          <div ref={reportRef} className="bg-white text-black p-6 rounded-xl">
+          <div ref={reportRef} className="bg-white text-black p-8 rounded-xl w-full max-w-4xl mx-auto">
 
-            <h2 className="text-xl font-bold mb-4">
-              Student Report Card
-            </h2>
+            {/* HEADER */}
+            <div className="text-center mb-6 border-b pb-4">
+              <h2 className="text-2xl font-bold">{school?.name}</h2>
+              <p className="text-sm">{school?.address}</p>
+              <p className="text-sm">{school?.phone}</p>
+              <h3 className="mt-2 text-lg font-semibold">Report Card</h3>
+            </div>
 
+            {/* STUDENT INFO */}
+            <div className="grid grid-cols-2 gap-4 text-sm mb-6">
+              <p><b>Name:</b> {studentObj?.name}</p>
+              <p><b>Class:</b> {classObj?.name}</p>
+              <p><b>Exam:</b> {examObj?.name}</p>
+              <p><b>Rank:</b> {report.rank}</p>
+            </div>
+
+            {/* TABLE */}
             <table className="w-full border text-sm mb-6">
-
-              <thead>
+              <thead className="bg-gray-100">
                 <tr>
                   <th className="border p-2">Subject</th>
                   <th className="border p-2">Total</th>
@@ -247,7 +268,6 @@ export default function ReportCardPage(){
                   <th className="border p-2">Result</th>
                 </tr>
               </thead>
-
               <tbody>
                 {report.rows.map((r:any,i:number)=>(
                   <tr key={i}>
@@ -255,45 +275,43 @@ export default function ReportCardPage(){
                     <td className="border p-2">{r.total}</td>
                     <td className="border p-2">{r.passing}</td>
                     <td className="border p-2">{r.obtained}</td>
-                    <td className={`border p-2 ${
-                      r.status === "FAIL"
-                        ? "text-red-500"
-                        : "text-green-600"
+                    <td className={`border p-2 font-semibold ${
+                      r.status === "FAIL" ? "text-red-500" : "text-green-600"
                     }`}>
                       {r.status}
                     </td>
                   </tr>
                 ))}
               </tbody>
-
             </table>
 
-            <div className="space-y-2">
+            {/* SUMMARY */}
+            <div className="flex justify-between items-center mt-6">
 
-              <p>Total Marks: {report.totalMarks}</p>
-              <p>Obtained: {report.obtainedMarks}</p>
-              <p>Percentage: {report.percentage.toFixed(2)}%</p>
+              <div className="text-sm space-y-1">
+                <p>Total Marks: {report.totalMarks}</p>
+                <p>Obtained: {report.obtainedMarks}</p>
+                <p>Percentage: {report.percentage.toFixed(2)}%</p>
+              </div>
 
-              <p className={`text-lg font-bold ${
-                report.finalResult === "FAIL"
-                  ? "text-red-500"
-                  : "text-green-600"
-              }`}>
-                Final Result: {report.finalResult}
-              </p>
-
-              <p>Grade: {report.grade}</p>
+              <div className="text-right">
+                <p className={`text-xl font-bold ${
+                  report.finalResult === "FAIL" ? "text-red-500" : "text-green-600"
+                }`}>
+                  {report.finalResult}
+                </p>
+                <p className="text-lg">Grade: {report.grade}</p>
+              </div>
 
             </div>
 
           </div>
 
-          <button
-            onClick={downloadPDF}
-            className="px-4 py-2 bg-green-600 text-white rounded"
-          >
-            Download PDF
-          </button>
+          <div className="flex justify-center">
+            <button onClick={downloadPDF} className="px-6 py-2 bg-green-600 rounded">
+              Download PDF
+            </button>
+          </div>
 
         </>
 
