@@ -181,11 +181,11 @@ export default function ReportCardPage(){
     setAlreadyGenerated(true)
   }
 
-  // ================= DARK PDF =================
-  const downloadDarkPDF = async ()=>{
-    if(!darkRef.current) return
+  // ================= PDF =================
+  const createPDF = async (ref:any, fileName:string)=>{
+    if(!ref.current) return
 
-    const canvas = await html2canvas(darkRef.current,{scale:2})
+    const canvas = await html2canvas(ref.current,{scale:2})
     const img = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p","mm","a4")
@@ -193,45 +193,34 @@ export default function ReportCardPage(){
     const h = (canvas.height*w)/canvas.width
 
     pdf.addImage(img,"PNG",0,0,w,h)
-    pdf.save("report-dark.pdf")
-  }
-
-  // ================= PRINT PDF =================
-  const downloadPrintPDF = async ()=>{
-    if(!printRef.current) return
-
-    const canvas = await html2canvas(printRef.current,{scale:2})
-    const img = canvas.toDataURL("image/png")
-
-    const pdf = new jsPDF("p","mm","a4")
-    const w = 210
-    const h = (canvas.height*w)/canvas.width
-
-    pdf.addImage(img,"PNG",0,0,w,h)
-    pdf.save("report-print.pdf")
+    pdf.save(fileName)
   }
 
   const filteredStudents = students.filter(s=>s.class_id===selectedClass)
+  const studentObj = students.find(s=>s.id===selectedStudent)
+  const classObj = classes.find(c=>c.id===selectedClass)
+  const examObj = exams.find(e=>e.id===selectedExam)
 
   return(
+
     <div className="p-6 text-white space-y-6">
 
-      <h1 className="text-2xl">Report Card</h1>
+      <h1 className="text-2xl font-semibold">Report Card</h1>
 
       {/* SELECTORS */}
       <div className="flex gap-4 flex-wrap">
-        <select onChange={e=>setSelectedClass(e.target.value)} className="p-3 bg-[#0b1220] rounded">
-          <option>Select Class</option>
+        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+          <option value="">Select Class</option>
           {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
 
-        <select onChange={e=>setSelectedStudent(e.target.value)} className="p-3 bg-[#0b1220] rounded">
-          <option>Select Student</option>
+        <select value={selectedStudent} onChange={(e)=>setSelectedStudent(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+          <option value="">Select Student</option>
           {filteredStudents.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
 
-        <select onChange={e=>setSelectedExam(e.target.value)} className="p-3 bg-[#0b1220] rounded">
-          <option>Select Exam</option>
+        <select value={selectedExam} onChange={(e)=>setSelectedExam(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+          <option value="">Select Exam</option>
           {exams.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
 
@@ -240,34 +229,54 @@ export default function ReportCardPage(){
         </button>
       </div>
 
+      {/* CLASS RESULTS */}
+      {resultsList.length>0 && (
+        <div className="bg-white/10 p-4 rounded-xl">
+          <h2 className="mb-4">Class Results (Rank Wise)</h2>
+          <table className="w-full text-sm">
+            <tbody>
+              {resultsList.map(r=>{
+                const st = students.find(s=>s.id===r.student_id)
+                return(
+                  <tr key={r.id}>
+                    <td>{r.rank}</td>
+                    <td>{st?.name}</td>
+                    <td>{r.percentage?.toFixed(2)}%</td>
+                    <td>{r.grade}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* BUTTONS */}
       {report && (
         <div className="flex gap-4">
-          <button onClick={downloadDarkPDF} className="px-4 py-2 bg-indigo-600 rounded">
-            Download WhatsApp PDF
+          <button onClick={()=>createPDF(darkRef,"whatsapp.pdf")} className="bg-indigo-600 px-4 py-2 rounded">
+            WhatsApp PDF
           </button>
 
-          <button onClick={downloadPrintPDF} className="px-4 py-2 bg-yellow-600 rounded">
-            Download Print PDF
+          <button onClick={()=>createPDF(printRef,"print.pdf")} className="bg-yellow-600 px-4 py-2 rounded">
+            Print PDF
           </button>
         </div>
       )}
 
-      {/* HIDDEN TEMPLATES */}
-
-      {/* DARK */}
+      {/* DARK TEMPLATE */}
       <div ref={darkRef} style={{position:"absolute",left:"-9999px"}}>
         <div style={{padding:"30px",background:"#020617",color:"#fff"}}>
           <h1>{school?.name}</h1>
-          <p>{report?.finalResult} - Grade {report?.grade}</p>
+          <p>{studentObj?.name} - {report?.percentage?.toFixed(2)}%</p>
         </div>
       </div>
 
-      {/* PRINT */}
+      {/* PRINT TEMPLATE */}
       <div ref={printRef} style={{position:"absolute",left:"-9999px"}}>
-        <div style={{padding:"30px",background:"#fff",color:"#000"}}>
+        <div style={{padding:"40px",background:"#f8f6f1",color:"#000"}}>
           <h1>{school?.name}</h1>
-          <p>{report?.finalResult} - Grade {report?.grade}</p>
+          <p>{studentObj?.name}</p>
         </div>
       </div>
 
