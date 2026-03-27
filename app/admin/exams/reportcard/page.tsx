@@ -181,7 +181,6 @@ export default function ReportCardPage(){
   }
 
   const downloadPDF = async ()=>{
-
     if(!reportRef.current) return
 
     const canvas = await html2canvas(reportRef.current,{scale:2,backgroundColor:"#ffffff"})
@@ -206,7 +205,73 @@ export default function ReportCardPage(){
 
       <h1 className="text-2xl font-semibold">Report Card</h1>
 
-      {/* selectors + table SAME (unchanged) */}
+      <div className="flex gap-4 flex-wrap">
+
+        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+          <option value="">Select Class</option>
+          {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+
+        <select value={selectedStudent} onChange={(e)=>setSelectedStudent(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+          <option value="">Select Student</option>
+          {filteredStudents.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+
+        <select value={selectedExam} onChange={(e)=>setSelectedExam(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+          <option value="">Select Exam</option>
+          {exams.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
+        </select>
+
+        <button
+          onClick={generateReport}
+          className={`px-4 py-2 rounded ${
+            alreadyGenerated && role!=="admin"
+              ? "bg-gray-600"
+              : "bg-blue-600"
+          }`}
+        >
+          {alreadyGenerated ? "Already Generated" : "Generate"}
+        </button>
+
+      </div>
+
+      {alreadyGenerated && (
+        <div className="bg-green-600/20 border border-green-600 p-3 rounded">
+          Report already generated for {examObj?.name}
+        </div>
+      )}
+
+      {resultsList.length>0 && (
+        <div className="bg-white/10 p-4 rounded-xl">
+          <h2 className="mb-4">Class Results (Rank Wise)</h2>
+
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Name</th>
+                <th>%</th>
+                <th>Result</th>
+                <th>Grade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resultsList.map(r=>{
+                const st = students.find(s=>s.id===r.student_id)
+                return(
+                  <tr key={r.id}>
+                    <td>{r.rank}</td>
+                    <td>{st?.name}</td>
+                    <td>{r.percentage?.toFixed(2)}%</td>
+                    <td>{r.result}</td>
+                    <td>{r.grade}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {report && (
         <>
@@ -217,7 +282,7 @@ export default function ReportCardPage(){
               <p className="text-gray-500">Academic Report Card</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+            <div className="grid grid-cols-2 gap-4 text-sm mb-6">
               <p><b>Name:</b> {studentObj?.name}</p>
               <p><b>Class:</b> {classObj?.name}</p>
               <p><b>Exam:</b> {examObj?.name}</p>
@@ -229,6 +294,7 @@ export default function ReportCardPage(){
                 <tr>
                   <th className="border p-2">Subject</th>
                   <th className="border p-2">Total</th>
+                  <th className="border p-2">Passing</th>
                   <th className="border p-2">Obtained</th>
                   <th className="border p-2">Result</th>
                 </tr>
@@ -238,6 +304,7 @@ export default function ReportCardPage(){
                   <tr key={i}>
                     <td className="border p-2">{r.name}</td>
                     <td className="border p-2">{r.total}</td>
+                    <td className="border p-2">{r.passing}</td>
                     <td className="border p-2">{r.obtained}</td>
                     <td className={`border p-2 font-semibold ${r.status==="FAIL"?"text-red-500":"text-green-600"}`}>
                       {r.status}
@@ -249,7 +316,7 @@ export default function ReportCardPage(){
 
             <div className="flex justify-between">
               <div>
-                <p>Total: {report.totalMarks}</p>
+                <p>Total Marks: {report.totalMarks}</p>
                 <p>Obtained: {report.obtainedMarks}</p>
                 <p>Percentage: {report.percentage.toFixed(2)}%</p>
               </div>
@@ -258,7 +325,7 @@ export default function ReportCardPage(){
                 <p className={`text-xl font-bold ${report.finalResult==="FAIL"?"text-red-500":"text-green-600"}`}>
                   {report.finalResult}
                 </p>
-                <p>Grade: {report.grade}</p>
+                <p className="text-lg">Grade: {report.grade}</p>
               </div>
             </div>
 
@@ -266,7 +333,7 @@ export default function ReportCardPage(){
 
           <div className="flex justify-center">
             <button onClick={downloadPDF} className="px-6 py-2 bg-green-600 rounded">
-              Download Premium PDF
+              Save & Download PDF
             </button>
           </div>
         </>
