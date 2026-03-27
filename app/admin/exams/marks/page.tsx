@@ -8,7 +8,7 @@ import { getUserRole } from "@/lib/getUserRole"
 export default function MarksPage(){
 
   const [schoolId,setSchoolId] = useState<string | null>(null)
-  const [userRole,setUserRole] = useState<string | null>(null) // 🔥 safer
+  const [userRole,setUserRole] = useState<string | null>(null)
 
   const [exams,setExams] = useState<any[]>([])
   const [selectedExam,setSelectedExam] = useState<any>(null)
@@ -21,9 +21,7 @@ export default function MarksPage(){
 
   const [marks,setMarks] = useState<any>({})
 
-  // =========================
-  // INIT
-  // =========================
+  // ================= INIT =================
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -35,35 +33,19 @@ export default function MarksPage(){
     init()
   },[])
 
-  // =========================
-  // LOAD EXAMS
-  // =========================
+  // ================= LOAD =================
   useEffect(()=>{
     if(!schoolId) return
 
-    supabase
-      .from("exams")
-      .select("*")
-      .eq("school_id", schoolId)
+    supabase.from("exams").select("*").eq("school_id", schoolId)
       .then(({data})=>setExams(data || []))
-  },[schoolId])
 
-  // =========================
-  // LOAD CLASSES
-  // =========================
-  useEffect(()=>{
-    if(!schoolId) return
-
-    supabase
-      .from("classes")
-      .select("*")
-      .eq("school_id", schoolId)
+    supabase.from("classes").select("*").eq("school_id", schoolId)
       .then(({data})=>setClasses(data || []))
+
   },[schoolId])
 
-  // =========================
-  // LOAD DATA
-  // =========================
+  // ================= LOAD DATA =================
   const loadData = async (exam:any, classId?:string)=>{
 
     let class_id = exam.class_id
@@ -83,14 +65,33 @@ export default function MarksPage(){
 
     setStudents(studentsData || [])
 
-    // SUBJECTS
-    const { data:subjectData } = await supabase
+    // SUBJECTS + MARKS CONFIG
+    const { data:subData } = await supabase
       .from("exam_subjects")
-      .select("subjects(*)")
+      .select("*, subjects(name)")
       .eq("exam_id", exam.id)
 
-    const formatted = subjectData?.map((s:any)=>s.subjects) || []
+    const formatted = subData?.map((s:any)=>({
+      id: s.subject_id,
+      name: s.subjects?.name,
+      total_marks: s.total_marks
+    })) || []
+
     setSubjects(formatted)
+
+    // LOAD EXISTING MARKS
+    const { data:marksData } = await supabase
+      .from("marks")
+      .select("*")
+      .eq("exam_id", exam.id)
+
+    const map:any = {}
+
+    marksData?.forEach((m:any)=>{
+      map[`${m.student_id}_${m.subject_id}`] = m.marks_obtained
+    })
+
+    setMarks(map)
   }
 
   const handleExamChange = (id:string)=>{
@@ -100,6 +101,7 @@ export default function MarksPage(){
     setStudents([])
     setSubjects([])
     setSelectedClass("")
+    setMarks({})
 
     if(exam && !exam.is_all_classes){
       loadData(exam)
@@ -111,6 +113,7 @@ export default function MarksPage(){
     loadData(selectedExam, classId)
   }
 
+  // ================= UPDATE =================
   const updateMarks = (studentId:string, subjectId:string, value:any)=>{
     setMarks((prev:any)=>({
       ...prev,
@@ -127,9 +130,7 @@ export default function MarksPage(){
     return "F"
   }
 
-  // =========================
-  // SAVE MARKS
-  // =========================
+  // ================= SAVE =================
   const saveMarks = async ()=>{
 
     if(!selectedExam) return
@@ -140,16 +141,22 @@ export default function MarksPage(){
       for(let sub of subjects){
 
         const key = `${s.id}_${sub.id}`
-        const val = marks[key]
+        const val = Number(marks[key])
 
-        if(val !== undefined){
+        if(val !== undefined && val !== null){
+
+          // ❗ VALIDATION
+          if(val > sub.total_marks){
+            alert(`Marks > total for ${sub.name}`)
+            return
+          }
 
           rows.push({
             school_id: schoolId,
             exam_id: selectedExam.id,
             student_id: s.id,
             subject_id: sub.id,
-            marks_obtained: Number(val)
+            marks_obtained: val
           })
         }
       }
@@ -160,19 +167,21 @@ export default function MarksPage(){
       return
     }
 
-    await supabase.from("marks").upsert(rows)
+    const { error } = await supabase.from("marks").upsert(rows)
+
+    if(error){
+      alert(error.message)
+      return
+    }
 
     alert("Marks saved ✅")
   }
 
-  // =========================
-  // PUBLISH RESULT (ADMIN ONLY)
-  // =========================
+  // ================= PUBLISH =================
   const publishResult = async ()=>{
 
-    // 🔥 DOUBLE SECURITY
     if(userRole !== "admin"){
-      alert("Only admin can publish results")
+      alert("Only admin")
       return
     }
 
@@ -182,7 +191,6 @@ export default function MarksPage(){
       .from("marks")
       .select("*")
       .eq("exam_id", selectedExam.id)
-      .eq("school_id", schoolId)
 
     if(!data) return
 
@@ -190,20 +198,22 @@ export default function MarksPage(){
 
     data.forEach((m:any)=>{
       if(!grouped[m.student_id]){
-        grouped[m.student_id] = { total:0, subjects:0, fail:false }
+        grouped[m.student_id] = { total:0, max:0, fail:false }
       }
 
-      grouped[m.student_id].total += m.marks_obtained
-      grouped[m.student_id].subjects += 1
+      const subject = subjects.find(s=>s.id === m.subject_id)
 
-      if(m.marks_obtained < 33){
+      grouped[m.student_id].total += m.marks_obtained
+      grouped[m.student_id].max += subject?.total_marks || 100
+
+      if(m.marks_obtained < (subject?.total_marks * 0.33)){
         grouped[m.student_id].fail = true
       }
     })
 
     let results = Object.entries(grouped).map(([student_id,val]:any)=>{
 
-      const percentage = (val.total/(val.subjects*100))*100
+      const percentage = (val.total/val.max)*100
 
       return {
         id: crypto.randomUUID(),
@@ -260,7 +270,7 @@ export default function MarksPage(){
             <thead>
               <tr>
                 <th>Student</th>
-                {subjects.map(s=><th key={s.id}>{s.name}</th>)}
+                {subjects.map(s=><th key={s.id}>{s.name} ({s.total_marks})</th>)}
                 <th>Total</th>
                 <th>%</th>
                 <th>Grade</th>
@@ -272,6 +282,7 @@ export default function MarksPage(){
               {students.map(st=>{
 
                 let total = 0
+                let max = 0
 
                 return(
                   <tr key={st.id}>
@@ -281,7 +292,9 @@ export default function MarksPage(){
                       const key = `${st.id}_${sub.id}`
                       const val = marks[key] || ""
                       const num = Number(val) || 0
+
                       total += num
+                      max += sub.total_marks
 
                       return(
                         <td key={sub.id}>
@@ -296,8 +309,8 @@ export default function MarksPage(){
                     })}
 
                     <td>{total}</td>
-                    <td>{((total/(subjects.length*100))*100).toFixed(1)}%</td>
-                    <td>{getGrade((total/(subjects.length*100))*100)}</td>
+                    <td>{max ? ((total/max)*100).toFixed(1) : 0}%</td>
+                    <td>{getGrade(max ? (total/max)*100 : 0)}</td>
                   </tr>
                 )
               })}
@@ -315,7 +328,6 @@ export default function MarksPage(){
             Save
           </button>
 
-          {/* 🔥 ADMIN ONLY */}
           {userRole === "admin" && (
             <button onClick={publishResult} className="px-6 py-3 bg-white/10 rounded">
               Publish
