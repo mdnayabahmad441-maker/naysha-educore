@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
-import { sendNotification } from "@/lib/notifications" // ✅ ADDED
+import { sendNotification } from "@/lib/notifications"
 
 export default function AttendancePage(){
 
@@ -98,7 +98,7 @@ export default function AttendancePage(){
     }))
   }
 
-  // 🔥 SAVE ATTENDANCE + NOTIFICATION
+  // 🔥 SAVE ATTENDANCE + SMART NOTIFICATIONS
   const saveAttendance = async ()=>{
 
     if(!schoolId || !selectedClass || !selectedSection || !selectedDate){
@@ -139,21 +139,45 @@ export default function AttendancePage(){
         return
       }
 
-      // 🔥 SEND NOTIFICATIONS (MAIN LOGIC)
+      // 🔥 SMART NOTIFICATION LOGIC
       for (const s of students){
 
         const status = attendance[s.id] || "present"
+        const type = s.student_type?.toLowerCase()
 
+        // ✅ ABSENT → ALL
         if(status === "absent"){
 
-          console.log("Sending absent notification for:", s.name)
+          console.log("Absent notification:", s.name)
 
           try{
             await sendNotification({
               school_id: schoolId,
               student_id: s.id,
               title: "Student Absent",
-              message: `Your child ${s.name} was marked absent on ${new Date(selectedDate).toLocaleDateString()}`,
+              message: `Your child ${s.name} was absent on ${new Date(selectedDate).toLocaleDateString()}`,
+              type: "attendance"
+            })
+          }catch(err){
+            console.error("Notification failed:", err)
+          }
+
+        }
+
+        // ✅ PRESENT → ONLY DAY SCHOLAR
+        else if(
+          status === "present" &&
+          type !== "hosteler"
+        ){
+
+          console.log("Present notification (day scholar):", s.name)
+
+          try{
+            await sendNotification({
+              school_id: schoolId,
+              student_id: s.id,
+              title: "Student Present",
+              message: `Your child ${s.name} is present on ${new Date(selectedDate).toLocaleDateString()}`,
               type: "attendance"
             })
           }catch(err){
