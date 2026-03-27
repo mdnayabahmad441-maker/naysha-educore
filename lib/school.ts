@@ -4,36 +4,49 @@ let cachedSchoolId: string | null = null
 
 export async function getSchoolId() {
 
-  if (cachedSchoolId) return cachedSchoolId
+  try {
 
-  const host = window.location.hostname
-  let subdomain = host.split(".")[0]
+    if (cachedSchoolId) return cachedSchoolId
 
-  if (host.includes("localhost")) subdomain = "default"
+    if (typeof window === "undefined") return null
 
-  // 🔥 TRY MATCH
-  let { data } = await supabase
-    .from("schools")
-    .select("id")
-    .eq("subdomain", subdomain)
-    .maybeSingle()
+    const host = window.location.hostname
+    let subdomain = host.split(".")[0]
 
-  // 🔥 FALLBACK (NO ERROR EVER)
-  if (!data) {
-    const fallback = await supabase
+    if (host.includes("localhost")) subdomain = "default"
+
+    console.log("SUBDOMAIN:", subdomain)
+
+    // ✅ NEVER USE maybeSingle()
+    const { data, error } = await supabase
       .from("schools")
       .select("id")
-      .limit(1)
-      .single()
+      .eq("subdomain", subdomain)
 
-    if (!fallback.data) {
-      console.error("No school in DB")
+    let school = data?.[0] || null
+
+    // 🔥 FALLBACK (CRITICAL)
+    if (!school) {
+      console.warn("No match → fallback")
+
+      const fallback = await supabase
+        .from("schools")
+        .select("id")
+        .limit(1)
+
+      school = fallback.data?.[0] || null
+    }
+
+    if (!school) {
+      alert("No school found in DB ❌")
       return null
     }
 
-    data = fallback.data
-  }
+    cachedSchoolId = school.id
+    return school.id
 
-  cachedSchoolId = data.id
-  return data.id
+  } catch (err) {
+    console.error("School error:", err)
+    return null
+  }
 }
