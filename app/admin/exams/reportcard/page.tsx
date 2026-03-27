@@ -180,18 +180,62 @@ export default function ReportCardPage(){
     setAlreadyGenerated(true)
   }
 
+  // ✅ FIXED PDF FUNCTION
   const downloadPDF = async ()=>{
+
     if(!reportRef.current) return
 
-    const canvas = await html2canvas(reportRef.current,{scale:2,backgroundColor:"#ffffff"})
+    const cloned = reportRef.current.cloneNode(true) as HTMLElement
+
+    cloned.style.background = "#ffffff"
+    cloned.style.color = "#000000"
+
+    const all = cloned.querySelectorAll("*")
+
+    all.forEach((el:any)=>{
+      const computed = window.getComputedStyle(el)
+
+      el.style.color = fixColor(computed.color)
+      el.style.backgroundColor = fixColor(computed.backgroundColor)
+      el.style.borderColor = fixColor(computed.borderColor)
+
+      el.style.boxShadow = "none"
+      el.style.filter = "none"
+    })
+
+    document.body.appendChild(cloned)
+
+    const canvas = await html2canvas(cloned,{
+      scale:2,
+      backgroundColor:"#ffffff",
+      useCORS:true
+    })
+
+    document.body.removeChild(cloned)
+
     const img = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p","mm","a4")
+
     const w = 210
     const h = (canvas.height*w)/canvas.width
 
     pdf.addImage(img,"PNG",0,0,w,h)
     pdf.save("report-card.pdf")
+  }
+
+  function fixColor(color:string){
+    if(!color) return "#000000"
+
+    if(
+      color.includes("lab") ||
+      color.includes("oklch") ||
+      color.includes("lch")
+    ){
+      return "#000000"
+    }
+
+    return color
   }
 
   const filteredStudents = students.filter(s=>s.class_id === selectedClass)
@@ -200,7 +244,6 @@ export default function ReportCardPage(){
   const examObj = exams.find(e=>e.id === selectedExam)
 
   return(
-
     <div className="p-6 text-white space-y-6">
 
       <h1 className="text-2xl font-semibold">Report Card</h1>
@@ -276,7 +319,6 @@ export default function ReportCardPage(){
       {report && (
         <>
           <div ref={reportRef} className="bg-white text-black p-10 rounded-xl w-full max-w-4xl mx-auto">
-
             <div className="text-center border-b pb-4 mb-6">
               <h2 className="text-3xl font-bold text-indigo-700">{school?.name}</h2>
               <p className="text-gray-500">Academic Report Card</p>
@@ -328,7 +370,6 @@ export default function ReportCardPage(){
                 <p className="text-lg">Grade: {report.grade}</p>
               </div>
             </div>
-
           </div>
 
           <div className="flex justify-center">
