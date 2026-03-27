@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { dbGet } from "@/lib/db"
 import { getSchoolId } from "@/lib/school"
+import { getUserRole } from "@/lib/getUserRole"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 
@@ -20,28 +21,70 @@ export default function ReportCardPage(){
   const [selectedExam,setSelectedExam] = useState("")
 
   const [report,setReport] = useState<any>(null)
+  const [alreadyGenerated,setAlreadyGenerated] = useState(false)
+  const [resultsList,setResultsList] = useState<any[]>([])
+  const [role,setRole] = useState("")
 
   const reportRef = useRef<HTMLDivElement>(null)
 
   useEffect(()=>{
-    load()
+    init()
   },[])
 
-  const load = async ()=>{
+  useEffect(()=>{
+    if(selectedClass && selectedExam){
+      loadResultsList()
+    }
+  },[selectedClass, selectedExam])
+
+  const init = async ()=>{
     const schoolId = await getSchoolId()
+    const roleData = await getUserRole()
+    setRole(roleData?.role || "")
 
     setClasses(await dbGet("classes"))
     setStudents(await dbGet("students"))
     setSubjects(await dbGet("subjects"))
     setExams(await dbGet("exams"))
 
-    const { data: schoolData } = await supabase
+    const { data } = await supabase
       .from("schools")
       .select("*")
       .eq("id", schoolId)
       .single()
 
-    setSchool(schoolData)
+    setSchool(data)
+  }
+
+  // ================= CHECK EXISTING =================
+  const checkExisting = async ()=>{
+    const schoolId = await getSchoolId()
+
+    const { data } = await supabase
+      .from("results")
+      .select("*")
+      .eq("student_id", selectedStudent)
+      .eq("exam_id", selectedExam)
+      .eq("school_id", schoolId)
+      .maybeSingle()
+
+    setAlreadyGenerated(!!data)
+    return data
+  }
+
+  // ================= LOAD CLASS RESULTS =================
+  const loadResultsList = async ()=>{
+    const schoolId = await getSchoolId()
+
+    const { data } = await supabase
+      .from("results")
+      .select("*")
+      .eq("class_id", selectedClass)
+      .eq("exam_id", selectedExam)
+      .eq("school_id", schoolId)
+      .order("rank",{ascending:true})
+
+    setResultsList(data || [])
   }
 
   // ================= GENERATE =================
@@ -49,6 +92,13 @@ export default function ReportCardPage(){
 
     if(!selectedStudent || !selectedExam || !selectedClass){
       alert("Select class + student + exam")
+      return
+    }
+
+    const existing = await checkExisting()
+
+    if(existing && role !== "admin"){
+      alert("Report already generated. Only admin can edit.")
       return
     }
 
@@ -64,6 +114,7 @@ export default function ReportCardPage(){
       .eq("exam_id", selectedExam)
 
     await buildReport(exSub || [], marksData || [])
+    await loadResultsList()
   }
 
   // ================= BUILD =================
@@ -86,33 +137,15 @@ export default function ReportCardPage(){
       obtainedMarks += obtained
 
       const status = obtained >= passing ? "PASS" : "FAIL"
+      if(status === "FAIL") hasFailedSubject = true
 
-      if(status === "FAIL"){
-        hasFailedSubject = true
-      }
-
-      return {
-        name: subject?.name || "Unknown",
-        total,
-        passing,
-        obtained,
-        status
-      }
-
+      return { name: subject?.name || "Unknown", total, passing, obtained, status }
     })
 
-    const percentage = totalMarks > 0
-      ? (obtainedMarks / totalMarks) * 100
-      : 0
-
-    let finalResult = "PASS"
-
-    if(hasFailedSubject || percentage < 33){
-      finalResult = "FAIL"
-    }
+    const percentage = (obtainedMarks / totalMarks) * 100
+    const finalResult = (hasFailedSubject || percentage < 33) ? "FAIL" : "PASS"
 
     let grade = "F"
-
     if(finalResult === "PASS"){
       if(percentage >= 90) grade = "A+"
       else if(percentage >= 75) grade = "A"
@@ -123,92 +156,84 @@ export default function ReportCardPage(){
 
     const schoolId = await getSchoolId()
 
-    await supabase
-      .from("results")
-      .upsert({
-        student_id: selectedStudent,
-        exam_id: selectedExam,
-        class_id: selectedClass,
-        school_id: schoolId,
-        total_marks: totalMarks,
-        obtained_marks: obtainedMarks,
-        percentage: percentage,
-        result: finalResult,
-        grade: grade
-      },{
-        onConflict: "student_id,exam_id,school_id"
-      })
-
-    await supabase.rpc("calculate_ranks", {
-      p_exam_id: selectedExam,
-      p_class_id: selectedClass,
-      p_school_id: schoolId
+    await supabase.from("results").upsert({
+      student_id:selectedStudent,
+      exam_id:selectedExam,
+      class_id:selectedClass,
+      school_id:schoolId,
+      total_marks:totalMarks,
+      obtained_marks:obtainedMarks,
+      percentage,
+      result:finalResult,
+      grade
+    },{
+      onConflict:"student_id,exam_id,school_id"
     })
 
-    const { data: resultRow } = await supabase
+    await supabase.rpc("calculate_ranks",{
+      p_exam_id:selectedExam,
+      p_class_id:selectedClass,
+      p_school_id:schoolId
+    })
+
+    const { data } = await supabase
       .from("results")
       .select("rank")
-      .eq("student_id", selectedStudent)
-      .eq("exam_id", selectedExam)
-      .eq("school_id", schoolId)
+      .eq("student_id",selectedStudent)
+      .eq("exam_id",selectedExam)
       .single()
 
-    setReport({
-      rows,
-      totalMarks,
-      obtainedMarks,
-      percentage,
-      finalResult,
-      grade,
-      rank: resultRow?.rank || "-"
-    })
+    setReport({ rows,totalMarks,obtainedMarks,percentage,finalResult,grade,rank:data?.rank })
+    setAlreadyGenerated(true)
   }
 
-  // ================= PDF FIXED =================
+  // ================= PDF + SAVE =================
   const downloadPDF = async ()=>{
 
     if(!reportRef.current) return
 
-    // 🔥 CLONE NODE (avoid Tailwind styles)
     const cloned = reportRef.current.cloneNode(true) as HTMLElement
-
-    // 🔥 FORCE SAFE STYLES (NO OKLCH / LAB)
     cloned.style.background = "#ffffff"
     cloned.style.color = "#000000"
 
-    // remove all problematic styles
-    const all = cloned.querySelectorAll("*")
-    all.forEach((el:any)=>{
-      el.style.color = "#000000"
-      el.style.backgroundColor = el.style.backgroundColor || "transparent"
-      el.style.boxShadow = "none"
-    })
-
     document.body.appendChild(cloned)
 
-    const canvas = await html2canvas(cloned, {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      useCORS: true
-    })
-
+    const canvas = await html2canvas(cloned,{scale:2})
     document.body.removeChild(cloned)
 
-    const imgData = canvas.toDataURL("image/png")
+    const img = canvas.toDataURL("image/png")
 
-    const pdf = new jsPDF("p", "mm", "a4")
+    const pdf = new jsPDF("p","mm","a4")
+    const w = 210
+    const h = (canvas.height*w)/canvas.width
 
-    const imgWidth = 210
-    const imgHeight = (canvas.height * imgWidth) / canvas.width
+    pdf.addImage(img,"PNG",0,0,w,h)
 
-    pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight)
+    const blob = pdf.output("blob")
+
+    const schoolId = await getSchoolId()
+    const fileName = `${selectedStudent}-${selectedExam}.pdf`
+
+    await supabase.storage
+      .from("report-cards")
+      .upload(fileName, blob, { upsert: true })
+
+    const { data } = supabase.storage
+      .from("report-cards")
+      .getPublicUrl(fileName)
+
+    await supabase.from("report_cards").upsert({
+      student_id:selectedStudent,
+      exam_id:selectedExam,
+      class_id:selectedClass,
+      school_id:schoolId,
+      file_url:data.publicUrl
+    })
+
     pdf.save("report-card.pdf")
   }
 
-  const filteredStudents = students.filter(
-    s => s.class_id === selectedClass
-  )
-
+  const filteredStudents = students.filter(s=>s.class_id === selectedClass)
   const studentObj = students.find(s=>s.id === selectedStudent)
   const classObj = classes.find(c=>c.id === selectedClass)
   const examObj = exams.find(e=>e.id === selectedExam)
@@ -236,81 +261,82 @@ export default function ReportCardPage(){
           {exams.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
 
-        <button onClick={generateReport} className="px-4 py-2 bg-blue-600 rounded">
-          Generate
+        <button
+          onClick={generateReport}
+          className={`px-4 py-2 rounded ${
+            alreadyGenerated && role!=="admin"
+              ? "bg-gray-600"
+              : "bg-blue-600"
+          }`}
+        >
+          {alreadyGenerated ? "Already Generated" : "Generate"}
         </button>
 
       </div>
 
-      {report && (
+      {/* STATUS */}
+      {alreadyGenerated && (
+        <div className="bg-green-600/20 border border-green-600 p-3 rounded">
+          Report already generated for {examObj?.name}
+        </div>
+      )}
 
+      {/* CLASS RESULTS */}
+      {resultsList.length>0 && (
+        <div className="bg-white/10 p-4 rounded-xl">
+          <h2 className="mb-4">Class Results (Rank Wise)</h2>
+
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Name</th>
+                <th>%</th>
+                <th>Result</th>
+                <th>Grade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resultsList.map(r=>{
+                const st = students.find(s=>s.id===r.student_id)
+                return(
+                  <tr key={r.id}>
+                    <td>{r.rank}</td>
+                    <td>{st?.name}</td>
+                    <td>{r.percentage?.toFixed(2)}%</td>
+                    <td>{r.result}</td>
+                    <td>{r.grade}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {report && (
         <>
           <div ref={reportRef} className="bg-white text-black p-8 rounded-xl w-full max-w-4xl mx-auto">
+            <h2 className="text-xl font-bold">{school?.name}</h2>
+            <p><b>Name:</b> {studentObj?.name}</p>
+            <p><b>Rank:</b> {report.rank}</p>
 
-            <div className="text-center mb-6 border-b pb-4">
-              <h2 className="text-2xl font-bold">{school?.name}</h2>
-              <p className="text-sm">{school?.address}</p>
-              <p className="text-sm">{school?.phone}</p>
-              <h3 className="mt-2 text-lg font-semibold">Report Card</h3>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-sm mb-6">
-              <p><b>Name:</b> {studentObj?.name}</p>
-              <p><b>Class:</b> {classObj?.name}</p>
-              <p><b>Exam:</b> {examObj?.name}</p>
-              <p><b>Rank:</b> {report.rank}</p>
-            </div>
-
-            <table className="w-full border text-sm mb-6">
-              <thead style={{background:"#f3f4f6"}}>
-                <tr>
-                  <th className="border p-2">Subject</th>
-                  <th className="border p-2">Total</th>
-                  <th className="border p-2">Passing</th>
-                  <th className="border p-2">Obtained</th>
-                  <th className="border p-2">Result</th>
-                </tr>
-              </thead>
+            <table className="w-full border mt-4">
               <tbody>
                 {report.rows.map((r:any,i:number)=>(
                   <tr key={i}>
                     <td className="border p-2">{r.name}</td>
-                    <td className="border p-2">{r.total}</td>
-                    <td className="border p-2">{r.passing}</td>
                     <td className="border p-2">{r.obtained}</td>
-                    <td className="border p-2" style={{color: r.status==="FAIL"?"red":"green"}}>
-                      {r.status}
-                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-
-            <div className="flex justify-between mt-6">
-              <div>
-                <p>Total Marks: {report.totalMarks}</p>
-                <p>Obtained: {report.obtainedMarks}</p>
-                <p>Percentage: {report.percentage.toFixed(2)}%</p>
-              </div>
-
-              <div className="text-right">
-                <p style={{color: report.finalResult==="FAIL"?"red":"green"}}>
-                  {report.finalResult}
-                </p>
-                <p>Grade: {report.grade}</p>
-              </div>
-            </div>
-
           </div>
 
-          <div className="flex justify-center">
-            <button onClick={downloadPDF} className="px-6 py-2 bg-green-600 rounded">
-              Download PDF
-            </button>
-          </div>
-
+          <button onClick={downloadPDF} className="px-4 py-2 bg-green-600 rounded">
+            Save & Download PDF
+          </button>
         </>
-
       )}
 
     </div>
