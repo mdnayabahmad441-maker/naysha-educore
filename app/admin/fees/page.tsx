@@ -35,7 +35,6 @@ export default function FeesPage(){
   const [selectedFeeObj,setSelectedFeeObj] = useState<any>(null)
   const [selectedStudentObj,setSelectedStudentObj] = useState<any>(null)
 
-  // INIT
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -44,7 +43,6 @@ export default function FeesPage(){
     init()
   },[])
 
-  // LOAD DATA
   useEffect(()=>{
     if(!schoolId) return
 
@@ -99,14 +97,12 @@ export default function FeesPage(){
     setPayments(data || [])
   }
 
-  // CALCULATIONS
   const totalFees = fees.reduce((s,f)=>s + (f.total_amount || 0),0)
   const totalPaid = payments.reduce((s,p)=>s + (p.amount || 0),0)
   const totalPending = totalFees - totalPaid
 
   const filteredFees = fees.filter(f=>f.student_id === selectedStudent)
 
-  // GENERATE FEES
   const generateFees = async ()=>{
     if(!schoolId){
       alert("School not loaded")
@@ -144,7 +140,6 @@ export default function FeesPage(){
     setGenerating(false)
   }
 
-  // PDF + UPLOAD
   const generateAndUploadPDF = async ()=>{
     if(!receiptRef.current || !schoolId) return null
 
@@ -180,7 +175,6 @@ export default function FeesPage(){
     return data.publicUrl
   }
 
-  // PAYMENT
   const pay = async ()=>{
 
     if(!schoolId){
@@ -243,7 +237,6 @@ export default function FeesPage(){
     setSelectedStudentObj(student)
 
     setTimeout(async ()=>{
-
       const pdfUrl = await generateAndUploadPDF()
 
       if(student.phone && pdfUrl){
@@ -257,7 +250,6 @@ export default function FeesPage(){
           })
         })
       }
-
     },500)
 
     alert("Payment Complete ✅")
@@ -267,68 +259,70 @@ export default function FeesPage(){
     loadPayments()
   }
 
-  // UI
+  // 🔥 FIXED UI ONLY
+  const selectStyle = "w-full bg-[#0f172a] text-white border border-white/10 p-3 rounded-xl appearance-none outline-none focus:ring-2 focus:ring-blue-500"
+
   return(
-    <div className="p-4 md:p-8 min-h-screen bg-gradient-to-br from-[#0b1220] via-[#0f172a] to-[#020617] text-white">
+    <div className="p-6 min-h-screen bg-[#020617] text-white">
 
-      <h1 className="text-2xl md:text-3xl font-bold mb-6">Fees Dashboard</h1>
+      <h1 className="text-2xl font-bold mb-6">Fees Dashboard</h1>
 
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex gap-3 mb-6">
 
         <button
           onClick={()=>router.push("/admin/fees/receipts")}
-          className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 shadow-lg hover:scale-105 transition"
+          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700"
         >
           Receipt History
         </button>
 
         <button
           onClick={generateFees}
-          className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 shadow-lg hover:scale-105 transition"
+          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700"
         >
           {generating ? "Generating..." : "Generate Fees"}
         </button>
 
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 mb-8">
+      <div className="grid md:grid-cols-3 gap-4 mb-6">
 
-        <div className="backdrop-blur-xl bg-white/5 border border-white/10 p-6 rounded-2xl">
+        <div className="bg-[#0f172a] p-4 rounded-xl border border-white/10">
           <p className="text-gray-400">Total Fees</p>
-          <h2 className="text-xl font-semibold mt-2">₹{totalFees}</h2>
+          <h2 className="text-xl mt-1">₹{totalFees}</h2>
         </div>
 
-        <div className="backdrop-blur-xl bg-green-500/10 border border-green-400/20 p-6 rounded-2xl">
+        <div className="bg-[#0f172a] p-4 rounded-xl border border-green-400/20">
           <p className="text-gray-400">Collected</p>
-          <h2 className="text-green-400 text-xl mt-2">₹{totalPaid}</h2>
+          <h2 className="text-green-400 text-xl mt-1">₹{totalPaid}</h2>
         </div>
 
-        <div className="backdrop-blur-xl bg-yellow-500/10 border border-yellow-400/20 p-6 rounded-2xl">
+        <div className="bg-[#0f172a] p-4 rounded-xl border border-yellow-400/20">
           <p className="text-gray-400">Pending</p>
-          <h2 className="text-yellow-400 text-xl mt-2">₹{totalPending}</h2>
+          <h2 className="text-yellow-400 text-xl mt-1">₹{totalPending}</h2>
         </div>
 
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid md:grid-cols-4 gap-4 mb-6">
 
-        <select onChange={(e)=>setSelectedClass(e.target.value)} className="bg-white/5 p-3 rounded-xl">
-          <option>Class</option>
+        <select onChange={(e)=>setSelectedClass(e.target.value)} className={selectStyle}>
+          <option className="bg-[#0f172a]">Class</option>
           {classes.map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
         </select>
 
-        <select onChange={(e)=>setSelectedSection(e.target.value)} className="bg-white/5 p-3 rounded-xl">
-          <option>Section</option>
+        <select onChange={(e)=>setSelectedSection(e.target.value)} className={selectStyle}>
+          <option className="bg-[#0f172a]">Section</option>
           {sections.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
         </select>
 
-        <select onChange={(e)=>setSelectedStudent(e.target.value)} className="bg-white/5 p-3 rounded-xl">
-          <option>Student</option>
+        <select onChange={(e)=>setSelectedStudent(e.target.value)} className={selectStyle}>
+          <option className="bg-[#0f172a]">Student</option>
           {students.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
         </select>
 
-        <select onChange={(e)=>setSelectedFee(e.target.value)} className="bg-white/5 p-3 rounded-xl">
-          <option>Select Fee</option>
+        <select onChange={(e)=>setSelectedFee(e.target.value)} className={selectStyle}>
+          <option className="bg-[#0f172a]">Select Fee</option>
           {filteredFees.map(f=>(
             <option key={f.id} value={f.id}>
               {f.students?.name} ₹{f.total_amount}
@@ -338,18 +332,18 @@ export default function FeesPage(){
 
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="flex gap-3 mb-6">
 
         <input
           value={payAmount}
           onChange={(e)=>setPayAmount(e.target.value)}
           placeholder="Enter amount"
-          className="bg-white/5 p-3 rounded-xl w-full sm:w-48"
+          className="bg-[#0f172a] border border-white/10 p-3 rounded-xl"
         />
 
         <button
           onClick={pay}
-          className="px-6 py-2 rounded-xl bg-green-600 hover:bg-green-700 transition"
+          className="px-5 py-2 rounded-xl bg-green-600 hover:bg-green-700"
         >
           Collect
         </button>
@@ -357,7 +351,7 @@ export default function FeesPage(){
       </div>
 
       {lastPayment && selectedStudentObj && (
-        <div ref={receiptRef} className="p-6 rounded-2xl bg-white/5 border border-white/10">
+        <div ref={receiptRef} className="p-4 bg-[#0f172a] border border-white/10 rounded-xl">
           <h2 className="text-green-400 mb-2">Receipt</h2>
           <p>{selectedStudentObj.name}</p>
           <p>₹{lastPayment.amount}</p>
