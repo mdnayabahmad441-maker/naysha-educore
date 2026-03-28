@@ -6,8 +6,11 @@ import { getSchoolId } from "@/lib/school"
 import { sendNotification } from "@/lib/notifications"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
+import { useRouter } from "next/navigation" // ✅ ADDED
 
 export default function FeesPage(){
+
+  const router = useRouter() // ✅ ADDED
 
   const receiptRef = useRef<HTMLDivElement>(null)
 
@@ -33,7 +36,6 @@ export default function FeesPage(){
   const [selectedFeeObj,setSelectedFeeObj] = useState<any>(null)
   const [selectedStudentObj,setSelectedStudentObj] = useState<any>(null)
 
-  // ================= INIT =================
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -42,7 +44,6 @@ export default function FeesPage(){
     init()
   },[])
 
-  // ================= LOAD =================
   useEffect(()=>{
     if(!schoolId) return
 
@@ -97,14 +98,12 @@ export default function FeesPage(){
     setPayments(data || [])
   }
 
-  // ================= CALCULATIONS =================
   const totalFees = fees.reduce((s,f)=>s + (f.total_amount || 0),0)
   const totalPaid = payments.reduce((s,p)=>s + (p.amount || 0),0)
   const totalPending = totalFees - totalPaid
 
   const filteredFees = fees.filter(f=>f.student_id === selectedStudent)
 
-  // ================= GENERATE FEES =================
   const generateFees = async ()=>{
     if(!schoolId){
       alert("School not loaded")
@@ -142,7 +141,6 @@ export default function FeesPage(){
     setGenerating(false)
   }
 
-  // ================= NEW: PDF + UPLOAD =================
   const generateAndUploadPDF = async ()=>{
     if(!receiptRef.current || !schoolId) return null
 
@@ -157,10 +155,8 @@ export default function FeesPage(){
 
     const blob = pdf.output("blob")
 
-    // UNIQUE FILE NAME
     const fileName = `receipt-${Date.now()}.pdf`
 
-    // UPLOAD
     const { error } = await supabase.storage
       .from("receipts")
       .upload(fileName, blob, {
@@ -172,7 +168,6 @@ export default function FeesPage(){
       return null
     }
 
-    // PUBLIC URL
     const { data } = supabase
       .storage
       .from("receipts")
@@ -181,7 +176,6 @@ export default function FeesPage(){
     return data.publicUrl
   }
 
-  // ================= PAYMENT =================
   const pay = async ()=>{
 
     if(!schoolId){
@@ -243,7 +237,6 @@ export default function FeesPage(){
     setSelectedFeeObj(fee)
     setSelectedStudentObj(student)
 
-    // 🚀 NEW FLOW
     setTimeout(async ()=>{
 
       const pdfUrl = await generateAndUploadPDF()
@@ -269,11 +262,18 @@ export default function FeesPage(){
     loadPayments()
   }
 
-  // ================= UI =================
   return(
     <div className="p-6 bg-[#0b1220] min-h-screen text-white space-y-6">
 
       <h1 className="text-2xl font-semibold">Fees Dashboard</h1>
+
+      {/* ✅ NEW BUTTON ONLY */}
+      <button
+        onClick={()=>router.push("/admin/fees/receipts")}
+        className="px-4 py-2 bg-purple-600 rounded"
+      >
+        Receipt History
+      </button>
 
       <button onClick={generateFees}>
         {generating ? "Generating..." : "Generate Fees"}
