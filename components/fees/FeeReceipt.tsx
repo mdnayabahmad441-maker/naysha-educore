@@ -6,7 +6,20 @@ export default function FeeReceipt({ student, fee, payment }: any){
 
   const print = () => window.print()
 
-  const balance = fee.total_amount - fee.paid_amount
+  // ✅ SAFE VALUES (NO CRASH)
+  const safeStudent = student || {}
+  const safeFee = fee || {}
+  const safePayment = payment || {}
+
+  const total = Number(safeFee.total_amount || 0)
+  const paid = Number(safeFee.paid_amount || 0)
+  const balance = total - paid
+
+  // ✅ FIX DATE (IMPORTANT)
+  const safeDate =
+    safePayment?.date ||
+    safeFee?.created_at ||
+    new Date().toISOString()
 
   return(
 
@@ -22,14 +35,20 @@ export default function FeeReceipt({ student, fee, payment }: any){
       <div className="flex justify-between mb-6 text-sm">
 
         <div className="space-y-1">
-          <p><span className="text-green-400">Name:</span> {student.name}</p>
-          <p><span className="text-green-400">Class:</span> {student.class_name}</p>
-          <p><span className="text-green-400">Roll No:</span> {student.roll_number}</p>
+          <p><span className="text-green-400">Name:</span> {safeStudent.name || "N/A"}</p>
+          <p><span className="text-green-400">Class:</span> {safeStudent.class_name || "N/A"}</p>
+          <p><span className="text-green-400">Roll No:</span> {safeStudent.roll_number || "N/A"}</p>
         </div>
 
         <div className="space-y-1 text-right">
-          <p><span className="text-green-400">Date:</span> {new Date(payment.date).toLocaleDateString()}</p>
-          <p><span className="text-green-400">Receipt ID:</span> {payment.id}</p>
+          <p>
+            <span className="text-green-400">Date:</span>{" "}
+            {new Date(safeDate).toLocaleDateString()}
+          </p>
+          <p>
+            <span className="text-green-400">Receipt ID:</span>{" "}
+            {safePayment.id || safeFee.id || "N/A"}
+          </p>
         </div>
 
       </div>
@@ -49,12 +68,14 @@ export default function FeeReceipt({ student, fee, payment }: any){
 
             <tr className="border-t border-white/10">
               <td className="p-3">Total Fee</td>
-              <td className="p-3 text-right">₹{fee.total_amount}</td>
+              <td className="p-3 text-right">₹{total}</td>
             </tr>
 
             <tr className="border-t border-white/10">
               <td className="p-3 text-green-400">Paid</td>
-              <td className="p-3 text-right text-green-400">₹{payment.amount}</td>
+              <td className="p-3 text-right text-green-400">
+                ₹{safePayment.amount || paid}
+              </td>
             </tr>
 
             <tr className="border-t border-white/10">
