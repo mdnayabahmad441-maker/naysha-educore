@@ -56,7 +56,7 @@ export default function FeesPage(){
 
   },[selectedClass])
 
-  // ================= LOAD FEES =================
+  // ================= LOAD FEES (FIXED) =================
   const loadFees = async ()=>{
     if(!schoolId) return
 
@@ -64,15 +64,40 @@ export default function FeesPage(){
 
     let query = supabase
       .from("fees")
-      .select(`*, students(name, roll_number, class_name)`)
+      .select("*")
       .eq("school_id",schoolId)
 
     if(selectedClass) query = query.eq("class_id",selectedClass)
     if(selectedSection) query = query.eq("section_id",selectedSection)
     if(selectedMonth) query = query.eq("month",selectedMonth)
 
-    const { data } = await query
-    setFees(data || [])
+    const { data: feeData } = await query
+
+    if(!feeData){
+      setFees([])
+      setLoading(false)
+      return
+    }
+
+    // ✅ FETCH STUDENTS MANUALLY (NO 400 ERROR)
+    const studentIds = feeData.map(f => f.student_id)
+
+    const { data: students } = await supabase
+      .from("students")
+      .select("id,name,roll_number,class_name")
+      .in("id", studentIds)
+
+    const studentMap:any = {}
+    students?.forEach(s => {
+      studentMap[s.id] = s
+    })
+
+    const finalFees = feeData.map(f => ({
+      ...f,
+      students: studentMap[f.student_id] || null
+    }))
+
+    setFees(finalFees)
     setLoading(false)
   }
 
@@ -107,7 +132,7 @@ export default function FeesPage(){
       await new Promise(requestAnimationFrame)
       await new Promise(requestAnimationFrame)
 
-      // 🔥 FIX OKLAB ERROR (IMPORTANT)
+      // ✅ FIX OKLAB ERROR
       container.querySelectorAll("*").forEach((el:any)=>{
         el.style.color = "#000"
         el.style.background = "#fff"
@@ -213,39 +238,6 @@ export default function FeesPage(){
     loadFees()
   }
 
-  // ================= PAYMENT =================
-  const pay = async ()=>{
-
-    if(!selectedFee || !payAmount){
-      alert("Enter amount")
-      return
-    }
-
-    const amount = Number(payAmount)
-
-    await supabase.from("payments").insert({
-      student_id:selectedFee.student_id,
-      fee_id:selectedFee.id,
-      amount,
-      school_id:schoolId,
-      date:new Date().toISOString()
-    })
-
-    const newPaid = selectedFee.paid_amount + amount
-
-    await supabase.from("fees")
-      .update({
-        paid_amount:newPaid,
-        status:newPaid >= selectedFee.total_amount ? "paid" : "partial"
-      })
-      .eq("id",selectedFee.id)
-
-    setPayAmount("")
-    setSelectedFee(null)
-
-    loadFees()
-  }
-
   const statusColor = (status:string)=>{
     if(status==="paid") return "bg-green-500/20 text-green-400"
     if(status==="partial") return "bg-yellow-500/20 text-yellow-400"
@@ -257,7 +249,6 @@ export default function FeesPage(){
 
       <h1 className="text-2xl font-semibold mb-6">Fees</h1>
 
-      {/* RECEIPT HISTORY */}
       <button
         onClick={()=>router.push("/admin/fees/receipts")}
         className="mb-4 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700"
@@ -265,7 +256,6 @@ export default function FeesPage(){
         Receipt History
       </button>
 
-      {/* FILTER */}
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
 
         <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="input">
@@ -296,7 +286,6 @@ export default function FeesPage(){
 
       </div>
 
-      {/* TABLE */}
       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
 
         {loading ? "Loading..." : (
@@ -346,32 +335,6 @@ export default function FeesPage(){
 
           </table>
 
-        )}
-
-      </div>
-
-      {/* PAYMENT */}
-      <div className="mt-6 bg-white/5 border border-white/10 rounded-2xl p-4">
-
-        <h2 className="text-lg mb-3">Payment</h2>
-
-        {selectedFee ? (
-          <>
-            <p>{selectedFee.students?.name}</p>
-
-            <input
-              value={payAmount}
-              onChange={(e)=>setPayAmount(e.target.value)}
-              className="input mb-3"
-              placeholder="Amount"
-            />
-
-            <button onClick={pay} className="btn bg-green-600 w-full">
-              Collect Payment
-            </button>
-          </>
-        ) : (
-          <p>Select a student</p>
         )}
 
       </div>
