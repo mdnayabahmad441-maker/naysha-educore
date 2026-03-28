@@ -64,7 +64,7 @@ export default function FeesPage(){
 
     let query = supabase
       .from("fees")
-      .select(`*, students(name, roll_number)`)
+      .select(`*, students(name, roll_number, class_name)`)
       .eq("school_id",schoolId)
 
     if(selectedClass) query = query.eq("class_id",selectedClass)
@@ -93,18 +93,32 @@ export default function FeesPage(){
       const root = createRoot(container)
 
       root.render(
-        <FeeReceipt 
-          student={f?.students || {}}
-          fee={f || {}}
+        <FeeReceipt
+          student={f.students}
+          fee={f}
+          payment={{
+            amount: f.paid_amount,
+            date: new Date().toISOString(),
+            id: f.id
+          }}
         />
       )
 
       await new Promise(requestAnimationFrame)
       await new Promise(requestAnimationFrame)
 
-      const canvas = await html2canvas(container,{ scale:2 })
+      // 🔥 FIX OKLAB ERROR (IMPORTANT)
+      container.querySelectorAll("*").forEach((el:any)=>{
+        el.style.color = "#000"
+        el.style.background = "#fff"
+        el.style.borderColor = "#000"
+        el.style.boxShadow = "none"
+      })
 
-      if(!canvas) throw new Error("Canvas failed")
+      const canvas = await html2canvas(container,{
+        scale:2,
+        useCORS:true
+      })
 
       const img = canvas.toDataURL("image/png")
 
@@ -143,7 +157,7 @@ export default function FeesPage(){
       .maybeSingle()
 
     if(!classFee){
-      alert("⚠️ Set class fees in Settings")
+      alert("Set class fees first")
       setGenerating(false)
       return
     }
@@ -154,7 +168,7 @@ export default function FeesPage(){
       Number(classFee.hostel_fee || 0)
 
     if(total === 0){
-      alert("⚠️ Fee is 0. Configure fees first.")
+      alert("Fee is 0. Configure first")
       setGenerating(false)
       return
     }
