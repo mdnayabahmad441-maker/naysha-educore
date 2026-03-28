@@ -24,6 +24,7 @@ export default function ReportCardPage(){
 
   const [resultsList,setResultsList] = useState<any[]>([])
   const [reports,setReports] = useState<any[]>([])
+
   const [loading,setLoading] = useState(false)
   const [downloading,setDownloading] = useState(false)
   const [sending,setSending] = useState(false)
@@ -68,7 +69,7 @@ export default function ReportCardPage(){
   }
 
   // ===============================
-  // GENERATE RESULTS (FIXED)
+  // GENERATE RESULTS
   // ===============================
   const generateClassResults = async ()=>{
 
@@ -90,11 +91,7 @@ export default function ReportCardPage(){
         .eq("exam_id", selectedExam)
 
       if(exErr) throw exErr
-      if(!exSub || exSub.length === 0){
-        alert("No subjects found for exam")
-        setLoading(false)
-        return
-      }
+      if(!exSub) throw new Error("No subjects")
 
       const { data: marksData, error: markErr } = await supabase
         .from("marks")
@@ -102,11 +99,7 @@ export default function ReportCardPage(){
         .eq("exam_id", selectedExam)
 
       if(markErr) throw markErr
-      if(!marksData){
-        alert("No marks found")
-        setLoading(false)
-        return
-      }
+      if(!marksData) throw new Error("No marks")
 
       const reportsTemp:any[] = []
 
@@ -117,7 +110,6 @@ export default function ReportCardPage(){
         let hasFailedSubject = false
 
         const rows = exSub.map((s:any)=>{
-
           const subject = subjects.find(sub=>sub.id === s.subject_id)
 
           const markObj = marksData.find(
@@ -222,11 +214,31 @@ export default function ReportCardPage(){
   }
 
   // ===============================
-  // REST OF YOUR CODE (UNCHANGED)
+  // FIXED PDF FUNCTION
   // ===============================
-
   const createPDFBlob = async (element:HTMLElement)=>{
-    const canvas = await html2canvas(element,{ scale:2, backgroundColor:"#ffffff" })
+
+    const cloned = element.cloneNode(true) as HTMLElement
+
+    cloned.style.background = "#ffffff"
+    cloned.style.color = "#000000"
+
+    const all = cloned.querySelectorAll("*")
+    all.forEach((el:any)=>{
+      el.style.color = "#000000"
+      el.style.backgroundColor = "transparent"
+      el.style.borderColor = "#000000"
+    })
+
+    document.body.appendChild(cloned)
+
+    const canvas = await html2canvas(cloned,{
+      scale:2,
+      backgroundColor:"#ffffff"
+    })
+
+    document.body.removeChild(cloned)
+
     const img = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p","mm","a4")
@@ -234,26 +246,39 @@ export default function ReportCardPage(){
     const h = (canvas.height * w) / canvas.width
 
     pdf.addImage(img,"PNG",0,0,w,h)
+
     return pdf.output("blob")
   }
 
+  // ===============================
+  // DOWNLOAD ZIP
+  // ===============================
   const downloadAllPDFs = async ()=>{
     setDownloading(true)
 
-    const zip = new JSZip()
-    const cards = document.querySelectorAll(".report-card")
+    try{
+      const zip = new JSZip()
+      const cards = document.querySelectorAll(".report-card")
 
-    for(let i=0;i<cards.length;i++){
-      const blob = await createPDFBlob(cards[i] as HTMLElement)
-      zip.file(`report-${i+1}.pdf`, blob)
+      for(let i=0;i<cards.length;i++){
+        const blob = await createPDFBlob(cards[i] as HTMLElement)
+        zip.file(`report-${i+1}.pdf`, blob)
+      }
+
+      const content = await zip.generateAsync({ type:"blob" })
+      saveAs(content, "report-cards.zip")
+
+    }catch(err){
+      console.error(err)
+      alert("PDF generation failed")
     }
-
-    const content = await zip.generateAsync({ type:"blob" })
-    saveAs(content, "report-cards.zip")
 
     setDownloading(false)
   }
 
+  // ===============================
+  // WHATSAPP
+  // ===============================
   const sendWhatsApp = async ()=>{
     setSending(true)
 
@@ -261,9 +286,7 @@ export default function ReportCardPage(){
 
     for(let i=0;i<reports.length;i++){
 
-      const r = reports[i]
-      const student = r.student
-
+      const student = reports[i].student
       if(!student.phone_number) continue
 
       const blob = await createPDFBlob(cards[i] as HTMLElement)
@@ -318,7 +341,7 @@ export default function ReportCardPage(){
         </button>
 
         <button onClick={downloadAllPDFs} className="px-4 py-2 bg-green-600 rounded">
-          {downloading ? "Download ZIP" : "Download ZIP"}
+          {downloading ? "Preparing..." : "Download ZIP"}
         </button>
 
         <button onClick={sendWhatsApp} className="px-4 py-2 bg-purple-600 rounded">
