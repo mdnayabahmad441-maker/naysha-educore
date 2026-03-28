@@ -72,7 +72,6 @@ export default function ReportCardPage(){
   // GENERATE RESULTS
   // ===============================
   const generateClassResults = async ()=>{
-
     if(!selectedClass || !selectedExam){
       alert("Select class and exam")
       return
@@ -85,21 +84,21 @@ export default function ReportCardPage(){
 
       const classStudents = students.filter(s=>s.class_id === selectedClass)
 
-      const { data: exSub, error: exErr } = await supabase
+      const { data: exSub } = await supabase
         .from("exam_subjects")
         .select("*")
         .eq("exam_id", selectedExam)
 
-      if(exErr) throw exErr
-      if(!exSub) throw new Error("No subjects")
-
-      const { data: marksData, error: markErr } = await supabase
+      const { data: marksData } = await supabase
         .from("marks")
         .select("*")
         .eq("exam_id", selectedExam)
 
-      if(markErr) throw markErr
-      if(!marksData) throw new Error("No marks")
+      if(!exSub || !marksData){
+        alert("Missing data")
+        setLoading(false)
+        return
+      }
 
       const reportsTemp:any[] = []
 
@@ -110,6 +109,7 @@ export default function ReportCardPage(){
         let hasFailedSubject = false
 
         const rows = exSub.map((s:any)=>{
+
           const subject = subjects.find(sub=>sub.id === s.subject_id)
 
           const markObj = marksData.find(
@@ -135,9 +135,7 @@ export default function ReportCardPage(){
           }
         })
 
-        const percentage = totalMarks > 0
-          ? (obtainedMarks / totalMarks) * 100
-          : 0
+        const percentage = totalMarks > 0 ? (obtainedMarks / totalMarks) * 100 : 0
 
         const finalResult =
           hasFailedSubject || percentage < 33 ? "FAIL" : "PASS"
@@ -179,30 +177,7 @@ export default function ReportCardPage(){
         })
       }
 
-      await supabase.rpc("calculate_ranks",{
-        p_exam_id:selectedExam,
-        p_class_id:selectedClass,
-        p_school_id:schoolId
-      })
-
-      const { data: ranked } = await supabase
-        .from("results")
-        .select("*")
-        .eq("class_id", selectedClass)
-        .eq("exam_id", selectedExam)
-
-      const reportsWithRank = reportsTemp.map(r=>{
-        const res = ranked?.find((x:any)=>x.student_id === r.student.id)
-        return {
-          ...r,
-          report:{
-            ...r.report,
-            rank: res?.rank
-          }
-        }
-      })
-
-      setReports(reportsWithRank)
+      setReports(reportsTemp)
       await loadResultsList()
 
     }catch(err){
@@ -214,7 +189,7 @@ export default function ReportCardPage(){
   }
 
   // ===============================
-  // FIXED PDF FUNCTION
+  // SAFE PDF FIX
   // ===============================
   const createPDFBlob = async (element:HTMLElement)=>{
 
@@ -223,8 +198,7 @@ export default function ReportCardPage(){
     cloned.style.background = "#ffffff"
     cloned.style.color = "#000000"
 
-    const all = cloned.querySelectorAll("*")
-    all.forEach((el:any)=>{
+    cloned.querySelectorAll("*").forEach((el:any)=>{
       el.style.color = "#000000"
       el.style.backgroundColor = "transparent"
       el.style.borderColor = "#000000"
@@ -242,6 +216,7 @@ export default function ReportCardPage(){
     const img = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p","mm","a4")
+
     const w = 210
     const h = (canvas.height * w) / canvas.width
 
@@ -270,49 +245,84 @@ export default function ReportCardPage(){
 
     }catch(err){
       console.error(err)
-      alert("PDF generation failed")
+      alert("PDF error")
     }
 
     setDownloading(false)
   }
 
   // ===============================
-  // WHATSAPP
+  // FIXED WHATSAPP
   // ===============================
   const sendWhatsApp = async ()=>{
     setSending(true)
 
     const cards = document.querySelectorAll(".report-card")
 
+    let success = 0
+    let failed = 0
+
     for(let i=0;i<reports.length;i++){
 
       const student = reports[i].student
-      if(!student.phone_number) continue
 
-      const blob = await createPDFBlob(cards[i] as HTMLElement)
+      if(!student.phone_number){
+        console.log("❌ Missing phone:", student.name)
+        failed++
+        continue
+      }
 
-      const fileName = `report-${student.id}.pdf`
+      const phone = student.phone_number.startsWith("+")
+        ? student.phone_number
+        : "+91" + student.phone_number
 
-      await supabase.storage
-        .from("report-cards")
-        .upload(fileName, blob, { upsert:true })
+      try{
 
-      const { data } = supabase.storage
-        .from("report-cards")
-        .getPublicUrl(fileName)
+        const blob = await createPDFBlob(cards[i] as HTMLElement)
 
-      await fetch("/api/send-whatsapp",{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({
-          to: student.phone_number,
-          studentName: student.name,
-          pdfUrl: data.publicUrl
+        const fileName = `report-${student.id}.pdf`
+
+        const { error } = await supabase.storage
+          .from("report-cards")
+          .upload(fileName, blob, { upsert:true })
+
+        if(error){
+          console.error("Upload error:", error)
+          failed++
+          continue
+        }
+
+        const { data } = supabase.storage
+          .from("report-cards")
+          .getPublicUrl(fileName)
+
+        const res = await fetch("/api/send-whatsapp",{
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({
+            to: phone,
+            studentName: student.name,
+            pdfUrl: data.publicUrl
+          })
         })
-      })
+
+        const json = await res.json()
+
+        if(!res.ok){
+          console.error("❌ Failed:", json)
+          failed++
+        }else{
+          console.log("✅ Sent:", student.name)
+          success++
+        }
+
+      }catch(err){
+        console.error(err)
+        failed++
+      }
     }
 
-    alert("WhatsApp sent")
+    alert(`Done\nSuccess: ${success}\nFailed: ${failed}`)
     setSending(false)
   }
 
