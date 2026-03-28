@@ -83,6 +83,7 @@ export default function ReportCardPage(){
 
     try{
       const schoolId = await getSchoolId()
+
       const classStudents = students.filter(s=>s.class_id === selectedClass)
 
       const { data: exSub, error: exErr } = await supabase
@@ -91,6 +92,7 @@ export default function ReportCardPage(){
         .eq("exam_id", selectedExam)
 
       if(exErr) throw exErr
+      if(!exSub) throw new Error("No exam subjects found")
 
       const { data: marksData, error: markErr } = await supabase
         .from("marks")
@@ -98,6 +100,7 @@ export default function ReportCardPage(){
         .eq("exam_id", selectedExam)
 
       if(markErr) throw markErr
+      if(!marksData) throw new Error("No marks data found")
 
       const reportsTemp:any[] = []
 
@@ -201,7 +204,7 @@ export default function ReportCardPage(){
       setReports(reportsWithRank)
       await loadResultsList()
 
-      alert("Class results generated")
+      alert("Class results generated successfully")
 
     }catch(err){
       console.error(err)
@@ -222,42 +225,38 @@ export default function ReportCardPage(){
 
     setDownloading(true)
 
-    const zip = new JSZip()
+    try{
+      const zip = new JSZip()
 
-    for(let i=0;i<reports.length;i++){
+      const cards = document.querySelectorAll(".report-card")
 
-      const r = reports[i]
+      for(let i=0;i<cards.length;i++){
 
-      const container = document.createElement("div")
-      container.style.position = "absolute"
-      container.style.left = "-9999px"
-      document.body.appendChild(container)
+        const canvas = await html2canvas(cards[i] as HTMLElement,{
+          scale:2,
+          backgroundColor:"#ffffff"
+        })
 
-      // render HTML manually
-      container.innerHTML = document.getElementById("report-card")?.outerHTML || ""
+        const img = canvas.toDataURL("image/png")
 
-      const canvas = await html2canvas(container,{
-        scale:2,
-        backgroundColor:"#ffffff"
-      })
+        const pdf = new jsPDF("p","mm","a4")
+        const w = 210
+        const h = (canvas.height * w) / canvas.width
 
-      const img = canvas.toDataURL("image/png")
+        pdf.addImage(img,"PNG",0,0,w,h)
 
-      const pdf = new jsPDF("p","mm","a4")
-      const w = 210
-      const h = (canvas.height * w) / canvas.width
+        const blob = pdf.output("blob")
 
-      pdf.addImage(img,"PNG",0,0,w,h)
+        zip.file(`report-${i+1}.pdf`, blob)
+      }
 
-      const blob = pdf.output("blob")
+      const content = await zip.generateAsync({ type:"blob" })
+      saveAs(content, "report-cards.zip")
 
-      zip.file(`${r.student.name}.pdf`, blob)
-
-      document.body.removeChild(container)
+    }catch(err){
+      console.error(err)
+      alert("Error generating PDFs")
     }
-
-    const content = await zip.generateAsync({ type:"blob" })
-    saveAs(content, "report-cards.zip")
 
     setDownloading(false)
   }
@@ -270,8 +269,8 @@ export default function ReportCardPage(){
 
       <h1 className="text-2xl font-semibold">Report Cards</h1>
 
-      {/* SELECTORS */}
-      <div className="flex gap-4 flex-wrap">
+      {/* CONTROLS */}
+      <div className="flex gap-4 flex-wrap items-center">
 
         <select
           value={selectedClass}
@@ -306,38 +305,39 @@ export default function ReportCardPage(){
           onClick={downloadAllPDFs}
           className="px-4 py-2 bg-green-600 rounded"
         >
-          {downloading ? "Preparing ZIP..." : "Download All PDFs"}
+          {downloading ? "Preparing ZIP..." : "Download PDFs"}
         </button>
 
       </div>
 
-      {/* RESULT TABLE */}
+      {/* RESULTS TABLE */}
       {resultsList.length > 0 && (
-        <div className="bg-white/10 p-4 rounded-xl">
-          <h2 className="mb-4">Class Results</h2>
+        <div className="bg-[#0f172a] p-4 rounded-xl border border-gray-700">
+          <h2 className="mb-4 text-lg font-semibold">Class Results</h2>
 
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
             <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Name</th>
-                <th>%</th>
-                <th>Result</th>
-                <th>Grade</th>
+              <tr className="text-gray-400 border-b border-gray-700">
+                <th className="w-16 text-left">Rank</th>
+                <th className="text-left">Name</th>
+                <th className="w-24 text-center">%</th>
+                <th className="w-24 text-center">Result</th>
+                <th className="w-24 text-center">Grade</th>
               </tr>
             </thead>
+
             <tbody>
               {resultsList.map(r=>{
                 const st = students.find(s=>s.id===r.student_id)
                 return(
-                  <tr key={r.id}>
-                    <td>{r.rank}</td>
+                  <tr key={r.id} className="border-b border-gray-800">
+                    <td className="py-2">{r.rank}</td>
                     <td>{st?.name}</td>
-                    <td>{r.percentage?.toFixed(2)}%</td>
-                    <td className={r.result==="FAIL"?"text-red-400":"text-emerald-400"}>
+                    <td className="text-center">{r.percentage?.toFixed(2)}%</td>
+                    <td className={`text-center font-semibold ${r.result==="FAIL"?"text-red-400":"text-emerald-400"}`}>
                       {r.result}
                     </td>
-                    <td>{r.grade}</td>
+                    <td className="text-center">{r.grade}</td>
                   </tr>
                 )
               })}
@@ -346,7 +346,7 @@ export default function ReportCardPage(){
         </div>
       )}
 
-      {/* REPORTS */}
+      {/* REPORT CARDS */}
       {reports.length > 0 && (
         <div className="space-y-10">
           {reports.map((r,index)=>(
