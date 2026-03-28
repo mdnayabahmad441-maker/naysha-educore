@@ -26,6 +26,7 @@ export default function ReportCardPage(){
   const [role,setRole] = useState("")
 
   const reportRef = useRef<HTMLDivElement>(null)
+  const pdfRef = useRef<HTMLDivElement>(null) // ✅ NEW
 
   useEffect(()=>{ init() },[])
 
@@ -180,62 +181,24 @@ export default function ReportCardPage(){
     setAlreadyGenerated(true)
   }
 
-  // ✅ FIXED PDF FUNCTION
+  // ✅ UPDATED PDF (ONLY CHANGE)
   const downloadPDF = async ()=>{
 
-    if(!reportRef.current) return
+    if(!pdfRef.current) return
 
-    const cloned = reportRef.current.cloneNode(true) as HTMLElement
-
-    cloned.style.background = "#ffffff"
-    cloned.style.color = "#000000"
-
-    const all = cloned.querySelectorAll("*")
-
-    all.forEach((el:any)=>{
-      const computed = window.getComputedStyle(el)
-
-      el.style.color = fixColor(computed.color)
-      el.style.backgroundColor = fixColor(computed.backgroundColor)
-      el.style.borderColor = fixColor(computed.borderColor)
-
-      el.style.boxShadow = "none"
-      el.style.filter = "none"
-    })
-
-    document.body.appendChild(cloned)
-
-    const canvas = await html2canvas(cloned,{
+    const canvas = await html2canvas(pdfRef.current,{
       scale:2,
-      backgroundColor:"#ffffff",
-      useCORS:true
+      backgroundColor:"#ffffff"
     })
-
-    document.body.removeChild(cloned)
 
     const img = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p","mm","a4")
-
     const w = 210
     const h = (canvas.height*w)/canvas.width
 
     pdf.addImage(img,"PNG",0,0,w,h)
     pdf.save("report-card.pdf")
-  }
-
-  function fixColor(color:string){
-    if(!color) return "#000000"
-
-    if(
-      color.includes("lab") ||
-      color.includes("oklch") ||
-      color.includes("lch")
-    ){
-      return "#000000"
-    }
-
-    return color
   }
 
   const filteredStudents = students.filter(s=>s.class_id === selectedClass)
@@ -248,6 +211,7 @@ export default function ReportCardPage(){
 
       <h1 className="text-2xl font-semibold">Report Card</h1>
 
+      {/* SELECTORS */}
       <div className="flex gap-4 flex-wrap">
 
         <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="p-3 bg-[#0b1220] rounded">
@@ -278,12 +242,14 @@ export default function ReportCardPage(){
 
       </div>
 
+      {/* STATUS */}
       {alreadyGenerated && (
         <div className="bg-green-600/20 border border-green-600 p-3 rounded">
           Report already generated for {examObj?.name}
         </div>
       )}
 
+      {/* CLASS RESULTS */}
       {resultsList.length>0 && (
         <div className="bg-white/10 p-4 rounded-xl">
           <h2 className="mb-4">Class Results (Rank Wise)</h2>
@@ -316,6 +282,7 @@ export default function ReportCardPage(){
         </div>
       )}
 
+      {/* UI REPORT */}
       {report && (
         <>
           <div ref={reportRef} className="bg-white text-black p-10 rounded-xl w-full max-w-4xl mx-auto">
@@ -379,6 +346,33 @@ export default function ReportCardPage(){
           </div>
         </>
       )}
+
+      {/* ✅ HIDDEN PDF TEMPLATE */}
+      <div style={{position:"absolute",left:"-9999px"}}>
+        <div ref={pdfRef} style={{padding:"40px",background:"#fff",color:"#000"}}>
+          <h2 style={{textAlign:"center"}}>{school?.name}</h2>
+          <p>Name: {studentObj?.name}</p>
+          <p>Class: {classObj?.name}</p>
+          <p>Exam: {examObj?.name}</p>
+          <p>Rank: {report?.rank}</p>
+
+          <table style={{width:"100%",borderCollapse:"collapse",marginTop:"20px"}}>
+            <tbody>
+              {report?.rows.map((r:any,i:number)=>(
+                <tr key={i}>
+                  <td style={{border:"1px solid #000"}}>{r.name}</td>
+                  <td style={{border:"1px solid #000"}}>{r.obtained}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <p>Total: {report?.totalMarks}</p>
+          <p>Percentage: {report?.percentage?.toFixed(2)}%</p>
+          <p>Result: {report?.finalResult}</p>
+          <p>Grade: {report?.grade}</p>
+        </div>
+      </div>
 
     </div>
   )
