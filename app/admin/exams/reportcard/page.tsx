@@ -25,8 +25,7 @@ export default function ReportCardPage(){
   const [resultsList,setResultsList] = useState<any[]>([])
   const [role,setRole] = useState("")
 
-  const reportRef = useRef<HTMLDivElement>(null)
-  const pdfRef = useRef<HTMLDivElement>(null) // ✅ NEW
+  const pdfRef = useRef<HTMLDivElement>(null)
 
   useEffect(()=>{ init() },[])
 
@@ -174,16 +173,13 @@ export default function ReportCardPage(){
       .from("results")
       .select("rank")
       .eq("student_id",selectedStudent)
-      .eq("exam_id",selectedExam)
       .single()
 
     setReport({ rows,totalMarks,obtainedMarks,percentage,finalResult,grade,rank:data?.rank })
     setAlreadyGenerated(true)
   }
 
-  // ✅ UPDATED PDF (ONLY CHANGE)
   const downloadPDF = async ()=>{
-
     if(!pdfRef.current) return
 
     const canvas = await html2canvas(pdfRef.current,{
@@ -194,14 +190,10 @@ export default function ReportCardPage(){
     const img = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p","mm","a4")
-    const w = 210
-    const h = (canvas.height*w)/canvas.width
-
-    pdf.addImage(img,"PNG",0,0,w,h)
+    pdf.addImage(img,"PNG",0,0,210,297)
     pdf.save("report-card.pdf")
   }
 
-  const filteredStudents = students.filter(s=>s.class_id === selectedClass)
   const studentObj = students.find(s=>s.id === selectedStudent)
   const classObj = classes.find(c=>c.id === selectedClass)
   const examObj = exams.find(e=>e.id === selectedExam)
@@ -211,166 +203,98 @@ export default function ReportCardPage(){
 
       <h1 className="text-2xl font-semibold">Report Card</h1>
 
-      {/* SELECTORS */}
-      <div className="flex gap-4 flex-wrap">
-
-        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="p-3 bg-[#0b1220] rounded">
-          <option value="">Select Class</option>
-          {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-
-        <select value={selectedStudent} onChange={(e)=>setSelectedStudent(e.target.value)} className="p-3 bg-[#0b1220] rounded">
-          <option value="">Select Student</option>
-          {filteredStudents.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-
-        <select value={selectedExam} onChange={(e)=>setSelectedExam(e.target.value)} className="p-3 bg-[#0b1220] rounded">
-          <option value="">Select Exam</option>
-          {exams.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
-        </select>
-
-        <button
-          onClick={generateReport}
-          className={`px-4 py-2 rounded ${
-            alreadyGenerated && role!=="admin"
-              ? "bg-gray-600"
-              : "bg-blue-600"
-          }`}
-        >
-          {alreadyGenerated ? "Already Generated" : "Generate"}
-        </button>
-
-      </div>
-
-      {/* STATUS */}
-      {alreadyGenerated && (
-        <div className="bg-green-600/20 border border-green-600 p-3 rounded">
-          Report already generated for {examObj?.name}
-        </div>
-      )}
-
-      {/* CLASS RESULTS */}
-      {resultsList.length>0 && (
-        <div className="bg-white/10 p-4 rounded-xl">
-          <h2 className="mb-4">Class Results (Rank Wise)</h2>
-
-          <table className="w-full text-sm">
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Name</th>
-                <th>%</th>
-                <th>Result</th>
-                <th>Grade</th>
-              </tr>
-            </thead>
-            <tbody>
-              {resultsList.map(r=>{
-                const st = students.find(s=>s.id===r.student_id)
-                return(
-                  <tr key={r.id}>
-                    <td>{r.rank}</td>
-                    <td>{st?.name}</td>
-                    <td>{r.percentage?.toFixed(2)}%</td>
-                    <td>{r.result}</td>
-                    <td>{r.grade}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* UI REPORT */}
       {report && (
-        <>
-          <div ref={reportRef} className="bg-white text-black p-10 rounded-xl w-full max-w-4xl mx-auto">
-            <div className="text-center border-b pb-4 mb-6">
-              <h2 className="text-3xl font-bold text-indigo-700">{school?.name}</h2>
-              <p className="text-gray-500">Academic Report Card</p>
-            </div>
+        <div className="flex justify-center">
+          <button onClick={downloadPDF} className="px-6 py-2 bg-green-600 rounded">
+            Save & Download PDF
+          </button>
+        </div>
+      )}
 
-            <div className="grid grid-cols-2 gap-4 text-sm mb-6">
+      {/* PREMIUM PDF */}
+      <div style={{position:"absolute",left:"-9999px"}}>
+        <div ref={pdfRef} style={{
+          width:"794px",
+          minHeight:"1123px",
+          padding:"50px",
+          background:"#fff",
+          fontFamily:"Georgia, serif"
+        }}>
+
+          {/* HEADER */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <img src={school?.logo_url || "/logo.png"} style={{height:"60px"}} />
+            <div style={{textAlign:"center"}}>
+              <h1 style={{margin:0,color:"#1e3a8a"}}>{school?.name}</h1>
+              <p style={{margin:0,color:"#6b7280"}}>Academic Report Card</p>
+            </div>
+            <div style={{fontSize:"12px",color:"#6b7280"}}>
+              NaySha EduCore
+            </div>
+          </div>
+
+          <hr style={{margin:"20px 0"}} />
+
+          {/* STUDENT BLOCK */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 120px",gap:"20px"}}>
+            <div>
               <p><b>Name:</b> {studentObj?.name}</p>
               <p><b>Class:</b> {classObj?.name}</p>
               <p><b>Exam:</b> {examObj?.name}</p>
-              <p><b>Rank:</b> {report.rank}</p>
+              <p><b>Rank:</b> {report?.rank}</p>
             </div>
 
-            <table className="w-full border text-sm mb-6">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="border p-2">Subject</th>
-                  <th className="border p-2">Total</th>
-                  <th className="border p-2">Passing</th>
-                  <th className="border p-2">Obtained</th>
-                  <th className="border p-2">Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.rows.map((r:any,i:number)=>(
-                  <tr key={i}>
-                    <td className="border p-2">{r.name}</td>
-                    <td className="border p-2">{r.total}</td>
-                    <td className="border p-2">{r.passing}</td>
-                    <td className="border p-2">{r.obtained}</td>
-                    <td className={`border p-2 font-semibold ${r.status==="FAIL"?"text-red-500":"text-green-600"}`}>
-                      {r.status}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="flex justify-between">
-              <div>
-                <p>Total Marks: {report.totalMarks}</p>
-                <p>Obtained: {report.obtainedMarks}</p>
-                <p>Percentage: {report.percentage.toFixed(2)}%</p>
-              </div>
-
-              <div className="text-right">
-                <p className={`text-xl font-bold ${report.finalResult==="FAIL"?"text-red-500":"text-green-600"}`}>
-                  {report.finalResult}
-                </p>
-                <p className="text-lg">Grade: {report.grade}</p>
-              </div>
-            </div>
+            <img
+              src={studentObj?.photo_url || "/student.png"}
+              style={{
+                width:"120px",
+                height:"120px",
+                objectFit:"cover",
+                border:"2px solid #ddd"
+              }}
+            />
           </div>
 
-          <div className="flex justify-center">
-            <button onClick={downloadPDF} className="px-6 py-2 bg-green-600 rounded">
-              Save & Download PDF
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* ✅ HIDDEN PDF TEMPLATE */}
-      <div style={{position:"absolute",left:"-9999px"}}>
-        <div ref={pdfRef} style={{padding:"40px",background:"#fff",color:"#000"}}>
-          <h2 style={{textAlign:"center"}}>{school?.name}</h2>
-          <p>Name: {studentObj?.name}</p>
-          <p>Class: {classObj?.name}</p>
-          <p>Exam: {examObj?.name}</p>
-          <p>Rank: {report?.rank}</p>
-
-          <table style={{width:"100%",borderCollapse:"collapse",marginTop:"20px"}}>
+          {/* TABLE */}
+          <table style={{width:"100%",marginTop:"30px",borderCollapse:"collapse"}}>
+            <thead>
+              <tr style={{background:"#1e3a8a",color:"#fff"}}>
+                <th>Subject</th>
+                <th>Total</th>
+                <th>Passing</th>
+                <th>Obtained</th>
+                <th>Result</th>
+              </tr>
+            </thead>
             <tbody>
-              {report?.rows.map((r:any,i:number)=>(
+              {report.rows.map((r:any,i:number)=>(
                 <tr key={i}>
-                  <td style={{border:"1px solid #000"}}>{r.name}</td>
-                  <td style={{border:"1px solid #000"}}>{r.obtained}</td>
+                  <td style={{border:"1px solid #ddd"}}>{r.name}</td>
+                  <td style={{border:"1px solid #ddd"}}>{r.total}</td>
+                  <td style={{border:"1px solid #ddd"}}>{r.passing}</td>
+                  <td style={{border:"1px solid #ddd"}}>{r.obtained}</td>
+                  <td style={{
+                    border:"1px solid #ddd",
+                    color:r.status==="FAIL"?"#dc2626":"#16a34a"
+                  }}>{r.status}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          <p>Total: {report?.totalMarks}</p>
-          <p>Percentage: {report?.percentage?.toFixed(2)}%</p>
-          <p>Result: {report?.finalResult}</p>
-          <p>Grade: {report?.grade}</p>
+          {/* SUMMARY */}
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:"20px"}}>
+            <div>
+              <p>Total: {report.totalMarks}</p>
+              <p>Obtained: {report.obtainedMarks}</p>
+              <p>Percentage: {report.percentage.toFixed(2)}%</p>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <p style={{fontWeight:"bold"}}>{report.finalResult}</p>
+              <p>Grade: {report.grade}</p>
+            </div>
+          </div>
+
         </div>
       </div>
 
