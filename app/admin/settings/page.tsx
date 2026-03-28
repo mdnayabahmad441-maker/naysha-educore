@@ -16,7 +16,6 @@ export default function SettingsPage(){
 
   const [loading,setLoading] = useState(true)
 
-  // INIT
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -25,13 +24,11 @@ export default function SettingsPage(){
     init()
   },[])
 
-  // LOAD ALL SETTINGS
   useEffect(()=>{
     if(!schoolId) return
 
     const load = async ()=>{
 
-      // SCHOOL
       const { data } = await supabase
         .from("schools")
         .select("*")
@@ -40,13 +37,17 @@ export default function SettingsPage(){
 
       setSchool(data || {})
 
-      // EXAM
       const examSettings = await getSettings("exam")
       setExam(examSettings || { passing: 33, grading: "percentage" })
 
-      // FEES
       const feeSettings = await getSettings("fees")
-      setFees(feeSettings || { late_fee: 0, prefix: "INV" })
+      setFees(feeSettings || {
+        late_fee: 0,
+        prefix: "INV",
+        tuition_fee: 0,
+        transport_fee: 0,
+        hostel_fee: 0
+      })
 
       setLoading(false)
     }
@@ -54,6 +55,28 @@ export default function SettingsPage(){
     load()
 
   },[schoolId])
+
+  // 🔥 UPLOAD FUNCTION
+  const uploadFile = async (file:File, folder:string)=>{
+
+    const fileName = `${folder}/${Date.now()}-${file.name}`
+
+    const { error } = await supabase.storage
+      .from("school-assets")
+      .upload(fileName, file)
+
+    if(error){
+      alert("Upload failed")
+      return null
+    }
+
+    const { data } = supabase
+      .storage
+      .from("school-assets")
+      .getPublicUrl(fileName)
+
+    return data.publicUrl
+  }
 
   // SAVE SCHOOL
   const saveSchool = async ()=>{
@@ -64,20 +87,21 @@ export default function SettingsPage(){
         name: school.name,
         email: school.email,
         phone: school.phone,
-        logo_url: school.logo_url
+        address: school.address,
+        website: school.website,
+        logo_url: school.logo_url,
+        stamp_url: school.stamp_url
       })
       .eq("id", schoolId)
 
     alert("Saved ✅")
   }
 
-  // SAVE EXAM
   const saveExam = async ()=>{
     await updateSettings("exam", exam)
     alert("Saved ✅")
   }
 
-  // SAVE FEES
   const saveFees = async ()=>{
     await updateSettings("fees", fees)
     alert("Saved ✅")
@@ -87,7 +111,7 @@ export default function SettingsPage(){
 
   return(
 
-    <div className="flex text-white">
+    <div className="flex text-white min-h-screen">
 
       {/* LEFT MENU */}
       <div className="w-64 bg-[#0b1a33] p-6 space-y-3">
@@ -98,19 +122,44 @@ export default function SettingsPage(){
 
       </div>
 
-      {/* RIGHT CONTENT */}
+      {/* RIGHT */}
       <div className="flex-1 p-10">
 
         {/* SCHOOL */}
         {tab==="school" && (
           <div className="space-y-4 max-w-lg">
 
-            <h2 className="text-xl">School Profile</h2>
+            <h2 className="text-xl font-semibold">School Profile</h2>
 
-            <input value={school.name || ""} onChange={e=>setSchool({...school,name:e.target.value})} className="input"/>
-            <input value={school.email || ""} onChange={e=>setSchool({...school,email:e.target.value})} className="input"/>
-            <input value={school.phone || ""} onChange={e=>setSchool({...school,phone:e.target.value})} className="input"/>
-            <input value={school.logo_url || ""} onChange={e=>setSchool({...school,logo_url:e.target.value})} className="input"/>
+            <input placeholder="Name" value={school.name || ""} onChange={e=>setSchool({...school,name:e.target.value})} className="input"/>
+            <input placeholder="Email" value={school.email || ""} onChange={e=>setSchool({...school,email:e.target.value})} className="input"/>
+            <input placeholder="Phone" value={school.phone || ""} onChange={e=>setSchool({...school,phone:e.target.value})} className="input"/>
+            <input placeholder="Address" value={school.address || ""} onChange={e=>setSchool({...school,address:e.target.value})} className="input"/>
+            <input placeholder="Website" value={school.website || ""} onChange={e=>setSchool({...school,website:e.target.value})} className="input"/>
+
+            {/* LOGO UPLOAD */}
+            <div>
+              <label>Logo Upload</label>
+              <input type="file" onChange={async (e)=>{
+                const file = e.target.files?.[0]
+                if(file){
+                  const url = await uploadFile(file,"logos")
+                  if(url) setSchool({...school,logo_url:url})
+                }
+              }}/>
+            </div>
+
+            {/* STAMP UPLOAD */}
+            <div>
+              <label>Stamp Upload</label>
+              <input type="file" onChange={async (e)=>{
+                const file = e.target.files?.[0]
+                if(file){
+                  const url = await uploadFile(file,"stamps")
+                  if(url) setSchool({...school,stamp_url:url})
+                }
+              }}/>
+            </div>
 
             <button onClick={saveSchool} className="btn">Save</button>
 
@@ -151,16 +200,34 @@ export default function SettingsPage(){
 
             <h2 className="text-xl">Fees Settings</h2>
 
-            <input
-              type="number"
+            <input type="number" placeholder="Late Fee"
               value={fees.late_fee || 0}
               onChange={(e)=>setFees({...fees,late_fee:Number(e.target.value)})}
               className="input"
             />
 
-            <input
+            <input placeholder="Invoice Prefix"
               value={fees.prefix || ""}
               onChange={(e)=>setFees({...fees,prefix:e.target.value})}
+              className="input"
+            />
+
+            {/* 🔥 NEW FEE BREAKDOWN */}
+            <input type="number" placeholder="Tuition Fee"
+              value={fees.tuition_fee || 0}
+              onChange={(e)=>setFees({...fees,tuition_fee:Number(e.target.value)})}
+              className="input"
+            />
+
+            <input type="number" placeholder="Transport Fee"
+              value={fees.transport_fee || 0}
+              onChange={(e)=>setFees({...fees,transport_fee:Number(e.target.value)})}
+              className="input"
+            />
+
+            <input type="number" placeholder="Hostel Fee"
+              value={fees.hostel_fee || 0}
+              onChange={(e)=>setFees({...fees,hostel_fee:Number(e.target.value)})}
               className="input"
             />
 
@@ -177,6 +244,7 @@ export default function SettingsPage(){
           padding:12px;
           border-radius:8px;
           background:#0b1220;
+          border:1px solid rgba(255,255,255,0.1);
         }
         .btn {
           padding:10px;
