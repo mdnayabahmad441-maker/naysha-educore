@@ -1,26 +1,17 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
-import { sendNotification } from "@/lib/notifications"
 import { getSettings } from "@/lib/settings"
-import html2canvas from "html2canvas"
-import jsPDF from "jspdf"
-import { useRouter } from "next/navigation"
 
 export default function FeesPage(){
-
-  const router = useRouter()
-  const receiptRef = useRef<HTMLDivElement>(null)
 
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
   const [classes,setClasses] = useState<any[]>([])
   const [sections,setSections] = useState<any[]>([])
-
   const [fees,setFees] = useState<any[]>([])
-  const [payments,setPayments] = useState<any[]>([])
 
   const [selectedClass,setSelectedClass] = useState("")
   const [selectedSection,setSelectedSection] = useState("")
@@ -29,12 +20,8 @@ export default function FeesPage(){
   const [selectedFee,setSelectedFee] = useState<any>(null)
   const [payAmount,setPayAmount] = useState("")
 
-  const [lastPayment,setLastPayment] = useState<any>(null)
-  const [selectedStudentObj,setSelectedStudentObj] = useState<any>(null)
+  const [loading,setLoading] = useState(false)
 
-  const [generating,setGenerating] = useState(false)
-
-  // ================= INIT =================
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
@@ -42,12 +29,10 @@ export default function FeesPage(){
   useEffect(()=>{
     if(!schoolId) return
 
-    supabase.from("classes").select("*")
+    supabase.from("classes")
+      .select("*")
       .eq("school_id",schoolId)
       .then(({data})=>setClasses(data || []))
-
-    loadFees()
-    loadPayments()
 
   },[schoolId])
 
@@ -61,24 +46,21 @@ export default function FeesPage(){
 
   },[selectedClass])
 
-  // ================= LOAD =================
-  const loadFees = async ()=>{
-    const { data } = await supabase
+  useEffect(()=>{
+    if(!schoolId) return
+
+    let query = supabase
       .from("fees")
-      .select(`*, students(name, phone, roll_number)`)
+      .select(`*, students(name, roll_number)`)
       .eq("school_id",schoolId)
 
-    setFees(data || [])
-  }
+    if(selectedClass) query = query.eq("class_id",selectedClass)
+    if(selectedSection) query = query.eq("section_id",selectedSection)
+    if(selectedMonth) query = query.eq("month",selectedMonth)
 
-  const loadPayments = async ()=>{
-    const { data } = await supabase
-      .from("payments")
-      .select(`*, students(name, phone)`)
-      .eq("school_id",schoolId)
+    query.then(({data})=>setFees(data || []))
 
-    setPayments(data || [])
-  }
+  },[schoolId,selectedClass,selectedSection,selectedMonth])
 
   // ================= GENERATE =================
   const generateFees = async ()=>{
@@ -88,7 +70,7 @@ export default function FeesPage(){
       return
     }
 
-    setGenerating(true)
+    setLoading(true)
 
     const settings = await getSettings("fees")
 
@@ -99,6 +81,7 @@ export default function FeesPage(){
     let query = supabase
       .from("students")
       .select("*")
+      .eq("school_id",schoolId)
       .eq("class_id",selectedClass)
 
     if(selectedSection){
@@ -134,31 +117,26 @@ export default function FeesPage(){
     }
 
     alert("Fees Generated ✅")
-    loadFees()
-    setGenerating(false)
+    setLoading(false)
   }
 
   // ================= PAY =================
   const pay = async ()=>{
 
     if(!selectedFee || !payAmount){
-      alert("Select fee & amount")
+      alert("Enter amount")
       return
     }
 
     const amount = Number(payAmount)
 
-    const { data: paymentData } = await supabase
-      .from("payments")
-      .insert({
-        student_id:selectedFee.student_id,
-        fee_id:selectedFee.id,
-        amount,
-        school_id:schoolId,
-        date:new Date().toISOString()
-      })
-      .select()
-      .single()
+    await supabase.from("payments").insert({
+      student_id:selectedFee.student_id,
+      fee_id:selectedFee.id,
+      amount,
+      school_id:schoolId,
+      date:new Date().toISOString()
+    })
 
     const newPaid = selectedFee.paid_amount + amount
 
@@ -169,52 +147,37 @@ export default function FeesPage(){
       })
       .eq("id",selectedFee.id)
 
-    const student = selectedFee.students
-
-    setLastPayment(paymentData)
-    setSelectedStudentObj(student)
-
-    alert("Payment Done ✅")
-
     setPayAmount("")
-    loadFees()
-    loadPayments()
+    setSelectedFee(null)
   }
 
-  // ================= FILTER =================
-  const filteredFees = fees.filter(f=>{
-    return (
-      (!selectedClass || f.class_id === selectedClass) &&
-      (!selectedSection || f.section_id === selectedSection) &&
-      (!selectedMonth || f.month === selectedMonth)
-    )
-  })
+  // ================= STATUS COLOR =================
+  const statusColor = (status:string)=>{
+    if(status==="paid") return "bg-green-500/20 text-green-400"
+    if(status==="partial") return "bg-yellow-500/20 text-yellow-400"
+    return "bg-red-500/20 text-red-400"
+  }
 
-  const totalFees = fees.reduce((s,f)=>s+f.total_amount,0)
-  const totalPaid = payments.reduce((s,p)=>s+p.amount,0)
-  const totalPending = totalFees - totalPaid
-
-  // ================= UI =================
   return(
     <div className="p-4 md:p-6 bg-[#020617] min-h-screen text-white">
 
-      <h1 className="text-xl md:text-2xl mb-6 font-bold">Fees Dashboard</h1>
+      <h1 className="text-2xl font-semibold mb-6">Fees</h1>
 
-      {/* FILTERS */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
-
-        <button onClick={()=>router.push("/admin/fees/receipts")} className="btn bg-purple-600">
-          Receipts
-        </button>
+      {/* FILTER BAR */}
+      <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
 
         <select onChange={(e)=>setSelectedClass(e.target.value)} className="input">
           <option>Class</option>
-          {classes.map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
+          {classes.map(c=>(
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
         </select>
 
         <select onChange={(e)=>setSelectedSection(e.target.value)} className="input">
           <option>Section</option>
-          {sections.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
+          {sections.map(s=>(
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
         </select>
 
         <select onChange={(e)=>setSelectedMonth(e.target.value)} className="input">
@@ -225,86 +188,102 @@ export default function FeesPage(){
         </select>
 
         <button onClick={generateFees} className="btn bg-blue-600">
-          {generating ? "..." : "Generate"}
+          {loading ? "Generating..." : "Generate Fees"}
         </button>
 
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="card">Total ₹{totalFees}</div>
-        <div className="card text-green-400">Collected ₹{totalPaid}</div>
-        <div className="card text-yellow-400">Pending ₹{totalPending}</div>
-      </div>
+      {/* MAIN GRID */}
+      <div className="grid lg:grid-cols-3 gap-6">
 
-      {/* TABLE */}
-      <div className="card overflow-x-auto">
-        <table className="w-full min-w-[600px]">
-          <thead>
-            <tr className="text-left text-gray-400">
-              <th className="p-2">Student</th>
-              <th>Month</th>
-              <th>Total</th>
-              <th>Paid</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredFees.map(f=>(
-              <tr
-                key={f.id}
-                onClick={()=>setSelectedFee(f)}
-                className="border-t border-white/10 cursor-pointer hover:bg-white/5"
-              >
-                <td className="p-2">{f.students?.name}</td>
-                <td>{f.month}</td>
-                <td>₹{f.total_amount}</td>
-                <td>₹{f.paid_amount}</td>
-                <td>{f.status}</td>
+        {/* TABLE */}
+        <div className="lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+
+          <table className="w-full text-sm">
+
+            <thead className="bg-white/5 text-gray-400">
+              <tr>
+                <th className="p-3 text-left">Student</th>
+                <th>Month</th>
+                <th>Total</th>
+                <th>Paid</th>
+                <th>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+
+              {fees.map(f=>(
+                <tr
+                  key={f.id}
+                  onClick={()=>setSelectedFee(f)}
+                  className={`border-t border-white/10 cursor-pointer transition ${
+                    selectedFee?.id === f.id ? "bg-blue-500/10" : "hover:bg-white/5"
+                  }`}
+                >
+                  <td className="p-3">{f.students?.name}</td>
+                  <td>{f.month}</td>
+                  <td>₹{f.total_amount}</td>
+                  <td>₹{f.paid_amount}</td>
+                  <td>
+                    <span className={`px-2 py-1 rounded text-xs ${statusColor(f.status)}`}>
+                      {f.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+        {/* PAYMENT PANEL */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 h-fit">
+
+          <h2 className="text-lg mb-4">Payment</h2>
+
+          {selectedFee ? (
+            <>
+              <p className="mb-2 font-semibold">
+                {selectedFee.students?.name}
+              </p>
+
+              <p className="text-sm text-gray-400 mb-4">
+                Total: ₹{selectedFee.total_amount} | Paid: ₹{selectedFee.paid_amount}
+              </p>
+
+              <input
+                value={payAmount}
+                onChange={(e)=>setPayAmount(e.target.value)}
+                placeholder="Enter amount"
+                className="input mb-3"
+              />
+
+              <button onClick={pay} className="btn bg-green-600 w-full">
+                Collect Payment
+              </button>
+            </>
+          ) : (
+            <p className="text-gray-400">Select a student</p>
+          )}
+
+        </div>
+
       </div>
-
-      {/* PAYMENT */}
-      {selectedFee && (
-        <div className="mt-6 flex flex-col md:flex-row gap-3">
-          <input
-            value={payAmount}
-            onChange={(e)=>setPayAmount(e.target.value)}
-            placeholder="Enter amount"
-            className="input"
-          />
-          <button onClick={pay} className="btn bg-green-600">Pay</button>
-        </div>
-      )}
-
-      {/* RECEIPT */}
-      {lastPayment && selectedStudentObj && (
-        <div ref={receiptRef} className="mt-6 card">
-          <h2 className="text-lg font-bold mb-2">Receipt</h2>
-          <p>{selectedStudentObj.name}</p>
-          <p>₹{lastPayment.amount}</p>
-        </div>
-      )}
 
       <style jsx>{`
         .input{
-          padding:10px;
           background:#0f172a;
-          border-radius:8px;
+          padding:10px;
+          border-radius:10px;
           width:100%;
         }
         .btn{
           padding:10px 16px;
-          border-radius:8px;
-          white-space:nowrap;
-        }
-        .card{
-          padding:16px;
-          background:#0f172a;
-          border-radius:12px;
+          border-radius:10px;
+          font-weight:500;
         }
       `}</style>
 
