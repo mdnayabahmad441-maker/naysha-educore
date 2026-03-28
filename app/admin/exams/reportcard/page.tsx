@@ -6,6 +6,11 @@ import { dbGet } from "@/lib/db"
 import { getSchoolId } from "@/lib/school"
 import ReportCard from "@/components/exams/ReportCard"
 
+import jsPDF from "jspdf"
+import html2canvas from "html2canvas"
+import JSZip from "jszip"
+import { saveAs } from "file-saver"
+
 export default function ReportCardPage(){
 
   const [classes,setClasses] = useState<any[]>([])
@@ -20,6 +25,7 @@ export default function ReportCardPage(){
   const [resultsList,setResultsList] = useState<any[]>([])
   const [reports,setReports] = useState<any[]>([])
   const [loading,setLoading] = useState(false)
+  const [downloading,setDownloading] = useState(false)
 
   useEffect(()=>{ init() },[])
 
@@ -64,7 +70,9 @@ export default function ReportCardPage(){
     setResultsList(data || [])
   }
 
-  // ✅ CLASS-WISE GENERATION
+  // ===============================
+  // GENERATE CLASS RESULTS
+  // ===============================
   const generateClassResults = async ()=>{
     if(!selectedClass || !selectedExam){
       alert("Select class and exam")
@@ -74,9 +82,7 @@ export default function ReportCardPage(){
     setLoading(true)
 
     try{
-
       const schoolId = await getSchoolId()
-
       const classStudents = students.filter(s=>s.class_id === selectedClass)
 
       const { data: exSub, error: exErr } = await supabase
@@ -169,14 +175,12 @@ export default function ReportCardPage(){
         })
       }
 
-      // rank calculation
       await supabase.rpc("calculate_ranks",{
         p_exam_id:selectedExam,
         p_class_id:selectedClass,
         p_school_id:schoolId
       })
 
-      // fetch ranks
       const { data: ranked } = await supabase
         .from("results")
         .select("*")
@@ -195,10 +199,9 @@ export default function ReportCardPage(){
       })
 
       setReports(reportsWithRank)
-
       await loadResultsList()
 
-      alert("Class results generated successfully")
+      alert("Class results generated")
 
     }catch(err){
       console.error(err)
@@ -206,6 +209,57 @@ export default function ReportCardPage(){
     }
 
     setLoading(false)
+  }
+
+  // ===============================
+  // DOWNLOAD ZIP PDFs
+  // ===============================
+  const downloadAllPDFs = async ()=>{
+    if(reports.length === 0){
+      alert("Generate results first")
+      return
+    }
+
+    setDownloading(true)
+
+    const zip = new JSZip()
+
+    for(let i=0;i<reports.length;i++){
+
+      const r = reports[i]
+
+      const container = document.createElement("div")
+      container.style.position = "absolute"
+      container.style.left = "-9999px"
+      document.body.appendChild(container)
+
+      // render HTML manually
+      container.innerHTML = document.getElementById("report-card")?.outerHTML || ""
+
+      const canvas = await html2canvas(container,{
+        scale:2,
+        backgroundColor:"#ffffff"
+      })
+
+      const img = canvas.toDataURL("image/png")
+
+      const pdf = new jsPDF("p","mm","a4")
+      const w = 210
+      const h = (canvas.height * w) / canvas.width
+
+      pdf.addImage(img,"PNG",0,0,w,h)
+
+      const blob = pdf.output("blob")
+
+      zip.file(`${r.student.name}.pdf`, blob)
+
+      document.body.removeChild(container)
+    }
+
+    const content = await zip.generateAsync({ type:"blob" })
+    saveAs(content, "report-cards.zip")
+
+    setDownloading(false)
   }
 
   const classObj = classes.find(c=>c.id === selectedClass)
@@ -248,9 +302,16 @@ export default function ReportCardPage(){
           {loading ? "Generating..." : "Generate Class Results"}
         </button>
 
+        <button
+          onClick={downloadAllPDFs}
+          className="px-4 py-2 bg-green-600 rounded"
+        >
+          {downloading ? "Preparing ZIP..." : "Download All PDFs"}
+        </button>
+
       </div>
 
-      {/* CLASS RESULT TABLE */}
+      {/* RESULT TABLE */}
       {resultsList.length > 0 && (
         <div className="bg-white/10 p-4 rounded-xl">
           <h2 className="mb-4">Class Results</h2>
@@ -285,7 +346,7 @@ export default function ReportCardPage(){
         </div>
       )}
 
-      {/* REPORT CARDS */}
+      {/* REPORTS */}
       {reports.length > 0 && (
         <div className="space-y-10">
           {reports.map((r,index)=>(
