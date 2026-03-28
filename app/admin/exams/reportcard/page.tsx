@@ -41,30 +41,18 @@ export default function ReportCardPage(){
       return
     }
 
-    const { data: exSub, error: exErr } = await supabase
+    const { data: exSub } = await supabase
       .from("exam_subjects")
       .select("*")
       .eq("exam_id", selectedExam)
 
-    if(exErr){
-      console.error(exErr)
-      alert("Error loading exam subjects")
-      return
-    }
-
-    const { data: marksData, error: marksErr } = await supabase
+    const { data: marksData } = await supabase
       .from("marks")
       .select("*")
       .eq("student_id", selectedStudent)
       .eq("exam_id", selectedExam)
 
-    if(marksErr){
-      console.error(marksErr)
-      alert("Error loading marks")
-      return
-    }
-
-    await buildReport(exSub || [], marksData || [])
+    buildReport(exSub || [], marksData || [])
   }
 
   // ================= BUILD =================
@@ -99,7 +87,6 @@ export default function ReportCardPage(){
         obtained,
         status
       }
-
     })
 
     const percentage = totalMarks > 0
@@ -108,10 +95,7 @@ export default function ReportCardPage(){
 
     let finalResult = "PASS"
 
-    // 🔥 YOUR LOGIC (UNCHANGED)
-    if(hasFailedSubject){
-      finalResult = "FAIL"
-    } else if(percentage < 33){
+    if(hasFailedSubject || percentage < 33){
       finalResult = "FAIL"
     }
 
@@ -125,31 +109,47 @@ export default function ReportCardPage(){
       else grade = "D"
     }
 
-    // 🔥 GET SCHOOL ID
     const schoolId = await getSchoolId()
 
-    // 🔥 UPSERT FIXED (NO ERROR NOW)
-    const { error } = await supabase
-      .from("results")
-      .upsert({
-        student_id: selectedStudent,
-        exam_id: selectedExam,
-        class_id: selectedClass,
-        school_id: schoolId,
-
-        total_marks: totalMarks,
-        obtained_marks: obtainedMarks,
-        percentage: percentage,
-
-        result: finalResult,
-        grade: grade
-      },{
-        onConflict: "student_id,exam_id,school_id"
-      })
+    // ✅ UPSERT RESULT (FIXED)
+    const { error } = await supabase.from("results").upsert({
+      student_id: selectedStudent,
+      exam_id: selectedExam,
+      class_id: selectedClass,
+      school_id: schoolId,
+      total_marks: totalMarks,
+      obtained_marks: obtainedMarks,
+      percentage: percentage,
+      result: finalResult,
+      grade: grade
+    },{
+      onConflict: "student_id,exam_id,school_id"
+    })
 
     if(error){
-      console.error(error)
-      alert("Error saving result: " + error.message)
+      alert("Save Error: " + error.message)
+      return
+    }
+
+    // ================= RANK =================
+    const { data: allResults } = await supabase
+      .from("results")
+      .select("*")
+      .eq("exam_id", selectedExam)
+      .eq("class_id", selectedClass)
+
+    let rank = "-"
+
+    if(allResults){
+      const sorted = [...allResults].sort(
+        (a,b)=> b.percentage - a.percentage
+      )
+
+      const index = sorted.findIndex(
+        r => r.student_id === selectedStudent
+      )
+
+      rank = (index + 1).toString()
     }
 
     setReport({
@@ -158,7 +158,8 @@ export default function ReportCardPage(){
       obtainedMarks,
       percentage,
       finalResult,
-      grade
+      grade,
+      rank
     })
   }
 
@@ -179,6 +180,23 @@ export default function ReportCardPage(){
     pdf.save("report-card.pdf")
   }
 
+  // ================= WHATSAPP =================
+  const sendWhatsApp = async ()=>{
+
+    const student = students.find(s=>s.id === selectedStudent)
+
+    if(!student?.phone){
+      alert("No phone number")
+      return
+    }
+
+    const message = `Report Card\nPercentage: ${report.percentage.toFixed(2)}%\nResult: ${report.finalResult}\nGrade: ${report.grade}\nRank: ${report.rank}`
+
+    const url = `https://wa.me/${student.phone}?text=${encodeURIComponent(message)}`
+
+    window.open(url,"_blank")
+  }
+
   const filteredStudents = students.filter(
     s => s.class_id === selectedClass
   )
@@ -191,43 +209,28 @@ export default function ReportCardPage(){
 
       <div className="flex gap-4 flex-wrap">
 
-        <select
-          value={selectedClass}
-          onChange={(e)=>setSelectedClass(e.target.value)}
-          className="p-3 bg-[#0b1220] rounded"
-        >
+        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="p-3 bg-[#0b1220] rounded">
           <option value="">Select Class</option>
           {classes.map(c=>(
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
 
-        <select
-          value={selectedStudent}
-          onChange={(e)=>setSelectedStudent(e.target.value)}
-          className="p-3 bg-[#0b1220] rounded"
-        >
+        <select value={selectedStudent} onChange={(e)=>setSelectedStudent(e.target.value)} className="p-3 bg-[#0b1220] rounded">
           <option value="">Select Student</option>
           {filteredStudents.map(s=>(
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
 
-        <select
-          value={selectedExam}
-          onChange={(e)=>setSelectedExam(e.target.value)}
-          className="p-3 bg-[#0b1220] rounded"
-        >
+        <select value={selectedExam} onChange={(e)=>setSelectedExam(e.target.value)} className="p-3 bg-[#0b1220] rounded">
           <option value="">Select Exam</option>
           {exams.map(e=>(
             <option key={e.id} value={e.id}>{e.name}</option>
           ))}
         </select>
 
-        <button
-          onClick={generateReport}
-          className="px-4 py-2 bg-white/10 rounded hover:bg-white/20"
-        >
+        <button onClick={generateReport} className="px-4 py-2 bg-white/10 rounded">
           Generate
         </button>
 
@@ -238,12 +241,9 @@ export default function ReportCardPage(){
         <>
           <div ref={reportRef} className="bg-white text-black p-6 rounded-xl">
 
-            <h2 className="text-xl font-bold mb-4">
-              Student Report Card
-            </h2>
+            <h2 className="text-xl font-bold mb-4">Student Report Card</h2>
 
             <table className="w-full border text-sm mb-6">
-
               <thead>
                 <tr>
                   <th className="border p-2">Subject</th>
@@ -261,29 +261,21 @@ export default function ReportCardPage(){
                     <td className="border p-2">{r.total}</td>
                     <td className="border p-2">{r.passing}</td>
                     <td className="border p-2">{r.obtained}</td>
-                    <td className={`border p-2 ${
-                      r.status === "FAIL"
-                        ? "text-red-500"
-                        : "text-green-600"
-                    }`}>
+                    <td className={`border p-2 ${r.status==="FAIL"?"text-red-500":"text-green-600"}`}>
                       {r.status}
                     </td>
                   </tr>
                 ))}
               </tbody>
-
             </table>
 
             <div className="space-y-2">
               <p>Total Marks: {report.totalMarks}</p>
               <p>Obtained: {report.obtainedMarks}</p>
               <p>Percentage: {report.percentage.toFixed(2)}%</p>
+              <p>Rank: {report.rank}</p>
 
-              <p className={`text-lg font-bold ${
-                report.finalResult === "FAIL"
-                  ? "text-red-500"
-                  : "text-green-600"
-              }`}>
+              <p className={`text-lg font-bold ${report.finalResult==="FAIL"?"text-red-500":"text-green-600"}`}>
                 Final Result: {report.finalResult}
               </p>
 
@@ -292,15 +284,17 @@ export default function ReportCardPage(){
 
           </div>
 
-          <button
-            onClick={downloadPDF}
-            className="px-4 py-2 bg-green-600 text-white rounded"
-          >
-            Download PDF
-          </button>
+          <div className="flex gap-3">
+            <button onClick={downloadPDF} className="px-4 py-2 bg-green-600 text-white rounded">
+              Download PDF
+            </button>
+
+            <button onClick={sendWhatsApp} className="px-4 py-2 bg-green-500 text-white rounded">
+              Send WhatsApp
+            </button>
+          </div>
 
         </>
-
       )}
 
     </div>
