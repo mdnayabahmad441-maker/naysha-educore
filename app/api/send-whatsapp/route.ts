@@ -7,21 +7,33 @@ export async function POST(req: Request) {
 
     const body = await req.json()
 
-    const { to, studentName, pdfUrl } = body
+    const { to, message, studentName, pdfUrl } = body
 
-    if(!to || !studentName || !pdfUrl){
+    // ==========================
+    // ✅ VALIDATION (FLEXIBLE)
+    // ==========================
+    if(!to){
       return NextResponse.json(
-        { error: "Missing fields" },
+        { error: "Missing 'to'" },
         { status: 400 }
       )
     }
 
+    // ==========================
+    // ✅ INIT TWILIO
+    // ==========================
     const client = twilio(
       process.env.TWILIO_ACCOUNT_SID!,
       process.env.TWILIO_AUTH_TOKEN!
     )
 
-    const message = `📄 Report Card Available
+    let finalMessage = ""
+
+    // ==========================
+    // 📄 REPORT CARD MESSAGE
+    // ==========================
+    if(studentName && pdfUrl){
+      finalMessage = `📄 Report Card Available
 
 Hello,
 
@@ -31,12 +43,31 @@ Your child *${studentName}*'s report card is ready.
 ${pdfUrl}
 
 - NaySha School`
+    }
+
+    // ==========================
+    // 📢 SIMPLE MESSAGE (ATTENDANCE ETC)
+    // ==========================
+    else if(message){
+      finalMessage = message
+    }
+
+    else{
+      return NextResponse.json(
+        { error: "Provide either (studentName + pdfUrl) OR message" },
+        { status: 400 }
+      )
+    }
+
+    console.log("📤 Sending WhatsApp:", to)
 
     const msg = await client.messages.create({
-      body: message,
+      body: finalMessage,
       from: "whatsapp:+14155238886",
       to: `whatsapp:${to}`
     })
+
+    console.log("✅ Sent:", msg.sid)
 
     return NextResponse.json({
       success: true,
@@ -52,5 +83,4 @@ ${pdfUrl}
       { status: 500 }
     )
   }
-
 }
