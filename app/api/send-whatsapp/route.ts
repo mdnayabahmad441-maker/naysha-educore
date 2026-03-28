@@ -7,34 +7,36 @@ export async function POST(req: Request) {
 
     const body = await req.json()
 
-    // ✅ FIXED FIELD NAME
-    const { to, message } = body
+    const { to, studentName, pdfUrl } = body
 
-    if(!to || !message){
+    if(!to || !studentName || !pdfUrl){
       return NextResponse.json(
-        { error: "Missing 'to' or 'message'" },
+        { error: "Missing fields" },
         { status: 400 }
       )
     }
 
-    // ✅ INIT CLIENT INSIDE FUNCTION (SAFE)
     const client = twilio(
       process.env.TWILIO_ACCOUNT_SID!,
       process.env.TWILIO_AUTH_TOKEN!
     )
 
-    console.log("📤 Sending WhatsApp to:", to)
+    const message = `📄 Report Card Available
+
+Hello,
+
+Your child *${studentName}*'s report card is ready.
+
+👉 Download here:
+${pdfUrl}
+
+- NaySha School`
 
     const msg = await client.messages.create({
       body: message,
-
-      // ✅ FORCE SAFE DEFAULT (no env mistake)
       from: "whatsapp:+14155238886",
-
       to: `whatsapp:${to}`
     })
-
-    console.log("✅ Sent:", msg.sid)
 
     return NextResponse.json({
       success: true,
