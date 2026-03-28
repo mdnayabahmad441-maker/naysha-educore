@@ -83,37 +83,46 @@ export default function FeesPage(){
   // ================= RECEIPT =================
   const generateReceipt = async (f:any)=>{
 
-    const container = document.createElement("div")
-    container.style.position = "fixed"
-    container.style.top = "-9999px"
-    container.style.width = "800px"
-    document.body.appendChild(container)
+    try{
+      const container = document.createElement("div")
+      container.style.position = "fixed"
+      container.style.top = "-9999px"
+      container.style.width = "800px"
+      document.body.appendChild(container)
 
-    const root = createRoot(container)
+      const root = createRoot(container)
 
-    root.render(
-      <FeeReceipt 
-        student={f.students || {}}
-        fee={f || {}}
-      />
-    )
+      root.render(
+        <FeeReceipt 
+          student={f?.students || {}}
+          fee={f || {}}
+        />
+      )
 
-    await new Promise(requestAnimationFrame)
-    await new Promise(requestAnimationFrame)
+      await new Promise(requestAnimationFrame)
+      await new Promise(requestAnimationFrame)
 
-    const canvas = await html2canvas(container,{ scale:2 })
-    const img = canvas.toDataURL("image/png")
+      const canvas = await html2canvas(container,{ scale:2 })
 
-    const pdf = new jsPDF("p","mm","a4")
+      if(!canvas) throw new Error("Canvas failed")
 
-    const width = 210
-    const height = (canvas.height * width) / canvas.width
+      const img = canvas.toDataURL("image/png")
 
-    pdf.addImage(img,"PNG",0,0,width,height)
-    pdf.save(`receipt-${f.id}.pdf`)
+      const pdf = new jsPDF("p","mm","a4")
 
-    root.unmount()
-    document.body.removeChild(container)
+      const width = 210
+      const height = (canvas.height * width) / canvas.width
+
+      pdf.addImage(img,"PNG",0,0,width,height)
+      pdf.save(`receipt-${f.id}.pdf`)
+
+      root.unmount()
+      document.body.removeChild(container)
+
+    }catch(e){
+      console.error(e)
+      alert("Receipt generation failed ❌")
+    }
   }
 
   // ================= GENERATE FEES =================
@@ -234,17 +243,13 @@ export default function FeesPage(){
 
       <h1 className="text-2xl font-semibold mb-6">Fees</h1>
 
-      {/* TOP ACTION BAR */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        
-        <button
-          onClick={()=>router.push("/admin/fees/receipts")}
-          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700"
-        >
-          Receipt History
-        </button>
-
-      </div>
+      {/* RECEIPT HISTORY */}
+      <button
+        onClick={()=>router.push("/admin/fees/receipts")}
+        className="mb-4 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700"
+      >
+        Receipt History
+      </button>
 
       {/* FILTER */}
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
@@ -271,11 +276,7 @@ export default function FeesPage(){
           <option>April</option>
         </select>
 
-        <button
-          onClick={generateFees}
-          disabled={generating}
-          className="btn bg-blue-600 hover:bg-blue-700"
-        >
+        <button onClick={generateFees} className="btn bg-blue-600">
           {generating ? "Generating..." : "Generate Fees"}
         </button>
 
@@ -284,9 +285,8 @@ export default function FeesPage(){
       {/* TABLE */}
       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
 
-        {loading ? (
-          <p className="p-4 text-gray-400">Loading...</p>
-        ) : (
+        {loading ? "Loading..." : (
+
           <table className="w-full text-sm">
 
             <thead className="bg-white/5 text-gray-400">
@@ -303,7 +303,7 @@ export default function FeesPage(){
             <tbody>
 
               {fees.map(f=>(
-                <tr key={f.id} className="border-t border-white/10 hover:bg-white/5">
+                <tr key={f.id} className="border-t border-white/10">
 
                   <td className="p-3">{f.students?.name}</td>
                   <td>{f.month}</td>
@@ -319,7 +319,7 @@ export default function FeesPage(){
                   <td>
                     <button
                       onClick={()=>generateReceipt(f)}
-                      className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded"
+                      className="px-3 py-1 bg-purple-600 rounded"
                     >
                       Receipt
                     </button>
@@ -331,6 +331,7 @@ export default function FeesPage(){
             </tbody>
 
           </table>
+
         )}
 
       </div>
@@ -342,7 +343,7 @@ export default function FeesPage(){
 
         {selectedFee ? (
           <>
-            <p className="mb-2">{selectedFee.students?.name}</p>
+            <p>{selectedFee.students?.name}</p>
 
             <input
               value={payAmount}
@@ -356,7 +357,7 @@ export default function FeesPage(){
             </button>
           </>
         ) : (
-          <p className="text-gray-400">Select a student</p>
+          <p>Select a student</p>
         )}
 
       </div>
