@@ -7,8 +7,11 @@ import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 import { createRoot } from "react-dom/client"
 import FeeReceipt from "@/components/fees/FeeReceipt"
+import { useRouter } from "next/navigation"
 
 export default function FeesPage(){
+
+  const router = useRouter()
 
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
@@ -24,11 +27,14 @@ export default function FeesPage(){
   const [payAmount,setPayAmount] = useState("")
 
   const [loading,setLoading] = useState(false)
+  const [generating,setGenerating] = useState(false)
 
+  // ================= INIT =================
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
 
+  // ================= LOAD CLASSES =================
   useEffect(()=>{
     if(!schoolId) return
 
@@ -39,6 +45,7 @@ export default function FeesPage(){
 
   },[schoolId])
 
+  // ================= LOAD SECTIONS =================
   useEffect(()=>{
     if(!selectedClass) return
 
@@ -49,8 +56,11 @@ export default function FeesPage(){
 
   },[selectedClass])
 
+  // ================= LOAD FEES =================
   const loadFees = async ()=>{
     if(!schoolId) return
+
+    setLoading(true)
 
     let query = supabase
       .from("fees")
@@ -63,13 +73,14 @@ export default function FeesPage(){
 
     const { data } = await query
     setFees(data || [])
+    setLoading(false)
   }
 
   useEffect(()=>{
     loadFees()
   },[schoolId,selectedClass,selectedSection,selectedMonth])
 
-  // ✅ FIXED RECEIPT (ONLY CHANGE)
+  // ================= RECEIPT =================
   const generateReceipt = async (f:any)=>{
 
     const container = document.createElement("div")
@@ -81,10 +92,14 @@ export default function FeesPage(){
     const root = createRoot(container)
 
     root.render(
-      <FeeReceipt data={f} />
+      <FeeReceipt 
+        student={f.students || {}}
+        fee={f || {}}
+      />
     )
 
-    await new Promise(res=>setTimeout(res,500))
+    await new Promise(requestAnimationFrame)
+    await new Promise(requestAnimationFrame)
 
     const canvas = await html2canvas(container,{ scale:2 })
     const img = canvas.toDataURL("image/png")
@@ -101,6 +116,7 @@ export default function FeesPage(){
     document.body.removeChild(container)
   }
 
+  // ================= GENERATE FEES =================
   const generateFees = async ()=>{
 
     if(!selectedClass || !selectedMonth){
@@ -108,7 +124,7 @@ export default function FeesPage(){
       return
     }
 
-    setLoading(true)
+    setGenerating(true)
 
     const { data: classFee } = await supabase
       .from("class_fee_settings")
@@ -118,20 +134,19 @@ export default function FeesPage(){
       .maybeSingle()
 
     if(!classFee){
-      alert("⚠️ Please set class fees in Settings first")
-      setLoading(false)
+      alert("⚠️ Set class fees in Settings")
+      setGenerating(false)
       return
     }
 
-    const tuition = Number(classFee.tuition_fee || 0)
-    const transport = Number(classFee.transport_fee || 0)
-    const hostel = Number(classFee.hostel_fee || 0)
-
-    const total = tuition + transport + hostel
+    const total =
+      Number(classFee.tuition_fee || 0) +
+      Number(classFee.transport_fee || 0) +
+      Number(classFee.hostel_fee || 0)
 
     if(total === 0){
-      alert("⚠️ Fee is 0. Please configure fees in Settings.")
-      setLoading(false)
+      alert("⚠️ Fee is 0. Configure fees first.")
+      setGenerating(false)
       return
     }
 
@@ -166,18 +181,16 @@ export default function FeesPage(){
         month:selectedMonth,
         total_amount: total,
         paid_amount:0,
-        status:"pending",
-        tuition_fee:tuition,
-        transport_fee:transport,
-        hostel_fee:hostel
+        status:"pending"
       })
     }
 
     alert("Fees Generated ✅")
-    setLoading(false)
+    setGenerating(false)
     loadFees()
   }
 
+  // ================= PAYMENT =================
   const pay = async ()=>{
 
     if(!selectedFee || !payAmount){
@@ -221,6 +234,19 @@ export default function FeesPage(){
 
       <h1 className="text-2xl font-semibold mb-6">Fees</h1>
 
+      {/* TOP ACTION BAR */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        
+        <button
+          onClick={()=>router.push("/admin/fees/receipts")}
+          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700"
+        >
+          Receipt History
+        </button>
+
+      </div>
+
+      {/* FILTER */}
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
 
         <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="input">
@@ -242,18 +268,25 @@ export default function FeesPage(){
           <option>January</option>
           <option>February</option>
           <option>March</option>
+          <option>April</option>
         </select>
 
-        <button onClick={generateFees} className="btn bg-blue-600">
-          {loading ? "Generating..." : "Generate Fees"}
+        <button
+          onClick={generateFees}
+          disabled={generating}
+          className="btn bg-blue-600 hover:bg-blue-700"
+        >
+          {generating ? "Generating..." : "Generate Fees"}
         </button>
 
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      {/* TABLE */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
 
-        <div className="lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-
+        {loading ? (
+          <p className="p-4 text-gray-400">Loading...</p>
+        ) : (
           <table className="w-full text-sm">
 
             <thead className="bg-white/5 text-gray-400">
@@ -270,7 +303,7 @@ export default function FeesPage(){
             <tbody>
 
               {fees.map(f=>(
-                <tr key={f.id} className="border-t border-white/10">
+                <tr key={f.id} className="border-t border-white/10 hover:bg-white/5">
 
                   <td className="p-3">{f.students?.name}</td>
                   <td>{f.month}</td>
@@ -286,7 +319,7 @@ export default function FeesPage(){
                   <td>
                     <button
                       onClick={()=>generateReceipt(f)}
-                      className="px-3 py-1 bg-purple-600 rounded"
+                      className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded"
                     >
                       Receipt
                     </button>
@@ -298,33 +331,33 @@ export default function FeesPage(){
             </tbody>
 
           </table>
+        )}
 
-        </div>
+      </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 h-fit">
+      {/* PAYMENT */}
+      <div className="mt-6 bg-white/5 border border-white/10 rounded-2xl p-4">
 
-          <h2 className="text-lg mb-4">Payment</h2>
+        <h2 className="text-lg mb-3">Payment</h2>
 
-          {selectedFee ? (
-            <>
-              <p className="mb-2 font-semibold">{selectedFee.students?.name}</p>
+        {selectedFee ? (
+          <>
+            <p className="mb-2">{selectedFee.students?.name}</p>
 
-              <input
-                value={payAmount}
-                onChange={(e)=>setPayAmount(e.target.value)}
-                placeholder="Enter amount"
-                className="input mb-3"
-              />
+            <input
+              value={payAmount}
+              onChange={(e)=>setPayAmount(e.target.value)}
+              className="input mb-3"
+              placeholder="Amount"
+            />
 
-              <button onClick={pay} className="btn bg-green-600 w-full">
-                Collect Payment
-              </button>
-            </>
-          ) : (
-            <p className="text-gray-400">Select a student</p>
-          )}
-
-        </div>
+            <button onClick={pay} className="btn bg-green-600 w-full">
+              Collect Payment
+            </button>
+          </>
+        ) : (
+          <p className="text-gray-400">Select a student</p>
+        )}
 
       </div>
 
