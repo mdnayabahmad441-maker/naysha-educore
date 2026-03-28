@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { sendNotification } from "@/lib/notifications"
+import { getSettings } from "@/lib/settings" // ✅ ADDED
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 import { useRouter } from "next/navigation"
@@ -103,6 +104,7 @@ export default function FeesPage(){
 
   const filteredFees = fees.filter(f=>f.student_id === selectedStudent)
 
+  // 🔥 UPDATED FUNCTION (ONLY CHANGE)
   const generateFees = async ()=>{
     if(!schoolId){
       alert("School not loaded")
@@ -110,6 +112,15 @@ export default function FeesPage(){
     }
 
     setGenerating(true)
+
+    // ✅ GET SETTINGS
+    const feeSettings = await getSettings("fees")
+
+    const tuition = Number(feeSettings?.tuition_fee || 0)
+    const transport = Number(feeSettings?.transport_fee || 0)
+    const hostel = Number(feeSettings?.hostel_fee || 0)
+
+    const totalAmount = tuition + transport + hostel
 
     const { data: allStudents } = await supabase
       .from("students")
@@ -122,6 +133,7 @@ export default function FeesPage(){
         .from("fees")
         .select("id")
         .eq("student_id", s.id)
+        .eq("school_id", schoolId)
         .maybeSingle()
 
       if(existing) continue
@@ -129,13 +141,20 @@ export default function FeesPage(){
       await supabase.from("fees").insert({
         student_id: s.id,
         school_id: schoolId,
-        total_amount: 1000,
+
+        total_amount: totalAmount,
         paid_amount: 0,
-        status: "pending"
+        status: "pending",
+
+        // ✅ NEW BREAKDOWN
+        tuition_fee: tuition,
+        transport_fee: transport,
+        hostel_fee: hostel
       })
     }
 
-    alert("Fees Generated ✅")
+    alert("Fees Generated from Settings ✅")
+
     loadFees()
     setGenerating(false)
   }
@@ -259,7 +278,6 @@ export default function FeesPage(){
     loadPayments()
   }
 
-  // 🔥 FIXED UI ONLY
   const selectStyle = "w-full bg-[#0f172a] text-white border border-white/10 p-3 rounded-xl appearance-none outline-none focus:ring-2 focus:ring-blue-500"
 
   return(
