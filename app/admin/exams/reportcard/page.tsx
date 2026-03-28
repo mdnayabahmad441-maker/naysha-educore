@@ -22,7 +22,6 @@ export default function ReportCardPage(){
   const [selectedClass,setSelectedClass] = useState("")
   const [selectedExam,setSelectedExam] = useState("")
 
-  const [resultsList,setResultsList] = useState<any[]>([])
   const [reports,setReports] = useState<any[]>([])
 
   const [loading,setLoading] = useState(false)
@@ -30,12 +29,6 @@ export default function ReportCardPage(){
   const [sending,setSending] = useState(false)
 
   useEffect(()=>{ init() },[])
-
-  useEffect(()=>{
-    if(selectedClass && selectedExam){
-      loadResultsList()
-    }
-  },[selectedClass, selectedExam])
 
   const init = async ()=>{
     const schoolId = await getSchoolId()
@@ -54,24 +47,11 @@ export default function ReportCardPage(){
     setSchool(data)
   }
 
-  const loadResultsList = async ()=>{
-    const schoolId = await getSchoolId()
-
-    const { data } = await supabase
-      .from("results")
-      .select("*")
-      .eq("class_id", selectedClass)
-      .eq("exam_id", selectedExam)
-      .eq("school_id", schoolId)
-      .order("rank",{ascending:true})
-
-    setResultsList(data || [])
-  }
-
   // ===============================
   // GENERATE RESULTS
   // ===============================
   const generateClassResults = async ()=>{
+
     if(!selectedClass || !selectedExam){
       alert("Select class and exam")
       return
@@ -80,6 +60,7 @@ export default function ReportCardPage(){
     setLoading(true)
 
     try{
+
       const schoolId = await getSchoolId()
 
       const classStudents = students.filter(s=>s.class_id === selectedClass)
@@ -178,7 +159,6 @@ export default function ReportCardPage(){
       }
 
       setReports(reportsTemp)
-      await loadResultsList()
 
     }catch(err){
       console.error(err)
@@ -189,29 +169,28 @@ export default function ReportCardPage(){
   }
 
   // ===============================
-  // SAFE PDF FIX
+  // SAFE PDF
   // ===============================
   const createPDFBlob = async (element:HTMLElement)=>{
 
-    const cloned = element.cloneNode(true) as HTMLElement
+    const clone = element.cloneNode(true) as HTMLElement
 
-    cloned.style.background = "#ffffff"
-    cloned.style.color = "#000000"
+    clone.style.background = "#ffffff"
+    clone.style.color = "#000000"
 
-    cloned.querySelectorAll("*").forEach((el:any)=>{
+    clone.querySelectorAll("*").forEach((el:any)=>{
       el.style.color = "#000000"
-      el.style.backgroundColor = "transparent"
-      el.style.borderColor = "#000000"
+      el.style.backgroundColor = "#ffffff"
     })
 
-    document.body.appendChild(cloned)
+    document.body.appendChild(clone)
 
-    const canvas = await html2canvas(cloned,{
+    const canvas = await html2canvas(clone,{
       scale:2,
       backgroundColor:"#ffffff"
     })
 
-    document.body.removeChild(cloned)
+    document.body.removeChild(clone)
 
     const img = canvas.toDataURL("image/png")
 
@@ -229,6 +208,12 @@ export default function ReportCardPage(){
   // DOWNLOAD ZIP
   // ===============================
   const downloadAllPDFs = async ()=>{
+
+    if(reports.length === 0){
+      alert("Generate results first")
+      return
+    }
+
     setDownloading(true)
 
     try{
@@ -252,9 +237,15 @@ export default function ReportCardPage(){
   }
 
   // ===============================
-  // FIXED WHATSAPP
+  // WHATSAPP FINAL
   // ===============================
   const sendWhatsApp = async ()=>{
+
+    if(reports.length === 0){
+      alert("Generate results first")
+      return
+    }
+
     setSending(true)
 
     const cards = document.querySelectorAll(".report-card")
@@ -266,15 +257,15 @@ export default function ReportCardPage(){
 
       const student = reports[i].student
 
-      if(!student.phone_number){
+      if(!student.phone){
         console.log("❌ Missing phone:", student.name)
         failed++
         continue
       }
 
-      const phone = student.phone_number.startsWith("+")
-        ? student.phone_number
-        : "+91" + student.phone_number
+      const phone = student.phone.startsWith("+")
+        ? student.phone
+        : "+91" + student.phone
 
       try{
 
@@ -301,15 +292,14 @@ export default function ReportCardPage(){
           headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({
             to: phone,
-            studentName: student.name,
-            pdfUrl: data.publicUrl
+            message: `Hello ${student.name}, your report card: ${data.publicUrl}`
           })
         })
 
         const json = await res.json()
 
         if(!res.ok){
-          console.error("❌ Failed:", json)
+          console.error("❌ API Error:", json)
           failed++
         }else{
           console.log("✅ Sent:", student.name)
@@ -330,31 +320,43 @@ export default function ReportCardPage(){
   const examObj = exams.find(e=>e.id === selectedExam)
 
   return(
-    <div className="p-6 text-white space-y-6 bg-[#0b1220] min-h-screen">
+    <div className="p-6 bg-[#0b1220] min-h-screen text-white">
 
-      <h1 className="text-2xl font-semibold">Report Cards</h1>
+      <h1 className="text-2xl font-semibold mb-6">Report Cards</h1>
 
-      <div className="flex gap-4 flex-wrap">
+      <div className="flex gap-4 flex-wrap mb-6">
 
-        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="p-3 bg-[#0f172a] rounded">
+        <select
+          value={selectedClass}
+          onChange={(e)=>setSelectedClass(e.target.value)}
+          className="bg-[#0f172a] p-3 rounded"
+        >
           <option value="">Select Class</option>
-          {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+          {classes.map(c=>(
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
         </select>
 
-        <select value={selectedExam} onChange={(e)=>setSelectedExam(e.target.value)} className="p-3 bg-[#0f172a] rounded">
+        <select
+          value={selectedExam}
+          onChange={(e)=>setSelectedExam(e.target.value)}
+          className="bg-[#0f172a] p-3 rounded"
+        >
           <option value="">Select Exam</option>
-          {exams.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
+          {exams.map(e=>(
+            <option key={e.id} value={e.id}>{e.name}</option>
+          ))}
         </select>
 
-        <button onClick={generateClassResults} className="px-4 py-2 bg-blue-600 rounded">
+        <button onClick={generateClassResults} className="bg-blue-600 px-4 py-2 rounded">
           {loading ? "Generating..." : "Generate"}
         </button>
 
-        <button onClick={downloadAllPDFs} className="px-4 py-2 bg-green-600 rounded">
+        <button onClick={downloadAllPDFs} className="bg-green-600 px-4 py-2 rounded">
           {downloading ? "Preparing..." : "Download ZIP"}
         </button>
 
-        <button onClick={sendWhatsApp} className="px-4 py-2 bg-purple-600 rounded">
+        <button onClick={sendWhatsApp} className="bg-purple-600 px-4 py-2 rounded">
           {sending ? "Sending..." : "Send WhatsApp"}
         </button>
 
