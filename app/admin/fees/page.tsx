@@ -31,6 +31,7 @@ export default function FeesPage(){
   const [payAmount,setPayAmount] = useState("")
 
   const [generating,setGenerating] = useState(false)
+  const [selectedMonth,setSelectedMonth] = useState("")
 
   const [lastPayment,setLastPayment] = useState<any>(null)
   const [selectedFeeObj,setSelectedFeeObj] = useState<any>(null)
@@ -104,16 +105,25 @@ export default function FeesPage(){
 
   const filteredFees = fees.filter(f=>f.student_id === selectedStudent)
 
-  // ✅ ONLY THIS FUNCTION CHANGED (SAFE)
+  // ✅ GENERATE WITH MONTH
   const generateFees = async ()=>{
     if(!schoolId){
       alert("School not loaded")
       return
     }
 
+    if(!selectedMonth){
+      alert("Select month")
+      return
+    }
+
     setGenerating(true)
 
-    const globalSettings = await getSettings("fees")
+    const feeSettings = await getSettings("fees")
+
+    const tuition = Number(feeSettings?.tuition_fee || 0)
+    const transport = Number(feeSettings?.transport_fee || 0)
+    const hostel = Number(feeSettings?.hostel_fee || 0)
 
     const { data: allStudents } = await supabase
       .from("students")
@@ -122,25 +132,11 @@ export default function FeesPage(){
 
     for (const s of allStudents || []) {
 
-      // 🔥 TRY CLASS FEES
-      const { data: classFee } = await supabase
-        .from("class_fee_settings")
-        .select("*")
-        .eq("class_id", s.class_id)
-        .eq("school_id", schoolId)
-        .maybeSingle()
-
-      const tuition = Number(classFee?.tuition_fee ?? globalSettings?.tuition_fee ?? 0)
-      const transport = Number(classFee?.transport_fee ?? globalSettings?.transport_fee ?? 0)
-      const hostel = Number(classFee?.hostel_fee ?? globalSettings?.hostel_fee ?? 0)
-
-      const totalAmount = tuition + transport + hostel
-
       const { data: existing } = await supabase
         .from("fees")
         .select("id")
         .eq("student_id", s.id)
-        .eq("school_id", schoolId)
+        .eq("month", selectedMonth)
         .maybeSingle()
 
       if(existing) continue
@@ -148,55 +144,63 @@ export default function FeesPage(){
       await supabase.from("fees").insert({
         student_id: s.id,
         school_id: schoolId,
-        total_amount: totalAmount,
+        total_amount: tuition + transport + hostel,
         paid_amount: 0,
         status: "pending",
+        month: selectedMonth,
         tuition_fee: tuition,
         transport_fee: transport,
         hostel_fee: hostel
       })
     }
 
-    alert("Fees Generated (Class-wise) ✅")
-
+    alert("Fees Generated ✅")
     loadFees()
     setGenerating(false)
   }
 
-  // 🔴 EVERYTHING BELOW IS UNCHANGED
+  // ✅ MANUAL CREATE
+  const createManualFee = async ()=>{
+    if(!selectedStudent || !selectedMonth){
+      alert("Select student & month")
+      return
+    }
+
+    await supabase.from("fees").insert({
+      student_id: selectedStudent,
+      school_id: schoolId,
+      total_amount: 0,
+      paid_amount: 0,
+      status: "pending",
+      month: selectedMonth
+    })
+
+    alert("Manual Fee Created ✅")
+    loadFees()
+  }
 
   const generateAndUploadPDF = async ()=>{
     if(!receiptRef.current || !schoolId) return null
 
-    const canvas = await html2canvas(receiptRef.current,{
-      backgroundColor:"#0b1220"
-    })
-
+    const canvas = await html2canvas(receiptRef.current,{ backgroundColor:"#0b1220" })
     const img = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p","mm","a4")
     pdf.addImage(img,"PNG",0,0,210,297)
 
     const blob = pdf.output("blob")
-
     const fileName = `receipt-${Date.now()}.pdf`
 
     const { error } = await supabase.storage
       .from("receipts")
-      .upload(fileName, blob, {
-        contentType: "application/pdf"
-      })
+      .upload(fileName, blob, { contentType: "application/pdf" })
 
     if(error){
       alert("Upload failed")
       return null
     }
 
-    const { data } = supabase
-      .storage
-      .from("receipts")
-      .getPublicUrl(fileName)
-
+    const { data } = supabase.storage.from("receipts").getPublicUrl(fileName)
     return data.publicUrl
   }
 
@@ -257,7 +261,6 @@ export default function FeesPage(){
     })
 
     setLastPayment(paymentData)
-    setSelectedFeeObj(fee)
     setSelectedStudentObj(student)
 
     setTimeout(async ()=>{
@@ -287,11 +290,54 @@ export default function FeesPage(){
 
   return(
     <div className="p-6 min-h-screen bg-[#020617] text-white">
+
       <h1 className="text-2xl font-bold mb-6">Fees Dashboard</h1>
 
-      <button onClick={generateFees} className="px-4 py-2 bg-blue-600 rounded">
-        {generating ? "Generating..." : "Generate Fees"}
+      <div className="flex gap-3 mb-6">
+
+        <button
+          onClick={()=>router.push("/admin/fees/receipts")}
+          className="px-4 py-2 rounded-xl bg-purple-600"
+        >
+          Receipt History
+        </button>
+
+        <select
+          value={selectedMonth}
+          onChange={(e)=>setSelectedMonth(e.target.value)}
+          className={selectStyle}
+        >
+          <option value="">Month</option>
+          <option>January</option>
+          <option>February</option>
+          <option>March</option>
+          <option>April</option>
+          <option>May</option>
+          <option>June</option>
+          <option>July</option>
+          <option>August</option>
+          <option>September</option>
+          <option>October</option>
+          <option>November</option>
+          <option>December</option>
+        </select>
+
+        <button
+          onClick={generateFees}
+          className="px-4 py-2 rounded-xl bg-blue-600"
+        >
+          {generating ? "Generating..." : "Generate Fees"}
+        </button>
+
+      </div>
+
+      <button
+        onClick={createManualFee}
+        className="mb-6 px-4 py-2 bg-purple-500 rounded-xl"
+      >
+        Create Manual Fee
       </button>
+
     </div>
   )
 }
