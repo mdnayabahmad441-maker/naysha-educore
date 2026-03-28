@@ -18,7 +18,6 @@ export default function FeesPage(){
 
   const [classes,setClasses] = useState<any[]>([])
   const [sections,setSections] = useState<any[]>([])
-  const [students,setStudents] = useState<any[]>([])
 
   const [fees,setFees] = useState<any[]>([])
   const [payments,setPayments] = useState<any[]>([])
@@ -125,11 +124,9 @@ export default function FeesPage(){
         class_id:s.class_id,
         section_id:s.section_id,
         month:selectedMonth,
-
         total_amount: tuition + transport + hostel,
         paid_amount:0,
         status:"pending",
-
         tuition_fee:tuition,
         transport_fee:transport,
         hostel_fee:hostel
@@ -177,36 +174,6 @@ export default function FeesPage(){
     setLastPayment(paymentData)
     setSelectedStudentObj(student)
 
-    // 📄 PDF + WhatsApp
-    setTimeout(async ()=>{
-      const canvas = await html2canvas(receiptRef.current!)
-      const img = canvas.toDataURL("image/png")
-
-      const pdf = new jsPDF()
-      pdf.addImage(img,"PNG",0,0,210,297)
-
-      const blob = pdf.output("blob")
-
-      const fileName = `receipt-${Date.now()}.pdf`
-
-      await supabase.storage.from("receipts").upload(fileName,blob)
-
-      const { data } = supabase.storage.from("receipts").getPublicUrl(fileName)
-
-      if(student?.phone){
-        await fetch("/api/send-whatsapp",{
-          method:"POST",
-          headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({
-            to: student.phone,
-            studentName: student.name,
-            pdfUrl:data.publicUrl
-          })
-        })
-      }
-
-    },500)
-
     alert("Payment Done ✅")
 
     setPayAmount("")
@@ -214,7 +181,7 @@ export default function FeesPage(){
     loadPayments()
   }
 
-  // ================= FILTERED FEES =================
+  // ================= FILTER =================
   const filteredFees = fees.filter(f=>{
     return (
       (!selectedClass || f.class_id === selectedClass) &&
@@ -229,15 +196,15 @@ export default function FeesPage(){
 
   // ================= UI =================
   return(
-    <div className="p-6 bg-[#020617] min-h-screen text-white">
+    <div className="p-4 md:p-6 bg-[#020617] min-h-screen text-white">
 
-      <h1 className="text-2xl mb-6">Fees Dashboard</h1>
+      <h1 className="text-xl md:text-2xl mb-6 font-bold">Fees Dashboard</h1>
 
-      {/* TOP */}
-      <div className="flex gap-3 mb-6 flex-wrap">
+      {/* FILTERS */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
 
         <button onClick={()=>router.push("/admin/fees/receipts")} className="btn bg-purple-600">
-          Receipt History
+          Receipts
         </button>
 
         <select onChange={(e)=>setSelectedClass(e.target.value)} className="input">
@@ -255,28 +222,27 @@ export default function FeesPage(){
           <option>January</option>
           <option>February</option>
           <option>March</option>
-          <option>April</option>
         </select>
 
         <button onClick={generateFees} className="btn bg-blue-600">
-          {generating ? "Generating..." : "Generate Fees"}
+          {generating ? "..." : "Generate"}
         </button>
 
       </div>
 
       {/* STATS */}
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="card">Total ₹{totalFees}</div>
         <div className="card text-green-400">Collected ₹{totalPaid}</div>
         <div className="card text-yellow-400">Pending ₹{totalPending}</div>
       </div>
 
       {/* TABLE */}
-      <div className="card">
-        <table className="w-full">
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[600px]">
           <thead>
-            <tr>
-              <th>Student</th>
+            <tr className="text-left text-gray-400">
+              <th className="p-2">Student</th>
               <th>Month</th>
               <th>Total</th>
               <th>Paid</th>
@@ -285,8 +251,12 @@ export default function FeesPage(){
           </thead>
           <tbody>
             {filteredFees.map(f=>(
-              <tr key={f.id} onClick={()=>setSelectedFee(f)} className="cursor-pointer">
-                <td>{f.students?.name}</td>
+              <tr
+                key={f.id}
+                onClick={()=>setSelectedFee(f)}
+                className="border-t border-white/10 cursor-pointer hover:bg-white/5"
+              >
+                <td className="p-2">{f.students?.name}</td>
                 <td>{f.month}</td>
                 <td>₹{f.total_amount}</td>
                 <td>₹{f.paid_amount}</td>
@@ -299,8 +269,13 @@ export default function FeesPage(){
 
       {/* PAYMENT */}
       {selectedFee && (
-        <div className="mt-6 flex gap-3">
-          <input value={payAmount} onChange={(e)=>setPayAmount(e.target.value)} className="input" />
+        <div className="mt-6 flex flex-col md:flex-row gap-3">
+          <input
+            value={payAmount}
+            onChange={(e)=>setPayAmount(e.target.value)}
+            placeholder="Enter amount"
+            className="input"
+          />
           <button onClick={pay} className="btn bg-green-600">Pay</button>
         </div>
       )}
@@ -308,16 +283,29 @@ export default function FeesPage(){
       {/* RECEIPT */}
       {lastPayment && selectedStudentObj && (
         <div ref={receiptRef} className="mt-6 card">
-          <h2>Receipt</h2>
+          <h2 className="text-lg font-bold mb-2">Receipt</h2>
           <p>{selectedStudentObj.name}</p>
           <p>₹{lastPayment.amount}</p>
         </div>
       )}
 
       <style jsx>{`
-        .input{padding:10px;background:#0f172a;border-radius:8px}
-        .btn{padding:10px 16px;border-radius:8px}
-        .card{padding:16px;background:#0f172a;border-radius:12px}
+        .input{
+          padding:10px;
+          background:#0f172a;
+          border-radius:8px;
+          width:100%;
+        }
+        .btn{
+          padding:10px 16px;
+          border-radius:8px;
+          white-space:nowrap;
+        }
+        .card{
+          padding:16px;
+          background:#0f172a;
+          border-radius:12px;
+        }
       `}</style>
 
     </div>
