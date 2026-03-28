@@ -1,18 +1,27 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
+import { sendNotification } from "@/lib/notifications"
 import { getSettings } from "@/lib/settings"
+import html2canvas from "html2canvas"
+import jsPDF from "jspdf"
+import { useRouter } from "next/navigation"
 
 export default function FeesPage(){
+
+  const router = useRouter()
+  const receiptRef = useRef<HTMLDivElement>(null)
 
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
   const [classes,setClasses] = useState<any[]>([])
   const [sections,setSections] = useState<any[]>([])
   const [students,setStudents] = useState<any[]>([])
+
   const [fees,setFees] = useState<any[]>([])
+  const [payments,setPayments] = useState<any[]>([])
 
   const [selectedClass,setSelectedClass] = useState("")
   const [selectedSection,setSelectedSection] = useState("")
@@ -21,8 +30,12 @@ export default function FeesPage(){
   const [selectedFee,setSelectedFee] = useState<any>(null)
   const [payAmount,setPayAmount] = useState("")
 
-  const [loading,setLoading] = useState(false)
+  const [lastPayment,setLastPayment] = useState<any>(null)
+  const [selectedStudentObj,setSelectedStudentObj] = useState<any>(null)
 
+  const [generating,setGenerating] = useState(false)
+
+  // ================= INIT =================
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
@@ -30,10 +43,12 @@ export default function FeesPage(){
   useEffect(()=>{
     if(!schoolId) return
 
-    supabase.from("classes")
-      .select("*")
+    supabase.from("classes").select("*")
       .eq("school_id",schoolId)
       .then(({data})=>setClasses(data || []))
+
+    loadFees()
+    loadPayments()
 
   },[schoolId])
 
@@ -47,28 +62,24 @@ export default function FeesPage(){
 
   },[selectedClass])
 
-  useEffect(()=>{
-    if(!selectedClass) return
-
-    let query = supabase
+  // ================= LOAD =================
+  const loadFees = async ()=>{
+    const { data } = await supabase
       .from("fees")
-      .select(`
-        *,
-        students(name, roll_number)
-      `)
-      .eq("class_id",selectedClass)
+      .select(`*, students(name, phone, roll_number)`)
+      .eq("school_id",schoolId)
 
-    if(selectedSection){
-      query = query.eq("section_id",selectedSection)
-    }
+    setFees(data || [])
+  }
 
-    if(selectedMonth){
-      query = query.eq("month",selectedMonth)
-    }
+  const loadPayments = async ()=>{
+    const { data } = await supabase
+      .from("payments")
+      .select(`*, students(name, phone)`)
+      .eq("school_id",schoolId)
 
-    query.then(({data})=>setFees(data || []))
-
-  },[selectedClass,selectedSection,selectedMonth])
+    setPayments(data || [])
+  }
 
   // ================= GENERATE =================
   const generateFees = async ()=>{
@@ -78,7 +89,7 @@ export default function FeesPage(){
       return
     }
 
-    setLoading(true)
+    setGenerating(true)
 
     const settings = await getSettings("fees")
 
@@ -89,7 +100,6 @@ export default function FeesPage(){
     let query = supabase
       .from("students")
       .select("*")
-      .eq("school_id",schoolId)
       .eq("class_id",selectedClass)
 
     if(selectedSection){
@@ -127,26 +137,31 @@ export default function FeesPage(){
     }
 
     alert("Fees Generated ✅")
-    setLoading(false)
+    loadFees()
+    setGenerating(false)
   }
 
   // ================= PAY =================
   const pay = async ()=>{
 
     if(!selectedFee || !payAmount){
-      alert("Select fee + amount")
+      alert("Select fee & amount")
       return
     }
 
     const amount = Number(payAmount)
 
-    await supabase.from("payments").insert({
-      student_id:selectedFee.student_id,
-      fee_id:selectedFee.id,
-      amount,
-      school_id:schoolId,
-      date:new Date().toISOString()
-    })
+    const { data: paymentData } = await supabase
+      .from("payments")
+      .insert({
+        student_id:selectedFee.student_id,
+        fee_id:selectedFee.id,
+        amount,
+        school_id:schoolId,
+        date:new Date().toISOString()
+      })
+      .select()
+      .single()
 
     const newPaid = selectedFee.paid_amount + amount
 
@@ -157,33 +172,82 @@ export default function FeesPage(){
       })
       .eq("id",selectedFee.id)
 
-    alert("Payment done ✅")
+    const student = selectedFee.students
+
+    setLastPayment(paymentData)
+    setSelectedStudentObj(student)
+
+    // 📄 PDF + WhatsApp
+    setTimeout(async ()=>{
+      const canvas = await html2canvas(receiptRef.current!)
+      const img = canvas.toDataURL("image/png")
+
+      const pdf = new jsPDF()
+      pdf.addImage(img,"PNG",0,0,210,297)
+
+      const blob = pdf.output("blob")
+
+      const fileName = `receipt-${Date.now()}.pdf`
+
+      await supabase.storage.from("receipts").upload(fileName,blob)
+
+      const { data } = supabase.storage.from("receipts").getPublicUrl(fileName)
+
+      if(student?.phone){
+        await fetch("/api/send-whatsapp",{
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({
+            to: student.phone,
+            studentName: student.name,
+            pdfUrl:data.publicUrl
+          })
+        })
+      }
+
+    },500)
+
+    alert("Payment Done ✅")
 
     setPayAmount("")
-    setSelectedFee(null)
+    loadFees()
+    loadPayments()
   }
+
+  // ================= FILTERED FEES =================
+  const filteredFees = fees.filter(f=>{
+    return (
+      (!selectedClass || f.class_id === selectedClass) &&
+      (!selectedSection || f.section_id === selectedSection) &&
+      (!selectedMonth || f.month === selectedMonth)
+    )
+  })
+
+  const totalFees = fees.reduce((s,f)=>s+f.total_amount,0)
+  const totalPaid = payments.reduce((s,p)=>s+p.amount,0)
+  const totalPending = totalFees - totalPaid
 
   // ================= UI =================
   return(
     <div className="p-6 bg-[#020617] min-h-screen text-white">
 
-      <h1 className="text-2xl mb-6">Fees</h1>
+      <h1 className="text-2xl mb-6">Fees Dashboard</h1>
 
-      {/* FILTERS */}
-      <div className="grid md:grid-cols-4 gap-4 mb-6">
+      {/* TOP */}
+      <div className="flex gap-3 mb-6 flex-wrap">
+
+        <button onClick={()=>router.push("/admin/fees/receipts")} className="btn bg-purple-600">
+          Receipt History
+        </button>
 
         <select onChange={(e)=>setSelectedClass(e.target.value)} className="input">
           <option>Class</option>
-          {classes.map(c=>(
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
+          {classes.map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
         </select>
 
         <select onChange={(e)=>setSelectedSection(e.target.value)} className="input">
           <option>Section</option>
-          {sections.map(s=>(
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
+          {sections.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
         </select>
 
         <select onChange={(e)=>setSelectedMonth(e.target.value)} className="input">
@@ -195,87 +259,65 @@ export default function FeesPage(){
         </select>
 
         <button onClick={generateFees} className="btn bg-blue-600">
-          {loading ? "Generating..." : "Generate"}
+          {generating ? "Generating..." : "Generate Fees"}
         </button>
 
       </div>
 
+      {/* STATS */}
+      <div className="grid md:grid-cols-3 gap-4 mb-6">
+        <div className="card">Total ₹{totalFees}</div>
+        <div className="card text-green-400">Collected ₹{totalPaid}</div>
+        <div className="card text-yellow-400">Pending ₹{totalPending}</div>
+      </div>
+
       {/* TABLE */}
-      <div className="bg-[#0f172a] rounded-xl overflow-hidden">
-
-        <table className="w-full text-sm">
-
-          <thead className="bg-[#020617]">
+      <div className="card">
+        <table className="w-full">
+          <thead>
             <tr>
-              <th className="p-3">Student</th>
+              <th>Student</th>
               <th>Month</th>
               <th>Total</th>
               <th>Paid</th>
               <th>Status</th>
             </tr>
           </thead>
-
           <tbody>
-
-            {fees.map(f=>(
-              <tr
-                key={f.id}
-                className="border-t border-white/10 cursor-pointer hover:bg-white/5"
-                onClick={()=>setSelectedFee(f)}
-              >
-                <td className="p-3">{f.students?.name}</td>
+            {filteredFees.map(f=>(
+              <tr key={f.id} onClick={()=>setSelectedFee(f)} className="cursor-pointer">
+                <td>{f.students?.name}</td>
                 <td>{f.month}</td>
                 <td>₹{f.total_amount}</td>
                 <td>₹{f.paid_amount}</td>
-                <td>
-                  <span className={
-                    f.status === "paid"
-                      ? "text-green-400"
-                      : f.status === "partial"
-                      ? "text-yellow-400"
-                      : "text-red-400"
-                  }>
-                    {f.status}
-                  </span>
-                </td>
+                <td>{f.status}</td>
               </tr>
             ))}
-
           </tbody>
-
         </table>
-
       </div>
 
-      {/* PAYMENT PANEL */}
+      {/* PAYMENT */}
       {selectedFee && (
         <div className="mt-6 flex gap-3">
+          <input value={payAmount} onChange={(e)=>setPayAmount(e.target.value)} className="input" />
+          <button onClick={pay} className="btn bg-green-600">Pay</button>
+        </div>
+      )}
 
-          <input
-            value={payAmount}
-            onChange={(e)=>setPayAmount(e.target.value)}
-            placeholder="Enter amount"
-            className="input"
-          />
-
-          <button onClick={pay} className="btn bg-green-600">
-            Pay
-          </button>
-
+      {/* RECEIPT */}
+      {lastPayment && selectedStudentObj && (
+        <div ref={receiptRef} className="mt-6 card">
+          <h2>Receipt</h2>
+          <p>{selectedStudentObj.name}</p>
+          <p>₹{lastPayment.amount}</p>
         </div>
       )}
 
       <style jsx>{`
-        .input {
-          background:#0f172a;
-          padding:10px;
-          border-radius:8px;
-          width:100%;
-        }
-        .btn {
-          padding:10px 16px;
-          border-radius:8px;
-        }
+        .input{padding:10px;background:#0f172a;border-radius:8px}
+        .btn{padding:10px 16px;border-radius:8px}
+        .card{padding:16px;background:#0f172a;border-radius:12px}
       `}</style>
 
     </div>
