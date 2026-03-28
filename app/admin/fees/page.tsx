@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
+import { createRoot } from "react-dom/client"
+import FeeReceipt from "@/components/fees/FeeReceipt"
 
 export default function FeesPage(){
 
@@ -23,12 +25,10 @@ export default function FeesPage(){
 
   const [loading,setLoading] = useState(false)
 
-  // ================= INIT =================
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
 
-  // ================= LOAD CLASSES =================
   useEffect(()=>{
     if(!schoolId) return
 
@@ -39,7 +39,6 @@ export default function FeesPage(){
 
   },[schoolId])
 
-  // ================= LOAD SECTIONS =================
   useEffect(()=>{
     if(!selectedClass) return
 
@@ -50,7 +49,6 @@ export default function FeesPage(){
 
   },[selectedClass])
 
-  // ================= LOAD FEES =================
   const loadFees = async ()=>{
     if(!schoolId) return
 
@@ -71,62 +69,38 @@ export default function FeesPage(){
     loadFees()
   },[schoolId,selectedClass,selectedSection,selectedMonth])
 
-  // ================= RECEIPT PDF =================
+  // ✅ FIXED RECEIPT (ONLY CHANGE)
   const generateReceipt = async (f:any)=>{
 
     const container = document.createElement("div")
     container.style.position = "fixed"
     container.style.top = "-9999px"
     container.style.width = "800px"
-    container.style.background = "#fff"
-    container.style.padding = "30px"
-    container.style.fontFamily = "Arial"
-
-    container.innerHTML = `
-      <div style="border:1px solid #000; padding:20px;">
-        <h2 style="text-align:center;">Fee Receipt</h2>
-        <hr/>
-        <p><strong>Name:</strong> ${f.students?.name || ""}</p>
-        <p><strong>Roll:</strong> ${f.students?.roll_number || ""}</p>
-        <p><strong>Month:</strong> ${f.month}</p>
-
-        <table style="width:100%; border-collapse:collapse; margin-top:10px;">
-          <tr>
-            <th style="border:1px solid #000;">Fee</th>
-            <th style="border:1px solid #000;">Amount</th>
-          </tr>
-          <tr>
-            <td style="border:1px solid #000;">Tuition</td>
-            <td style="border:1px solid #000;">₹${f.tuition_fee || 0}</td>
-          </tr>
-          <tr>
-            <td style="border:1px solid #000;">Transport</td>
-            <td style="border:1px solid #000;">₹${f.transport_fee || 0}</td>
-          </tr>
-          <tr>
-            <td style="border:1px solid #000;">Hostel</td>
-            <td style="border:1px solid #000;">₹${f.hostel_fee || 0}</td>
-          </tr>
-        </table>
-
-        <h3 style="text-align:right;">Total: ₹${f.total_amount}</h3>
-        <p style="margin-top:40px;">Authorized Signature</p>
-      </div>
-    `
-
     document.body.appendChild(container)
 
-    const canvas = await html2canvas(container)
+    const root = createRoot(container)
+
+    root.render(
+      <FeeReceipt data={f} />
+    )
+
+    await new Promise(res=>setTimeout(res,500))
+
+    const canvas = await html2canvas(container,{ scale:2 })
     const img = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p","mm","a4")
-    pdf.addImage(img,"PNG",0,0,210,297)
+
+    const width = 210
+    const height = (canvas.height * width) / canvas.width
+
+    pdf.addImage(img,"PNG",0,0,width,height)
     pdf.save(`receipt-${f.id}.pdf`)
 
+    root.unmount()
     document.body.removeChild(container)
   }
 
-  // ================= GENERATE FEES =================
   const generateFees = async ()=>{
 
     if(!selectedClass || !selectedMonth){
@@ -204,7 +178,6 @@ export default function FeesPage(){
     loadFees()
   }
 
-  // ================= PAYMENT =================
   const pay = async ()=>{
 
     if(!selectedFee || !payAmount){
