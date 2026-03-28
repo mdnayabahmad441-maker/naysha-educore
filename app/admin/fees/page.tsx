@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
+import html2canvas from "html2canvas"
+import jsPDF from "jspdf"
 
 export default function FeesPage(){
 
@@ -69,6 +71,61 @@ export default function FeesPage(){
     loadFees()
   },[schoolId,selectedClass,selectedSection,selectedMonth])
 
+  // ================= RECEIPT PDF =================
+  const generateReceipt = async (f:any)=>{
+
+    const container = document.createElement("div")
+    container.style.position = "fixed"
+    container.style.top = "-9999px"
+    container.style.width = "800px"
+    container.style.background = "#fff"
+    container.style.padding = "30px"
+    container.style.fontFamily = "Arial"
+
+    container.innerHTML = `
+      <div style="border:1px solid #000; padding:20px;">
+        <h2 style="text-align:center;">Fee Receipt</h2>
+        <hr/>
+        <p><strong>Name:</strong> ${f.students?.name || ""}</p>
+        <p><strong>Roll:</strong> ${f.students?.roll_number || ""}</p>
+        <p><strong>Month:</strong> ${f.month}</p>
+
+        <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+          <tr>
+            <th style="border:1px solid #000;">Fee</th>
+            <th style="border:1px solid #000;">Amount</th>
+          </tr>
+          <tr>
+            <td style="border:1px solid #000;">Tuition</td>
+            <td style="border:1px solid #000;">₹${f.tuition_fee || 0}</td>
+          </tr>
+          <tr>
+            <td style="border:1px solid #000;">Transport</td>
+            <td style="border:1px solid #000;">₹${f.transport_fee || 0}</td>
+          </tr>
+          <tr>
+            <td style="border:1px solid #000;">Hostel</td>
+            <td style="border:1px solid #000;">₹${f.hostel_fee || 0}</td>
+          </tr>
+        </table>
+
+        <h3 style="text-align:right;">Total: ₹${f.total_amount}</h3>
+        <p style="margin-top:40px;">Authorized Signature</p>
+      </div>
+    `
+
+    document.body.appendChild(container)
+
+    const canvas = await html2canvas(container)
+    const img = canvas.toDataURL("image/png")
+
+    const pdf = new jsPDF("p","mm","a4")
+    pdf.addImage(img,"PNG",0,0,210,297)
+    pdf.save(`receipt-${f.id}.pdf`)
+
+    document.body.removeChild(container)
+  }
+
   // ================= GENERATE FEES =================
   const generateFees = async ()=>{
 
@@ -133,11 +190,9 @@ export default function FeesPage(){
         class_id:s.class_id,
         section_id:s.section_id,
         month:selectedMonth,
-
         total_amount: total,
         paid_amount:0,
         status:"pending",
-
         tuition_fee:tuition,
         transport_fee:transport,
         hostel_fee:hostel
@@ -182,7 +237,6 @@ export default function FeesPage(){
     loadFees()
   }
 
-  // ================= STATUS =================
   const statusColor = (status:string)=>{
     if(status==="paid") return "bg-green-500/20 text-green-400"
     if(status==="partial") return "bg-yellow-500/20 text-yellow-400"
@@ -194,8 +248,7 @@ export default function FeesPage(){
 
       <h1 className="text-2xl font-semibold mb-6">Fees</h1>
 
-      {/* FILTER BAR */}
-      <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
 
         <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="input">
           <option value="">Class</option>
@@ -216,28 +269,16 @@ export default function FeesPage(){
           <option>January</option>
           <option>February</option>
           <option>March</option>
-          <option>April</option>
-          <option>May</option>
         </select>
 
-        <button
-          onClick={generateFees}
-          disabled={!selectedClass || !selectedMonth}
-          className={`btn ${
-            !selectedClass || !selectedMonth
-              ? "bg-gray-600 cursor-not-allowed"
-              : "bg-blue-600"
-          }`}
-        >
+        <button onClick={generateFees} className="btn bg-blue-600">
           {loading ? "Generating..." : "Generate Fees"}
         </button>
 
       </div>
 
-      {/* MAIN GRID */}
       <div className="grid lg:grid-cols-3 gap-6">
 
-        {/* TABLE */}
         <div className="lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
 
           <table className="w-full text-sm">
@@ -249,28 +290,35 @@ export default function FeesPage(){
                 <th>Total</th>
                 <th>Paid</th>
                 <th>Status</th>
+                <th>Receipt</th>
               </tr>
             </thead>
 
             <tbody>
 
               {fees.map(f=>(
-                <tr
-                  key={f.id}
-                  onClick={()=>setSelectedFee(f)}
-                  className={`border-t border-white/10 cursor-pointer ${
-                    selectedFee?.id === f.id ? "bg-blue-500/10" : "hover:bg-white/5"
-                  }`}
-                >
+                <tr key={f.id} className="border-t border-white/10">
+
                   <td className="p-3">{f.students?.name}</td>
                   <td>{f.month}</td>
                   <td>₹{f.total_amount}</td>
                   <td>₹{f.paid_amount}</td>
+
                   <td>
                     <span className={`px-2 py-1 rounded text-xs ${statusColor(f.status)}`}>
                       {f.status}
                     </span>
                   </td>
+
+                  <td>
+                    <button
+                      onClick={()=>generateReceipt(f)}
+                      className="px-3 py-1 bg-purple-600 rounded"
+                    >
+                      Receipt
+                    </button>
+                  </td>
+
                 </tr>
               ))}
 
@@ -280,20 +328,13 @@ export default function FeesPage(){
 
         </div>
 
-        {/* PAYMENT PANEL */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 h-fit">
 
           <h2 className="text-lg mb-4">Payment</h2>
 
           {selectedFee ? (
             <>
-              <p className="mb-2 font-semibold">
-                {selectedFee.students?.name}
-              </p>
-
-              <p className="text-sm text-gray-400 mb-4">
-                Total: ₹{selectedFee.total_amount} | Paid: ₹{selectedFee.paid_amount}
-              </p>
+              <p className="mb-2 font-semibold">{selectedFee.students?.name}</p>
 
               <input
                 value={payAmount}
@@ -324,7 +365,6 @@ export default function FeesPage(){
         .btn{
           padding:10px 16px;
           border-radius:10px;
-          font-weight:500;
         }
       `}</style>
 
