@@ -49,7 +49,7 @@ export default function FeesPage(){
   },[selectedClass])
 
   // ================= LOAD FEES =================
-  useEffect(()=>{
+  const loadFees = async ()=>{
     if(!schoolId) return
 
     let query = supabase
@@ -61,11 +61,15 @@ export default function FeesPage(){
     if(selectedSection) query = query.eq("section_id",selectedSection)
     if(selectedMonth) query = query.eq("month",selectedMonth)
 
-    query.then(({data})=>setFees(data || []))
+    const { data } = await query
+    setFees(data || [])
+  }
 
+  useEffect(()=>{
+    loadFees()
   },[schoolId,selectedClass,selectedSection,selectedMonth])
 
-  // ================= GENERATE FEES (FIXED) =================
+  // ================= GENERATE FEES =================
   const generateFees = async ()=>{
 
     if(!selectedClass || !selectedMonth){
@@ -75,7 +79,6 @@ export default function FeesPage(){
 
     setLoading(true)
 
-    // ✅ GET CLASS-WISE FEES
     const { data: classFee } = await supabase
       .from("class_fee_settings")
       .select("*")
@@ -84,7 +87,7 @@ export default function FeesPage(){
       .maybeSingle()
 
     if(!classFee){
-      alert("Set class fees in settings first")
+      alert("⚠️ Please set class fees in Settings first")
       setLoading(false)
       return
     }
@@ -93,7 +96,14 @@ export default function FeesPage(){
     const transport = Number(classFee.transport_fee || 0)
     const hostel = Number(classFee.hostel_fee || 0)
 
-    // ================= GET STUDENTS =================
+    const total = tuition + transport + hostel
+
+    if(total === 0){
+      alert("⚠️ Fee is 0. Please configure fees in Settings.")
+      setLoading(false)
+      return
+    }
+
     let query = supabase
       .from("students")
       .select("*")
@@ -106,7 +116,6 @@ export default function FeesPage(){
 
     const { data: students } = await query
 
-    // ================= LOOP =================
     for(const s of students || []){
 
       const { data: existing } = await supabase
@@ -125,7 +134,7 @@ export default function FeesPage(){
         section_id:s.section_id,
         month:selectedMonth,
 
-        total_amount: tuition + transport + hostel,
+        total_amount: total,
         paid_amount:0,
         status:"pending",
 
@@ -137,6 +146,7 @@ export default function FeesPage(){
 
     alert("Fees Generated ✅")
     setLoading(false)
+    loadFees()
   }
 
   // ================= PAYMENT =================
@@ -169,13 +179,7 @@ export default function FeesPage(){
     setPayAmount("")
     setSelectedFee(null)
 
-    // reload
-    const { data } = await supabase
-      .from("fees")
-      .select(`*, students(name, roll_number)`)
-      .eq("school_id",schoolId)
-
-    setFees(data || [])
+    loadFees()
   }
 
   // ================= STATUS =================
@@ -193,28 +197,38 @@ export default function FeesPage(){
       {/* FILTER BAR */}
       <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
 
-        <select onChange={(e)=>setSelectedClass(e.target.value)} className="input">
+        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="input">
           <option value="">Class</option>
           {classes.map(c=>(
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
 
-        <select onChange={(e)=>setSelectedSection(e.target.value)} className="input">
+        <select value={selectedSection} onChange={(e)=>setSelectedSection(e.target.value)} className="input">
           <option value="">Section</option>
           {sections.map(s=>(
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
 
-        <select onChange={(e)=>setSelectedMonth(e.target.value)} className="input">
+        <select value={selectedMonth} onChange={(e)=>setSelectedMonth(e.target.value)} className="input">
           <option value="">Month</option>
           <option>January</option>
           <option>February</option>
           <option>March</option>
+          <option>April</option>
+          <option>May</option>
         </select>
 
-        <button onClick={generateFees} className="btn bg-blue-600">
+        <button
+          onClick={generateFees}
+          disabled={!selectedClass || !selectedMonth}
+          className={`btn ${
+            !selectedClass || !selectedMonth
+              ? "bg-gray-600 cursor-not-allowed"
+              : "bg-blue-600"
+          }`}
+        >
           {loading ? "Generating..." : "Generate Fees"}
         </button>
 
