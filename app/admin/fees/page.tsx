@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
-import { getSettings } from "@/lib/settings"
 
 export default function FeesPage(){
 
@@ -22,10 +21,12 @@ export default function FeesPage(){
 
   const [loading,setLoading] = useState(false)
 
+  // ================= INIT =================
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
 
+  // ================= LOAD CLASSES =================
   useEffect(()=>{
     if(!schoolId) return
 
@@ -36,6 +37,7 @@ export default function FeesPage(){
 
   },[schoolId])
 
+  // ================= LOAD SECTIONS =================
   useEffect(()=>{
     if(!selectedClass) return
 
@@ -46,6 +48,7 @@ export default function FeesPage(){
 
   },[selectedClass])
 
+  // ================= LOAD FEES =================
   useEffect(()=>{
     if(!schoolId) return
 
@@ -62,7 +65,7 @@ export default function FeesPage(){
 
   },[schoolId,selectedClass,selectedSection,selectedMonth])
 
-  // ================= GENERATE =================
+  // ================= GENERATE FEES (FIXED) =================
   const generateFees = async ()=>{
 
     if(!selectedClass || !selectedMonth){
@@ -72,12 +75,25 @@ export default function FeesPage(){
 
     setLoading(true)
 
-    const settings = await getSettings("fees")
+    // ✅ GET CLASS-WISE FEES
+    const { data: classFee } = await supabase
+      .from("class_fee_settings")
+      .select("*")
+      .eq("class_id", selectedClass)
+      .eq("school_id", schoolId)
+      .maybeSingle()
 
-    const tuition = Number(settings?.tuition_fee || 0)
-    const transport = Number(settings?.transport_fee || 0)
-    const hostel = Number(settings?.hostel_fee || 0)
+    if(!classFee){
+      alert("Set class fees in settings first")
+      setLoading(false)
+      return
+    }
 
+    const tuition = Number(classFee.tuition_fee || 0)
+    const transport = Number(classFee.transport_fee || 0)
+    const hostel = Number(classFee.hostel_fee || 0)
+
+    // ================= GET STUDENTS =================
     let query = supabase
       .from("students")
       .select("*")
@@ -90,6 +106,7 @@ export default function FeesPage(){
 
     const { data: students } = await query
 
+    // ================= LOOP =================
     for(const s of students || []){
 
       const { data: existing } = await supabase
@@ -107,9 +124,11 @@ export default function FeesPage(){
         class_id:s.class_id,
         section_id:s.section_id,
         month:selectedMonth,
+
         total_amount: tuition + transport + hostel,
         paid_amount:0,
         status:"pending",
+
         tuition_fee:tuition,
         transport_fee:transport,
         hostel_fee:hostel
@@ -120,7 +139,7 @@ export default function FeesPage(){
     setLoading(false)
   }
 
-  // ================= PAY =================
+  // ================= PAYMENT =================
   const pay = async ()=>{
 
     if(!selectedFee || !payAmount){
@@ -149,9 +168,17 @@ export default function FeesPage(){
 
     setPayAmount("")
     setSelectedFee(null)
+
+    // reload
+    const { data } = await supabase
+      .from("fees")
+      .select(`*, students(name, roll_number)`)
+      .eq("school_id",schoolId)
+
+    setFees(data || [])
   }
 
-  // ================= STATUS COLOR =================
+  // ================= STATUS =================
   const statusColor = (status:string)=>{
     if(status==="paid") return "bg-green-500/20 text-green-400"
     if(status==="partial") return "bg-yellow-500/20 text-yellow-400"
@@ -167,21 +194,21 @@ export default function FeesPage(){
       <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
 
         <select onChange={(e)=>setSelectedClass(e.target.value)} className="input">
-          <option>Class</option>
+          <option value="">Class</option>
           {classes.map(c=>(
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
 
         <select onChange={(e)=>setSelectedSection(e.target.value)} className="input">
-          <option>Section</option>
+          <option value="">Section</option>
           {sections.map(s=>(
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
 
         <select onChange={(e)=>setSelectedMonth(e.target.value)} className="input">
-          <option>Month</option>
+          <option value="">Month</option>
           <option>January</option>
           <option>February</option>
           <option>March</option>
@@ -217,7 +244,7 @@ export default function FeesPage(){
                 <tr
                   key={f.id}
                   onClick={()=>setSelectedFee(f)}
-                  className={`border-t border-white/10 cursor-pointer transition ${
+                  className={`border-t border-white/10 cursor-pointer ${
                     selectedFee?.id === f.id ? "bg-blue-500/10" : "hover:bg-white/5"
                   }`}
                 >
