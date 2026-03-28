@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
@@ -10,91 +10,145 @@ export default function ReceiptHistoryPage(){
   const [payments,setPayments] = useState<any[]>([])
   const [loading,setLoading] = useState(true)
 
-  const receiptRef = useRef<HTMLDivElement>(null)
-
   useEffect(()=>{
     loadPayments()
   },[])
 
   const loadPayments = async ()=>{
-    const { data } = await supabase
+
+    // ✅ SAFE QUERY (prevents 400 crash)
+    const { data, error } = await supabase
       .from("payments")
-      .select(`
-        *,
-        students(name, phone, roll_number),
-        fees(total_amount, paid_amount)
-      `)
+      .select("*")
       .order("date",{ ascending:false })
 
-    setPayments(data || [])
+    if(error){
+      console.error("Payments fetch error:", error)
+      setLoading(false)
+      return
+    }
+
+    // ✅ manually attach student + fee (safe)
+    const enriched = await Promise.all((data || []).map(async (p:any)=>{
+
+      const { data: student } = await supabase
+        .from("students")
+        .select("name, phone, roll_number")
+        .eq("id", p.student_id)
+        .single()
+
+      const { data: fee } = await supabase
+        .from("fees")
+        .select("total_amount, paid_amount")
+        .eq("id", p.fee_id)
+        .single()
+
+      return {
+        ...p,
+        students: student,
+        fees: fee
+      }
+    }))
+
+    setPayments(enriched)
     setLoading(false)
   }
 
-  // ================= PDF GENERATION =================
+  // ================= PDF =================
   const generatePDF = async (payment:any)=>{
 
     const container = document.createElement("div")
+
     container.style.position = "fixed"
     container.style.top = "-9999px"
-    container.style.background = "#0b1220"
-    container.style.padding = "40px"
+    container.style.left = "-9999px"
+    container.style.background = "#0f172a"
+    container.style.padding = "30px"
     container.style.color = "white"
+    container.style.width = "400px"
+    container.style.fontFamily = "Arial"
 
     container.innerHTML = `
-      <h2>Fee Receipt</h2>
-      <p>Name: ${payment.students?.name}</p>
-      <p>Roll: ${payment.students?.roll_number}</p>
-      <p>Amount Paid: ₹${payment.amount}</p>
-      <p>Date: ${new Date(payment.date).toLocaleDateString()}</p>
+      <div style="text-align:center;margin-bottom:20px">
+        <h2>Fee Receipt</h2>
+      </div>
+
+      <p><b>Name:</b> ${payment.students?.name || "-"}</p>
+      <p><b>Roll:</b> ${payment.students?.roll_number || "-"}</p>
+      <p><b>Amount Paid:</b> ₹${payment.amount}</p>
+      <p><b>Date:</b> ${new Date(payment.date).toLocaleDateString()}</p>
     `
 
     document.body.appendChild(container)
 
-    const canvas = await html2canvas(container)
+    const canvas = await html2canvas(container,{
+      backgroundColor:"#0f172a",
+      scale:2
+    })
+
     const img = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF("p","mm","a4")
-    pdf.addImage(img,"PNG",0,0,210,297)
+    pdf.addImage(img,"PNG",10,10,190,0)
 
     pdf.save(`receipt-${payment.id}.pdf`)
 
     document.body.removeChild(container)
   }
 
-  // ================= WHATSAPP RESEND =================
+  // ================= WHATSAPP =================
   const resendWhatsApp = async (payment:any)=>{
 
-    const pdfUrl = window.location.origin // you can improve later
+    if(!payment.students?.phone){
+      alert("No phone number")
+      return
+    }
 
-    await fetch("/api/send-whatsapp",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({
-        to: payment.students?.phone,
-        studentName: payment.students?.name,
-        pdfUrl
+    const pdfUrl = window.location.origin
+
+    try{
+      await fetch("/api/send-whatsapp",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          to: payment.students.phone,
+          studentName: payment.students.name,
+          pdfUrl
+        })
       })
-    })
 
-    alert("Sent again ✅")
+      alert("Sent again ✅")
+    }catch{
+      alert("Failed ❌")
+    }
   }
 
   // ================= UI =================
   return(
-    <div className="p-6 bg-[#0b1220] min-h-screen text-white">
+    <div className="p-6 bg-[#020617] min-h-screen text-white">
 
-      <h1 className="text-2xl mb-6">Receipt History</h1>
+      <h1 className="text-2xl font-bold mb-6">Receipt History</h1>
 
       {loading ? "Loading..." : (
 
         <div className="space-y-4">
 
           {payments.map(p=>(
-            <div key={p.id} className="p-4 border rounded flex justify-between items-center">
+
+            <div
+              key={p.id}
+              className="p-4 bg-[#0f172a] border border-white/10 rounded-xl flex justify-between items-center"
+            >
 
               <div>
-                <p className="font-semibold">{p.students?.name}</p>
-                <p>₹{p.amount}</p>
+                <p className="font-semibold text-lg">
+                  {p.students?.name || "Unknown"}
+                </p>
+
+                <p className="text-green-400 font-medium">
+                  ₹{p.amount}
+                </p>
+
                 <p className="text-sm text-gray-400">
                   {new Date(p.date).toLocaleString()}
                 </p>
@@ -104,14 +158,14 @@ export default function ReceiptHistoryPage(){
 
                 <button
                   onClick={()=>generatePDF(p)}
-                  className="px-3 py-1 bg-blue-600 rounded"
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded"
                 >
                   Download
                 </button>
 
                 <button
                   onClick={()=>resendWhatsApp(p)}
-                  className="px-3 py-1 bg-green-600 rounded"
+                  className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded"
                 >
                   WhatsApp
                 </button>
@@ -119,6 +173,7 @@ export default function ReceiptHistoryPage(){
               </div>
 
             </div>
+
           ))}
 
         </div>
