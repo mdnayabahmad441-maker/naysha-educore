@@ -180,7 +180,7 @@ export default function ReportCardPage(){
   }
 
   const downloadPDF = async ()=>{
-    if(!pdfRef.current) return
+    if(!pdfRef.current || !report) return
 
     const canvas = await html2canvas(pdfRef.current,{
       scale:2,
@@ -211,7 +211,7 @@ export default function ReportCardPage(){
         </div>
       )}
 
-      {/* PREMIUM PDF */}
+      {/* PDF TEMPLATE */}
       <div style={{position:"absolute",left:"-9999px"}}>
         <div ref={pdfRef} style={{
           width:"794px",
@@ -223,19 +223,25 @@ export default function ReportCardPage(){
 
           {/* HEADER */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <img src={school?.logo_url || "/logo.png"} style={{height:"60px"}} />
+            
+            {/* SAFE LOGO */}
+            {school?.logo_url ? (
+              <img src={school.logo_url} style={{height:"60px"}} />
+            ) : (
+              <div style={{fontWeight:"bold"}}>{school?.name?.slice(0,2)}</div>
+            )}
+
             <div style={{textAlign:"center"}}>
               <h1 style={{margin:0,color:"#1e3a8a"}}>{school?.name}</h1>
               <p style={{margin:0,color:"#6b7280"}}>Academic Report Card</p>
             </div>
-            <div style={{fontSize:"12px",color:"#6b7280"}}>
-              NaySha EduCore
-            </div>
+
+            <div style={{fontSize:"12px"}}>NaySha EduCore</div>
           </div>
 
           <hr style={{margin:"20px 0"}} />
 
-          {/* STUDENT BLOCK */}
+          {/* STUDENT */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 120px",gap:"20px"}}>
             <div>
               <p><b>Name:</b> {studentObj?.name}</p>
@@ -244,55 +250,42 @@ export default function ReportCardPage(){
               <p><b>Rank:</b> {report?.rank}</p>
             </div>
 
-            <img
-              src={studentObj?.photo_url || "/student.png"}
-              style={{
-                width:"120px",
-                height:"120px",
-                objectFit:"cover",
-                border:"2px solid #ddd"
-              }}
-            />
+            {/* SAFE PHOTO */}
+            {studentObj?.photo_url ? (
+              <img src={studentObj.photo_url} style={{
+                width:"120px",height:"120px",objectFit:"cover"
+              }} />
+            ) : (
+              <div style={{
+                width:"120px",height:"120px",
+                border:"1px solid #ccc",
+                display:"flex",
+                alignItems:"center",
+                justifyContent:"center"
+              }}>
+                No Photo
+              </div>
+            )}
           </div>
 
           {/* TABLE */}
           <table style={{width:"100%",marginTop:"30px",borderCollapse:"collapse"}}>
-            <thead>
-              <tr style={{background:"#1e3a8a",color:"#fff"}}>
-                <th>Subject</th>
-                <th>Total</th>
-                <th>Passing</th>
-                <th>Obtained</th>
-                <th>Result</th>
-              </tr>
-            </thead>
             <tbody>
-              {report.rows.map((r:any,i:number)=>(
+              {report?.rows?.map((r:any,i:number)=>(
                 <tr key={i}>
                   <td style={{border:"1px solid #ddd"}}>{r.name}</td>
-                  <td style={{border:"1px solid #ddd"}}>{r.total}</td>
-                  <td style={{border:"1px solid #ddd"}}>{r.passing}</td>
                   <td style={{border:"1px solid #ddd"}}>{r.obtained}</td>
-                  <td style={{
-                    border:"1px solid #ddd",
-                    color:r.status==="FAIL"?"#dc2626":"#16a34a"
-                  }}>{r.status}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
           {/* SUMMARY */}
-          <div style={{display:"flex",justifyContent:"space-between",marginTop:"20px"}}>
-            <div>
-              <p>Total: {report.totalMarks}</p>
-              <p>Obtained: {report.obtainedMarks}</p>
-              <p>Percentage: {report.percentage.toFixed(2)}%</p>
-            </div>
-            <div style={{textAlign:"right"}}>
-              <p style={{fontWeight:"bold"}}>{report.finalResult}</p>
-              <p>Grade: {report.grade}</p>
-            </div>
+          <div style={{marginTop:"20px"}}>
+            <p>Total: {report?.totalMarks}</p>
+            <p>Percentage: {report?.percentage?.toFixed(2)}%</p>
+            <p>Result: {report?.finalResult}</p>
+            <p>Grade: {report?.grade}</p>
           </div>
 
         </div>
