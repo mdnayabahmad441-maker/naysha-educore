@@ -1,11 +1,15 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { sendNotification } from "@/lib/notifications"
+import html2canvas from "html2canvas"
+import jsPDF from "jspdf"
 
 export default function FeesPage(){
+
+  const receiptRef = useRef<HTMLDivElement>(null)
 
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
@@ -25,21 +29,11 @@ export default function FeesPage(){
 
   const [generating,setGenerating] = useState(false)
 
-  const totalFees = fees.reduce((s,f)=>s + f.total_amount,0)
-  const totalPaid = fees.reduce((s,f)=>s + f.paid_amount,0)
-  const totalPending = totalFees - totalPaid
+  const [lastPayment,setLastPayment] = useState<any>(null)
+  const [selectedFeeObj,setSelectedFeeObj] = useState<any>(null)
+  const [selectedStudentObj,setSelectedStudentObj] = useState<any>(null)
 
-  const getPayable = (fee:any)=>{
-    const today = new Date()
-    const discountDate = new Date(fee.discount_last_date)
-
-    if(fee.discount_amount && today <= discountDate){
-      return fee.total_amount - fee.discount_amount
-    }
-
-    return fee.total_amount
-  }
-
+  // ================= INIT =================
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -48,6 +42,7 @@ export default function FeesPage(){
     init()
   },[])
 
+  // ================= LOAD =================
   useEffect(()=>{
     if(!schoolId) return
 
@@ -55,6 +50,10 @@ export default function FeesPage(){
       .select("*")
       .eq("school_id",schoolId)
       .then(({data})=>setClasses(data || []))
+
+    loadFees()
+    loadPayments()
+
   },[schoolId])
 
   useEffect(()=>{
@@ -81,7 +80,7 @@ export default function FeesPage(){
 
     const { data } = await supabase
       .from("fees")
-      .select(`*, students(name)`)
+      .select(`*, students(name, phone, roll_number)`)
       .eq("school_id", schoolId)
 
     setFees(data || [])
@@ -92,30 +91,27 @@ export default function FeesPage(){
 
     const { data } = await supabase
       .from("payments")
-      .select(`*, students(name)`)
+      .select("*")
       .eq("school_id", schoolId)
-      .order("date",{ascending:false})
 
     setPayments(data || [])
   }
 
-  useEffect(()=>{
-    loadFees()
-    loadPayments()
-  },[schoolId])
+  // ================= CALCULATIONS =================
+  const totalFees = fees.reduce((s,f)=>s + (f.total_amount || 0),0)
+  const totalPaid = payments.reduce((s,p)=>s + (p.amount || 0),0)
+  const totalPending = totalFees - totalPaid
 
+  const filteredFees = fees.filter(f=>f.student_id === selectedStudent)
+
+  // ================= GENERATE FEES =================
   const generateFees = async ()=>{
-
     if(!schoolId){
       alert("School not loaded")
       return
     }
 
     setGenerating(true)
-
-    const today = new Date()
-    const month = today.getMonth()
-    const year = today.getFullYear()
 
     const { data: allStudents } = await supabase
       .from("students")
@@ -128,84 +124,104 @@ export default function FeesPage(){
         .from("fees")
         .select("id")
         .eq("student_id", s.id)
-        .gte("created_at", new Date(year, month, 1).toISOString())
-        .lte("created_at", new Date(year, month + 1, 0).toISOString())
         .maybeSingle()
 
       if(existing) continue
 
-      const { data: structure } = await supabase
-        .from("fee_structures")
-        .select("*")
-        .eq("class_id", s.class_id)
-        .single()
-
-      if(!structure) continue
-
-      let total = 0
-
-      if(s.student_type === "hosteler"){
-        total = structure.tuition + structure.hostel
-      }
-      else if(s.student_type === "day_scholar_transport"){
-        total = structure.tuition + structure.transport
-      }
-      else{
-        total = structure.tuition
-      }
-
-      total += (structure.misc || 0) + (structure.other || 0)
-
-      const discountDate = new Date(
-        year,
-        month,
-        structure.discount_last_date
-      )
-
       await supabase.from("fees").insert({
-        id: crypto.randomUUID(),
         student_id: s.id,
         school_id: schoolId,
-        total_amount: total,
+        total_amount: 1000,
         paid_amount: 0,
-        status: "pending",
-        discount_amount: structure.discount_amount,
-        discount_last_date: discountDate,
-        due_date: discountDate
+        status: "pending"
       })
     }
 
-    alert("Monthly fees generated ✅")
-
+    alert("Fees Generated ✅")
     loadFees()
     setGenerating(false)
   }
 
+  // ================= NEW: PDF + UPLOAD =================
+  const generateAndUploadPDF = async ()=>{
+    if(!receiptRef.current || !schoolId) return null
+
+    const canvas = await html2canvas(receiptRef.current,{
+      backgroundColor:"#0b1220"
+    })
+
+    const img = canvas.toDataURL("image/png")
+
+    const pdf = new jsPDF("p","mm","a4")
+    pdf.addImage(img,"PNG",0,0,210,297)
+
+    const blob = pdf.output("blob")
+
+    // UNIQUE FILE NAME
+    const fileName = `receipt-${Date.now()}.pdf`
+
+    // UPLOAD
+    const { error } = await supabase.storage
+      .from("receipts")
+      .upload(fileName, blob, {
+        contentType: "application/pdf"
+      })
+
+    if(error){
+      alert("Upload failed")
+      return null
+    }
+
+    // PUBLIC URL
+    const { data } = supabase
+      .storage
+      .from("receipts")
+      .getPublicUrl(fileName)
+
+    return data.publicUrl
+  }
+
+  // ================= PAYMENT =================
   const pay = async ()=>{
 
-    if(!selectedFee || !payAmount) return
-
-    const fee = fees.find(f=>f.id === selectedFee)
-    if(!fee) return
-
-    const payable = getPayable(fee)
-
-    if(Number(payAmount) > payable){
-      alert("Amount exceeds payable")
+    if(!schoolId){
+      alert("School not loaded")
       return
     }
 
-    const newPaid = fee.paid_amount + Number(payAmount)
+    if(!selectedFee || !payAmount){
+      alert("Fill all fields")
+      return
+    }
 
-    await supabase.from("payments").insert({
-      id: crypto.randomUUID(),
-      student_id: fee.student_id,
-      fee_id: selectedFee,
-      amount: Number(payAmount),
-      school_id: schoolId,
-      receipt_number: "RCPT-"+Date.now(),
-      date: new Date()
-    })
+    const fee = fees.find(f=>f.id === selectedFee)
+    const student = students.find(s=>s.id === selectedStudent)
+
+    if(!fee || !student){
+      alert("Data error")
+      return
+    }
+
+    const amount = Number(payAmount)
+
+    const { data: paymentData, error } = await supabase
+      .from("payments")
+      .insert({
+        student_id: fee.student_id,
+        fee_id: fee.id,
+        amount,
+        school_id: schoolId,
+        date: new Date().toISOString()
+      })
+      .select()
+      .single()
+
+    if(error){
+      alert(error.message)
+      return
+    }
+
+    const newPaid = (fee.paid_amount || 0) + amount
 
     await supabase
       .from("fees")
@@ -213,102 +229,97 @@ export default function FeesPage(){
         paid_amount: newPaid,
         status: newPaid >= fee.total_amount ? "paid" : "pending"
       })
-      .eq("id", selectedFee)
+      .eq("id", fee.id)
 
-    // ✅ WHATSAPP
-    if(schoolId){
-      const studentName = fee.students?.name || "Student"
+    await sendNotification({
+      school_id: schoolId,
+      student_id: fee.student_id,
+      title: "Payment Received",
+      message: `₹${payAmount} received`,
+      type: "fee"
+    })
 
-      await sendNotification({
-        school_id: schoolId,
-        student_id: fee.student_id,
-        title: "Payment Received",
-        message: `₹${payAmount} received for ${studentName}`,
-        type: "fee"
-      })
-    }
+    setLastPayment(paymentData)
+    setSelectedFeeObj(fee)
+    setSelectedStudentObj(student)
+
+    // 🚀 NEW FLOW
+    setTimeout(async ()=>{
+
+      const pdfUrl = await generateAndUploadPDF()
+
+      if(student.phone && pdfUrl){
+        await fetch("/api/send-whatsapp",{
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({
+            to: student.phone,
+            studentName: student.name,
+            pdfUrl
+          })
+        })
+      }
+
+    },500)
+
+    alert("Payment Complete ✅")
 
     setPayAmount("")
     loadFees()
     loadPayments()
   }
 
+  // ================= UI =================
   return(
-    <div className="p-6 md:p-10 text-white max-w-7xl mx-auto space-y-6">
+    <div className="p-6 bg-[#0b1220] min-h-screen text-white space-y-6">
 
       <h1 className="text-2xl font-semibold">Fees Dashboard</h1>
 
-      <button
-        onClick={generateFees}
-        className="bg-white/10 border border-white/10 px-6 py-3 rounded-xl hover:bg-white/20"
-      >
-        {generating ? "Generating..." : "Generate Monthly Fees"}
+      <button onClick={generateFees}>
+        {generating ? "Generating..." : "Generate Fees"}
       </button>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-        <div className="bg-white/10 p-6 rounded-xl">
-          <p className="text-sm text-gray-400">Total Fees</p>
-          <h2 className="text-xl font-bold mt-2">₹{totalFees}</h2>
-        </div>
-
-        <div className="bg-white/10 p-6 rounded-xl">
-          <p className="text-sm text-gray-400">Collected</p>
-          <h2 className="text-xl font-bold mt-2 text-green-400">₹{totalPaid}</h2>
-        </div>
-
-        <div className="bg-white/10 p-6 rounded-xl">
-          <p className="text-sm text-gray-400">Pending</p>
-          <h2 className="text-xl font-bold mt-2 text-yellow-400">₹{totalPending}</h2>
-        </div>
-
+      <div className="grid grid-cols-3 gap-4">
+        <div>₹{totalFees}</div>
+        <div className="text-green-400">₹{totalPaid}</div>
+        <div className="text-yellow-400">₹{totalPending}</div>
       </div>
 
-      <div className="bg-white/10 p-6 rounded-xl flex flex-col md:flex-row gap-4">
+      <select onChange={(e)=>setSelectedClass(e.target.value)}>
+        <option>Class</option>
+        {classes.map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
+      </select>
 
-        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="bg-[#0b1220] p-3 rounded-xl w-full">
-          <option value="">Select Class</option>
-          {classes.map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
-        </select>
+      <select onChange={(e)=>setSelectedSection(e.target.value)}>
+        <option>Section</option>
+        {sections.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
+      </select>
 
-        <select value={selectedSection} onChange={(e)=>setSelectedSection(e.target.value)} className="bg-[#0b1220] p-3 rounded-xl w-full">
-          <option value="">Select Section</option>
-          {sections.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
-        </select>
+      <select onChange={(e)=>setSelectedStudent(e.target.value)}>
+        <option>Student</option>
+        {students.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
+      </select>
 
-        <select value={selectedStudent} onChange={(e)=>setSelectedStudent(e.target.value)} className="bg-[#0b1220] p-3 rounded-xl w-full">
-          <option value="">Select Student ({students.length})</option>
-          {students.map(s=>(<option key={s.id} value={s.id}>{s.name}</option>))}
-        </select>
+      <select onChange={(e)=>setSelectedFee(e.target.value)}>
+        <option>Select Fee</option>
+        {filteredFees.map(f=>(
+          <option key={f.id} value={f.id}>
+            {f.students?.name} ₹{f.total_amount}
+          </option>
+        ))}
+      </select>
 
-      </div>
+      <input value={payAmount} onChange={(e)=>setPayAmount(e.target.value)} />
 
-      <div className="bg-white/10 p-6 rounded-xl flex flex-col md:flex-row gap-4">
+      <button onClick={pay}>Collect</button>
 
-        <select value={selectedFee} onChange={(e)=>setSelectedFee(e.target.value)} className="bg-[#0b1220] p-3 rounded-xl w-full">
-          <option value="">Select Fee</option>
-          {fees.map(f=>(
-            <option key={f.id} value={f.id}>
-              {f.students?.name} ₹{getPayable(f)}
-            </option>
-          ))}
-        </select>
-
-        <input
-          value={payAmount}
-          onChange={(e)=>setPayAmount(e.target.value)}
-          placeholder="Amount"
-          className="bg-[#0b1220] p-3 rounded-xl w-full"
-        />
-
-        <button
-          onClick={pay}
-          className="bg-white/10 border border-white/10 px-6 py-3 rounded-xl hover:bg-white/20"
-        >
-          Collect
-        </button>
-
-      </div>
+      {lastPayment && selectedStudentObj && selectedFeeObj && (
+        <div ref={receiptRef} className="mt-6 p-6 border rounded">
+          <h2>Receipt</h2>
+          <p>{selectedStudentObj.name}</p>
+          <p>₹{lastPayment.amount}</p>
+        </div>
+      )}
 
     </div>
   )
