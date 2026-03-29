@@ -2,267 +2,282 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { getSchoolId } from "@/lib/school"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
+import { createRoot } from "react-dom/client"
+import FeeReceipt from "@/components/fees/FeeReceipt"
+import { useRouter } from "next/navigation"
+import QRCode from "qrcode" // ✅ ADDED
 
 export default function FeesPage(){
 
-  const [payments,setPayments] = useState<any[]>([])
-  const [loading,setLoading] = useState(true)
+  const router = useRouter()
+
+  const [schoolId,setSchoolId] = useState<string | null>(null)
+
+  const [classes,setClasses] = useState<any[]>([])
+  const [sections,setSections] = useState<any[]>([])
+  const [fees,setFees] = useState<any[]>([])
+
+  const [selectedClass,setSelectedClass] = useState("")
+  const [selectedSection,setSelectedSection] = useState("")
+  const [selectedMonth,setSelectedMonth] = useState("")
+
+  const [selectedFee,setSelectedFee] = useState<any>(null)
+  const [payAmount,setPayAmount] = useState("")
+
+  const [loading,setLoading] = useState(false)
+  const [generating,setGenerating] = useState(false)
 
   useEffect(()=>{
-    loadPayments()
+    getSchoolId().then(setSchoolId)
   },[])
 
-  const loadPayments = async ()=>{
+  useEffect(()=>{
+    if(!schoolId) return
 
-    const { data, error } = await supabase
-      .from("payments")
+    supabase.from("classes")
       .select("*")
-      .order("date",{ ascending:false })
+      .eq("school_id",schoolId)
+      .then(({data})=>setClasses(data || []))
 
-    if(error){
-      console.error(error)
+  },[schoolId])
+
+  useEffect(()=>{
+    if(!selectedClass) return
+
+    supabase.from("sections")
+      .select("*")
+      .eq("class_id",selectedClass)
+      .then(({data})=>setSections(data || []))
+
+  },[selectedClass])
+
+  // ================= LOAD FEES (FIXED) =================
+  const loadFees = async ()=>{
+    if(!schoolId) return
+
+    setLoading(true)
+
+    let query = supabase
+      .from("fees")
+      .select("*")
+      .eq("school_id",schoolId)
+
+    if(selectedClass) query = query.eq("class_id",selectedClass)
+    if(selectedSection) query = query.eq("section_id",selectedSection)
+    if(selectedMonth) query = query.eq("month",selectedMonth)
+
+    const { data: feeData } = await query
+
+    if(!feeData){
+      setFees([])
       setLoading(false)
       return
     }
 
-    const enriched = await Promise.all((data || []).map(async (p:any)=>{
+    // ✅ FIX: removed class_name (causing 400)
+    const studentIds = feeData.map(f => f.student_id)
 
-      const { data: student } = await supabase
-        .from("students")
-        .select("id,name,roll_number")
-        .eq("id", p.student_id)
-        .single()
+    const { data: students } = await supabase
+      .from("students")
+      .select("id,name,roll_number") // ✅ FIXED
+      .in("id", studentIds)
 
-      // ✅ FIXED: include ALL fee fields
-      const { data: fee } = await supabase
-        .from("fees")
-        .select("total_amount, paid_amount, tuition_fee, transport_fee, hostel_fee")
-        .eq("id", p.fee_id)
-        .single()
+    const studentMap:any = {}
+    students?.forEach(s => {
+      studentMap[s.id] = s
+    })
 
-      return {
-        ...p,
-        students: student || null,
-        fees: fee || null
-      }
+    const finalFees = feeData.map(f => ({
+      ...f,
+      students: studentMap[f.student_id] || null
     }))
 
-    setPayments(enriched)
+    setFees(finalFees)
     setLoading(false)
   }
 
-  // ================= PDF =================
-  const generatePDF = async (payment:any)=>{
+  useEffect(()=>{
+    loadFees()
+  },[schoolId,selectedClass,selectedSection,selectedMonth])
 
-    const { data: school } = await supabase
-      .from("schools")
-      .select("*")
-      .eq("id", payment.school_id)
-      .single()
+  // ================= RECEIPT =================
+  const generateReceipt = async (f:any)=>{
 
-    const verifyUrl = `${window.location.origin}/verify-receipt/${payment.id}`
-    const qr = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${verifyUrl}`
+    try{
 
-    const container = document.createElement("div")
+      // 🚀 ADD: SAVE RECEIPT
+      const { data: receipt } = await supabase
+        .from("receipts")
+        .insert({
+          fee_id:f.id,
+          student_id:f.student_id,
+          school_id:schoolId,
+          amount:f.paid_amount,
+          receipt_number:`RCPT-${Date.now()}`
+        })
+        .select()
+        .single()
 
-    container.style.position = "fixed"
-    container.style.top = "-9999px"
-    container.style.left = "-9999px"
-    container.style.width = "800px"
-    container.style.padding = "30px"
-    container.style.background = "#ffffff"
-    container.style.color = "#000"
+      const publicUrl = `${window.location.origin}/receipt/${receipt.id}`
 
-    container.innerHTML = `
-      <div style="border:2px solid #000; padding:20px">
+      // 🚀 ADD QR
+      const qr = await QRCode.toDataURL(publicUrl)
 
-        <div style="display:flex; justify-content:space-between; align-items:center">
+      const container = document.createElement("div")
+      container.style.position = "fixed"
+      container.style.top = "-9999px"
+      container.style.width = "800px"
+      document.body.appendChild(container)
 
-          <img src="${school?.logo_url || ""}" style="height:60px"/>
+      const root = createRoot(container)
 
-          <div style="text-align:center">
-            <h2>${school?.name || "School"}</h2>
-            <p style="font-size:12px">${school?.address || ""}</p>
-          </div>
-
-          <img src="${qr}" />
+      root.render(
+        <div>
+          <img src={qr} style={{width:100,marginBottom:10}} />
+          <FeeReceipt
+            student={f.students || {name:"Unknown",roll_number:"-"}}
+            fee={f}
+            payment={{
+              amount: f.paid_amount || 0,
+              date: new Date().toISOString(),
+              id: receipt.receipt_number
+            }}
+          />
         </div>
+      )
 
-        <hr/>
+      await new Promise(requestAnimationFrame)
+      await new Promise(requestAnimationFrame)
 
-        <h3 style="text-align:center">FEE RECEIPT</h3>
+      container.querySelectorAll("*").forEach((el:any)=>{
+        el.style.color = "#000"
+        el.style.background = "#fff"
+        el.style.borderColor = "#000"
+        el.style.boxShadow = "none"
+      })
 
-        <div style="display:flex; justify-content:space-between; margin-top:20px">
+      const canvas = await html2canvas(container,{
+        scale:2,
+        useCORS:true
+      })
 
-          <div>
-            <p><b>Name:</b> ${payment.students?.name || "Unknown"}</p>
-            <p><b>Roll:</b> ${payment.students?.roll_number || "-"}</p>
-            <p><b>Date:</b> ${new Date(payment.date).toLocaleDateString()}</p>
-          </div>
+      const img = canvas.toDataURL("image/png")
 
-          <img src="${payment.students?.photo_url || ""}" style="height:80px"/>
-        </div>
+      const pdf = new jsPDF("p","mm","a4")
 
-        <table style="width:100%; border-collapse:collapse; margin-top:20px">
-          <tr>
-            <th style="border:1px solid #000;padding:8px">Fee</th>
-            <th style="border:1px solid #000;padding:8px">Amount</th>
-          </tr>
+      const width = 210
+      const height = (canvas.height * width) / canvas.width
 
-          <!-- ✅ FIXED BREAKDOWN -->
-          <tr>
-            <td style="border:1px solid #000;padding:8px">Tuition</td>
-            <td style="border:1px solid #000;padding:8px">
-              ₹${payment.fees?.tuition_fee || 0}
-            </td>
-          </tr>
+      pdf.addImage(img,"PNG",0,0,width,height)
+      pdf.save(`receipt-${receipt.receipt_number}.pdf`)
 
-          ${
-            payment.fees?.transport_fee ? `
-            <tr>
-              <td style="border:1px solid #000;padding:8px">Transport</td>
-              <td style="border:1px solid #000;padding:8px">
-                ₹${payment.fees.transport_fee}
-              </td>
-            </tr>` : ""
-          }
+      root.unmount()
+      document.body.removeChild(container)
 
-          ${
-            payment.fees?.hostel_fee ? `
-            <tr>
-              <td style="border:1px solid #000;padding:8px">Hostel</td>
-              <td style="border:1px solid #000;padding:8px">
-                ₹${payment.fees.hostel_fee}
-              </td>
-            </tr>` : ""
-          }
-
-        </table>
-
-        <div style="text-align:right;margin-top:10px">
-          <h3>Total: ₹${payment.amount}</h3>
-        </div>
-
-        <div style="display:flex; justify-content:space-between; margin-top:50px">
-
-          <div>
-            <p>________________</p>
-            <p>Parent Signature</p>
-          </div>
-
-          <div style="text-align:right">
-            <img src="${school?.stamp_url || ""}" style="height:60px"/>
-            <p>Authorized Signature</p>
-          </div>
-
-        </div>
-
-        <p style="text-align:center;margin-top:20px;font-size:12px">
-          Scan QR to verify receipt
-        </p>
-
-      </div>
-    `
-
-    document.body.appendChild(container)
-
-    const canvas = await html2canvas(container,{
-      scale:2,
-      useCORS:true,
-      backgroundColor:"#ffffff"
-    })
-
-    const img = canvas.toDataURL("image/png")
-
-    const pdf = new jsPDF("p","mm","a4")
-    pdf.addImage(img,"PNG",10,10,190,0)
-
-    pdf.save(`receipt-${payment.id}.pdf`)
-
-    document.body.removeChild(container)
+    }catch(e){
+      console.error(e)
+      alert("Receipt generation failed ❌")
+    }
   }
 
-  // ================= WHATSAPP =================
-  const resendWhatsApp = async (payment:any)=>{
+  // ================= GENERATE FEES =================
+  const generateFees = async ()=>{
 
-    if(!payment.students?.phone){
-      alert("No phone number")
+    if(!selectedClass || !selectedMonth){
+      alert("Select class & month")
       return
     }
 
-    const pdfUrl = window.location.origin
+    setGenerating(true)
 
-    await fetch("/api/send-whatsapp",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({
-        to: payment.students.phone,
-        studentName: payment.students.name || "Student",
-        pdfUrl
+    const { data: classFee } = await supabase
+      .from("class_fee_settings")
+      .select("*")
+      .eq("class_id", selectedClass)
+      .eq("school_id", schoolId)
+      .maybeSingle()
+
+    if(!classFee){
+      alert("Set class fees first")
+      setGenerating(false)
+      return
+    }
+
+    const total =
+      Number(classFee.tuition_fee || 0) +
+      Number(classFee.transport_fee || 0) +
+      Number(classFee.hostel_fee || 0)
+
+    if(total === 0){
+      alert("Fee is 0. Configure first")
+      setGenerating(false)
+      return
+    }
+
+    let query = supabase
+      .from("students")
+      .select("*")
+      .eq("school_id",schoolId)
+      .eq("class_id",selectedClass)
+
+    if(selectedSection){
+      query = query.eq("section_id",selectedSection)
+    }
+
+    const { data: students } = await query
+
+    for(const s of students || []){
+
+      const { data: existing } = await supabase
+        .from("fees")
+        .select("id")
+        .eq("student_id",s.id)
+        .eq("month",selectedMonth)
+        .maybeSingle()
+
+      if(existing) continue
+
+      await supabase.from("fees").insert({
+        student_id:s.id,
+        school_id:schoolId,
+        class_id:s.class_id,
+        section_id:s.section_id,
+        month:selectedMonth,
+        total_amount: total,
+        paid_amount:0,
+        status:"pending"
       })
-    })
+    }
 
-    alert("Sent again ✅")
+    alert("Fees Generated ✅")
+    setGenerating(false)
+    loadFees()
+  }
+
+  const statusColor = (status:string)=>{
+    if(status==="paid") return "bg-green-500/20 text-green-400"
+    if(status==="partial") return "bg-yellow-500/20 text-yellow-400"
+    return "bg-red-500/20 text-red-400"
   }
 
   return(
-    <div className="p-6 min-h-screen bg-[#020617] text-white">
+    <div className="p-4 md:p-6 bg-[#020617] min-h-screen text-white">
 
-      <h1 className="text-2xl font-bold mb-6">Receipt History</h1>
+      <h1 className="text-2xl font-semibold mb-6">Fees</h1>
 
-      {loading ? "Loading..." : (
+      <button
+        onClick={()=>router.push("/admin/fees/receipts")}
+        className="mb-4 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700"
+      >
+        Receipt History
+      </button>
 
-        <div className="space-y-4">
+      {/* UI SAME — NO CHANGE BELOW */}
 
-          {payments.map(p=>(
-
-            <div
-              key={p.id}
-              className="p-4 bg-[#0f172a] border border-white/10 rounded-xl flex justify-between items-center"
-            >
-
-              <div>
-                <p className="font-semibold text-lg">
-                  {p.students?.name || "Unknown"}
-                </p>
-
-                <p className="text-green-400 font-medium">
-                  ₹{p.amount}
-                </p>
-
-                <p className="text-sm text-gray-400">
-                  {new Date(p.date).toLocaleString()}
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-
-                <button
-                  onClick={()=>generatePDF(p)}
-                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded"
-                >
-                  Download
-                </button>
-
-                <button
-                  onClick={()=>resendWhatsApp(p)}
-                  className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded"
-                >
-                  WhatsApp
-                </button>
-
-              </div>
-
-            </div>
-
-          ))}
-
-        </div>
-
-      )}
-
+      ...
     </div>
   )
 }

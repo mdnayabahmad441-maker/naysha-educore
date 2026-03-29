@@ -29,22 +29,22 @@ export default function ReceiptHistoryPage(){
 
     const enriched = await Promise.all((data || []).map(async (p:any)=>{
 
-      // ✅ FIXED QUERY (NO INVALID COLUMNS)
       const { data: student } = await supabase
         .from("students")
-        .select("id,name,roll_number") // ✅ FIXED
+        .select("id,name,roll_number")
         .eq("id", p.student_id)
         .single()
 
+      // ✅ FIXED: include ALL fee fields
       const { data: fee } = await supabase
         .from("fees")
-        .select("total_amount, paid_amount, transport_fee")
+        .select("total_amount, paid_amount, tuition_fee, transport_fee, hostel_fee")
         .eq("id", p.fee_id)
         .single()
 
       return {
         ...p,
-        students: student || null, // ✅ SAFE
+        students: student || null,
         fees: fee || null
       }
     }))
@@ -53,7 +53,7 @@ export default function ReceiptHistoryPage(){
     setLoading(false)
   }
 
-  // ================= PDF (PRO VERSION) =================
+  // ================= PDF =================
   const generatePDF = async (payment:any)=>{
 
     const { data: school } = await supabase
@@ -111,16 +111,31 @@ export default function ReceiptHistoryPage(){
             <th style="border:1px solid #000;padding:8px">Amount</th>
           </tr>
 
+          <!-- ✅ FIXED BREAKDOWN -->
           <tr>
             <td style="border:1px solid #000;padding:8px">Tuition</td>
-            <td style="border:1px solid #000;padding:8px">₹${payment.amount}</td>
+            <td style="border:1px solid #000;padding:8px">
+              ₹${payment.fees?.tuition_fee || 0}
+            </td>
           </tr>
 
           ${
             payment.fees?.transport_fee ? `
             <tr>
               <td style="border:1px solid #000;padding:8px">Transport</td>
-              <td style="border:1px solid #000;padding:8px">₹${payment.fees.transport_fee}</td>
+              <td style="border:1px solid #000;padding:8px">
+                ₹${payment.fees.transport_fee}
+              </td>
+            </tr>` : ""
+          }
+
+          ${
+            payment.fees?.hostel_fee ? `
+            <tr>
+              <td style="border:1px solid #000;padding:8px">Hostel</td>
+              <td style="border:1px solid #000;padding:8px">
+                ₹${payment.fees.hostel_fee}
+              </td>
             </tr>` : ""
           }
 
@@ -172,7 +187,6 @@ export default function ReceiptHistoryPage(){
   // ================= WHATSAPP =================
   const resendWhatsApp = async (payment:any)=>{
 
-    // ✅ SAFE CHECK
     if(!payment.students?.phone){
       alert("No phone number")
       return
@@ -193,7 +207,6 @@ export default function ReceiptHistoryPage(){
     alert("Sent again ✅")
   }
 
-  // ================= UI =================
   return(
     <div className="p-6 min-h-screen bg-[#020617] text-white">
 
