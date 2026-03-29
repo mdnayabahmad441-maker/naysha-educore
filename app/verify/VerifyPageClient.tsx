@@ -20,6 +20,27 @@ export default function VerifyPageClient() {
     )
   }
 
+  const redirectWithSession = async (subdomain: string, next: string) => {
+
+    const { data: sessionData } = await supabase.auth.getSession()
+
+    const access_token = sessionData.session?.access_token
+    const refresh_token = sessionData.session?.refresh_token
+
+    if (!access_token || !refresh_token) {
+      alert("Session missing")
+      return
+    }
+
+    // 🔥 SEND TOKENS TO CALLBACK
+    window.location.href =
+      `/auth/callback?` +
+      `access_token=${access_token}` +
+      `&refresh_token=${refresh_token}` +
+      `&subdomain=${subdomain}` +
+      `&next=${next}`
+  }
+
   const verify = async () => {
 
     if (!otp) {
@@ -93,18 +114,17 @@ export default function VerifyPageClient() {
         }
       })
 
-      // 🔥 REAL FIX (CRITICAL)
       const { data: refreshed } = await supabase.auth.refreshSession()
 
       if (!refreshed.session) {
         alert("Session refresh failed")
-        setLoading(false)
         return
       }
 
       localStorage.removeItem("onboardingData")
 
-      window.location.href = `https://${newSchool.subdomain}.naysha.online/admin`
+      // 🔥 FIXED REDIRECT
+      await redirectWithSession(newSchool.subdomain, "/admin")
       return
     }
 
@@ -153,7 +173,6 @@ export default function VerifyPageClient() {
         }
       })
 
-      // 🔥 FIX
       const { data: refreshed } = await supabase.auth.refreshSession()
 
       if (!refreshed.session) {
@@ -161,7 +180,8 @@ export default function VerifyPageClient() {
         return
       }
 
-      window.location.href = `https://${school.subdomain}.naysha.online/parent`
+      // 🔥 FIXED REDIRECT
+      await redirectWithSession(school.subdomain, "/parent")
       return
     }
 
@@ -199,7 +219,6 @@ export default function VerifyPageClient() {
         }
       })
 
-      // 🔥 FIX
       const { data: refreshed } = await supabase.auth.refreshSession()
 
       if (!refreshed.session) {
@@ -207,7 +226,8 @@ export default function VerifyPageClient() {
         return
       }
 
-      window.location.href = `https://${school.subdomain}.naysha.online/teacher`
+      // 🔥 FIXED REDIRECT
+      await redirectWithSession(school.subdomain, "/teacher")
       return
     }
 
@@ -238,7 +258,6 @@ export default function VerifyPageClient() {
       }
     })
 
-    // 🔥 FIX
     const { data: refreshed } = await supabase.auth.refreshSession()
 
     if (!refreshed.session) {
@@ -246,7 +265,8 @@ export default function VerifyPageClient() {
       return
     }
 
-    window.location.href = `https://${school.subdomain}.naysha.online/admin`
+    // 🔥 FIXED REDIRECT
+    await redirectWithSession(school.subdomain, "/admin")
   }
 
   return (
