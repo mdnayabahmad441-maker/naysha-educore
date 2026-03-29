@@ -20,8 +20,6 @@ export default function VerifyPageClient() {
     )
   }
 
-  const wait = (ms: number) => new Promise(res => setTimeout(res, ms))
-
   const verify = async () => {
 
     if (!otp) {
@@ -81,29 +79,31 @@ export default function VerifyPageClient() {
         return
       }
 
-      // ✅ CREATE PROFILE
+      // ✅ PROFILE
       await supabase.from("profiles").upsert({
         id: userId,
         school_id: newSchool.id,
         role: "admin"
       })
 
-      // ✅ UPDATE JWT METADATA
+      // ✅ JWT UPDATE
       await supabase.auth.updateUser({
         data: {
           school_id: newSchool.id
         }
       })
 
-      // 🔥 CRITICAL FIX: WAIT FOR JWT PROPAGATION
-      await wait(800)
+      // 🔥 REAL FIX (CRITICAL)
+      const { data: refreshed } = await supabase.auth.refreshSession()
 
-      // 🔥 FORCE SESSION RELOAD
-      await supabase.auth.getSession()
+      if (!refreshed.session) {
+        alert("Session refresh failed")
+        setLoading(false)
+        return
+      }
 
       localStorage.removeItem("onboardingData")
 
-      // 🚀 DIRECT REDIRECT (NO LOGIN PAGE)
       window.location.href = `https://${newSchool.subdomain}.naysha.online/admin`
       return
     }
@@ -153,8 +153,13 @@ export default function VerifyPageClient() {
         }
       })
 
-      await wait(800)
-      await supabase.auth.getSession()
+      // 🔥 FIX
+      const { data: refreshed } = await supabase.auth.refreshSession()
+
+      if (!refreshed.session) {
+        alert("Session refresh failed")
+        return
+      }
 
       window.location.href = `https://${school.subdomain}.naysha.online/parent`
       return
@@ -194,8 +199,13 @@ export default function VerifyPageClient() {
         }
       })
 
-      await wait(800)
-      await supabase.auth.getSession()
+      // 🔥 FIX
+      const { data: refreshed } = await supabase.auth.refreshSession()
+
+      if (!refreshed.session) {
+        alert("Session refresh failed")
+        return
+      }
 
       window.location.href = `https://${school.subdomain}.naysha.online/teacher`
       return
@@ -228,8 +238,13 @@ export default function VerifyPageClient() {
       }
     })
 
-    await wait(800)
-    await supabase.auth.getSession()
+    // 🔥 FIX
+    const { data: refreshed } = await supabase.auth.refreshSession()
+
+    if (!refreshed.session) {
+      alert("Session refresh failed")
+      return
+    }
 
     window.location.href = `https://${school.subdomain}.naysha.online/admin`
   }
