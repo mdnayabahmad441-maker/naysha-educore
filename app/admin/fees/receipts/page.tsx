@@ -29,9 +29,10 @@ export default function ReceiptHistoryPage(){
 
     const enriched = await Promise.all((data || []).map(async (p:any)=>{
 
+      // ✅ FIXED QUERY (NO INVALID COLUMNS)
       const { data: student } = await supabase
         .from("students")
-        .select("name, phone, roll_number, photo_url")
+        .select("id,name,roll_number") // ✅ FIXED
         .eq("id", p.student_id)
         .single()
 
@@ -43,8 +44,8 @@ export default function ReceiptHistoryPage(){
 
       return {
         ...p,
-        students: student,
-        fees: fee
+        students: student || null, // ✅ SAFE
+        fees: fee || null
       }
     }))
 
@@ -96,8 +97,8 @@ export default function ReceiptHistoryPage(){
         <div style="display:flex; justify-content:space-between; margin-top:20px">
 
           <div>
-            <p><b>Name:</b> ${payment.students?.name}</p>
-            <p><b>Roll:</b> ${payment.students?.roll_number}</p>
+            <p><b>Name:</b> ${payment.students?.name || "Unknown"}</p>
+            <p><b>Roll:</b> ${payment.students?.roll_number || "-"}</p>
             <p><b>Date:</b> ${new Date(payment.date).toLocaleDateString()}</p>
           </div>
 
@@ -171,6 +172,7 @@ export default function ReceiptHistoryPage(){
   // ================= WHATSAPP =================
   const resendWhatsApp = async (payment:any)=>{
 
+    // ✅ SAFE CHECK
     if(!payment.students?.phone){
       alert("No phone number")
       return
@@ -183,7 +185,7 @@ export default function ReceiptHistoryPage(){
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
         to: payment.students.phone,
-        studentName: payment.students.name,
+        studentName: payment.students.name || "Student",
         pdfUrl
       })
     })
