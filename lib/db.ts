@@ -35,27 +35,34 @@ export async function dbGet(table: string) {
 
 
 // =========================
-// 🔥 UNIVERSAL INSERT
+// 🔥 UNIVERSAL INSERT (FIXED HARD)
 // =========================
 export async function dbInsert(table: string, payload: any) {
 
   try {
 
-    const schoolId = await getSchoolId()
+    let schoolId = await getSchoolId()
+
+    // ✅ FALLBACK FROM AUTH JWT (VERY IMPORTANT)
+    if (!schoolId) {
+      const { data: userData } = await supabase.auth.getUser()
+      schoolId = userData?.user?.user_metadata?.school_id || null
+    }
 
     if (!schoolId) {
-      console.error("❌ No schoolId")
+      console.error("❌ No schoolId (INSERT BLOCKED)")
+      alert("School not found")
       return null
+    }
+
+    const finalPayload = {
+      ...payload,
+      school_id: schoolId // ✅ ALWAYS ATTACHED
     }
 
     const { data, error } = await supabase
       .from(table)
-      .insert([
-        {
-          ...payload,
-          school_id: schoolId
-        }
-      ])
+      .insert([finalPayload])
       .select()
 
     if (error) {
@@ -81,7 +88,12 @@ export async function dbUpdate(table: string, id: string, payload: any) {
 
   try {
 
-    const schoolId = await getSchoolId()
+    let schoolId = await getSchoolId()
+
+    if (!schoolId) {
+      const { data: userData } = await supabase.auth.getUser()
+      schoolId = userData?.user?.user_metadata?.school_id || null
+    }
 
     if (!schoolId) {
       console.error("❌ No schoolId")
@@ -124,7 +136,12 @@ export async function dbDelete(table: string, id: string) {
 
   try {
 
-    const schoolId = await getSchoolId()
+    let schoolId = await getSchoolId()
+
+    if (!schoolId) {
+      const { data: userData } = await supabase.auth.getUser()
+      schoolId = userData?.user?.user_metadata?.school_id || null
+    }
 
     if (!schoolId) {
       console.error("❌ No schoolId")

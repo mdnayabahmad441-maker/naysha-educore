@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { dbGet, dbInsert } from "@/lib/db"
+import { getSchoolId } from "@/lib/school" // ✅ ADD THIS
 
 export default function ClassesPage(){
 
@@ -12,35 +13,49 @@ export default function ClassesPage(){
   const [sectionName,setSectionName] = useState("")
   const [selectedClass,setSelectedClass] = useState("")
 
-  // LOAD DATA
-  const load = async () => {
+  const [schoolId,setSchoolId] = useState<string | null>(null) // ✅ ADD
 
-    const cls = await dbGet("classes")
-    setClasses(cls || [])
+  // ================= LOAD SCHOOL =================
+  useEffect(()=>{
+    getSchoolId().then(setSchoolId)
+  },[])
 
-    const sec = await dbGet("sections")
-    setSections(sec || [])
-  }
+  // ================= LOAD DATA =================
+ const load = async () => {
+
+  if (!schoolId) return // ✅ correct
+
+  const cls = await dbGet("classes")
+  setClasses(cls || [])
+
+  const sec = await dbGet("sections")
+  setSections(sec || [])
+}
 
   useEffect(()=>{
     load()
-  },[])
+  },[schoolId]) // ✅ FIX
 
-  // ADD CLASS
+  // ================= ADD CLASS =================
   const addClass = async () => {
 
     if(!className) return
+    if(!schoolId){
+      alert("School not loaded")
+      return
+    }
 
     await dbInsert("classes", {
       id: crypto.randomUUID(),
-      name: className
+      name: className,
+      school_id: schoolId // ✅ CRITICAL FIX
     })
 
     setClassName("")
     load()
   }
 
-  // ADD SECTION
+  // ================= ADD SECTION =================
   const addSection = async () => {
 
     if(!selectedClass){
@@ -49,11 +64,16 @@ export default function ClassesPage(){
     }
 
     if(!sectionName) return
+    if(!schoolId){
+      alert("School not loaded")
+      return
+    }
 
     await dbInsert("sections", {
       id: crypto.randomUUID(),
       class_id: selectedClass,
-      name: sectionName
+      name: sectionName,
+      school_id: schoolId // ✅ CRITICAL FIX
     })
 
     setSectionName("")
