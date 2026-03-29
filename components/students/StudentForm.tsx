@@ -28,9 +28,9 @@ export default function StudentForm({ reload }: any){
 
   // ================= LOAD SCHOOL =================
   useEffect(()=>{
-    getSchoolId().then(setSchoolId)
-  },[])
-
+  const id = getSchoolId()
+  if (id) setSchoolId(id)
+},[])
   // ================= LOAD DATA (SECURE) =================
  useEffect(()=>{
   const load = async ()=>{
