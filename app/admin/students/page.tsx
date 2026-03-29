@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import StudentForm from "@/components/students/StudentForm"
 import { useRouter } from "next/navigation"
 import { getUserRole } from "@/lib/getUserRole"
-import { supabase } from "@/lib/supabase" // 🔥 IMPORTANT CHANGE
+import { supabase } from "@/lib/supabase"
+import { getSchoolId } from "@/lib/school" // ✅ ADDED
 
 export default function StudentsPage(){
 
@@ -15,6 +16,7 @@ export default function StudentsPage(){
   const [loading,setLoading] = useState(true)
   const [search,setSearch] = useState("")
   const [role,setRole] = useState<string | null>(null)
+  const [schoolId,setSchoolId] = useState<string | null>(null) // ✅ ADDED
 
   // =========================
   // LOAD ROLE
@@ -28,9 +30,18 @@ export default function StudentsPage(){
   },[])
 
   // =========================
-  // LOAD STUDENTS (JOIN + SORT)
+  // LOAD SCHOOL ID (CRITICAL)
+  // =========================
+  useEffect(()=>{
+    getSchoolId().then(setSchoolId)
+  },[])
+
+  // =========================
+  // LOAD STUDENTS (SECURE)
   // =========================
   const loadStudents = async () => {
+
+    if(!schoolId) return // ✅ IMPORTANT
 
     setLoading(true)
 
@@ -40,6 +51,7 @@ export default function StudentsPage(){
         *,
         classes(name)
       `)
+      .eq("school_id", schoolId) // ✅ FIX
 
     // 🔥 SORT BY CLASS + ROLL
     const sorted = (data || []).sort((a:any,b:any)=>{
@@ -57,7 +69,7 @@ export default function StudentsPage(){
 
   useEffect(()=>{
     loadStudents()
-  },[])
+  },[schoolId]) // ✅ IMPORTANT
 
   // =========================
   // SEARCH
@@ -142,7 +154,6 @@ export default function StudentsPage(){
               filtered.map((s)=>(
                 <tr key={s.id} className="border-t border-white/10">
 
-                  {/* NAME */}
                   <td className="p-4 flex items-center gap-3">
 
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-sm font-semibold">
@@ -158,17 +169,14 @@ export default function StudentsPage(){
 
                   </td>
 
-                  {/* CLASS */}
                   <td className="p-4 text-gray-300">
                     {s.classes?.name || "-"}
                   </td>
 
-                  {/* ROLL */}
                   <td className="p-4 text-gray-300">
                     {s.roll_number || "-"}
                   </td>
 
-                  {/* ACTION */}
                   <td className="p-4 text-right">
 
                     <button

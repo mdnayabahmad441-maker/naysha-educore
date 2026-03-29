@@ -31,7 +31,9 @@ export default function VerifyPageClient() {
 
     setLoading(true)
 
+    // =========================
     // 🔐 VERIFY OTP
+    // =========================
     const { error } = await supabase.auth.verifyOtp({
       email,
       token: otp,
@@ -43,6 +45,9 @@ export default function VerifyPageClient() {
       alert(error.message)
       return
     }
+
+    // ✅ IMPORTANT: REFRESH SESSION
+    await supabase.auth.refreshSession()
 
     // 🔥 GET USER
     const { data: userData } = await supabase.auth.getUser()
@@ -81,17 +86,29 @@ export default function VerifyPageClient() {
         return
       }
 
+      // ✅ SAVE PROFILE
       await supabase.from("profiles").upsert({
         id: userId,
         school_id: newSchool.id,
         role: "admin"
       })
 
+      // ✅ CRITICAL: SAVE school_id IN AUTH JWT
+      await supabase.auth.updateUser({
+        data: {
+          school_id: newSchool.id
+        }
+      })
+
+      // ✅ REFRESH SESSION AGAIN
+      await supabase.auth.refreshSession()
+
       localStorage.removeItem("onboardingData")
 
       alert("School created successfully")
 
-      router.push("/login")
+      // ✅ DIRECT REDIRECT (NO LOGIN LOOP)
+      window.location.href = `https://${newSchool.subdomain}.naysha.online/admin`
       return
     }
 
@@ -134,12 +151,20 @@ export default function VerifyPageClient() {
         role: "parent"
       })
 
+      await supabase.auth.updateUser({
+        data: {
+          school_id: student.school_id
+        }
+      })
+
+      await supabase.auth.refreshSession()
+
       window.location.href = `https://${school.subdomain}.naysha.online/parent`
       return
     }
 
     // =========================
-    // 🔥 TEACHER FLOW (NEW)
+    // 🔥 TEACHER FLOW
     // =========================
     const { data: teacher } = await supabase
       .from("teachers")
@@ -166,12 +191,20 @@ export default function VerifyPageClient() {
         role: "teacher"
       })
 
+      await supabase.auth.updateUser({
+        data: {
+          school_id: teacher.school_id
+        }
+      })
+
+      await supabase.auth.refreshSession()
+
       window.location.href = `https://${school.subdomain}.naysha.online/teacher`
       return
     }
 
     // =========================
-    // 🔥 ADMIN FLOW
+    // 🔥 ADMIN LOGIN FLOW
     // =========================
     const { data: school, error: schoolError } = await supabase
       .from("schools")
@@ -190,6 +223,14 @@ export default function VerifyPageClient() {
       school_id: school.id,
       role: "admin"
     })
+
+    await supabase.auth.updateUser({
+      data: {
+        school_id: school.id
+      }
+    })
+
+    await supabase.auth.refreshSession()
 
     window.location.href = `https://${school.subdomain}.naysha.online/admin`
   }

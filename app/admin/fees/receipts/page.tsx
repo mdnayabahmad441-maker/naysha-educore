@@ -4,21 +4,48 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
+import { getSchoolId } from "@/lib/school"
 
 export default function ReceiptHistoryPage(){
 
   const [payments,setPayments] = useState<any[]>([])
   const [loading,setLoading] = useState(true)
+  const [schoolId,setSchoolId] = useState<string | null>(null)
 
+  // ================= INIT =================
   useEffect(()=>{
-    loadPayments()
+    getSchoolId().then(setSchoolId)
   },[])
 
+  useEffect(()=>{
+    if(!schoolId) return
+    loadPayments()
+  },[schoolId])
+
+  // ================= LOAD PAYMENTS (FIXED) =================
   const loadPayments = async ()=>{
+
+    setLoading(true)
 
     const { data, error } = await supabase
       .from("payments")
-      .select("*")
+      .select(`
+        *,
+        students (
+          id,
+          name,
+          roll_number,
+          phone
+        ),
+        fees (
+          total_amount,
+          paid_amount,
+          tuition_fee,
+          transport_fee,
+          hostel_fee
+        )
+      `)
+      .eq("school_id", schoolId) // ✅ CRITICAL FIX
       .order("date",{ ascending:false })
 
     if(error){
@@ -27,29 +54,7 @@ export default function ReceiptHistoryPage(){
       return
     }
 
-    const enriched = await Promise.all((data || []).map(async (p:any)=>{
-
-      const { data: student } = await supabase
-        .from("students")
-        .select("id,name,roll_number")
-        .eq("id", p.student_id)
-        .single()
-
-      // ✅ FIXED: include ALL fee fields
-      const { data: fee } = await supabase
-        .from("fees")
-        .select("total_amount, paid_amount, tuition_fee, transport_fee, hostel_fee")
-        .eq("id", p.fee_id)
-        .single()
-
-      return {
-        ...p,
-        students: student || null,
-        fees: fee || null
-      }
-    }))
-
-    setPayments(enriched)
+    setPayments(data || [])
     setLoading(false)
   }
 
@@ -69,7 +74,6 @@ export default function ReceiptHistoryPage(){
 
     container.style.position = "fixed"
     container.style.top = "-9999px"
-    container.style.left = "-9999px"
     container.style.width = "800px"
     container.style.padding = "30px"
     container.style.background = "#ffffff"
@@ -102,7 +106,6 @@ export default function ReceiptHistoryPage(){
             <p><b>Date:</b> ${new Date(payment.date).toLocaleDateString()}</p>
           </div>
 
-          <img src="${payment.students?.photo_url || ""}" style="height:80px"/>
         </div>
 
         <table style="width:100%; border-collapse:collapse; margin-top:20px">
@@ -111,7 +114,6 @@ export default function ReceiptHistoryPage(){
             <th style="border:1px solid #000;padding:8px">Amount</th>
           </tr>
 
-          <!-- ✅ FIXED BREAKDOWN -->
           <tr>
             <td style="border:1px solid #000;padding:8px">Tuition</td>
             <td style="border:1px solid #000;padding:8px">
@@ -142,21 +144,7 @@ export default function ReceiptHistoryPage(){
         </table>
 
         <div style="text-align:right;margin-top:10px">
-          <h3>Total: ₹${payment.amount}</h3>
-        </div>
-
-        <div style="display:flex; justify-content:space-between; margin-top:50px">
-
-          <div>
-            <p>________________</p>
-            <p>Parent Signature</p>
-          </div>
-
-          <div style="text-align:right">
-            <img src="${school?.stamp_url || ""}" style="height:60px"/>
-            <p>Authorized Signature</p>
-          </div>
-
+          <h3>Total Paid: ₹${payment.amount}</h3>
         </div>
 
         <p style="text-align:center;margin-top:20px;font-size:12px">
@@ -192,15 +180,13 @@ export default function ReceiptHistoryPage(){
       return
     }
 
-    const pdfUrl = window.location.origin
-
     await fetch("/api/send-whatsapp",{
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
         to: payment.students.phone,
         studentName: payment.students.name || "Student",
-        pdfUrl
+        pdfUrl: `${window.location.origin}/api/receipt/${payment.id}`
       })
     })
 

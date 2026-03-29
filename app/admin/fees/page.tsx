@@ -23,9 +23,6 @@ export default function FeesPage(){
   const [selectedSection,setSelectedSection] = useState("")
   const [selectedMonth,setSelectedMonth] = useState("")
 
-  const [selectedFee,setSelectedFee] = useState<any>(null)
-  const [payAmount,setPayAmount] = useState("")
-
   const [loading,setLoading] = useState(false)
   const [generating,setGenerating] = useState(false)
 
@@ -47,14 +44,15 @@ export default function FeesPage(){
 
   // ================= LOAD SECTIONS =================
   useEffect(()=>{
-    if(!selectedClass) return
+    if(!schoolId || !selectedClass) return
 
     supabase.from("sections")
       .select("*")
+      .eq("school_id",schoolId) // ✅ FIX
       .eq("class_id",selectedClass)
       .then(({data})=>setSections(data || []))
 
-  },[selectedClass])
+  },[schoolId,selectedClass])
 
   // ================= LOAD FEES (FIXED) =================
   const loadFees = async ()=>{
@@ -73,19 +71,20 @@ export default function FeesPage(){
 
     const { data: feeData } = await query
 
-    if(!feeData){
+    if(!feeData || feeData.length === 0){
       setFees([])
       setLoading(false)
       return
     }
 
-    // ✅ FETCH STUDENTS MANUALLY (NO 400 ERROR)
+    // ✅ SAFE STUDENT FETCH
     const studentIds = feeData.map(f => f.student_id)
 
     const { data: students } = await supabase
       .from("students")
-      .select("id,name,roll_number,class_name")
+      .select("id,name,roll_number,class_id")
       .in("id", studentIds)
+      .eq("school_id", schoolId) // ✅ CRITICAL FIX
 
     const studentMap:any = {}
     students?.forEach(s => {
@@ -94,7 +93,10 @@ export default function FeesPage(){
 
     const finalFees = feeData.map(f => ({
       ...f,
-      students: studentMap[f.student_id] || null
+      students: studentMap[f.student_id] || {
+        name: "Unknown",
+        roll_number: "-"
+      }
     }))
 
     setFees(finalFees)
@@ -132,7 +134,7 @@ export default function FeesPage(){
       await new Promise(requestAnimationFrame)
       await new Promise(requestAnimationFrame)
 
-      // ✅ FIX OKLAB ERROR
+      // ✅ REMOVE OKLAB ISSUE
       container.querySelectorAll("*").forEach((el:any)=>{
         el.style.color = "#000"
         el.style.background = "#fff"
@@ -217,6 +219,7 @@ export default function FeesPage(){
         .select("id")
         .eq("student_id",s.id)
         .eq("month",selectedMonth)
+        .eq("school_id",schoolId) // ✅ FIX
         .maybeSingle()
 
       if(existing) continue

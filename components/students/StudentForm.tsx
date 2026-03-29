@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { dbGet, dbInsert } from "@/lib/db"
+import { getSchoolId } from "@/lib/school" // ✅ ADDED
 
 export default function StudentForm({ reload }: any){
 
@@ -23,16 +24,34 @@ export default function StudentForm({ reload }: any){
   const [parentEmail,setParentEmail] = useState("")
   const [parentPhone,setParentPhone] = useState("")
 
-  useEffect(()=>{
-    const load = async ()=>{
-      const cls = await dbGet("classes")
-      const sec = await dbGet("sections")
+  const [schoolId,setSchoolId] = useState<string | null>(null) // ✅ ADDED
 
-      setClasses(cls || [])
-      setSections(sec || [])
-    }
-    load()
+  // ================= LOAD SCHOOL =================
+  useEffect(()=>{
+    getSchoolId().then(setSchoolId)
   },[])
+
+  // ================= LOAD DATA (SECURE) =================
+ useEffect(()=>{
+  const load = async ()=>{
+    if(!schoolId) return // ✅ correct
+
+    const { data: cls } = await supabase
+      .from("classes")
+      .select("*")
+      .eq("school_id", schoolId)
+
+    const { data: sec } = await supabase
+      .from("sections")
+      .select("*")
+      .eq("school_id", schoolId)
+
+    setClasses(cls || [])
+    setSections(sec || [])
+  }
+
+  load()
+},[schoolId])
 
   const filteredSections = sections.filter(
     (s)=>s.class_id === selectedClass
@@ -44,6 +63,11 @@ export default function StudentForm({ reload }: any){
 
       if(!name || !email || !selectedClass || !selectedSection){
         alert("Fill all fields")
+        return
+      }
+
+      if(!schoolId){
+        alert("School not found")
         return
       }
 
@@ -68,8 +92,10 @@ export default function StudentForm({ reload }: any){
 
       const studentId = crypto.randomUUID()
 
+      // ================= STUDENT INSERT (FIXED) =================
       await dbInsert("students", {
         id: studentId,
+        school_id: schoolId, // ✅ CRITICAL FIX
         name: name.trim(),
         email: email.trim(),
         roll_number: roll,
@@ -78,9 +104,11 @@ export default function StudentForm({ reload }: any){
         photo: photoUrl
       })
 
+      // ================= PARENT INSERT (FIXED) =================
       if(parentEmail){
         await dbInsert("parents", {
           id: crypto.randomUUID(),
+          school_id: schoolId, // ✅ CRITICAL FIX
           student_id: studentId,
           name: parentName,
           email: parentEmail.trim(),
