@@ -49,7 +49,7 @@ export default function ReportCardPage(){
   }
 
   // ==========================
-  // GENERATE RESULTS (SAFE)
+  // GENERATE RESULTS (FIXED)
   // ==========================
   const generateClassResults = async ()=>{
 
@@ -64,20 +64,23 @@ export default function ReportCardPage(){
 
       const schoolId = await getSchoolId()
 
+      if(!schoolId){
+        alert("School not found")
+        return
+      }
+
       const classStudents = students.filter(
         (s)=>s.class_id === selectedClass
       )
 
-      // SAFE FETCH
       const { data: exSubData, error: exErr } = await supabase
         .from("exam_subjects")
         .select("*")
         .eq("exam_id", selectedExam)
 
       if(exErr){
-        alert("Exam subjects error")
         console.error(exErr)
-        setLoading(false)
+        alert("Exam subjects error")
         return
       }
 
@@ -87,9 +90,8 @@ export default function ReportCardPage(){
         .eq("exam_id", selectedExam)
 
       if(marksErr){
-        alert("Marks error")
         console.error(marksErr)
-        setLoading(false)
+        alert("Marks error")
         return
       }
 
@@ -151,19 +153,29 @@ export default function ReportCardPage(){
           else grade = "D"
         }
 
-        await supabase.from("results").upsert({
-          student_id: student.id,
-          exam_id: selectedExam,
-          class_id: selectedClass,
-          school_id: schoolId,
-          total_marks: totalMarks,
-          obtained_marks: obtainedMarks,
-          percentage,
-          result: finalResult,
-          grade
-        },{
-          onConflict:"student_id,exam_id,school_id"
-        })
+        // ✅ FIXED UPSERT (NO MORE 400 ERROR)
+        const { error: upsertError } = await supabase
+          .from("results")
+          .upsert({
+            student_id: student.id,
+            exam_id: selectedExam,
+            class_id: selectedClass,
+            school_id: schoolId,
+
+            total_marks: totalMarks,
+            obtained_marks: obtainedMarks,
+            percentage: percentage,
+
+            result: finalResult,
+            grade: grade
+          },{
+            onConflict: "student_id,exam_id,school_id"
+          })
+
+        if(upsertError){
+          console.error("UPSERT ERROR:", upsertError)
+          alert("Result save failed — check console")
+        }
 
         reportsTemp.push({
           student,
@@ -189,7 +201,7 @@ export default function ReportCardPage(){
   }
 
   // ==========================
-  // PDF SAFE
+  // PDF
   // ==========================
   const createPDFBlob = async (element:HTMLElement)=>{
 
@@ -216,7 +228,6 @@ export default function ReportCardPage(){
     const img = canvas.toDataURL("image/png")
 
     const pdf = new jsPDF()
-
     const w = 210
     const h = (canvas.height * w) / canvas.width
 
@@ -271,7 +282,6 @@ export default function ReportCardPage(){
       const student = r.student
 
       if(!student.phone){
-        console.log("Missing phone:", student.name)
         failed++
         continue
       }
@@ -281,7 +291,6 @@ export default function ReportCardPage(){
         : "+91" + student.phone
 
       try{
-
         const res = await fetch("/api/send-whatsapp",{
           method:"POST",
           headers:{ "Content-Type":"application/json" },
@@ -303,9 +312,6 @@ export default function ReportCardPage(){
     setSending(false)
   }
 
-  // ==========================
-  // REQUIRED PROPS FIX
-  // ==========================
   const classObj = classes.find(c=>c.id === selectedClass)
   const examObj = exams.find(e=>e.id === selectedExam)
 
