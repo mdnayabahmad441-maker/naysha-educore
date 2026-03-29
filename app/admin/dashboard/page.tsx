@@ -62,13 +62,9 @@ export default function DashboardPage() {
         setClasses(classesCount || 0)
 
       } catch (error) {
-
         console.error("Dashboard load error:", error)
-
       } finally {
-
         setLoading(false)
-
       }
 
     }
@@ -89,58 +85,115 @@ export default function DashboardPage() {
 
   return(
 
-    <div className="p-6 md:p-10 text-white space-y-8">
+    <div className="p-6 md:p-10 text-white space-y-10">
 
       {/* HEADER */}
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-          Dashboard Overview
-        </h1>
-
-        <p className="text-gray-400 mt-2 text-sm">
-          Monitor your school performance in real-time
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold">
+            Welcome back, Admin 👋
+          </h1>
+          <p className="text-gray-400 mt-1 text-sm">
+            Here’s what’s happening in your school today
+          </p>
+        </div>
       </div>
 
 
       {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
-        <Card className="hover:scale-[1.02] transition-all duration-300">
-          <div className="flex justify-between items-center">
-            <h2 className="text-gray-400 text-sm">Students</h2>
-            <span className="text-blue-400 text-lg">👨‍🎓</span>
+        <Card className="bg-gradient-to-br from-blue-600/20 to-blue-900/20 border border-blue-500/20">
+          <div className="flex justify-between">
+            <p className="text-sm text-gray-400">Total Students</p>
+            <span>🎓</span>
           </div>
           <p className="text-3xl font-bold mt-3">{students}</p>
         </Card>
 
-        <Card className="hover:scale-[1.02] transition-all duration-300">
-          <div className="flex justify-between items-center">
-            <h2 className="text-gray-400 text-sm">Teachers</h2>
-            <span className="text-purple-400 text-lg">👨‍🏫</span>
+        <Card className="bg-gradient-to-br from-purple-600/20 to-purple-900/20 border border-purple-500/20">
+          <div className="flex justify-between">
+            <p className="text-sm text-gray-400">Teachers</p>
+            <span>👨‍🏫</span>
           </div>
           <p className="text-3xl font-bold mt-3">{teachers}</p>
         </Card>
 
-        <Card className="hover:scale-[1.02] transition-all duration-300">
-          <div className="flex justify-between items-center">
-            <h2 className="text-gray-400 text-sm">Classes</h2>
-            <span className="text-green-400 text-lg">🏫</span>
+        <Card className="bg-gradient-to-br from-green-600/20 to-green-900/20 border border-green-500/20">
+          <div className="flex justify-between">
+            <p className="text-sm text-gray-400">Classes</p>
+            <span>🏫</span>
           </div>
           <p className="text-3xl font-bold mt-3">{classes}</p>
         </Card>
 
-        <Card className="hover:scale-[1.02] transition-all duration-300">
-          <div className="flex justify-between items-center">
-            <h2 className="text-gray-400 text-sm">Attendance</h2>
-            <span className="text-yellow-400 text-lg">📊</span>
+        <Card className="bg-gradient-to-br from-yellow-600/20 to-yellow-900/20 border border-yellow-500/20">
+          <div className="flex justify-between">
+            <p className="text-sm text-gray-400">Attendance</p>
+            <span>📊</span>
           </div>
           <p className="text-3xl font-bold mt-3">--</p>
         </Card>
 
       </div>
 
-    </div>
 
+      {/* LOWER SECTION */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* ATTENDANCE */}
+        <Card className="lg:col-span-2 space-y-4">
+          <h2 className="text-lg font-semibold">Today's Attendance</h2>
+
+          {[91, 87, 95, 78].map((val, i) => (
+            <div key={i}>
+              <div className="flex justify-between text-sm text-gray-400 mb-1">
+                <span>Class {i+1}</span>
+                <span>{val}%</span>
+              </div>
+
+              <div className="w-full bg-white/10 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full ${
+                    val > 90 ? "bg-green-400" :
+                    val > 80 ? "bg-yellow-400" :
+                    "bg-red-400"
+                  }`}
+                  style={{ width: `${val}%` }}
+                />
+              </div>
+            </div>
+          ))}
+
+        </Card>
+
+
+        {/* EVENTS */}
+        <Card className="space-y-4">
+          <h2 className="text-lg font-semibold">Upcoming Events</h2>
+
+          <div className="text-sm text-gray-400 space-y-3">
+
+            <div>
+              <p className="text-white">Annual Sports Day</p>
+              <span className="text-xs">10 Apr • Sports</span>
+            </div>
+
+            <div>
+              <p className="text-white">Science Exhibition</p>
+              <span className="text-xs">20 Apr • Academic</span>
+            </div>
+
+            <div>
+              <p className="text-white">Parent Meeting</p>
+              <span className="text-xs">28 Apr • Meeting</span>
+            </div>
+
+          </div>
+        </Card>
+
+      </div>
+
+    </div>
   )
 }
