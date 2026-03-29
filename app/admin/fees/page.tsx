@@ -8,7 +8,6 @@ import jsPDF from "jspdf"
 import { createRoot } from "react-dom/client"
 import FeeReceipt from "@/components/fees/FeeReceipt"
 import { useRouter } from "next/navigation"
-import QRCode from "qrcode" // ✅ ADDED
 
 export default function FeesPage(){
 
@@ -30,10 +29,12 @@ export default function FeesPage(){
   const [loading,setLoading] = useState(false)
   const [generating,setGenerating] = useState(false)
 
+  // ================= INIT =================
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
 
+  // ================= LOAD CLASSES =================
   useEffect(()=>{
     if(!schoolId) return
 
@@ -44,6 +45,7 @@ export default function FeesPage(){
 
   },[schoolId])
 
+  // ================= LOAD SECTIONS =================
   useEffect(()=>{
     if(!selectedClass) return
 
@@ -77,12 +79,12 @@ export default function FeesPage(){
       return
     }
 
-    // ✅ FIX: removed class_name (causing 400)
+    // ✅ FETCH STUDENTS MANUALLY (NO 400 ERROR)
     const studentIds = feeData.map(f => f.student_id)
 
     const { data: students } = await supabase
       .from("students")
-      .select("id,name,roll_number") // ✅ FIXED
+      .select("id,name,roll_number,class_name")
       .in("id", studentIds)
 
     const studentMap:any = {}
@@ -107,25 +109,6 @@ export default function FeesPage(){
   const generateReceipt = async (f:any)=>{
 
     try{
-
-      // 🚀 ADD: SAVE RECEIPT
-      const { data: receipt } = await supabase
-        .from("receipts")
-        .insert({
-          fee_id:f.id,
-          student_id:f.student_id,
-          school_id:schoolId,
-          amount:f.paid_amount,
-          receipt_number:`RCPT-${Date.now()}`
-        })
-        .select()
-        .single()
-
-      const publicUrl = `${window.location.origin}/receipt/${receipt.id}`
-
-      // 🚀 ADD QR
-      const qr = await QRCode.toDataURL(publicUrl)
-
       const container = document.createElement("div")
       container.style.position = "fixed"
       container.style.top = "-9999px"
@@ -135,23 +118,21 @@ export default function FeesPage(){
       const root = createRoot(container)
 
       root.render(
-        <div>
-          <img src={qr} style={{width:100,marginBottom:10}} />
-          <FeeReceipt
-            student={f.students || {name:"Unknown",roll_number:"-"}}
-            fee={f}
-            payment={{
-              amount: f.paid_amount || 0,
-              date: new Date().toISOString(),
-              id: receipt.receipt_number
-            }}
-          />
-        </div>
+        <FeeReceipt
+          student={f.students}
+          fee={f}
+          payment={{
+            amount: f.paid_amount,
+            date: new Date().toISOString(),
+            id: f.id
+          }}
+        />
       )
 
       await new Promise(requestAnimationFrame)
       await new Promise(requestAnimationFrame)
 
+      // ✅ FIX OKLAB ERROR
       container.querySelectorAll("*").forEach((el:any)=>{
         el.style.color = "#000"
         el.style.background = "#fff"
@@ -172,7 +153,7 @@ export default function FeesPage(){
       const height = (canvas.height * width) / canvas.width
 
       pdf.addImage(img,"PNG",0,0,width,height)
-      pdf.save(`receipt-${receipt.receipt_number}.pdf`)
+      pdf.save(`receipt-${f.id}.pdf`)
 
       root.unmount()
       document.body.removeChild(container)
@@ -275,9 +256,102 @@ export default function FeesPage(){
         Receipt History
       </button>
 
-      {/* UI SAME — NO CHANGE BELOW */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
 
-      ...
+        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="input">
+          <option value="">Class</option>
+          {classes.map(c=>(
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+
+        <select value={selectedSection} onChange={(e)=>setSelectedSection(e.target.value)} className="input">
+          <option value="">Section</option>
+          {sections.map(s=>(
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+
+        <select value={selectedMonth} onChange={(e)=>setSelectedMonth(e.target.value)} className="input">
+          <option value="">Month</option>
+          <option>January</option>
+          <option>February</option>
+          <option>March</option>
+          <option>April</option>
+        </select>
+
+        <button onClick={generateFees} className="btn bg-blue-600">
+          {generating ? "Generating..." : "Generate Fees"}
+        </button>
+
+      </div>
+
+      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+
+        {loading ? "Loading..." : (
+
+          <table className="w-full text-sm">
+
+            <thead className="bg-white/5 text-gray-400">
+              <tr>
+                <th className="p-3 text-left">Student</th>
+                <th>Month</th>
+                <th>Total</th>
+                <th>Paid</th>
+                <th>Status</th>
+                <th>Receipt</th>
+              </tr>
+            </thead>
+
+            <tbody>
+
+              {fees.map(f=>(
+                <tr key={f.id} className="border-t border-white/10">
+
+                  <td className="p-3">{f.students?.name}</td>
+                  <td>{f.month}</td>
+                  <td>₹{f.total_amount}</td>
+                  <td>₹{f.paid_amount}</td>
+
+                  <td>
+                    <span className={`px-2 py-1 rounded text-xs ${statusColor(f.status)}`}>
+                      {f.status}
+                    </span>
+                  </td>
+
+                  <td>
+                    <button
+                      onClick={()=>generateReceipt(f)}
+                      className="px-3 py-1 bg-purple-600 rounded"
+                    >
+                      Receipt
+                    </button>
+                  </td>
+
+                </tr>
+              ))}
+
+            </tbody>
+
+          </table>
+
+        )}
+
+      </div>
+
+      <style jsx>{`
+        .input{
+          background:#0f172a;
+          padding:10px;
+          border-radius:10px;
+          width:100%;
+        }
+        .btn{
+          padding:10px 16px;
+          border-radius:10px;
+        }
+      `}</style>
+
     </div>
   )
 }
