@@ -18,27 +18,46 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
 
+    let retryCount = 0
+
     const checkAuth = async () => {
 
-      const { data } = await supabase.auth.getSession()
+      // ✅ USE getUser (NOT getSession)
+      const { data: userData } = await supabase.auth.getUser()
 
-      if (!data.session) {
+      if (!userData?.user) {
         window.location.href = "/login"
         return
       }
 
+      // ✅ GET ROLE (WAIT UNTIL AVAILABLE)
       const roleData = await getUserRole()
 
-      if (!roleData || roleData.role !== "admin") {
+      // 🔥 FIX: retry if profile not ready yet
+      if (!roleData) {
+        if (retryCount < 5) {
+          retryCount++
+          setTimeout(checkAuth, 400)
+          return
+        } else {
+          window.location.href = "/login"
+          return
+        }
+      }
+
+      // ❌ NOT ADMIN
+      if (roleData.role !== "admin") {
         window.location.href = "/unauthorized"
         return
       }
 
+      // ✅ SUCCESS
       setLoading(false)
     }
 
     checkAuth()
 
+    // ✅ LISTEN FOR LOGOUT ONLY (NO LOGIN LOOP)
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (!session) {
@@ -66,7 +85,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
-  // ✅ FIXED ACTIVE LOGIC
+  // ✅ ACTIVE LINK STYLE
   const linkStyle = (path: string) =>
     `flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 ${
       pathname === path || pathname.startsWith(path + "/")
@@ -87,12 +106,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         <nav className="flex flex-col gap-2 text-sm">
 
-          {/* DASHBOARD */}
           <Link href="/admin" className={linkStyle("/admin")}>
             📊 Dashboard
           </Link>
 
-          {/* ACADEMICS */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
             Academics
           </p>
@@ -113,7 +130,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📚 Subjects
           </Link>
 
-          {/* ATTENDANCE */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
             Attendance
           </p>
@@ -122,7 +138,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📅 Attendance
           </Link>
 
-          {/* EXAMS */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
             Examinations
           </p>
@@ -143,7 +158,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📑 Report Cards
           </Link>
 
-          {/* FINANCE */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
             Finance
           </p>
@@ -160,7 +174,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📈 Reports
           </Link>
 
-          {/* 🔥 NEW: COMMUNICATION */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
             Communication
           </p>
@@ -169,7 +182,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📢 Notices
           </Link>
 
-          {/* SYSTEM */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
             System
           </p>
@@ -182,10 +194,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       </aside>
 
-      {/* MAIN AREA */}
+      {/* MAIN */}
       <div className="flex-1 flex flex-col">
 
-        {/* TOPBAR */}
         <header className="flex justify-between items-center px-8 py-4 bg-white/5 backdrop-blur-xl border-b border-white/10">
 
           <div>
@@ -207,7 +218,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         </header>
 
-        {/* CONTENT */}
         <main className="flex-1 p-10">
           {children}
         </main>
