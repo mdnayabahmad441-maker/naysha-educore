@@ -22,7 +22,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const checkAuth = async () => {
 
-      // ✅ USE getUser (NOT getSession)
       const { data: userData } = await supabase.auth.getUser()
 
       if (!userData?.user) {
@@ -30,10 +29,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return
       }
 
-      // ✅ GET ROLE (WAIT UNTIL AVAILABLE)
       const roleData = await getUserRole()
 
-      // 🔥 FIX: retry if profile not ready yet
       if (!roleData) {
         if (retryCount < 5) {
           retryCount++
@@ -45,19 +42,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
       }
 
-      // ❌ NOT ADMIN
       if (roleData.role !== "admin") {
         window.location.href = "/unauthorized"
         return
       }
 
-      // ✅ SUCCESS
       setLoading(false)
     }
 
     checkAuth()
 
-    // ✅ LISTEN FOR LOGOUT ONLY (NO LOGIN LOOP)
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (!session) {
@@ -79,28 +73,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading) {
     return (
-      <div className="p-10 text-white bg-[#020c1b] min-h-screen flex items-center justify-center">
+      <div className="p-10 text-white bg-[var(--bg-main)] min-h-screen flex items-center justify-center">
         Loading...
       </div>
     )
   }
 
-  // ✅ ACTIVE LINK STYLE
   const linkStyle = (path: string) =>
     `flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 ${
       pathname === path || pathname.startsWith(path + "/")
-        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
-        : "text-gray-300 hover:bg-white/10 hover:text-white"
+        ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md"
+        : "text-gray-400 hover:bg-white/5 hover:text-white"
     }`
 
   return (
 
-    <div className="flex min-h-screen bg-[#020c1b] text-white">
+    <div className="flex min-h-screen bg-[var(--bg-main)] text-white">
 
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-white/5 backdrop-blur-xl border-r border-white/10 p-6 flex flex-col">
+      {/* 🔥 SIDEBAR (FIXED) */}
+      <aside className="w-64 bg-[var(--bg-card)] border-r border-white/10 p-6 flex flex-col">
 
-        <h1 className="text-xl font-bold mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+        <h1 className="text-xl font-bold mb-8 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
           {school?.name || "NaySha EduCore"}
         </h1>
 
@@ -110,9 +103,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📊 Dashboard
           </Link>
 
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
-            Academics
-          </p>
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">Academics</p>
 
           <Link href="/admin/students" className={linkStyle("/admin/students")}>
             👨‍🎓 Students
@@ -130,17 +121,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📚 Subjects
           </Link>
 
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
-            Attendance
-          </p>
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">Attendance</p>
 
           <Link href="/admin/attendance" className={linkStyle("/admin/attendance")}>
             📅 Attendance
           </Link>
 
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
-            Examinations
-          </p>
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">Examinations</p>
 
           <Link href="/admin/exams/create" className={linkStyle("/admin/exams/create")}>
             📝 Create Exam
@@ -158,9 +145,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📑 Report Cards
           </Link>
 
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
-            Finance
-          </p>
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">Finance</p>
 
           <Link href="/admin/fees" className={linkStyle("/admin/fees")}>
             💰 Fees
@@ -174,17 +159,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📈 Reports
           </Link>
 
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
-            Communication
-          </p>
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">Communication</p>
 
           <Link href="/admin/notices" className={linkStyle("/admin/notices")}>
             📢 Notices
           </Link>
 
-          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase tracking-wider">
-            System
-          </p>
+          <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">System</p>
 
           <Link href="/admin/settings" className={linkStyle("/admin/settings")}>
             ⚙️ Settings
@@ -194,13 +175,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       </aside>
 
-      {/* MAIN */}
+      {/* 🔥 MAIN */}
       <div className="flex-1 flex flex-col">
 
-        <header className="flex justify-between items-center px-8 py-4 bg-white/5 backdrop-blur-xl border-b border-white/10">
+        {/* HEADER */}
+        <header className="flex justify-between items-center px-8 py-4 border-b border-white/10 bg-[var(--bg-card)]">
 
           <div>
-            <h2 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            <h2 className="text-lg font-semibold text-white">
               Admin Panel
             </h2>
 
@@ -211,14 +193,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <button
             onClick={logout}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-red-500 to-pink-500 hover:opacity-90 transition"
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-red-500 to-pink-500 hover:opacity-90"
           >
             Logout
           </button>
 
         </header>
 
-        <main className="flex-1 p-10">
+        {/* CONTENT */}
+        <main className="flex-1 p-10 bg-[var(--bg-main)]">
           {children}
         </main>
 
