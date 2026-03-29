@@ -1,5 +1,3 @@
-"use client"
-
 import { supabase } from "./supabase"
 
 let cachedSchoolId: string | null = null
@@ -8,42 +6,25 @@ export async function getSchoolId() {
 
   try {
 
+    // ✅ CACHE (avoid multiple calls)
     if (cachedSchoolId) return cachedSchoolId
 
-    if (typeof window === "undefined") return null
+    // ✅ GET SESSION FIRST (IMPORTANT)
+    const { data: sessionData } = await supabase.auth.getSession()
 
-    const host = window.location.hostname
-    let subdomain = host.split(".")[0]
-
-    if (host.includes("localhost")) subdomain = "default"
-
-    console.log("SUBDOMAIN:", subdomain)
-
-    // ✅ BLOCK INVALID SUBDOMAINS
-    if (["www", "erp", "naysha"].includes(subdomain)) {
-      console.warn("Invalid subdomain:", subdomain)
-      return null
+    if (!sessionData.session) {
+      return null // don't break app
     }
 
-    // ✅ SAFE QUERY
-    const { data, error } = await supabase
-      .from("schools")
-      .select("id")
-      .eq("subdomain", subdomain)
-      .maybeSingle()
+    // ✅ GET FROM JWT (NO DB CALL)
+    const schoolId =
+      sessionData.session.user.user_metadata?.school_id
 
-    if (error) {
-      console.error("School fetch error:", error)
-      return null
-    }
+    if (!schoolId) return null
 
-    if (!data) {
-      console.warn("No school found for subdomain:", subdomain)
-      return null
-    }
+    cachedSchoolId = schoolId
 
-    cachedSchoolId = data.id
-    return data.id
+    return schoolId
 
   } catch (err) {
     console.error("School error:", err)
