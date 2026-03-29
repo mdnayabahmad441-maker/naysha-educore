@@ -46,10 +46,8 @@ export default function VerifyPageClient() {
       return
     }
 
-    // ✅ IMPORTANT: REFRESH SESSION
     await supabase.auth.refreshSession()
 
-    // 🔥 GET USER
     const { data: userData } = await supabase.auth.getUser()
 
     if (!userData?.user) {
@@ -78,7 +76,7 @@ export default function VerifyPageClient() {
           phone: data.phone
         })
         .select()
-        .single()
+        .single() // ✅ KEEP THIS
 
       if (dbError || !newSchool) {
         setLoading(false)
@@ -86,28 +84,22 @@ export default function VerifyPageClient() {
         return
       }
 
-      // ✅ SAVE PROFILE
       await supabase.from("profiles").upsert({
         id: userId,
         school_id: newSchool.id,
         role: "admin"
       })
 
-      // ✅ CRITICAL: SAVE school_id IN AUTH JWT
       await supabase.auth.updateUser({
         data: {
           school_id: newSchool.id
         }
       })
 
-      // ✅ REFRESH SESSION AGAIN
       await supabase.auth.refreshSession()
 
       localStorage.removeItem("onboardingData")
 
-      alert("School created successfully")
-
-      // ✅ DIRECT REDIRECT (NO LOGIN LOOP)
       window.location.href = `https://${newSchool.subdomain}.naysha.online/admin`
       return
     }
@@ -127,7 +119,7 @@ export default function VerifyPageClient() {
         .from("students")
         .select("school_id")
         .eq("id", parent.student_id)
-        .single()
+        .maybeSingle()
 
       if (!student?.school_id) {
         alert("Parent linked school not found")
@@ -138,7 +130,7 @@ export default function VerifyPageClient() {
         .from("schools")
         .select("subdomain")
         .eq("id", student.school_id)
-        .single()
+        .maybeSingle()
 
       if (!school?.subdomain) {
         alert("School not found")
@@ -178,7 +170,7 @@ export default function VerifyPageClient() {
         .from("schools")
         .select("subdomain")
         .eq("id", teacher.school_id)
-        .single()
+        .maybeSingle()
 
       if (!school?.subdomain) {
         alert("School not found")
@@ -206,13 +198,13 @@ export default function VerifyPageClient() {
     // =========================
     // 🔥 ADMIN LOGIN FLOW
     // =========================
-    const { data: school, error: schoolError } = await supabase
+    const { data: school } = await supabase
       .from("schools")
       .select("id, subdomain")
       .eq("email", email)
-      .single()
+      .maybeSingle()
 
-    if (schoolError || !school?.subdomain) {
+    if (!school?.subdomain) {
       setLoading(false)
       alert("School not found")
       return
