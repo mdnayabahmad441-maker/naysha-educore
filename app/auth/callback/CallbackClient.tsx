@@ -1,45 +1,42 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { supabase } from "@/lib/supabase"
+import { useSearchParams } from "next/navigation"
 
 export default function CallbackClient() {
 
-  const router = useRouter()
   const params = useSearchParams()
 
   useEffect(() => {
 
-    const handleAuth = async () => {
+    const run = async () => {
 
       const access_token = params.get("access_token")
       const refresh_token = params.get("refresh_token")
-      const next = params.get("next") || "/admin" // 🔥 IMPORTANT
+      const subdomain = params.get("subdomain") // 🔥 ADD THIS
+      const next = params.get("next") || "/admin"
 
       if (!access_token || !refresh_token) {
-        router.replace("/login")
+        window.location.href = "/login"
         return
       }
 
-      // 🔥 SET SESSION SAFELY
-      const { error } = await supabase.auth.setSession({
-        access_token,
-        refresh_token
-      })
-
-      if (error) {
-        console.error("Session error:", error)
-        router.replace("/login")
+      // 🔥 REDIRECT TO SUBDOMAIN WITH TOKENS
+      if (subdomain) {
+        window.location.href =
+          `https://${subdomain}.naysha.online/auth/callback` +
+          `?access_token=${access_token}` +
+          `&refresh_token=${refresh_token}` +
+          `&next=${next}`
         return
       }
 
-      // 🔥 CLEAN REDIRECT (VERY IMPORTANT)
-      router.replace(next)
+      // ✅ fallback (same domain)
+      window.location.href = next
 
     }
 
-    handleAuth()
+    run()
 
   }, [])
 
