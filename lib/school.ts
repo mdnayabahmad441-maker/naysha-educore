@@ -6,25 +6,44 @@ export async function getSchoolId() {
 
   try {
 
-    // ✅ CACHE (avoid multiple calls)
     if (cachedSchoolId) return cachedSchoolId
 
-    // ✅ GET SESSION FIRST (IMPORTANT)
-    const { data: sessionData } = await supabase.auth.getSession()
+    if (typeof window === "undefined") return null
 
-    if (!sessionData.session) {
-      return null // don't break app
+    const host = window.location.hostname
+    let subdomain = host.split(".")[0]
+
+    if (host.includes("localhost")) subdomain = "default"
+
+    console.log("SUBDOMAIN:", subdomain)
+
+    // ✅ NEVER USE maybeSingle()
+    const { data, error } = await supabase
+      .from("schools")
+      .select("id")
+      .eq("subdomain", subdomain)
+
+    let school = data?.[0] || null
+
+    // 🔥 FALLBACK (CRITICAL)
+    if (!school) {
+      console.warn("No match → fallback")
+
+      const fallback = await supabase
+        .from("schools")
+        .select("id")
+        .limit(1)
+
+      school = fallback.data?.[0] || null
     }
 
-    // ✅ GET FROM JWT (NO DB CALL)
-    const schoolId =
-      sessionData.session.user.user_metadata?.school_id
+    if (!school) {
+      alert("No school found in DB ❌")
+      return null
+    }
 
-    if (!schoolId) return null
-
-    cachedSchoolId = schoolId
-
-    return schoolId
+    cachedSchoolId = school.id
+    return school.id
 
   } catch (err) {
     console.error("School error:", err)
