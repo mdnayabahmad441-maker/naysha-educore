@@ -4,57 +4,53 @@ let cachedSchoolId: string | null = null
 
 export async function getSchoolId() {
 
-  if (cachedSchoolId) return cachedSchoolId
+  try {
 
-  if (typeof window === "undefined") return null
+    if (cachedSchoolId) return cachedSchoolId
 
-  const host = window.location.hostname
-  let subdomain = host.split(".")[0]
+    const { data: userData } = await supabase.auth.getUser()
 
-  // LOCAL + ROOT FIX
-  if (host.includes("localhost") || subdomain === "www" || subdomain === "erp") {
-    subdomain = "default"
-  }
+    const schoolId =
+      userData?.user?.user_metadata?.school_id
 
-  console.log("SUBDOMAIN:", subdomain)
+    // ✅ PRIMARY SOURCE (JWT)
+    if (schoolId) {
+      cachedSchoolId = schoolId
+      return schoolId
+    }
 
-  // 🔍 TRY FIND SCHOOL
-  const { data, error } = await supabase
-    .from("schools")
-    .select("*")
-    .eq("subdomain", subdomain)
-    .maybeSingle()
+    // 🔥 FALLBACK (SUBDOMAIN ONLY — NO INSERT)
+    if (typeof window === "undefined") return null
 
-  if (error) {
-    console.error("Fetch error:", error)
-  }
+    const host = window.location.hostname
+    let subdomain = host.split(".")[0]
 
-  // ✅ FOUND
-  if (data) {
-    cachedSchoolId = data.id
-    return data.id
-  }
+    if (
+      host.includes("localhost") ||
+      subdomain === "www" ||
+      subdomain === "erp"
+    ) {
+      subdomain = "default"
+    }
 
-  console.warn("School not found → creating new one...")
+    const { data } = await supabase
+      .from("schools")
+      .select("id")
+      .eq("subdomain", subdomain)
+      .limit(1)
 
-  // 🔥 AUTO CREATE SCHOOL
-  const { data: newSchool, error: insertError } = await supabase
-    .from("schools")
-    .insert({
-      name: subdomain.toUpperCase() + " School",
-      subdomain: subdomain
-    })
-    .select()
-    .single()
+    const school = data?.[0]
 
-  if (insertError) {
-    console.error("Create school error:", insertError)
+    if (!school) {
+      console.error("No school found")
+      return null
+    }
+
+    cachedSchoolId = school.id
+    return school.id
+
+  } catch (err) {
+    console.error("School error:", err)
     return null
   }
-
-  cachedSchoolId = newSchool.id
-
-  console.log("New school created:", newSchool)
-
-  return newSchool.id
 }
