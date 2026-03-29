@@ -1,14 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 
 export default function VerifyPageClient() {
 
-  const router = useRouter()
   const params = useSearchParams()
-
   const email = params.get("email") || ""
 
   const [otp, setOtp] = useState("")
@@ -22,6 +20,8 @@ export default function VerifyPageClient() {
     )
   }
 
+  const wait = (ms: number) => new Promise(res => setTimeout(res, ms))
+
   const verify = async () => {
 
     if (!otp) {
@@ -31,9 +31,7 @@ export default function VerifyPageClient() {
 
     setLoading(true)
 
-    // =========================
     // 🔐 VERIFY OTP
-    // =========================
     const { error } = await supabase.auth.verifyOtp({
       email,
       token: otp,
@@ -46,8 +44,7 @@ export default function VerifyPageClient() {
       return
     }
 
-    await supabase.auth.refreshSession()
-
+    // 🔥 GET USER
     const { data: userData } = await supabase.auth.getUser()
 
     if (!userData?.user) {
@@ -76,7 +73,7 @@ export default function VerifyPageClient() {
           phone: data.phone
         })
         .select()
-        .single() // ✅ KEEP THIS
+        .single()
 
       if (dbError || !newSchool) {
         setLoading(false)
@@ -84,22 +81,29 @@ export default function VerifyPageClient() {
         return
       }
 
+      // ✅ CREATE PROFILE
       await supabase.from("profiles").upsert({
         id: userId,
         school_id: newSchool.id,
         role: "admin"
       })
 
+      // ✅ UPDATE JWT METADATA
       await supabase.auth.updateUser({
         data: {
           school_id: newSchool.id
         }
       })
 
-      await supabase.auth.refreshSession()
+      // 🔥 CRITICAL FIX: WAIT FOR JWT PROPAGATION
+      await wait(800)
+
+      // 🔥 FORCE SESSION RELOAD
+      await supabase.auth.getSession()
 
       localStorage.removeItem("onboardingData")
 
+      // 🚀 DIRECT REDIRECT (NO LOGIN PAGE)
       window.location.href = `https://${newSchool.subdomain}.naysha.online/admin`
       return
     }
@@ -149,7 +153,8 @@ export default function VerifyPageClient() {
         }
       })
 
-      await supabase.auth.refreshSession()
+      await wait(800)
+      await supabase.auth.getSession()
 
       window.location.href = `https://${school.subdomain}.naysha.online/parent`
       return
@@ -189,7 +194,8 @@ export default function VerifyPageClient() {
         }
       })
 
-      await supabase.auth.refreshSession()
+      await wait(800)
+      await supabase.auth.getSession()
 
       window.location.href = `https://${school.subdomain}.naysha.online/teacher`
       return
@@ -222,7 +228,8 @@ export default function VerifyPageClient() {
       }
     })
 
-    await supabase.auth.refreshSession()
+    await wait(800)
+    await supabase.auth.getSession()
 
     window.location.href = `https://${school.subdomain}.naysha.online/admin`
   }
