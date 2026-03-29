@@ -18,18 +18,26 @@ export default function StudentsPage(){
   const [role,setRole] = useState<string | null>(null)
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
+  // 🔥 toggle form instead of fake button
+  const [showForm,setShowForm] = useState(false)
+
+  // =========================
+  // ROLE
+  // =========================
   useEffect(()=>{
-    const loadRole = async()=>{
-      const r = await getUserRole()
-      setRole(r?.role || null)
-    }
-    loadRole()
+    getUserRole().then(r=>setRole(r?.role || null))
   },[])
 
+  // =========================
+  // SCHOOL
+  // =========================
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
 
+  // =========================
+  // LOAD DATA
+  // =========================
   const loadStudents = async () => {
 
     if(!schoolId) return
@@ -57,13 +65,26 @@ export default function StudentsPage(){
     loadStudents()
   },[schoolId])
 
+  // =========================
+  // 🔥 FIXED SEARCH (REAL)
+  // =========================
   useEffect(()=>{
+
+    const term = search.toLowerCase()
+
     const f = students.filter(s =>
-      s.name?.toLowerCase().includes(search.toLowerCase())
+      s.name?.toLowerCase().includes(term) ||
+      s.id?.toLowerCase().includes(term) ||
+      s.classes?.name?.toLowerCase().includes(term)
     )
+
     setFiltered(f)
+
   },[search,students])
 
+  // =========================
+  // VIEW
+  // =========================
   const handleView = (id:string)=>{
     if(role === "teacher"){
       alert("Not allowed")
@@ -87,27 +108,31 @@ export default function StudentsPage(){
         </div>
 
         {role === "admin" && (
-          <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-sm font-medium">
-            + Add Student
+          <button
+            onClick={()=>setShowForm(prev=>!prev)} // ✅ FIX
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-sm"
+          >
+            {showForm ? "Close" : "+ Add Student"}
           </button>
         )}
 
       </div>
 
       {/* SEARCH */}
-      <div>
-        <input
-          placeholder="🔍 Search by name, ID, class..."
-          value={search}
-          onChange={(e)=>setSearch(e.target.value)}
-          className="w-full md:w-96 px-4 py-2 rounded-lg bg-[#0b1220] border border-white/10 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-        />
-      </div>
+      <input
+        placeholder="Search by name, ID, class..."
+        value={search}
+        onChange={(e)=>setSearch(e.target.value)}
+        className="w-full md:w-96 px-4 py-2 rounded-lg bg-[#0b1220] border border-white/10 text-sm"
+      />
 
-      {/* FORM */}
-      {role === "admin" && (
+      {/* FORM (REAL WORKING) */}
+      {role === "admin" && showForm && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-          <StudentForm reload={loadStudents}/>
+          <StudentForm reload={()=>{
+            loadStudents()
+            setShowForm(false)
+          }}/>
         </div>
       )}
 
@@ -122,7 +147,6 @@ export default function StudentsPage(){
               <th className="p-4 text-left">Name</th>
               <th className="p-4 text-left">Class</th>
               <th className="p-4 text-left">Roll</th>
-              <th className="p-4 text-left">Status</th>
               <th className="p-4 text-right">Action</th>
             </tr>
           </thead>
@@ -131,13 +155,13 @@ export default function StudentsPage(){
 
             {loading ? (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-gray-400">
+                <td colSpan={5} className="p-6 text-center text-gray-400">
                   Loading...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-gray-400">
+                <td colSpan={5} className="p-6 text-center text-gray-400">
                   No students found
                 </td>
               </tr>
@@ -146,7 +170,7 @@ export default function StudentsPage(){
                 <tr key={s.id} className="border-t border-white/5 hover:bg-white/5">
 
                   <td className="p-4 text-gray-400">
-                    {s.id?.slice(0,4).toUpperCase()}
+                    {s.id?.slice(0,4)}
                   </td>
 
                   <td className="p-4 font-medium">
@@ -159,13 +183,6 @@ export default function StudentsPage(){
 
                   <td className="p-4">
                     {s.roll_number || "-"}
-                  </td>
-
-                  {/* STATUS BADGE */}
-                  <td className="p-4">
-                    <span className="px-3 py-1 text-xs rounded-full bg-green-500/20 text-green-400">
-                      Active
-                    </span>
                   </td>
 
                   <td className="p-4 text-right">
