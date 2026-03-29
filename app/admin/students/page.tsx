@@ -5,7 +5,7 @@ import StudentForm from "@/components/students/StudentForm"
 import { useRouter } from "next/navigation"
 import { getUserRole } from "@/lib/getUserRole"
 import { supabase } from "@/lib/supabase"
-import { getSchoolId } from "@/lib/school" // ✅ ADDED
+import { getSchoolId } from "@/lib/school"
 
 export default function StudentsPage(){
 
@@ -16,11 +16,8 @@ export default function StudentsPage(){
   const [loading,setLoading] = useState(true)
   const [search,setSearch] = useState("")
   const [role,setRole] = useState<string | null>(null)
-  const [schoolId,setSchoolId] = useState<string | null>(null) // ✅ ADDED
+  const [schoolId,setSchoolId] = useState<string | null>(null)
 
-  // =========================
-  // LOAD ROLE
-  // =========================
   useEffect(()=>{
     const loadRole = async()=>{
       const r = await getUserRole()
@@ -29,31 +26,21 @@ export default function StudentsPage(){
     loadRole()
   },[])
 
-  // =========================
-  // LOAD SCHOOL ID (CRITICAL)
-  // =========================
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
 
-  // =========================
-  // LOAD STUDENTS (SECURE)
-  // =========================
   const loadStudents = async () => {
 
-    if(!schoolId) return // ✅ IMPORTANT
+    if(!schoolId) return
 
     setLoading(true)
 
     const { data } = await supabase
       .from("students")
-      .select(`
-        *,
-        classes(name)
-      `)
-      .eq("school_id", schoolId) // ✅ FIX
+      .select(`*, classes(name)`)
+      .eq("school_id", schoolId)
 
-    // 🔥 SORT BY CLASS + ROLL
     const sorted = (data || []).sort((a:any,b:any)=>{
       if(a.class_id === b.class_id){
         return (a.roll_number || 0) - (b.roll_number || 0)
@@ -63,17 +50,13 @@ export default function StudentsPage(){
 
     setStudents(sorted)
     setFiltered(sorted)
-
     setLoading(false)
   }
 
   useEffect(()=>{
     loadStudents()
-  },[schoolId]) // ✅ IMPORTANT
+  },[schoolId])
 
-  // =========================
-  // SEARCH
-  // =========================
   useEffect(()=>{
     const f = students.filter(s =>
       s.name?.toLowerCase().includes(search.toLowerCase())
@@ -81,9 +64,6 @@ export default function StudentsPage(){
     setFiltered(f)
   },[search,students])
 
-  // =========================
-  // VIEW
-  // =========================
   const handleView = (id:string)=>{
     if(role === "teacher"){
       alert("Not allowed")
@@ -97,41 +77,52 @@ export default function StudentsPage(){
     <div className="p-6 md:p-10 text-white max-w-7xl mx-auto space-y-6">
 
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+      <div className="flex justify-between items-center">
 
         <div>
-          <h1 className="text-3xl font-bold">Students</h1>
-          <p className="text-gray-400 text-sm">
-            Class-wise student list
+          <h1 className="text-2xl font-semibold">Students</h1>
+          <p className="text-sm text-gray-400">
+            {students.length} enrolled students
           </p>
         </div>
 
+        {role === "admin" && (
+          <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-sm font-medium">
+            + Add Student
+          </button>
+        )}
+
+      </div>
+
+      {/* SEARCH */}
+      <div>
         <input
-          placeholder="Search student..."
+          placeholder="🔍 Search by name, ID, class..."
           value={search}
           onChange={(e)=>setSearch(e.target.value)}
-          className="px-4 py-2 rounded-lg bg-[#0b1220] border border-white/10 text-sm w-full md:w-64"
+          className="w-full md:w-96 px-4 py-2 rounded-lg bg-[#0b1220] border border-white/10 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
         />
-
       </div>
 
       {/* FORM */}
       {role === "admin" && (
-        <div className="bg-white/10 backdrop-blur-lg border border-white/10 p-6 rounded-xl">
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
           <StudentForm reload={loadStudents}/>
         </div>
       )}
 
       {/* TABLE */}
-      <div className="bg-white/5 border border-white/10 rounded-xl overflow-x-auto">
+      <div className="bg-[#0b1220] border border-white/10 rounded-xl overflow-hidden">
 
         <table className="w-full text-sm">
 
-          <thead className="bg-white/10 text-gray-300">
+          <thead className="text-gray-400 border-b border-white/10">
             <tr>
-              <th className="p-4 text-left">Student</th>
+              <th className="p-4 text-left">ID</th>
+              <th className="p-4 text-left">Name</th>
               <th className="p-4 text-left">Class</th>
               <th className="p-4 text-left">Roll</th>
+              <th className="p-4 text-left">Status</th>
               <th className="p-4 text-right">Action</th>
             </tr>
           </thead>
@@ -140,57 +131,50 @@ export default function StudentsPage(){
 
             {loading ? (
               <tr>
-                <td colSpan={4} className="p-6 text-center text-gray-400">
-                  Loading students...
+                <td colSpan={6} className="p-6 text-center text-gray-400">
+                  Loading...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={4} className="p-6 text-center text-gray-400">
+                <td colSpan={6} className="p-6 text-center text-gray-400">
                   No students found
                 </td>
               </tr>
             ) : (
               filtered.map((s)=>(
-                <tr key={s.id} className="border-t border-white/10">
+                <tr key={s.id} className="border-t border-white/5 hover:bg-white/5">
 
-                  <td className="p-4 flex items-center gap-3">
-
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-sm font-semibold">
-                      {s.name?.charAt(0)?.toUpperCase()}
-                    </div>
-
-                    <div>
-                      <p className="font-medium">{s.name}</p>
-                      <p className="text-xs text-gray-400">
-                        ID: {s.id?.slice(0,6)}
-                      </p>
-                    </div>
-
+                  <td className="p-4 text-gray-400">
+                    {s.id?.slice(0,4).toUpperCase()}
                   </td>
 
-                  <td className="p-4 text-gray-300">
+                  <td className="p-4 font-medium">
+                    {s.name}
+                  </td>
+
+                  <td className="p-4">
                     {s.classes?.name || "-"}
                   </td>
 
-                  <td className="p-4 text-gray-300">
+                  <td className="p-4">
                     {s.roll_number || "-"}
                   </td>
 
-                  <td className="p-4 text-right">
+                  {/* STATUS BADGE */}
+                  <td className="p-4">
+                    <span className="px-3 py-1 text-xs rounded-full bg-green-500/20 text-green-400">
+                      Active
+                    </span>
+                  </td>
 
+                  <td className="p-4 text-right">
                     <button
                       onClick={()=>handleView(s.id)}
-                      disabled={role === "teacher"}
-                      className={`px-4 py-2 text-xs rounded-lg ${
-                        role === "teacher"
-                          ? "bg-gray-700 text-gray-400"
-                          : "bg-white/10 hover:bg-white/20"
-                      }`}
+                      className="px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-xs"
                     >
                       View
                     </button>
-
                   </td>
 
                 </tr>
