@@ -1,3 +1,5 @@
+"use client"
+
 import { supabase } from "./supabase"
 
 let cachedSchoolId: string | null = null
@@ -17,33 +19,31 @@ export async function getSchoolId() {
 
     console.log("SUBDOMAIN:", subdomain)
 
-    // ✅ NEVER USE maybeSingle()
+    // ✅ BLOCK INVALID SUBDOMAINS
+    if (["www", "erp", "naysha"].includes(subdomain)) {
+      console.warn("Invalid subdomain:", subdomain)
+      return null
+    }
+
+    // ✅ SAFE QUERY
     const { data, error } = await supabase
       .from("schools")
       .select("id")
       .eq("subdomain", subdomain)
+      .maybeSingle()
 
-    let school = data?.[0] || null
-
-    // 🔥 FALLBACK (CRITICAL)
-    if (!school) {
-      console.warn("No match → fallback")
-
-      const fallback = await supabase
-        .from("schools")
-        .select("id")
-        .limit(1)
-
-      school = fallback.data?.[0] || null
-    }
-
-    if (!school) {
-      alert("No school found in DB ❌")
+    if (error) {
+      console.error("School fetch error:", error)
       return null
     }
 
-    cachedSchoolId = school.id
-    return school.id
+    if (!data) {
+      console.warn("No school found for subdomain:", subdomain)
+      return null
+    }
+
+    cachedSchoolId = data.id
+    return data.id
 
   } catch (err) {
     console.error("School error:", err)
