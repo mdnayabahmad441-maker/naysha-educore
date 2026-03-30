@@ -11,23 +11,23 @@ export default function NoticesPage(){
 
   const [title,setTitle] = useState("")
   const [message,setMessage] = useState("")
+
+  const [mode,setMode] = useState("all") // 🔥 all | class | student
   const [selectedClass,setSelectedClass] = useState("")
+  const [selectedStudent,setSelectedStudent] = useState("")
 
   const [classes,setClasses] = useState<any[]>([])
+  const [students,setStudents] = useState<any[]>([])
   const [notices,setNotices] = useState<any[]>([])
 
   const [sending,setSending] = useState(false)
 
-  // ✅ INIT SCHOOL
+  // SCHOOL
   useEffect(()=>{
-    const init = async ()=>{
-      const id = await getSchoolId()
-      setSchoolId(id)
-    }
-    init()
+    getSchoolId().then(setSchoolId)
   },[])
 
-  // ✅ LOAD CLASSES
+  // CLASSES
   useEffect(()=>{
     if(!schoolId) return
 
@@ -37,7 +37,24 @@ export default function NoticesPage(){
       .then(({data})=>setClasses(data || []))
   },[schoolId])
 
-  // ✅ LOAD NOTICES
+  // STUDENTS (for dropdown)
+  useEffect(()=>{
+    if(!schoolId) return
+
+    let query = supabase
+      .from("students")
+      .select("id,name")
+      .eq("school_id", schoolId)
+
+    if(mode === "class" && selectedClass){
+      query = query.eq("class_id", selectedClass)
+    }
+
+    query.then(({data})=>setStudents(data || []))
+
+  },[schoolId, selectedClass, mode])
+
+  // LOAD NOTICES
   const loadNotices = async ()=>{
     if(!schoolId) return
 
@@ -72,54 +89,99 @@ export default function NoticesPage(){
     try{
 
       // ✅ SAVE NOTICE
-      const { error } = await supabase.from("notices").insert({
+      await supabase.from("notices").insert({
         id: crypto.randomUUID(),
         school_id: schoolId,
         title,
         message,
-        class_id: selectedClass || null
+        class_id: mode === "class" ? selectedClass : null,
+        student_id: mode === "student" ? selectedStudent : null
       })
 
-      if(error){
-        alert(error.message)
-        return
+      // 🔥 TARGET STUDENTS
+      let targetStudents:any[] = []
+
+      if(mode === "all"){
+        const { data } = await supabase
+          .from("students")
+          .select("id,name")
+          .eq("school_id", schoolId)
+        targetStudents = data || []
       }
 
-      // ✅ GET STUDENTS
-      let query = supabase
-        .from("students")
-        .select("*")
-        .eq("school_id", schoolId)
-
-      if(selectedClass){
-        query = query.eq("class_id", selectedClass)
+      else if(mode === "class"){
+        const { data } = await supabase
+          .from("students")
+          .select("id,name")
+          .eq("class_id", selectedClass)
+          .eq("school_id", schoolId)
+        targetStudents = data || []
       }
 
-      const { data: students } = await query
+      else if(mode === "student"){
+        const student = students.find(s=>s.id === selectedStudent)
+        if(student) targetStudents = [student]
+      }
 
-      // 🔥 SEND NOTIFICATIONS
-      for (const s of students || []){
+      // 🔥 GET PARENTS
+      const { data: parents } = await supabase
+        .from("parents")
+        .select("student_id,email,phone")
+        .in("student_id", targetStudents.map(s=>s.id))
 
-        try{
-          await sendNotification({
-            school_id: schoolId,
-            student_id: s.id,
-            title,
-            message,
-            type: "notice"
+      const parentMap:any = {}
+      parents?.forEach((p:any)=>{
+        parentMap[p.student_id] = p
+      })
+
+      // 🔥 SEND (SMART LOOP ONLY TARGETS)
+      for (const s of targetStudents){
+
+        const parent = parentMap[s.id]
+
+        // DB
+        await sendNotification({
+          school_id: schoolId,
+          student_id: s.id,
+          title,
+          message,
+          type: "notice"
+        })
+
+        // EMAIL
+        if(parent?.email){
+          await fetch("/api/send-email",{
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({
+              email: parent.email,
+              subject: title,
+              message
+            })
           })
-        }catch(err){
-          console.error("Notification failed:", err)
+        }
+
+        // WHATSAPP
+        if(parent?.phone){
+          await fetch("/api/send-whatsapp",{
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({
+              phone: parent.phone,
+              message: `📢 ${title}\n\n${message}`
+            })
+          })
         }
 
       }
 
       alert("Notice sent successfully 🚀")
 
-      // RESET
       setTitle("")
       setMessage("")
       setSelectedClass("")
+      setSelectedStudent("")
+      setMode("all")
 
       loadNotices()
 
@@ -137,7 +199,6 @@ export default function NoticesPage(){
 
       <h1 className="text-2xl font-semibold">Notices</h1>
 
-      {/* CREATE NOTICE */}
       <div className="bg-white/10 p-6 rounded-xl space-y-4">
 
         <input
@@ -154,19 +215,44 @@ export default function NoticesPage(){
           className="w-full p-3 bg-[#0b1220] rounded-xl h-32"
         />
 
-        {/* CLASS FILTER */}
+        {/* 🔥 MODE SELECT */}
         <select
-          value={selectedClass}
-          onChange={(e)=>setSelectedClass(e.target.value)}
+          value={mode}
+          onChange={(e)=>setMode(e.target.value)}
           className="w-full p-3 bg-[#0b1220] rounded-xl"
         >
-          <option value="">All Classes</option>
-          {classes.map(c=>(
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
+          <option value="all">All Students</option>
+          <option value="class">Specific Class</option>
+          <option value="student">Specific Student</option>
         </select>
+
+        {/* CLASS */}
+        {mode === "class" && (
+          <select
+            value={selectedClass}
+            onChange={(e)=>setSelectedClass(e.target.value)}
+            className="w-full p-3 bg-[#0b1220] rounded-xl"
+          >
+            <option value="">Select Class</option>
+            {classes.map(c=>(
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        )}
+
+        {/* STUDENT */}
+        {mode === "student" && (
+          <select
+            value={selectedStudent}
+            onChange={(e)=>setSelectedStudent(e.target.value)}
+            className="w-full p-3 bg-[#0b1220] rounded-xl"
+          >
+            <option value="">Select Student</option>
+            {students.map(s=>(
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        )}
 
         <button
           onClick={sendNotice}
@@ -178,36 +264,20 @@ export default function NoticesPage(){
 
       </div>
 
-      {/* NOTICE LIST */}
+      {/* LIST */}
       <div className="bg-white/10 p-6 rounded-xl space-y-4">
 
         <h2 className="text-lg font-semibold">Recent Notices</h2>
 
-        {notices.length === 0 && (
-          <p className="text-gray-400">No notices yet</p>
-        )}
-
-        {notices.map(n=>{
-
-          const cls = classes.find(c=>c.id === n.class_id)
-
-          return(
-            <div key={n.id} className="bg-white/5 p-4 rounded-xl">
-
-              <h3 className="font-semibold">{n.title}</h3>
-
-              <p className="text-sm text-gray-300 mt-1">
-                {n.message}
-              </p>
-
-              <p className="text-xs text-gray-500 mt-2">
-                {cls ? `Class: ${cls.name}` : "All Students"} • {" "}
-                {new Date(n.created_at).toLocaleString()}
-              </p>
-
-            </div>
-          )
-        })}
+        {notices.map(n=>(
+          <div key={n.id} className="bg-white/5 p-4 rounded-xl">
+            <h3 className="font-semibold">{n.title}</h3>
+            <p className="text-sm text-gray-300 mt-1">{n.message}</p>
+            <p className="text-xs text-gray-500 mt-2">
+              {new Date(n.created_at).toLocaleString()}
+            </p>
+          </div>
+        ))}
 
       </div>
 
