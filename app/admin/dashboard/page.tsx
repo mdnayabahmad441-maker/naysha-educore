@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase"
 import Card from "@/components/ui/Card"
 import { getSchoolId } from "@/lib/school"
 
-// 🔥 CHART
 import {
   BarChart,
   Bar,
@@ -25,6 +24,7 @@ export default function DashboardPage() {
   const [classes,setClasses] = useState(0)
 
   const [attendance,setAttendance] = useState(0)
+  const [classAttendance,setClassAttendance] = useState<any[]>([])
 
   const [collected,setCollected] = useState(0)
   const [pending,setPending] = useState(0)
@@ -75,19 +75,39 @@ export default function DashboardPage() {
 
         const { data: att } = await supabase
           .from("attendance")
-          .select("present,total")
+          .select(`
+            present,
+            total,
+            class_id,
+            classes(name)
+          `)
           .eq("school_id", schoolId)
           .eq("date", today)
 
-        let percent = 0
+        let totalPresent = 0
+        let totalStudents = 0
 
-        if(att && att.length){
-          const totalPresent = att.reduce((sum,a)=>sum + (a.present || 0),0)
-          const total = att.reduce((sum,a)=>sum + (a.total || 0),0)
-          percent = total ? Math.round((totalPresent/total)*100) : 0
-        }
+        const formatted = (att || []).map((a:any) => {
 
-        setAttendance(percent)
+          totalPresent += a.present || 0
+          totalStudents += a.total || 0
+
+          const percent = a.total
+            ? Math.round((a.present / a.total) * 100)
+            : 0
+
+          return {
+            name: a.classes?.name || "Class",
+            percent
+          }
+        })
+
+        const overall = totalStudents
+          ? Math.round((totalPresent / totalStudents) * 100)
+          : 0
+
+        setAttendance(overall)
+        setClassAttendance(formatted)
 
         // =========================
         // 💰 FEES
@@ -164,33 +184,111 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* TOP CARDS */}
+      {/* 🔥 TOP CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
-        <Card>
-          <p className="text-gray-400 text-sm">Students</p>
-          <p className="text-3xl font-bold mt-2">{students}</p>
+        <Card className="bg-gradient-to-br from-blue-600/20 to-blue-900/20 border border-blue-500/20">
+          <div className="flex justify-between">
+            <p className="text-sm text-gray-400">Total Students</p>
+            🎓
+          </div>
+          <p className="text-3xl font-bold mt-3">{students}</p>
         </Card>
 
-        <Card>
-          <p className="text-gray-400 text-sm">Teachers</p>
-          <p className="text-3xl font-bold mt-2">{teachers}</p>
+        <Card className="bg-gradient-to-br from-purple-600/20 to-purple-900/20 border border-purple-500/20">
+          <div className="flex justify-between">
+            <p className="text-sm text-gray-400">Teachers</p>
+            👨‍🏫
+          </div>
+          <p className="text-3xl font-bold mt-3">{teachers}</p>
         </Card>
 
-        <Card>
-          <p className="text-gray-400 text-sm">Classes</p>
-          <p className="text-3xl font-bold mt-2">{classes}</p>
+        <Card className="bg-gradient-to-br from-green-600/20 to-green-900/20 border border-green-500/20">
+          <div className="flex justify-between">
+            <p className="text-sm text-gray-400">Classes</p>
+            🏫
+          </div>
+          <p className="text-3xl font-bold mt-3">{classes}</p>
         </Card>
 
-        <Card>
-          <p className="text-gray-400 text-sm">Attendance</p>
-          <p className="text-3xl font-bold mt-2">{attendance}%</p>
+        <Card className="bg-gradient-to-br from-yellow-600/20 to-yellow-900/20 border border-yellow-500/20">
+          <div className="flex justify-between">
+            <p className="text-sm text-gray-400">Attendance</p>
+            📊
+          </div>
+          <p className="text-3xl font-bold mt-3">{attendance}%</p>
+        </Card>
+
+      </div>
+
+      {/* 🔥 LOWER GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* 📊 ATTENDANCE */}
+        <Card className="lg:col-span-2 space-y-4">
+
+          <h2 className="text-lg font-semibold">Today's Attendance</h2>
+
+          {classAttendance.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              No attendance marked today
+            </p>
+          ) : (
+            classAttendance.map((c,i)=>(
+              <div key={i}>
+
+                <div className="flex justify-between text-sm text-gray-400 mb-1">
+                  <span>{c.name}</span>
+                  <span>{c.percent}%</span>
+                </div>
+
+                <div className="w-full bg-white/10 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full ${
+                      c.percent > 90 ? "bg-green-400" :
+                      c.percent > 80 ? "bg-yellow-400" :
+                      "bg-red-400"
+                    }`}
+                    style={{ width: `${c.percent}%` }}
+                  />
+                </div>
+
+              </div>
+            ))
+          )}
+
+        </Card>
+
+        {/* 📅 EVENTS */}
+        <Card className="space-y-4">
+
+          <h2 className="text-lg font-semibold">Upcoming Events</h2>
+
+          <div className="text-sm text-gray-400 space-y-3">
+
+            <div>
+              <p className="text-white">Annual Sports Day</p>
+              <span className="text-xs">10 Apr • Sports</span>
+            </div>
+
+            <div>
+              <p className="text-white">Science Exhibition</p>
+              <span className="text-xs">20 Apr • Academic</span>
+            </div>
+
+            <div>
+              <p className="text-white">Parent Meeting</p>
+              <span className="text-xs">28 Apr • Meeting</span>
+            </div>
+
+          </div>
+
         </Card>
 
       </div>
 
       {/* 💰 FEES */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
         <Card className="bg-green-500/10 border border-green-500/20">
           <p className="text-sm text-gray-400">Collected</p>
@@ -199,16 +297,23 @@ export default function DashboardPage() {
           </p>
         </Card>
 
-        <Card className="bg-red-500/10 border border-red-500/20">
+        <Card className="bg-yellow-500/10 border border-yellow-500/20">
           <p className="text-sm text-gray-400">Pending</p>
-          <p className="text-2xl font-bold text-red-400 mt-2">
+          <p className="text-2xl font-bold text-yellow-400 mt-2">
             ₹{pending.toLocaleString()}
+          </p>
+        </Card>
+
+        <Card className="bg-red-500/10 border border-red-500/20">
+          <p className="text-sm text-gray-400">Overdue</p>
+          <p className="text-2xl font-bold text-red-400 mt-2">
+            ₹0
           </p>
         </Card>
 
       </div>
 
-      {/* 📊 CHART */}
+      {/* 📈 CHART */}
       <Card className="p-6">
 
         <h2 className="mb-4 font-semibold">Monthly Fee Collection</h2>
