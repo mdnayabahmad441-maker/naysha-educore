@@ -2,54 +2,55 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { getUserRole } from "@/lib/getUserRole"
 
 export default function TeacherDashboard(){
 
   const [loading,setLoading] = useState(true)
+  const [teacher,setTeacher] = useState<any>(null)
 
   useEffect(()=>{
 
-    const check = async()=>{
+    const load = async()=>{
 
-      const { data } = await supabase.auth.getSession()
+      const { data } = await supabase.auth.getUser()
 
-      if(!data.session){
+      if(!data.user){
         window.location.href = "/login"
         return
       }
 
-      const roleData = await getUserRole()
+      const { data: teacherData } = await supabase
+        .from("teachers")
+        .select("*")
+        .eq("auth_id", data.user.id)
+        .single()
 
-      if(roleData?.role !== "teacher"){
-        window.location.href = "/unauthorized"
+      if(!teacherData){
+        alert("Teacher not found")
         return
       }
 
+      setTeacher(teacherData)
       setLoading(false)
     }
 
-    check()
+    load()
 
   },[])
 
   if(loading){
-    return (
-      <div className="p-10 text-white">
-        Loading Teacher Panel...
-      </div>
-    )
+    return <div className="p-10 text-white">Loading...</div>
   }
 
   return(
-    <div className="p-10 text-white">
+    <div className="p-10 text-white space-y-4">
 
-      <h1 className="text-2xl font-bold mb-4">
-        Teacher Dashboard
+      <h1 className="text-2xl font-bold">
+        Welcome {teacher.name} 👋
       </h1>
 
       <p className="text-gray-400">
-        Welcome to teacher panel
+        Subject: {teacher.subject || "-"}
       </p>
 
     </div>

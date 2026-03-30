@@ -62,7 +62,7 @@ export default function TeachersPage(){
     })
   }
 
-  // ================= SUBMIT (UPDATED) =================
+  // ================= ✅ FULLY UPDATED SUBMIT =================
   const submit = async () => {
 
     if(!form.name || !form.email){
@@ -76,6 +76,7 @@ export default function TeachersPage(){
 
     try{
 
+      // 🔥 CREATE TEACHER (AUTH + DB + NOTIFICATIONS)
       const res = await fetch("/api/create-teacher",{
         method:"POST",
         headers:{ "Content-Type":"application/json" },
@@ -86,8 +87,7 @@ export default function TeachersPage(){
           subject: form.subject,
           qualification: form.qualification,
           experience_years: Number(form.experience_years),
-          school_id: schoolId,
-          classes: form.selectedClasses
+          school_id: schoolId
         })
       })
 
@@ -98,7 +98,20 @@ export default function TeachersPage(){
         return
       }
 
-      alert("✅ Teacher created & login link sent")
+      const teacherId = data.teacher.id
+
+      // 🔥 ASSIGN CLASSES AFTER CREATION
+      if(form.selectedClasses.length){
+        const rows = form.selectedClasses.map(c=>({
+          teacher_id: teacherId,
+          class_id: c,
+          school_id: schoolId
+        }))
+
+        await supabase.from("teacher_classes").insert(rows)
+      }
+
+      alert("✅ Teacher created + notified (Email + WhatsApp)")
 
       setShowForm(false)
 
