@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { dbGet, dbInsert } from "@/lib/db"
-import { getSchoolId } from "@/lib/school" // ✅ ADDED
+import { dbInsert } from "@/lib/db"
+import { getSchoolId } from "@/lib/school"
 
 export default function StudentForm({ reload }: any){
 
@@ -13,10 +13,7 @@ export default function StudentForm({ reload }: any){
   const [photo,setPhoto] = useState<File | null>(null)
 
   const [classes,setClasses] = useState<any[]>([])
-  const [sections,setSections] = useState<any[]>([])
-
   const [selectedClass,setSelectedClass] = useState("")
-  const [selectedSection,setSelectedSection] = useState("")
 
   const [loading,setLoading] = useState(false)
 
@@ -24,44 +21,35 @@ export default function StudentForm({ reload }: any){
   const [parentEmail,setParentEmail] = useState("")
   const [parentPhone,setParentPhone] = useState("")
 
-  const [schoolId,setSchoolId] = useState<string | null>(null) // ✅ ADDED
+  const [schoolId,setSchoolId] = useState<string | null>(null)
 
   // ================= LOAD SCHOOL =================
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
 
-  // ================= LOAD DATA (SECURE) =================
- useEffect(()=>{
-  const load = async ()=>{
-    if(!schoolId) return // ✅ correct
+  // ================= LOAD CLASSES =================
+  useEffect(()=>{
+    const load = async ()=>{
+      if(!schoolId) return
 
-    const { data: cls } = await supabase
-      .from("classes")
-      .select("*")
-      .eq("school_id", schoolId)
+      const { data } = await supabase
+        .from("classes")
+        .select("*")
+        .eq("school_id", schoolId)
 
-    const { data: sec } = await supabase
-      .from("sections")
-      .select("*")
-      .eq("school_id", schoolId)
+      setClasses(data || [])
+    }
 
-    setClasses(cls || [])
-    setSections(sec || [])
-  }
+    load()
+  },[schoolId])
 
-  load()
-},[schoolId])
-
-  const filteredSections = sections.filter(
-    (s)=>s.class_id === selectedClass
-  )
-
+  // ================= SAVE =================
   const save = async ()=>{
 
     try{
 
-      if(!name || !email || !selectedClass || !selectedSection){
+      if(!name || !email || !selectedClass){
         alert("Fill all fields")
         return
       }
@@ -78,11 +66,11 @@ export default function StudentForm({ reload }: any){
       if(photo){
         const fileName = `${Date.now()}-${photo.name}`
 
-        const { error: uploadError } = await supabase.storage
+        const { error } = await supabase.storage
           .from("students")
           .upload(fileName, photo)
 
-        if(uploadError){
+        if(error){
           alert("Image upload failed")
           return
         }
@@ -92,23 +80,22 @@ export default function StudentForm({ reload }: any){
 
       const studentId = crypto.randomUUID()
 
-      // ================= STUDENT INSERT (FIXED) =================
+      // ✅ INSERT STUDENT (NO SECTION)
       await dbInsert("students", {
         id: studentId,
-        school_id: schoolId, // ✅ CRITICAL FIX
+        school_id: schoolId,
         name: name.trim(),
         email: email.trim(),
         roll_number: roll,
         class_id: selectedClass,
-        section_id: selectedSection,
         photo: photoUrl
       })
 
-      // ================= PARENT INSERT (FIXED) =================
+      // ✅ INSERT PARENT
       if(parentEmail){
         await dbInsert("parents", {
           id: crypto.randomUUID(),
-          school_id: schoolId, // ✅ CRITICAL FIX
+          school_id: schoolId,
           student_id: studentId,
           name: parentName,
           email: parentEmail.trim(),
@@ -122,7 +109,6 @@ export default function StudentForm({ reload }: any){
       setRoll("")
       setPhoto(null)
       setSelectedClass("")
-      setSelectedSection("")
       setParentName("")
       setParentEmail("")
       setParentPhone("")
@@ -140,7 +126,7 @@ export default function StudentForm({ reload }: any){
 
     <div className="space-y-6">
 
-      {/* ================= STUDENT SECTION ================= */}
+      {/* STUDENT */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
 
         <h2 className="text-lg font-semibold">Student Details</h2>
@@ -151,21 +137,21 @@ export default function StudentForm({ reload }: any){
             placeholder="Student Name"
             value={name}
             onChange={(e)=>setName(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
           />
 
           <input
             placeholder="Student Email"
             value={email}
             onChange={(e)=>setEmail(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
           />
 
           <input
             placeholder="Roll Number"
             value={roll}
             onChange={(e)=>setRoll(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
           />
 
           <input
@@ -177,10 +163,7 @@ export default function StudentForm({ reload }: any){
 
           <select
             value={selectedClass}
-            onChange={(e)=>{
-              setSelectedClass(e.target.value)
-              setSelectedSection("")
-            }}
+            onChange={(e)=>setSelectedClass(e.target.value)}
             className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
           >
             <option value="">Select Class</option>
@@ -189,22 +172,11 @@ export default function StudentForm({ reload }: any){
             ))}
           </select>
 
-          <select
-            value={selectedSection}
-            onChange={(e)=>setSelectedSection(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
-          >
-            <option value="">Select Section</option>
-            {filteredSections.map(s=>(
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-
         </div>
 
       </div>
 
-      {/* ================= PARENT SECTION ================= */}
+      {/* PARENT */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
 
         <h2 className="text-lg font-semibold">Parent Details</h2>
@@ -215,21 +187,21 @@ export default function StudentForm({ reload }: any){
             placeholder="Parent Name"
             value={parentName}
             onChange={(e)=>setParentName(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
           />
 
           <input
-            placeholder="Parent Email (for login)"
+            placeholder="Parent Email"
             value={parentEmail}
             onChange={(e)=>setParentEmail(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
           />
 
           <input
             placeholder="Parent Phone"
             value={parentPhone}
             onChange={(e)=>setParentPhone(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
           />
 
         </div>
@@ -242,7 +214,7 @@ export default function StudentForm({ reload }: any){
         <button
           onClick={save}
           disabled={loading}
-          className="px-8 py-3 rounded-xl font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-90 transition text-white"
+          className="px-8 py-3 rounded-xl font-medium bg-gradient-to-r from-blue-600 to-indigo-600"
         >
           {loading ? "Saving..." : "Save Student"}
         </button>
