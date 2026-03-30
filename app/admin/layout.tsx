@@ -121,7 +121,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📚 Subjects
           </Link>
 
-          {/* 🔥 NEW PROMOTION PAGE */}
           <Link href="/admin/promotion" className={linkStyle("/admin/promotion")}>
             🔁 Promotion
           </Link>
@@ -164,10 +163,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📈 Reports
           </Link>
 
+          {/* 🔥 UPDATED COMMUNICATION SECTION */}
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">Communication</p>
 
           <Link href="/admin/notices" className={linkStyle("/admin/notices")}>
             📢 Notices
+          </Link>
+
+          {/* ✅ NEW EVENTS PAGE */}
+          <Link href="/admin/events" className={linkStyle("/admin/events")}>
+            📅 Events
           </Link>
 
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">System</p>
@@ -183,7 +188,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* MAIN */}
       <div className="flex-1 flex flex-col">
 
-        {/* HEADER */}
         <header className="flex justify-between items-center px-8 py-4 border-b border-white/10 bg-[var(--bg-card)]">
 
           <div>
@@ -205,7 +209,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         </header>
 
-        {/* CONTENT */}
         <main className="flex-1 p-10 bg-[var(--bg-main)]">
           {children}
         </main>
