@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Card from "@/components/ui/Card"
 import Button from "@/components/ui/Button"
-import { createTeacher, getTeachers } from "@/services/teachers.service"
+import { getTeachers } from "@/services/teachers.service"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 
@@ -13,6 +13,7 @@ export default function TeachersPage(){
   const [classes,setClasses] = useState<any[]>([])
 
   const [showForm,setShowForm] = useState(false)
+  const [loading,setLoading] = useState(false)
 
   const [form,setForm] = useState({
     name:"",
@@ -24,6 +25,7 @@ export default function TeachersPage(){
     selectedClasses:[] as string[]
   })
 
+  // ================= LOAD DATA =================
   const load = async () => {
 
     const data = await getTeachers()
@@ -43,6 +45,7 @@ export default function TeachersPage(){
     load()
   },[])
 
+  // ================= FORM =================
   const handleChange = (key:string,val:any)=>{
     setForm(prev=>({...prev,[key]:val}))
   }
@@ -59,50 +62,64 @@ export default function TeachersPage(){
     })
   }
 
+  // ================= SUBMIT (UPDATED) =================
   const submit = async () => {
 
-    if(!form.name || !form.email) return
+    if(!form.name || !form.email){
+      alert("Name & Email required")
+      return
+    }
 
     const schoolId = await getSchoolId()
 
-    const teacherId = crypto.randomUUID()
+    setLoading(true)
 
-    // 🔥 CREATE TEACHER
-    await createTeacher({
-      id: teacherId,
-      name: form.name,
-      email: form.email,
-      phone: form.phone,
-      subject: form.subject,
-      qualification: form.qualification,
-      experience_years: Number(form.experience_years),
-      school_id: schoolId
-    })
+    try{
 
-    // 🔥 ASSIGN CLASSES
-    if(form.selectedClasses.length){
-      const rows = form.selectedClasses.map(c=>({
-        teacher_id: teacherId,
-        class_id: c,
-        school_id: schoolId
-      }))
+      const res = await fetch("/api/create-teacher",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          subject: form.subject,
+          qualification: form.qualification,
+          experience_years: Number(form.experience_years),
+          school_id: schoolId,
+          classes: form.selectedClasses
+        })
+      })
 
-      await supabase.from("teacher_classes").insert(rows)
+      const data = await res.json()
+
+      if(!res.ok){
+        alert(data.error)
+        return
+      }
+
+      alert("✅ Teacher created & login link sent")
+
+      setShowForm(false)
+
+      setForm({
+        name:"",
+        email:"",
+        phone:"",
+        subject:"",
+        qualification:"",
+        experience_years:"",
+        selectedClasses:[]
+      })
+
+      load()
+
+    }catch(err){
+      console.error(err)
+      alert("Error creating teacher")
+    }finally{
+      setLoading(false)
     }
-
-    setShowForm(false)
-
-    setForm({
-      name:"",
-      email:"",
-      phone:"",
-      subject:"",
-      qualification:"",
-      experience_years:"",
-      selectedClasses:[]
-    })
-
-    load()
   }
 
   return(
@@ -158,7 +175,7 @@ export default function TeachersPage(){
 
       </Card>
 
-      {/* 🔥 MODAL */}
+      {/* MODAL */}
       {showForm && (
 
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
@@ -232,8 +249,8 @@ export default function TeachersPage(){
                 Cancel
               </Button>
 
-              <Button color="green" onClick={submit}>
-                Save Teacher
+              <Button color="green" onClick={submit} disabled={loading}>
+                {loading ? "Creating..." : "Save Teacher"}
               </Button>
 
             </div>
