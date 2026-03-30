@@ -90,7 +90,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     <div className="flex min-h-screen bg-[var(--bg-main)] text-white">
 
-      {/* 🔥 SIDEBAR (FIXED) */}
+      {/* 🔥 SIDEBAR */}
       <aside className="w-64 bg-[var(--bg-card)] border-r border-white/10 p-6 flex flex-col">
 
         <h1 className="text-xl font-bold mb-8 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
@@ -119,6 +119,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <Link href="/admin/subjects" className={linkStyle("/admin/subjects")}>
             📚 Subjects
+          </Link>
+
+          {/* 🔥 NEW PROMOTION PAGE */}
+          <Link href="/admin/promotion" className={linkStyle("/admin/promotion")}>
+            🔁 Promotion
           </Link>
 
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">Attendance</p>
@@ -175,7 +180,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       </aside>
 
-      {/* 🔥 MAIN */}
+      {/* MAIN */}
       <div className="flex-1 flex flex-col">
 
         {/* HEADER */}
