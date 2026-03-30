@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { sendNotification } from "@/lib/notifications"
+import { getActiveAcademicYear } from "@/lib/academic"
 
 export default function AttendancePage(){
 
@@ -30,11 +31,7 @@ export default function AttendancePage(){
 
   // ✅ SCHOOL
   useEffect(()=>{
-    const init = async ()=>{
-      const id = await getSchoolId()
-      setSchoolId(id)
-    }
-    init()
+    getSchoolId().then(setSchoolId)
   },[])
 
   // ✅ CLASSES
@@ -47,20 +44,40 @@ export default function AttendancePage(){
       .then(({data})=>setClasses(data || []))
   },[schoolId])
 
-  // ✅ STUDENTS + ATTENDANCE
+  // ✅ 🔥 STUDENTS FROM ENROLLMENTS + ATTENDANCE
   useEffect(()=>{
     if(!selectedClass || !schoolId || !selectedDate) return
 
     const load = async ()=>{
 
-      const { data:studentsData } = await supabase
-        .from("students")
-        .select("*")
+      const year = await getActiveAcademicYear()
+
+      if(!year){
+        alert("No active academic year")
+        return
+      }
+
+      // 🔥 GET STUDENTS FROM ENROLLMENTS
+      const { data:enrollments } = await supabase
+        .from("student_enrollments")
+        .select(`
+          student_id,
+          roll_number,
+          students(name, student_type)
+        `)
         .eq("class_id", selectedClass)
         .eq("school_id", schoolId)
+        .eq("academic_year_id", year.id)
 
-      setStudents(studentsData || [])
+      const formatted = (enrollments || []).map((e:any)=>({
+        id: e.student_id,
+        name: e.students?.name,
+        student_type: e.students?.student_type
+      }))
 
+      setStudents(formatted)
+
+      // 🔥 EXISTING ATTENDANCE
       const { data:attendanceData } = await supabase
         .from("attendance")
         .select("*")
@@ -138,6 +155,7 @@ export default function AttendancePage(){
         date: selectedDate
       }))
 
+      // DELETE OLD
       await supabase
         .from("attendance")
         .delete()
@@ -145,6 +163,7 @@ export default function AttendancePage(){
         .eq("school_id", schoolId)
         .eq("date", selectedDate)
 
+      // INSERT NEW
       const { error } = await supabase
         .from("attendance")
         .insert(payload)
@@ -154,7 +173,7 @@ export default function AttendancePage(){
         return
       }
 
-      // 🔥 NOTIFICATIONS (UNCHANGED)
+      // 🔥 NOTIFICATIONS (UNCHANGED LOGIC)
       for (const s of students){
 
         const status = attendance[s.id] || "present"

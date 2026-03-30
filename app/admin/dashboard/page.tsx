@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import Card from "@/components/ui/Card"
 import { getSchoolId } from "@/lib/school"
+import { getActiveAcademicYear } from "@/lib/academic"
 
 import {
   BarChart,
@@ -46,13 +47,21 @@ export default function DashboardPage() {
           return
         }
 
+        const year = await getActiveAcademicYear()
+
+        if(!year){
+          alert("No active academic year")
+          return
+        }
+
         // =========================
-        // COUNTS
+        // 🔥 STUDENTS (FROM ENROLLMENTS)
         // =========================
         const { count:studentsCount } = await supabase
-          .from("students")
+          .from("student_enrollments")
           .select("*",{ count:"exact", head:true })
           .eq("school_id",schoolId)
+          .eq("academic_year_id", year.id)
 
         const { count:teachersCount } = await supabase
           .from("teachers")
@@ -69,53 +78,66 @@ export default function DashboardPage() {
         setClasses(classesCount || 0)
 
         // =========================
-        // 🔥 ATTENDANCE (TODAY)
+        // 🔥 ATTENDANCE (REAL CALCULATION)
         // =========================
         const today = new Date().toISOString().split("T")[0]
 
         const { data: att } = await supabase
           .from("attendance")
           .select(`
-            present,
-            total,
+            status,
             class_id,
             classes(name)
           `)
           .eq("school_id", schoolId)
           .eq("date", today)
 
+        const classMap:any = {}
         let totalPresent = 0
-        let totalStudents = 0
+        let total = 0
 
-        const formatted = (att || []).map((a:any) => {
+        att?.forEach((a:any)=>{
 
-          totalPresent += a.present || 0
-          totalStudents += a.total || 0
-
-          const percent = a.total
-            ? Math.round((a.present / a.total) * 100)
-            : 0
-
-          return {
-            name: a.classes?.name || "Class",
-            percent
+          if(!classMap[a.class_id]){
+            classMap[a.class_id] = {
+              name: a.classes?.name || "Class",
+              present: 0,
+              total: 0
+            }
           }
+
+          classMap[a.class_id].total++
+
+          if(a.status === "present"){
+            classMap[a.class_id].present++
+            totalPresent++
+          }
+
+          total++
         })
 
-        const overall = totalStudents
-          ? Math.round((totalPresent / totalStudents) * 100)
+        const formatted = Object.values(classMap).map((c:any)=>({
+          name: c.name,
+          percent: c.total
+            ? Math.round((c.present / c.total) * 100)
+            : 0
+        }))
+
+        const overall = total
+          ? Math.round((totalPresent / total) * 100)
           : 0
 
         setAttendance(overall)
         setClassAttendance(formatted)
 
         // =========================
-        // 💰 FEES
+        // 💰 FEES (OPTIONAL YEAR FILTER)
         // =========================
         const { data: fees } = await supabase
           .from("fees")
-          .select("amount,status")
+          .select("amount,status,academic_year_id")
           .eq("school_id", schoolId)
+          .eq("academic_year_id", year.id)
 
         let paid = 0
         let due = 0
@@ -133,8 +155,9 @@ export default function DashboardPage() {
         // =========================
         const { data: monthly } = await supabase
           .from("fees")
-          .select("amount,created_at")
+          .select("amount,created_at,academic_year_id")
           .eq("school_id", schoolId)
+          .eq("academic_year_id", year.id)
 
         const map:any = {}
 
@@ -184,7 +207,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* 🔥 TOP CARDS */}
+      {/* TOP CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
         <Card className="bg-gradient-to-br from-blue-600/20 to-blue-900/20 border border-blue-500/20">
@@ -221,10 +244,10 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* 🔥 LOWER GRID */}
+      {/* LOWER GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* 📊 ATTENDANCE */}
+        {/* ATTENDANCE */}
         <Card className="lg:col-span-2 space-y-4">
 
           <h2 className="text-lg font-semibold">Today's Attendance</h2>
@@ -236,7 +259,6 @@ export default function DashboardPage() {
           ) : (
             classAttendance.map((c,i)=>(
               <div key={i}>
-
                 <div className="flex justify-between text-sm text-gray-400 mb-1">
                   <span>{c.name}</span>
                   <span>{c.percent}%</span>
@@ -252,42 +274,35 @@ export default function DashboardPage() {
                     style={{ width: `${c.percent}%` }}
                   />
                 </div>
-
               </div>
             ))
           )}
 
         </Card>
 
-        {/* 📅 EVENTS */}
+        {/* EVENTS */}
         <Card className="space-y-4">
-
           <h2 className="text-lg font-semibold">Upcoming Events</h2>
 
           <div className="text-sm text-gray-400 space-y-3">
-
             <div>
               <p className="text-white">Annual Sports Day</p>
               <span className="text-xs">10 Apr • Sports</span>
             </div>
-
             <div>
               <p className="text-white">Science Exhibition</p>
               <span className="text-xs">20 Apr • Academic</span>
             </div>
-
             <div>
               <p className="text-white">Parent Meeting</p>
               <span className="text-xs">28 Apr • Meeting</span>
             </div>
-
           </div>
-
         </Card>
 
       </div>
 
-      {/* 💰 FEES */}
+      {/* FEES */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
         <Card className="bg-green-500/10 border border-green-500/20">
@@ -313,7 +328,7 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* 📈 CHART */}
+      {/* CHART */}
       <Card className="p-6">
 
         <h2 className="mb-4 font-semibold">Monthly Fee Collection</h2>

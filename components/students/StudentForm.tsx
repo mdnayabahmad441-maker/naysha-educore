@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { dbInsert } from "@/lib/db"
 import { getSchoolId } from "@/lib/school"
+import { getActiveAcademicYear } from "@/lib/academic"
 
 export default function StudentForm({ reload }: any){
 
@@ -63,6 +64,7 @@ export default function StudentForm({ reload }: any){
 
       let photoUrl = ""
 
+      // 📸 UPLOAD PHOTO
       if(photo){
         const fileName = `${Date.now()}-${photo.name}`
 
@@ -80,18 +82,33 @@ export default function StudentForm({ reload }: any){
 
       const studentId = crypto.randomUUID()
 
-      // ✅ INSERT STUDENT (NO SECTION)
+      // ================= CREATE STUDENT =================
       await dbInsert("students", {
         id: studentId,
         school_id: schoolId,
         name: name.trim(),
         email: email.trim(),
-        roll_number: roll,
-        class_id: selectedClass,
         photo: photoUrl
       })
 
-      // ✅ INSERT PARENT
+      // ================= ENROLLMENT (🔥 CORE LOGIC) =================
+      const year = await getActiveAcademicYear()
+
+      if(!year){
+        alert("No active academic year found")
+        return
+      }
+
+      await dbInsert("student_enrollments", {
+        id: crypto.randomUUID(),
+        student_id: studentId,
+        class_id: selectedClass,
+        school_id: schoolId,
+        academic_year_id: year.id,
+        roll_number: roll
+      })
+
+      // ================= PARENT =================
       if(parentEmail){
         await dbInsert("parents", {
           id: crypto.randomUUID(),
@@ -103,7 +120,7 @@ export default function StudentForm({ reload }: any){
         })
       }
 
-      // RESET
+      // ================= RESET =================
       setName("")
       setEmail("")
       setRoll("")
