@@ -7,21 +7,15 @@ export async function POST(req: Request) {
 
     const body = await req.json()
 
-    const { to, message, studentName, pdfUrl } = body
+    const { phone, message, studentName, pdfUrl } = body // ✅ FIXED (phone instead of to)
 
-    // ==========================
-    // ✅ VALIDATION (FLEXIBLE)
-    // ==========================
-    if(!to){
+    if(!phone){
       return NextResponse.json(
-        { error: "Missing 'to'" },
+        { error: "Missing phone" },
         { status: 400 }
       )
     }
 
-    // ==========================
-    // ✅ INIT TWILIO
-    // ==========================
     const client = twilio(
       process.env.TWILIO_ACCOUNT_SID!,
       process.env.TWILIO_AUTH_TOKEN!
@@ -29,9 +23,7 @@ export async function POST(req: Request) {
 
     let finalMessage = ""
 
-    // ==========================
-    // 📄 REPORT CARD MESSAGE
-    // ==========================
+    // 📄 REPORT CARD
     if(studentName && pdfUrl){
       finalMessage = `📄 Report Card Available
 
@@ -45,29 +37,23 @@ ${pdfUrl}
 - NaySha School`
     }
 
-    // ==========================
-    // 📢 SIMPLE MESSAGE (ATTENDANCE ETC)
-    // ==========================
+    // 📢 NORMAL MESSAGE (ATTENDANCE)
     else if(message){
       finalMessage = message
     }
 
     else{
       return NextResponse.json(
-        { error: "Provide either (studentName + pdfUrl) OR message" },
+        { error: "Provide message or report data" },
         { status: 400 }
       )
     }
 
-    console.log("📤 Sending WhatsApp:", to)
-
     const msg = await client.messages.create({
       body: finalMessage,
       from: "whatsapp:+14155238886",
-      to: `whatsapp:${to}`
+      to: `whatsapp:${phone}` // ✅ FIXED
     })
-
-    console.log("✅ Sent:", msg.sid)
 
     return NextResponse.json({
       success: true,
@@ -76,7 +62,7 @@ ${pdfUrl}
 
   }catch(err:any){
 
-    console.error("❌ WhatsApp Error:", err)
+    console.error("WhatsApp Error:", err)
 
     return NextResponse.json(
       { error: err.message },

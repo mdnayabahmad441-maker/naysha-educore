@@ -38,13 +38,14 @@ export default function AttendancePage(){
   useEffect(()=>{
     if(!schoolId) return
 
-    supabase.from("classes")
+    supabase
+      .from("classes")
       .select("*")
       .eq("school_id", schoolId)
       .then(({data})=>setClasses(data || []))
   },[schoolId])
 
-  // ✅ 🔥 STUDENTS FROM ENROLLMENTS + ATTENDANCE
+  // ✅ STUDENTS (ACADEMIC SYSTEM)
   useEffect(()=>{
     if(!selectedClass || !schoolId || !selectedDate) return
 
@@ -57,7 +58,6 @@ export default function AttendancePage(){
         return
       }
 
-      // 🔥 GET STUDENTS FROM ENROLLMENTS
       const { data:enrollments } = await supabase
         .from("student_enrollments")
         .select(`
@@ -77,7 +77,7 @@ export default function AttendancePage(){
 
       setStudents(formatted)
 
-      // 🔥 EXISTING ATTENDANCE
+      // EXISTING ATTENDANCE
       const { data:attendanceData } = await supabase
         .from("attendance")
         .select("*")
@@ -98,7 +98,7 @@ export default function AttendancePage(){
 
   },[selectedClass, schoolId, selectedDate])
 
-  // 🔥 STATS
+  // ✅ STATS
   useEffect(()=>{
 
     if(!students.length){
@@ -134,7 +134,7 @@ export default function AttendancePage(){
     }))
   }
 
-  // ✅ SAVE
+  // ✅ SAVE ATTENDANCE + 🔥 NOTIFICATIONS
   const saveAttendance = async ()=>{
 
     if(!schoolId || !selectedClass || !selectedDate){
@@ -173,34 +173,62 @@ export default function AttendancePage(){
         return
       }
 
-      // 🔥 NOTIFICATIONS (UNCHANGED LOGIC)
+      // 🔥 GET PARENTS
+      const { data: parents } = await supabase
+        .from("parents")
+        .select("student_id, email, phone")
+        .in("student_id", students.map(s=>s.id))
+
+      const parentMap:any = {}
+      parents?.forEach((p:any)=>{
+        parentMap[p.student_id] = p
+      })
+
+      // 🔥 NOTIFICATIONS LOOP
       for (const s of students){
 
         const status = attendance[s.id] || "present"
-        const type = s.student_type?.toLowerCase()
+        const parent = parentMap[s.id]
 
-        if(status === "absent"){
-          await sendNotification({
-            school_id: schoolId,
-            student_id: s.id,
-            title: "Student Absent ❌",
-            message: `${s.name} was absent on ${new Date(selectedDate).toLocaleDateString()}`,
-            type: "attendance"
+        // ✅ SAVE IN APP
+        await sendNotification({
+          school_id: schoolId,
+          student_id: s.id,
+          title: status === "absent"
+            ? "Student Absent ❌"
+            : "Student Present ✅",
+          message: `${s.name} was ${status} on ${new Date(selectedDate).toLocaleDateString()}`,
+          type: "attendance"
+        })
+
+        // 🔥 WHATSAPP (ABSENT ONLY)
+        if(status === "absent" && parent?.phone){
+          await fetch("/api/whatsapp",{
+            method:"POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              phone: parent.phone,
+              message: `${s.name} was absent on ${new Date(selectedDate).toLocaleDateString()} ❌`
+            })
           })
         }
-        else if(status === "present" && type !== "hosteler"){
-          await sendNotification({
-            school_id: schoolId,
-            student_id: s.id,
-            title: "Student Present ✅",
-            message: `${s.name} is present on ${new Date(selectedDate).toLocaleDateString()}`,
-            type: "attendance"
+
+        // 🔥 EMAIL
+        if(parent?.email){
+          await fetch("/api/email",{
+            method:"POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: parent.email,
+              subject: "Attendance Update",
+              message: `${s.name} is ${status} on ${new Date(selectedDate).toLocaleDateString()}`
+            })
           })
         }
 
       }
 
-      alert("Attendance saved successfully ✅")
+      alert("Attendance saved + notifications sent ✅")
 
     }catch(err){
       console.error(err)
