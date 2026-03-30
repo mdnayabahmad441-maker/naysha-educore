@@ -10,17 +10,14 @@ export default function AttendancePage(){
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
   const [classes,setClasses] = useState<any[]>([])
-  const [sections,setSections] = useState<any[]>([])
   const [students,setStudents] = useState<any[]>([])
 
   const [selectedClass,setSelectedClass] = useState("")
-  const [selectedSection,setSelectedSection] = useState("")
   const [selectedDate,setSelectedDate] = useState("")
 
   const [attendance,setAttendance] = useState<any>({})
   const [loading,setLoading] = useState(false)
 
-  // 🔥 NEW STATS
   const [presentCount,setPresentCount] = useState(0)
   const [absentCount,setAbsentCount] = useState(0)
   const [percentage,setPercentage] = useState(0)
@@ -40,7 +37,7 @@ export default function AttendancePage(){
     init()
   },[])
 
-  // ✅ CLASSES (UNCHANGED)
+  // ✅ CLASSES
   useEffect(()=>{
     if(!schoolId) return
 
@@ -50,27 +47,16 @@ export default function AttendancePage(){
       .then(({data})=>setClasses(data || []))
   },[schoolId])
 
-  // ✅ SECTIONS (UNCHANGED)
+  // ✅ STUDENTS + ATTENDANCE
   useEffect(()=>{
-    if(!selectedClass || !schoolId) return
-
-    supabase.from("sections")
-      .select("*")
-      .eq("class_id", selectedClass)
-      .eq("school_id", schoolId)
-      .then(({data})=>setSections(data || []))
-  },[selectedClass, schoolId])
-
-  // ✅ STUDENTS + EXISTING ATTENDANCE (UNCHANGED)
-  useEffect(()=>{
-    if(!selectedSection || !schoolId || !selectedDate) return
+    if(!selectedClass || !schoolId || !selectedDate) return
 
     const load = async ()=>{
 
       const { data:studentsData } = await supabase
         .from("students")
         .select("*")
-        .eq("section_id", selectedSection)
+        .eq("class_id", selectedClass)
         .eq("school_id", schoolId)
 
       setStudents(studentsData || [])
@@ -78,7 +64,7 @@ export default function AttendancePage(){
       const { data:attendanceData } = await supabase
         .from("attendance")
         .select("*")
-        .eq("section_id", selectedSection)
+        .eq("class_id", selectedClass)
         .eq("school_id", schoolId)
         .eq("date", selectedDate)
 
@@ -93,9 +79,9 @@ export default function AttendancePage(){
 
     load()
 
-  },[selectedSection, schoolId, selectedDate])
+  },[selectedClass, schoolId, selectedDate])
 
-  // 🔥 CALCULATE STATS (NEW)
+  // 🔥 STATS
   useEffect(()=>{
 
     if(!students.length){
@@ -123,7 +109,7 @@ export default function AttendancePage(){
 
   },[attendance, students])
 
-  // ✅ SET STATUS (UNCHANGED)
+  // ✅ SET STATUS
   const setStatus = (studentId:string, status:string)=>{
     setAttendance((prev:any)=>({
       ...prev,
@@ -131,10 +117,10 @@ export default function AttendancePage(){
     }))
   }
 
-  // 🔥 SAVE ATTENDANCE (UNCHANGED)
+  // ✅ SAVE
   const saveAttendance = async ()=>{
 
-    if(!schoolId || !selectedClass || !selectedSection || !selectedDate){
+    if(!schoolId || !selectedClass || !selectedDate){
       alert("Fill all fields")
       return
     }
@@ -147,7 +133,6 @@ export default function AttendancePage(){
         id: crypto.randomUUID(),
         student_id: s.id,
         class_id: selectedClass,
-        section_id: selectedSection,
         school_id: schoolId,
         status: attendance[s.id] || "present",
         date: selectedDate
@@ -156,7 +141,7 @@ export default function AttendancePage(){
       await supabase
         .from("attendance")
         .delete()
-        .eq("section_id", selectedSection)
+        .eq("class_id", selectedClass)
         .eq("school_id", schoolId)
         .eq("date", selectedDate)
 
@@ -165,7 +150,6 @@ export default function AttendancePage(){
         .insert(payload)
 
       if(error){
-        console.error(error)
         alert(error.message)
         return
       }
@@ -220,26 +204,12 @@ export default function AttendancePage(){
 
           <select
             value={selectedClass}
-            onChange={(e)=>{
-              setSelectedClass(e.target.value)
-              setSelectedSection("")
-            }}
+            onChange={(e)=>setSelectedClass(e.target.value)}
             className="px-4 py-3 rounded-xl bg-[#0b1220]"
           >
             <option value="">Select Class</option>
             {classes.map(c=>(
               <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-
-          <select
-            value={selectedSection}
-            onChange={(e)=>setSelectedSection(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220]"
-          >
-            <option value="">Select Section</option>
-            {sections.map(s=>(
-              <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
 
@@ -252,27 +222,21 @@ export default function AttendancePage(){
 
         </div>
 
-        {/* 🔥 STATS */}
+        {/* STATS */}
         <div className="grid grid-cols-3 gap-4">
 
           <div className="bg-white/5 p-4 rounded-xl text-center">
-            <p className="text-green-400 text-2xl font-bold">
-              {presentCount}
-            </p>
+            <p className="text-green-400 text-2xl font-bold">{presentCount}</p>
             <p className="text-sm text-gray-400">Present</p>
           </div>
 
           <div className="bg-white/5 p-4 rounded-xl text-center">
-            <p className="text-red-400 text-2xl font-bold">
-              {absentCount}
-            </p>
+            <p className="text-red-400 text-2xl font-bold">{absentCount}</p>
             <p className="text-sm text-gray-400">Absent</p>
           </div>
 
           <div className="bg-white/5 p-4 rounded-xl text-center">
-            <p className="text-blue-400 text-2xl font-bold">
-              {percentage}%
-            </p>
+            <p className="text-blue-400 text-2xl font-bold">{percentage}%</p>
             <p className="text-sm text-gray-400">Attendance Rate</p>
           </div>
 
@@ -325,7 +289,6 @@ export default function AttendancePage(){
 
         </div>
 
-        {/* SAVE */}
         <button
           onClick={saveAttendance}
           disabled={loading}

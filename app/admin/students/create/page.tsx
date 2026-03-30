@@ -16,14 +16,12 @@ const [mother,setMother] = useState("")
 const [phone,setPhone] = useState("")
 const [email,setEmail] = useState("")
 
-// ✅ NEW FIELDS
+// ✅ CLEAN MODEL
 const [studentType,setStudentType] = useState("day_scholar")
 const [classId,setClassId] = useState("")
-const [sectionId,setSectionId] = useState("")
 const [roll,setRoll] = useState("")
 
 const [classes,setClasses] = useState<any[]>([])
-const [sections,setSections] = useState<any[]>([])
 
 const [photo,setPhoto] = useState<any>(null)
 const [aadhar,setAadhar] = useState<any>(null)
@@ -32,11 +30,7 @@ const [tc,setTc] = useState<any>(null)
 
 /* INIT SCHOOL */
 useEffect(()=>{
-  const init = async()=>{
-    const id = await getSchoolId()
-    setSchoolId(id)
-  }
-  init()
+  getSchoolId().then(setSchoolId)
 },[])
 
 /* LOAD CLASSES */
@@ -48,16 +42,6 @@ useEffect(()=>{
     .eq("school_id",schoolId)
     .then(({data})=>setClasses(data || []))
 },[schoolId])
-
-/* LOAD SECTIONS */
-useEffect(()=>{
-  if(!classId) return
-
-  supabase.from("sections")
-    .select("*")
-    .eq("class_id",classId)
-    .then(({data})=>setSections(data || []))
-},[classId])
 
 /* FILE UPLOAD */
 const uploadFile = async(file:any,path:string)=>{
@@ -79,7 +63,7 @@ const { data:url } = supabase.storage
 return url.publicUrl
 }
 
-/* CREATE STUDENT */
+/* CREATE */
 const createStudent = async()=>{
 
 if(!schoolId){
@@ -92,9 +76,8 @@ const { data:student } = await supabase
 .insert({
 name,
 school_id:schoolId,
-student_type: studentType, // ✅ NEW
+student_type: studentType,
 class_id: classId,
-section_id: sectionId,
 roll_number: roll
 })
 .select()
@@ -108,16 +91,11 @@ setStudentId(student.id)
 const photoUrl = await uploadFile(photo,`photos/${student.id}`)
 
 if(photoUrl){
-await supabase
-.from("students")
-.update({photo_url:photoUrl})
-.eq("id",student.id)
+await supabase.from("students").update({photo_url:photoUrl}).eq("id",student.id)
 }
 
 /* PARENTS */
-await supabase
-.from("parents")
-.insert({
+await supabase.from("parents").insert({
 student_id:student.id,
 school_id:schoolId,
 father_name:father,
@@ -156,7 +134,6 @@ file_url:tcUrl
 }
 
 alert("Student Created")
-
 }
 
 /* UPDATE */
@@ -164,29 +141,21 @@ const updateStudent = async()=>{
 
 if(!studentId) return
 
-await supabase
-.from("students")
-.update({
+await supabase.from("students").update({
 name,
 student_type: studentType,
 class_id: classId,
-section_id: sectionId,
 roll_number: roll
-})
-.eq("id",studentId)
+}).eq("id",studentId)
 
-await supabase
-.from("parents")
-.update({
+await supabase.from("parents").update({
 father_name:father,
 mother_name:mother,
 phone,
 email
-})
-.eq("student_id",studentId)
+}).eq("student_id",studentId)
 
 alert("Student Updated")
-
 }
 
 /* DELETE */
@@ -194,10 +163,7 @@ const deleteStudent = async()=>{
 
 if(!studentId) return
 
-await supabase
-.from("students")
-.delete()
-.eq("id",studentId)
+await supabase.from("students").delete().eq("id",studentId)
 
 alert("Student Deleted")
 
@@ -207,7 +173,6 @@ setMother("")
 setPhone("")
 setEmail("")
 setStudentId(null)
-
 }
 
 return(
@@ -236,18 +201,6 @@ className="bg-[#0b1220] border border-white/10 p-3 rounded-xl w-full"
 <option value="">Select Class</option>
 {classes.map(c=>(
 <option key={c.id} value={c.id}>{c.name}</option>
-))}
-</select>
-
-{/* ✅ SECTION */}
-<select
-value={sectionId}
-onChange={(e)=>setSectionId(e.target.value)}
-className="bg-[#0b1220] border border-white/10 p-3 rounded-xl w-full"
->
-<option value="">Select Section</option>
-{sections.map(s=>(
-<option key={s.id} value={s.id}>{s.name}</option>
 ))}
 </select>
 
@@ -295,27 +248,17 @@ className="bg-[#0b1220] border border-white/10 p-3 rounded-xl w-full"
 <input type="file" onChange={(e)=>setTc(e.target.files?.[0])}/>
 </div>
 
-{/* CLEAN BUTTONS */}
 <div className="flex gap-3 mt-6">
 
-<button
-className="bg-white/10 border border-white/10 px-4 py-2 rounded-xl hover:bg-white/20"
-onClick={createStudent}
->
+<button className="bg-white/10 px-4 py-2 rounded-xl" onClick={createStudent}>
 Create
 </button>
 
-<button
-className="bg-white/10 border border-white/10 px-4 py-2 rounded-xl hover:bg-white/20"
-onClick={updateStudent}
->
+<button className="bg-white/10 px-4 py-2 rounded-xl" onClick={updateStudent}>
 Save
 </button>
 
-<button
-className="bg-white/10 border border-white/10 px-4 py-2 rounded-xl hover:bg-red-500/20"
-onClick={deleteStudent}
->
+<button className="bg-red-500/20 px-4 py-2 rounded-xl" onClick={deleteStudent}>
 Delete
 </button>
 

@@ -18,7 +18,6 @@ export default function StudentsPage(){
   const [role,setRole] = useState<string | null>(null)
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
-  // 🔥 toggle form instead of fake button
   const [showForm,setShowForm] = useState(false)
 
   // =========================
@@ -36,7 +35,7 @@ export default function StudentsPage(){
   },[])
 
   // =========================
-  // LOAD DATA
+  // LOAD STUDENTS
   // =========================
   const loadStudents = async () => {
 
@@ -44,16 +43,36 @@ export default function StudentsPage(){
 
     setLoading(true)
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("students")
-      .select(`*, classes(name)`)
+      .select(`
+        id,
+        name,
+        roll_number,
+        class_id,
+        classes(name)
+      `)
       .eq("school_id", schoolId)
 
-    const sorted = (data || []).sort((a:any,b:any)=>{
-      if(a.class_id === b.class_id){
-        return (a.roll_number || 0) - (b.roll_number || 0)
+    if(error){
+      console.error(error)
+      setLoading(false)
+      return
+    }
+
+    const safeData = data || []
+
+    // ✅ CLEAN SORT
+    const sorted = safeData.sort((a:any,b:any)=>{
+
+      const classA = a.classes?.name || ""
+      const classB = b.classes?.name || ""
+
+      if(classA === classB){
+        return Number(a.roll_number || 0) - Number(b.roll_number || 0)
       }
-      return (a.classes?.name || "").localeCompare(b.classes?.name || "")
+
+      return classA.localeCompare(classB)
     })
 
     setStudents(sorted)
@@ -66,16 +85,16 @@ export default function StudentsPage(){
   },[schoolId])
 
   // =========================
-  // 🔥 FIXED SEARCH (REAL)
+  // SEARCH (SAFE)
   // =========================
   useEffect(()=>{
 
     const term = search.toLowerCase()
 
     const f = students.filter(s =>
-      s.name?.toLowerCase().includes(term) ||
-      s.id?.toLowerCase().includes(term) ||
-      s.classes?.name?.toLowerCase().includes(term)
+      (s.name || "").toLowerCase().includes(term) ||
+      (s.id || "").toLowerCase().includes(term) ||
+      (s.classes?.name || "").toLowerCase().includes(term)
     )
 
     setFiltered(f)
@@ -109,7 +128,7 @@ export default function StudentsPage(){
 
         {role === "admin" && (
           <button
-            onClick={()=>setShowForm(prev=>!prev)} // ✅ FIX
+            onClick={()=>setShowForm(prev=>!prev)}
             className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-sm"
           >
             {showForm ? "Close" : "+ Add Student"}
@@ -126,7 +145,7 @@ export default function StudentsPage(){
         className="w-full md:w-96 px-4 py-2 rounded-lg bg-[#0b1220] border border-white/10 text-sm"
       />
 
-      {/* FORM (REAL WORKING) */}
+      {/* FORM */}
       {role === "admin" && showForm && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-6">
           <StudentForm reload={()=>{
@@ -174,7 +193,7 @@ export default function StudentsPage(){
                   </td>
 
                   <td className="p-4 font-medium">
-                    {s.name}
+                    {s.name || "-"}
                   </td>
 
                   <td className="p-4">
