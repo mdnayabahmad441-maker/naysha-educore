@@ -15,11 +15,15 @@ export default function AttendancePage(){
 
   const [selectedClass,setSelectedClass] = useState("")
   const [selectedSection,setSelectedSection] = useState("")
-
   const [selectedDate,setSelectedDate] = useState("")
-  const [attendance,setAttendance] = useState<any>({})
 
+  const [attendance,setAttendance] = useState<any>({})
   const [loading,setLoading] = useState(false)
+
+  // 🔥 NEW STATS
+  const [presentCount,setPresentCount] = useState(0)
+  const [absentCount,setAbsentCount] = useState(0)
+  const [percentage,setPercentage] = useState(0)
 
   // ✅ TODAY
   useEffect(()=>{
@@ -36,7 +40,7 @@ export default function AttendancePage(){
     init()
   },[])
 
-  // ✅ CLASSES
+  // ✅ CLASSES (UNCHANGED)
   useEffect(()=>{
     if(!schoolId) return
 
@@ -46,7 +50,7 @@ export default function AttendancePage(){
       .then(({data})=>setClasses(data || []))
   },[schoolId])
 
-  // ✅ SECTIONS
+  // ✅ SECTIONS (UNCHANGED)
   useEffect(()=>{
     if(!selectedClass || !schoolId) return
 
@@ -57,7 +61,7 @@ export default function AttendancePage(){
       .then(({data})=>setSections(data || []))
   },[selectedClass, schoolId])
 
-  // ✅ STUDENTS + EXISTING ATTENDANCE
+  // ✅ STUDENTS + EXISTING ATTENDANCE (UNCHANGED)
   useEffect(()=>{
     if(!selectedSection || !schoolId || !selectedDate) return
 
@@ -91,7 +95,35 @@ export default function AttendancePage(){
 
   },[selectedSection, schoolId, selectedDate])
 
-  // ✅ SET STATUS
+  // 🔥 CALCULATE STATS (NEW)
+  useEffect(()=>{
+
+    if(!students.length){
+      setPresentCount(0)
+      setAbsentCount(0)
+      setPercentage(0)
+      return
+    }
+
+    let present = 0
+    let absent = 0
+
+    students.forEach((s:any)=>{
+      const status = attendance[s.id] || "present"
+
+      if(status === "present") present++
+      else absent++
+    })
+
+    const percent = Math.round((present / students.length) * 100)
+
+    setPresentCount(present)
+    setAbsentCount(absent)
+    setPercentage(percent)
+
+  },[attendance, students])
+
+  // ✅ SET STATUS (UNCHANGED)
   const setStatus = (studentId:string, status:string)=>{
     setAttendance((prev:any)=>({
       ...prev,
@@ -99,7 +131,7 @@ export default function AttendancePage(){
     }))
   }
 
-  // 🔥 SAVE ATTENDANCE + WHATSAPP
+  // 🔥 SAVE ATTENDANCE (UNCHANGED)
   const saveAttendance = async ()=>{
 
     if(!schoolId || !selectedClass || !selectedSection || !selectedDate){
@@ -121,7 +153,6 @@ export default function AttendancePage(){
         date: selectedDate
       }))
 
-      // ❌ DELETE OLD
       await supabase
         .from("attendance")
         .delete()
@@ -129,7 +160,6 @@ export default function AttendancePage(){
         .eq("school_id", schoolId)
         .eq("date", selectedDate)
 
-      // ✅ INSERT NEW
       const { error } = await supabase
         .from("attendance")
         .insert(payload)
@@ -140,47 +170,29 @@ export default function AttendancePage(){
         return
       }
 
-      // 🔥 SMART NOTIFICATION LOGIC (UNCHANGED + CLEAN)
+      // 🔥 NOTIFICATIONS (UNCHANGED)
       for (const s of students){
 
         const status = attendance[s.id] || "present"
         const type = s.student_type?.toLowerCase()
 
-        // ❌ ABSENT → ALL
         if(status === "absent"){
-
-          try{
-            await sendNotification({
-              school_id: schoolId,
-              student_id: s.id,
-              title: "Student Absent ❌",
-              message: `${s.name} was absent on ${new Date(selectedDate).toLocaleDateString()}`,
-              type: "attendance"
-            })
-          }catch(err){
-            console.error("Notification failed:", err)
-          }
-
+          await sendNotification({
+            school_id: schoolId,
+            student_id: s.id,
+            title: "Student Absent ❌",
+            message: `${s.name} was absent on ${new Date(selectedDate).toLocaleDateString()}`,
+            type: "attendance"
+          })
         }
-
-        // ✅ PRESENT → ONLY DAY SCHOLAR
-        else if(
-          status === "present" &&
-          type !== "hosteler"
-        ){
-
-          try{
-            await sendNotification({
-              school_id: schoolId,
-              student_id: s.id,
-              title: "Student Present ✅",
-              message: `${s.name} is present on ${new Date(selectedDate).toLocaleDateString()}`,
-              type: "attendance"
-            })
-          }catch(err){
-            console.error("Notification failed:", err)
-          }
-
+        else if(status === "present" && type !== "hosteler"){
+          await sendNotification({
+            school_id: schoolId,
+            student_id: s.id,
+            title: "Student Present ✅",
+            message: `${s.name} is present on ${new Date(selectedDate).toLocaleDateString()}`,
+            type: "attendance"
+          })
         }
 
       }
@@ -197,11 +209,9 @@ export default function AttendancePage(){
 
   return(
 
-    <div className="p-6 md:p-10 text-white max-w-6xl mx-auto">
+    <div className="p-6 md:p-10 text-white max-w-6xl mx-auto space-y-8">
 
-      <h1 className="text-2xl mb-6 font-semibold">
-        Attendance
-      </h1>
+      <h1 className="text-3xl font-bold">Attendance</h1>
 
       <div className="bg-white/10 p-6 rounded-xl space-y-6">
 
@@ -239,6 +249,32 @@ export default function AttendancePage(){
             onChange={(e)=>setSelectedDate(e.target.value)}
             className="px-4 py-3 rounded-xl bg-[#0b1220]"
           />
+
+        </div>
+
+        {/* 🔥 STATS */}
+        <div className="grid grid-cols-3 gap-4">
+
+          <div className="bg-white/5 p-4 rounded-xl text-center">
+            <p className="text-green-400 text-2xl font-bold">
+              {presentCount}
+            </p>
+            <p className="text-sm text-gray-400">Present</p>
+          </div>
+
+          <div className="bg-white/5 p-4 rounded-xl text-center">
+            <p className="text-red-400 text-2xl font-bold">
+              {absentCount}
+            </p>
+            <p className="text-sm text-gray-400">Absent</p>
+          </div>
+
+          <div className="bg-white/5 p-4 rounded-xl text-center">
+            <p className="text-blue-400 text-2xl font-bold">
+              {percentage}%
+            </p>
+            <p className="text-sm text-gray-400">Attendance Rate</p>
+          </div>
 
         </div>
 

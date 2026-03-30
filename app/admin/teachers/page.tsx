@@ -4,101 +4,151 @@ import { useEffect, useState } from "react"
 import Card from "@/components/ui/Card"
 import Button from "@/components/ui/Button"
 import { createTeacher, getTeachers } from "@/services/teachers.service"
+import { supabase } from "@/lib/supabase"
+import { getSchoolId } from "@/lib/school"
 
 export default function TeachersPage(){
 
   const [teachers,setTeachers] = useState<any[]>([])
+  const [classes,setClasses] = useState<any[]>([])
 
-  const [name,setName] = useState("")
-  const [email,setEmail] = useState("")
-  const [phone,setPhone] = useState("")
+  const [showForm,setShowForm] = useState(false)
+
+  const [form,setForm] = useState({
+    name:"",
+    email:"",
+    phone:"",
+    subject:"",
+    qualification:"",
+    experience_years:"",
+    selectedClasses:[] as string[]
+  })
 
   const load = async () => {
 
     const data = await getTeachers()
     setTeachers(data)
 
+    const schoolId = await getSchoolId()
+
+    const { data: cls } = await supabase
+      .from("classes")
+      .select("id,name")
+      .eq("school_id",schoolId)
+
+    setClasses(cls || [])
   }
 
   useEffect(()=>{
     load()
   },[])
 
+  const handleChange = (key:string,val:any)=>{
+    setForm(prev=>({...prev,[key]:val}))
+  }
+
+  const toggleClass = (id:string)=>{
+    setForm(prev=>{
+      const exists = prev.selectedClasses.includes(id)
+      return {
+        ...prev,
+        selectedClasses: exists
+          ? prev.selectedClasses.filter(c=>c!==id)
+          : [...prev.selectedClasses,id]
+      }
+    })
+  }
+
   const submit = async () => {
 
-    if(!name || !email || !phone) return
+    if(!form.name || !form.email) return
 
+    const schoolId = await getSchoolId()
+
+    const teacherId = crypto.randomUUID()
+
+    // 🔥 CREATE TEACHER
     await createTeacher({
-      id: crypto.randomUUID(),
-      name,
-      email,
-      phone
+      id: teacherId,
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      subject: form.subject,
+      qualification: form.qualification,
+      experience_years: Number(form.experience_years),
+      school_id: schoolId
     })
 
-    setName("")
-    setEmail("")
-    setPhone("")
+    // 🔥 ASSIGN CLASSES
+    if(form.selectedClasses.length){
+      const rows = form.selectedClasses.map(c=>({
+        teacher_id: teacherId,
+        class_id: c,
+        school_id: schoolId
+      }))
+
+      await supabase.from("teacher_classes").insert(rows)
+    }
+
+    setShowForm(false)
+
+    setForm({
+      name:"",
+      email:"",
+      phone:"",
+      subject:"",
+      qualification:"",
+      experience_years:"",
+      selectedClasses:[]
+    })
 
     load()
-
   }
 
   return(
 
-    <div className="p-10 text-white max-w-7xl mx-auto">
+    <div className="p-10 text-white max-w-7xl mx-auto space-y-6">
 
-      <h1 className="text-2xl mb-6">
-        Teachers
-      </h1>
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
 
-      <Card>
-
-        <div className="flex flex-wrap gap-4 mb-6">
-
-          <input
-            className="bg-slate-800 border border-white/20 p-2 rounded"
-            placeholder="Teacher Name"
-            value={name}
-            onChange={(e)=>setName(e.target.value)}
-          />
-
-          <input
-            className="bg-slate-800 border border-white/20 p-2 rounded"
-            placeholder="Email"
-            value={email}
-            onChange={(e)=>setEmail(e.target.value)}
-          />
-
-          <input
-            className="bg-slate-800 border border-white/20 p-2 rounded"
-            placeholder="Phone"
-            value={phone}
-            onChange={(e)=>setPhone(e.target.value)}
-          />
-
-          <Button color="green" onClick={submit}>
-            Save
-          </Button>
-
+        <div>
+          <h1 className="text-2xl font-bold">Teachers</h1>
+          <p className="text-gray-400 text-sm">
+            Manage school teachers
+          </p>
         </div>
 
-        <table className="w-full text-sm border border-white/20">
+        <Button onClick={()=>setShowForm(true)}>
+          + Add Teacher
+        </Button>
 
-          <thead>
+      </div>
+
+      {/* TABLE */}
+      <Card>
+
+        <table className="w-full text-sm">
+
+          <thead className="bg-white/10 text-gray-300">
             <tr>
-              <th className="border p-2">Name</th>
-              <th className="border p-2">Email</th>
-              <th className="border p-2">Phone</th>
+              <th className="p-3 text-left">Name</th>
+              <th className="p-3 text-left">Subject</th>
+              <th className="p-3 text-left">Experience</th>
+              <th className="p-3 text-left">Phone</th>
             </tr>
           </thead>
 
           <tbody>
 
             {teachers.map((t)=>(
-              <tr key={t.id}>
-                <td className="border p-2">{t.name}</td>
-                <td className="border p-2">{t.email}</td>
-                <td className="border p-2">{t.phone}</td>
+              <tr key={t.id} className="border-t border-white/10">
+                <td className="p-3">{t.name}</td>
+                <td className="p-3">{t.subject || "-"}</td>
+                <td className="p-3">
+                  {t.experience_years ? `${t.experience_years} yrs` : "-"}
+                </td>
+                <td className="p-3">{t.phone || "-"}</td>
               </tr>
             ))}
 
@@ -108,8 +158,92 @@ export default function TeachersPage(){
 
       </Card>
 
+      {/* 🔥 MODAL */}
+      {showForm && (
+
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+
+          <div className="bg-[#020c1b] p-6 rounded-xl w-[600px] space-y-4">
+
+            <h2 className="text-lg font-semibold">
+              Add Teacher
+            </h2>
+
+            <div className="grid grid-cols-2 gap-4">
+
+              <input placeholder="Name"
+                value={form.name}
+                onChange={e=>handleChange("name",e.target.value)}
+                className="bg-white/10 p-2 rounded"/>
+
+              <input placeholder="Email"
+                value={form.email}
+                onChange={e=>handleChange("email",e.target.value)}
+                className="bg-white/10 p-2 rounded"/>
+
+              <input placeholder="Phone"
+                value={form.phone}
+                onChange={e=>handleChange("phone",e.target.value)}
+                className="bg-white/10 p-2 rounded"/>
+
+              <input placeholder="Subject"
+                value={form.subject}
+                onChange={e=>handleChange("subject",e.target.value)}
+                className="bg-white/10 p-2 rounded"/>
+
+              <input placeholder="Qualification"
+                value={form.qualification}
+                onChange={e=>handleChange("qualification",e.target.value)}
+                className="bg-white/10 p-2 rounded"/>
+
+              <input placeholder="Experience (years)"
+                value={form.experience_years}
+                onChange={e=>handleChange("experience_years",e.target.value)}
+                className="bg-white/10 p-2 rounded"/>
+
+            </div>
+
+            {/* CLASSES */}
+            <div>
+              <p className="text-sm mb-2">Assign Classes</p>
+
+              <div className="flex flex-wrap gap-2">
+
+                {classes.map(c=>(
+                  <button
+                    key={c.id}
+                    onClick={()=>toggleClass(c.id)}
+                    className={`px-3 py-1 rounded text-sm ${
+                      form.selectedClasses.includes(c.id)
+                        ? "bg-blue-500"
+                        : "bg-white/10"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+
+              <Button onClick={()=>setShowForm(false)}>
+                Cancel
+              </Button>
+
+              <Button color="green" onClick={submit}>
+                Save Teacher
+              </Button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
     </div>
-
   )
-
 }

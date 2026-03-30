@@ -1,181 +1,236 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { dbGet, dbInsert } from "@/lib/db"
-import { getSchoolId } from "@/lib/school" // ✅ ADD THIS
+import { supabase } from "@/lib/supabase"
+import { getSchoolId } from "@/lib/school"
 
 export default function ClassesPage(){
 
   const [classes,setClasses] = useState<any[]>([])
-  const [sections,setSections] = useState<any[]>([])
+  const [teachers,setTeachers] = useState<any[]>([])
+  const [students,setStudents] = useState<any[]>([])
 
-  const [className,setClassName] = useState("")
-  const [sectionName,setSectionName] = useState("")
-  const [selectedClass,setSelectedClass] = useState("")
+  const [showForm,setShowForm] = useState(false)
 
-  const [schoolId,setSchoolId] = useState<string | null>(null) // ✅ ADD
+  const [form,setForm] = useState({
+    name:"",
+    capacity:40,
+    teacher:""
+  })
 
-  // ================= LOAD SCHOOL =================
+  const [schoolId,setSchoolId] = useState<string | null>(null)
+
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
 
-  // ================= LOAD DATA =================
- const load = async () => {
+  // ================= LOAD =================
+  const load = async () => {
 
-  if (!schoolId) return // ✅ correct
+    if(!schoolId) return
 
-  const cls = await dbGet("classes")
-  setClasses(cls || [])
+    const { data: cls } = await supabase
+      .from("classes")
+      .select(`
+        *,
+        teachers(name)
+      `)
+      .eq("school_id", schoolId)
 
-  const sec = await dbGet("sections")
-  setSections(sec || [])
-}
+    const { data: t } = await supabase
+      .from("teachers")
+      .select("id,name")
+      .eq("school_id", schoolId)
+
+    const { data: s } = await supabase
+      .from("students")
+      .select("id,class_id")
+      .eq("school_id", schoolId)
+
+    setClasses(cls || [])
+    setTeachers(t || [])
+    setStudents(s || [])
+  }
 
   useEffect(()=>{
     load()
-  },[schoolId]) // ✅ FIX
+  },[schoolId])
 
   // ================= ADD CLASS =================
   const addClass = async () => {
 
-    if(!className) return
-    if(!schoolId){
-      alert("School not loaded")
-      return
-    }
+    if(!form.name) return
 
-    await dbInsert("classes", {
+    await supabase.from("classes").insert({
       id: crypto.randomUUID(),
-      name: className,
-      school_id: schoolId // ✅ CRITICAL FIX
+      name: form.name,
+      capacity: form.capacity,
+      class_teacher_id: form.teacher || null,
+      school_id: schoolId
     })
 
-    setClassName("")
+    setShowForm(false)
+
+    setForm({
+      name:"",
+      capacity:40,
+      teacher:""
+    })
+
     load()
   }
 
-  // ================= ADD SECTION =================
-  const addSection = async () => {
-
-    if(!selectedClass){
-      alert("Select class first")
-      return
-    }
-
-    if(!sectionName) return
-    if(!schoolId){
-      alert("School not loaded")
-      return
-    }
-
-    await dbInsert("sections", {
-      id: crypto.randomUUID(),
-      class_id: selectedClass,
-      name: sectionName,
-      school_id: schoolId // ✅ CRITICAL FIX
-    })
-
-    setSectionName("")
-    load()
+  // ================= COUNT STUDENTS =================
+  const getStudentCount = (classId:string)=>{
+    return students.filter(s=>s.class_id === classId).length
   }
 
   return(
 
-    <div className="space-y-6">
+    <div className="p-10 text-white max-w-7xl mx-auto space-y-6">
 
-      <h1 className="text-2xl font-semibold text-white">Classes & Sections</h1>
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
 
-      <div className="bg-white/10 p-6 rounded-xl backdrop-blur-md border border-white/10">
-
-        {/* ADD CLASS */}
-        <input
-          placeholder="Class Name"
-          value={className}
-          onChange={(e)=>setClassName(e.target.value)}
-          className="w-full p-3 mb-4 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:border-white/30"
-        />
+        <div>
+          <h1 className="text-2xl font-bold">Classes</h1>
+          <p className="text-gray-400 text-sm">
+            Manage classes & capacity
+          </p>
+        </div>
 
         <button
-          onClick={addClass}
-          className="px-5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 transition mb-6"
+          onClick={()=>setShowForm(true)}
+          className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg"
         >
-          Add Class
+          + Add Class
         </button>
 
-        {/* ADD SECTION */}
-        <select
-          value={selectedClass}
-          onChange={(e)=>setSelectedClass(e.target.value)}
-          className="w-full p-3 mb-4 bg-[#0b1220] border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/30"
-        >
-          <option value="" className="bg-[#0b1220] text-gray-300">
-            Select Class
-          </option>
+      </div>
 
-          {classes.map((c)=>(
-            <option
+      {/* 🔥 CLASS CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {classes.map((c)=>{
+
+          const count = getStudentCount(c.id)
+          const percent = c.capacity
+            ? Math.round((count / c.capacity) * 100)
+            : 0
+
+          return(
+
+            <div
               key={c.id}
-              value={c.id}
-              className="bg-[#0b1220] text-white"
+              className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4"
             >
-              {c.name}
-            </option>
-          ))}
-        </select>
 
-        <input
-          placeholder="Section Name (A,B,C)"
-          value={sectionName}
-          onChange={(e)=>setSectionName(e.target.value)}
-          className="w-full p-3 mb-4 rounded-xl bg-[#0b1220] border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:border-white/30"
-        />
+              <div className="flex justify-between">
 
-        <button
-          onClick={addSection}
-          className="px-5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 transition"
-        >
-          Add Section
-        </button>
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    {c.name}
+                  </h2>
 
-      </div>
+                  <p className="text-sm text-gray-400">
+                    Class Teacher
+                  </p>
+                </div>
 
-      {/* TABLE */}
-      <div className="bg-white/10 p-6 rounded-xl backdrop-blur-md border border-white/10">
+                <div className="text-sm text-right">
+                  {c.teachers?.name || "Not Assigned"}
+                </div>
 
-        <table className="w-full text-sm border border-white/10 text-white">
+              </div>
 
-          <thead>
-            <tr>
-              <th className="border border-white/10 p-3 text-left">Class</th>
-              <th className="border border-white/10 p-3 text-left">Sections</th>
-            </tr>
-          </thead>
+              {/* STUDENTS */}
+              <div className="flex justify-between text-sm">
+                <span>Students</span>
+                <span>{count}/{c.capacity}</span>
+              </div>
 
-          <tbody>
+              {/* BAR */}
+              <div className="w-full bg-white/10 h-2 rounded-full">
 
-            {classes.map((c)=>{
+                <div
+                  className="bg-cyan-400 h-2 rounded-full"
+                  style={{ width: `${percent}%` }}
+                />
 
-              const sec = sections
-                .filter(s=>s.class_id === c.id)
-                .map(s=>s.name)
-                .join(", ")
+              </div>
 
-              return(
-                <tr key={c.id}>
-                  <td className="border border-white/10 p-3">{c.name}</td>
-                  <td className="border border-white/10 p-3">{sec || "-"}</td>
-                </tr>
-              )
-            })}
+              <p className="text-xs text-gray-400">
+                {percent}% capacity
+              </p>
 
-          </tbody>
-
-        </table>
+            </div>
+          )
+        })}
 
       </div>
+
+      {/* 🔥 MODAL */}
+      {showForm && (
+
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
+
+          <div className="bg-[#020c1b] p-6 rounded-xl w-[400px] space-y-4">
+
+            <h2 className="text-lg font-semibold">
+              Add Class
+            </h2>
+
+            <input
+              placeholder="Class Name"
+              value={form.name}
+              onChange={(e)=>setForm({...form,name:e.target.value})}
+              className="w-full p-2 bg-white/10 rounded"
+            />
+
+            <input
+              type="number"
+              placeholder="Capacity"
+              value={form.capacity}
+              onChange={(e)=>setForm({...form,capacity:Number(e.target.value)})}
+              className="w-full p-2 bg-white/10 rounded"
+            />
+
+            <select
+              value={form.teacher}
+              onChange={(e)=>setForm({...form,teacher:e.target.value})}
+              className="w-full p-2 bg-white/10 rounded"
+            >
+              <option value="">Select Teacher</option>
+
+              {teachers.map(t=>(
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+
+            </select>
+
+            <div className="flex justify-end gap-3">
+
+              <button onClick={()=>setShowForm(false)}>
+                Cancel
+              </button>
+
+              <button
+                onClick={addClass}
+                className="bg-green-500 px-4 py-2 rounded"
+              >
+                Save
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
 
     </div>
-
   )
 }
