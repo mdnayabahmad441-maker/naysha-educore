@@ -45,30 +45,37 @@ export default function MarksPage(){
 
   },[schoolId])
 
-  // LOAD DATA
+  // ================= LOAD DATA =================
   const loadData = async (exam:any, classId?:string)=>{
 
-    let class_id = exam.class_id
+    console.log("Exam:", exam)
 
-    if(exam.is_all_classes){
-      class_id = classId
-    }
+    let class_id = exam.class_id || classId || selectedClass
 
     if(!class_id){
-      console.log("No class_id found")
+      alert("❌ No class linked to this exam")
       return
     }
 
-    // 🔥 FIX: removed school_id filter
-    const { data:studentsData } = await supabase
+    console.log("Using class_id:", class_id)
+
+    // ✅ REMOVE school_id filter (main bug)
+    const { data:studentsData, error } = await supabase
       .from("students")
       .select("*")
       .eq("class_id", class_id)
 
     console.log("Students:", studentsData)
+    console.log("Error:", error)
+
+    if(error){
+      alert(error.message)
+      return
+    }
 
     setStudents(studentsData || [])
 
+    // SUBJECTS
     const { data:subData } = await supabase
       .from("exam_subjects")
       .select("*, subjects(name)")
@@ -82,6 +89,7 @@ export default function MarksPage(){
 
     setSubjects(formatted)
 
+    // MARKS
     const { data:marksData } = await supabase
       .from("marks")
       .select("*")
@@ -115,6 +123,7 @@ export default function MarksPage(){
     loadData(selectedExam, classId)
   }
 
+  // UPDATE
   const updateMarks = (studentId:string, subjectId:string, value:any)=>{
     setMarks((prev:any)=>({
       ...prev,
@@ -131,7 +140,9 @@ export default function MarksPage(){
     return "F"
   }
 
+  // SAVE
   const saveMarks = async ()=>{
+
     if(!selectedExam) return
 
     const rows:any[] = []
@@ -175,7 +186,9 @@ export default function MarksPage(){
     alert("Marks saved ✅")
   }
 
+  // PUBLISH
   const publishResult = async ()=>{
+
     if(userRole !== "admin"){
       alert("Only admin")
       return
@@ -257,6 +270,10 @@ export default function MarksPage(){
         </select>
       )}
 
+      {students.length === 0 && selectedExam && (
+        <p className="text-gray-400">No students found for this class</p>
+      )}
+
       {students.length > 0 && (
         <div className="overflow-auto">
           <table className="min-w-full border">
@@ -269,6 +286,7 @@ export default function MarksPage(){
                 <th>Grade</th>
               </tr>
             </thead>
+
             <tbody>
               {students.map(st=>{
                 let total = 0
