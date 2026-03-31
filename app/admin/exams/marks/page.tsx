@@ -54,7 +54,7 @@ export default function MarksPage(){
       return
     }
 
-    // ✅ STUDENTS
+    // STUDENTS
     const { data:studentsData } = await supabase
       .from("students")
       .select("*")
@@ -62,8 +62,8 @@ export default function MarksPage(){
 
     setStudents(studentsData || [])
 
-    // ✅ SUBJECTS (FIXED)
-    const { data:subData, error:subError } = await supabase
+    // SUBJECTS
+    const { data:subData } = await supabase
       .from("exam_subjects")
       .select(`
         subject_id,
@@ -72,21 +72,15 @@ export default function MarksPage(){
       `)
       .eq("exam_id", exam.id)
 
-    if(subError){
-      console.error("Subjects error:", subError)
-    }
-
     const formatted = subData?.map((s:any)=>({
       id: s.subject_id,
       name: s.subjects?.name || "Subject",
       total_marks: s.total_marks
     })) || []
 
-    console.log("Subjects:", formatted)
-
     setSubjects(formatted)
 
-    // ✅ MARKS (LOAD EXISTING)
+    // MARKS
     const { data:marksData } = await supabase
       .from("marks")
       .select("*")
@@ -120,7 +114,7 @@ export default function MarksPage(){
     loadData(selectedExam, classId)
   }
 
-  // ================= UPDATE =================
+  // UPDATE
   const updateMarks = (studentId:string, subjectId:string, value:any)=>{
     setMarks((prev:any)=>({
       ...prev,
@@ -137,7 +131,7 @@ export default function MarksPage(){
     return "F"
   }
 
-  // ================= SAVE =================
+  // SAVE
   const saveMarks = async ()=>{
 
     if(!selectedExam) return
@@ -146,7 +140,6 @@ export default function MarksPage(){
 
     students.forEach(s=>{
       subjects.forEach(sub=>{
-
         const key = `${s.id}_${sub.id}`
         const val = Number(marks[key])
 
@@ -159,7 +152,6 @@ export default function MarksPage(){
             marks_obtained: val
           })
         }
-
       })
     })
 
@@ -178,36 +170,105 @@ export default function MarksPage(){
     alert("Saved ✅")
   }
 
-  // ================= UI =================
+  // 🔥 PUBLISH (UPDATED)
+  const publishResult = async ()=>{
+
+    if(userRole !== "admin"){
+      alert("Only admin")
+      return
+    }
+
+    if(!selectedExam){
+      alert("Select exam")
+      return
+    }
+
+    const { data, error } = await supabase
+      .from("marks")
+      .select("*")
+      .eq("exam_id", selectedExam.id)
+
+    if(error){
+      alert(error.message)
+      return
+    }
+
+    if(!data || data.length === 0){
+      alert("No marks to publish")
+      return
+    }
+
+    const grouped:any = {}
+
+    data.forEach((m:any)=>{
+      if(!grouped[m.student_id]){
+        grouped[m.student_id] = { total:0, max:0, fail:false }
+      }
+
+      const subject = subjects.find(s=>s.id === m.subject_id)
+
+      grouped[m.student_id].total += m.marks_obtained
+      grouped[m.student_id].max += subject?.total_marks || 100
+
+      if(m.marks_obtained < (subject?.total_marks * 0.33)){
+        grouped[m.student_id].fail = true
+      }
+    })
+
+    let results = Object.entries(grouped).map(([student_id,val]:any)=>{
+
+      const percentage = (val.total/val.max)*100
+
+      return {
+        id: crypto.randomUUID(),
+        school_id: schoolId,
+        exam_id: selectedExam.id,
+        student_id,
+        total: val.total,
+        percentage,
+        status: val.fail ? "FAIL":"PASS",
+        grade: getGrade(percentage)
+      }
+    })
+
+    // RANK
+    results.sort((a:any,b:any)=>b.total - a.total)
+
+    results = results.map((r:any,i:number)=>({
+      ...r,
+      rank: i+1
+    }))
+
+    await supabase.from("results").upsert(results)
+
+    await supabase
+      .from("exams")
+      .update({ is_published: true })
+      .eq("id", selectedExam.id)
+
+    alert("Published 🚀")
+  }
+
+  // UI
   return(
     <div className="p-6 text-white space-y-6">
 
       <h1 className="text-2xl">Marks Entry</h1>
 
-      {/* EXAM */}
-      <select
-        onChange={(e)=>handleExamChange(e.target.value)}
-        className="p-3 bg-[#0b1220] rounded"
-      >
+      <select onChange={(e)=>handleExamChange(e.target.value)} className="p-3 bg-[#0b1220] rounded">
         <option>Select Exam</option>
         {exams.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
       </select>
 
-      {/* CLASS */}
       {selectedExam?.is_all_classes && (
-        <select
-          onChange={(e)=>handleClassChange(e.target.value)}
-          className="p-3 bg-[#0b1220] rounded"
-        >
+        <select onChange={(e)=>handleClassChange(e.target.value)} className="p-3 bg-[#0b1220] rounded">
           <option>Select Class</option>
           {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       )}
 
-      {/* TABLE */}
       {students.length > 0 && subjects.length > 0 && (
         <div className="overflow-auto">
-
           <table className="min-w-full border text-sm">
 
             <thead>
@@ -225,7 +286,6 @@ export default function MarksPage(){
             </thead>
 
             <tbody>
-
               {students.map(st=>{
 
                 let total = 0
@@ -261,29 +321,28 @@ export default function MarksPage(){
                   </tr>
                 )
               })}
-
             </tbody>
 
           </table>
-
         </div>
       )}
 
-      {/* EMPTY STATE */}
       {selectedExam && subjects.length === 0 && (
-        <p className="text-red-400">
-          ⚠ No subjects added to this exam
-        </p>
+        <p className="text-red-400">⚠ No subjects added</p>
       )}
 
-      {/* ACTIONS */}
       {students.length > 0 && (
-        <button
-          onClick={saveMarks}
-          className="px-6 py-3 bg-white/10 rounded"
-        >
-          Save Marks
-        </button>
+        <div className="flex gap-4">
+          <button onClick={saveMarks} className="px-6 py-3 bg-white/10 rounded">
+            Save
+          </button>
+
+          {userRole === "admin" && (
+            <button onClick={publishResult} className="px-6 py-3 bg-white/10 rounded">
+              Publish
+            </button>
+          )}
+        </div>
       )}
 
     </div>
