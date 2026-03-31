@@ -50,7 +50,7 @@ export async function POST(req: Request){
       .from("teachers")
       .insert({
         id: teacherId,
-        auth_id: authId,
+        auth_id: authId, // ✅ REQUIRED COLUMN
         name,
         email,
         phone,
@@ -93,9 +93,14 @@ export async function POST(req: Request){
     const magicLink = linkData?.properties?.action_link
 
     // =========================
+    // ✅ 🔥 FIXED BASE URL (SaaS READY)
+    // =========================
+    const baseUrl = new URL(req.url).origin
+
+    // =========================
     // 📧 EMAIL (LOGIN LINK)
     // =========================
-    await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/send-email`,{
+    await fetch(`${baseUrl}/api/send-email`,{
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
@@ -115,7 +120,7 @@ export async function POST(req: Request){
     // 📱 WHATSAPP
     // =========================
     if(phone){
-      await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/send-whatsapp`,{
+      await fetch(`${baseUrl}/api/send-whatsapp`,{
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({
