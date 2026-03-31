@@ -31,10 +31,22 @@ export default function PromotionPage(){
   useEffect(()=>{
     if(!schoolId) return
 
-    supabase.from("academic_years")
-      .select("*")
-      .eq("school_id", schoolId)
-      .then(({data})=>setYears(data || []))
+    const loadYears = async ()=>{
+      const { data, error } = await supabase
+        .from("academic_years")
+        .select("*")
+        .eq("school_id", schoolId)
+
+      if(error){
+        console.error("Year error:", error)
+        return
+      }
+
+      setYears(data || [])
+    }
+
+    loadYears()
+
   },[schoolId])
 
   // ================= DEFAULT CURRENT YEAR =================
@@ -83,7 +95,6 @@ export default function PromotionPage(){
 
       setStudents(formatted)
 
-      // default select all
       const map:any = {}
       formatted.forEach((s:any)=> map[s.id] = true)
       setSelected(map)
@@ -109,6 +120,11 @@ export default function PromotionPage(){
       return
     }
 
+    if(currentYear === nextYear){
+      alert("Next year must be different")
+      return
+    }
+
     setLoading(true)
 
     try{
@@ -123,13 +139,14 @@ export default function PromotionPage(){
             class_id: toClass,
             school_id: schoolId,
             academic_year_id: nextYear,
-            roll_number: s.roll // keep same or modify later
+            roll_number: s.roll
           })
         }
       })
 
       if(payload.length === 0){
         alert("No students selected")
+        setLoading(false)
         return
       }
 
@@ -142,7 +159,7 @@ export default function PromotionPage(){
         return
       }
 
-      alert("Students promoted successfully 🚀")
+      alert("✅ Students promoted successfully 🚀")
 
     }catch(err){
       console.error(err)
@@ -171,9 +188,13 @@ export default function PromotionPage(){
             className="p-3 rounded-xl bg-[#0b1220]"
           >
             <option value="">Current Year</option>
+
             {years.map(y=>(
-              <option key={y.id} value={y.id}>{y.name}</option>
+              <option key={y.id} value={y.id}>
+                {y.name}
+              </option>
             ))}
+
           </select>
 
           <select
@@ -182,9 +203,15 @@ export default function PromotionPage(){
             className="p-3 rounded-xl bg-[#0b1220]"
           >
             <option value="">Next Year</option>
-            {years.map(y=>(
-              <option key={y.id} value={y.id}>{y.name}</option>
-            ))}
+
+            {years
+              .filter(y => y.id !== currentYear) // 🔥 FIX
+              .map(y=>(
+                <option key={y.id} value={y.id}>
+                  {y.name}
+                </option>
+              ))}
+
           </select>
 
         </div>
@@ -198,9 +225,13 @@ export default function PromotionPage(){
             className="p-3 rounded-xl bg-[#0b1220]"
           >
             <option value="">From Class</option>
+
             {classes.map(c=>(
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
+
           </select>
 
           <select
@@ -209,9 +240,15 @@ export default function PromotionPage(){
             className="p-3 rounded-xl bg-[#0b1220]"
           >
             <option value="">To Class</option>
-            {classes.map(c=>(
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
+
+            {classes
+              .filter(c => c.id !== fromClass) // 🔥 EXTRA UX FIX
+              .map(c=>(
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+
           </select>
 
         </div>
@@ -256,6 +293,5 @@ export default function PromotionPage(){
       </button>
 
     </div>
-
   )
 }
