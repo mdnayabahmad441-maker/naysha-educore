@@ -1,31 +1,58 @@
 import { supabase } from "./supabase"
 import { getSchoolId } from "./school"
 
+// ================= GET SETTINGS =================
 export async function getSettings(key: string) {
 
-  const schoolId = await getSchoolId()
-  if (!schoolId) return null
+  try {
+    const schoolId = await getSchoolId()
+    if (!schoolId) return null
 
-  const { data } = await supabase
-    .from("settings")
-    .select("*")
-    .eq("school_id", schoolId)
-    .eq("key", key)
-    .maybeSingle()
+    const { data, error } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("school_id", schoolId)
+      .eq("key", key)
+      .maybeSingle()
 
-  return data?.value || null
+    if (error) {
+      console.error("❌ Settings fetch error:", error)
+      return null
+    }
+
+    return data?.value || null
+
+  } catch (err) {
+    console.error("❌ getSettings crash:", err)
+    return null
+  }
 }
 
+// ================= UPDATE SETTINGS =================
 export async function updateSettings(key: string, value: any) {
 
-  const schoolId = await getSchoolId()
-  if (!schoolId) return
+  try {
+    const schoolId = await getSchoolId()
+    if (!schoolId) return
 
-  await supabase
-    .from("settings")
-    .upsert({
-      school_id: schoolId,
-      key,
-      value
-    })
+    const { error } = await supabase
+      .from("settings")
+      .upsert(
+        {
+          school_id: schoolId,
+          key,
+          value
+        },
+        {
+          onConflict: "school_id,key" // 🔥 FIXED
+        }
+      )
+
+    if (error) {
+      console.error("❌ Settings update error:", error)
+    }
+
+  } catch (err) {
+    console.error("❌ updateSettings crash:", err)
+  }
 }
