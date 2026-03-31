@@ -41,10 +41,14 @@ export default function PromotionPage(){
       const list = data || []
       setYears(list)
 
-      // ✅ ALWAYS SET CURRENT + NEXT SAFELY
+      // ✅ FIXED LOGIC (CURRENT + NEXT)
       const current = list.find(y=>y.is_active)
 
-      let next = list.find(y => !y.is_active)
+      let next = null
+      if(current){
+        const index = list.findIndex(y=>y.id === current.id)
+        next = list[index + 1]
+      }
 
       if(current) setCurrentYear(current.id)
       if(next) setNextYear(next.id)
@@ -62,7 +66,6 @@ export default function PromotionPage(){
       .from("classes")
       .select("*")
       .eq("school_id", schoolId)
-      .order("name",{ ascending:true })
       .then(({data})=>setClasses(data || []))
   },[schoolId])
 
@@ -117,7 +120,7 @@ export default function PromotionPage(){
     }
 
     if(currentYear === nextYear){
-      alert("Years cannot be same")
+      alert("Current and Next year cannot be same")
       return
     }
 
@@ -154,7 +157,7 @@ export default function PromotionPage(){
         return
       }
 
-      alert("✅ Students promoted!")
+      alert("✅ Students promoted successfully 🚀")
 
       setStudents([])
       setSelected({})
@@ -173,7 +176,7 @@ export default function PromotionPage(){
   const autoPromote = async ()=>{
 
     if(!schoolId || !currentYear || !nextYear){
-      alert("Years not set")
+      alert("Academic years not set")
       return
     }
 
@@ -181,11 +184,14 @@ export default function PromotionPage(){
 
     try{
 
+      // 🔥 GET ORDERED CLASSES
       const { data: classList } = await supabase
         .from("classes")
         .select("*")
         .eq("school_id", schoolId)
+        .order("order_number",{ ascending:true })
 
+      // 🔥 GET ALL STUDENTS
       const { data: enrollments } = await supabase
         .from("student_enrollments")
         .select("*")
@@ -199,12 +205,11 @@ export default function PromotionPage(){
         const currentClass = classList?.find(c=>c.id === e.class_id)
         if(!currentClass) return
 
-        // 🔥 SIMPLE NEXT CLASS LOGIC (by name)
         const nextClass = classList?.find(
-          c => c.name > currentClass.name
+          c => c.order_number === currentClass.order_number + 1
         )
 
-        if(!nextClass) return
+        if(!nextClass) return // last class skip
 
         payload.push({
           id: crypto.randomUUID(),
@@ -218,7 +223,7 @@ export default function PromotionPage(){
       })
 
       if(payload.length === 0){
-        alert("No students found")
+        alert("No students to promote")
         return
       }
 
@@ -231,7 +236,7 @@ export default function PromotionPage(){
         return
       }
 
-      alert("🚀 Auto Promotion Done!")
+      alert("🚀 Auto Promotion Completed!")
 
     }catch(err){
       console.error(err)
@@ -249,23 +254,27 @@ export default function PromotionPage(){
         Student Promotion
       </h1>
 
-      {/* FILTER */}
       <div className="bg-white/10 p-6 rounded-xl space-y-4">
 
+        {/* YEARS */}
         <div className="grid md:grid-cols-2 gap-4">
 
-          <select value={currentYear}
+          <select
+            value={currentYear}
             onChange={(e)=>setCurrentYear(e.target.value)}
-            className="p-3 rounded-xl bg-[#0b1220]">
+            className="p-3 rounded-xl bg-[#0b1220]"
+          >
             <option value="">Current Year</option>
             {years.map(y=>(
               <option key={y.id} value={y.id}>{y.name}</option>
             ))}
           </select>
 
-          <select value={nextYear}
+          <select
+            value={nextYear}
             onChange={(e)=>setNextYear(e.target.value)}
-            className="p-3 rounded-xl bg-[#0b1220]">
+            className="p-3 rounded-xl bg-[#0b1220]"
+          >
             <option value="">Next Year</option>
             {years.filter(y=>y.id !== currentYear).map(y=>(
               <option key={y.id} value={y.id}>{y.name}</option>
@@ -274,20 +283,25 @@ export default function PromotionPage(){
 
         </div>
 
+        {/* CLASSES */}
         <div className="grid md:grid-cols-2 gap-4">
 
-          <select value={fromClass}
+          <select
+            value={fromClass}
             onChange={(e)=>setFromClass(e.target.value)}
-            className="p-3 rounded-xl bg-[#0b1220]">
+            className="p-3 rounded-xl bg-[#0b1220]"
+          >
             <option value="">From Class</option>
             {classes.map(c=>(
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
 
-          <select value={toClass}
+          <select
+            value={toClass}
             onChange={(e)=>setToClass(e.target.value)}
-            className="p-3 rounded-xl bg-[#0b1220]">
+            className="p-3 rounded-xl bg-[#0b1220]"
+          >
             <option value="">To Class</option>
             {classes.filter(c=>c.id !== fromClass).map(c=>(
               <option key={c.id} value={c.id}>{c.name}</option>
@@ -328,14 +342,16 @@ export default function PromotionPage(){
         <button
           onClick={promote}
           disabled={loading}
-          className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700">
+          className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700"
+        >
           {loading ? "Processing..." : "Promote Selected"}
         </button>
 
         <button
           onClick={autoPromote}
           disabled={loading}
-          className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700">
+          className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700"
+        >
           {loading ? "Processing..." : "Auto Promote All"}
         </button>
 
