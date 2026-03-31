@@ -21,7 +21,7 @@ export default function MarksPage(){
 
   const [marks,setMarks] = useState<any>({})
 
-  // ================= INIT =================
+  // INIT
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
@@ -33,7 +33,7 @@ export default function MarksPage(){
     init()
   },[])
 
-  // ================= LOAD =================
+  // LOAD EXAMS + CLASSES
   useEffect(()=>{
     if(!schoolId) return
 
@@ -45,7 +45,7 @@ export default function MarksPage(){
 
   },[schoolId])
 
-  // ================= LOAD DATA =================
+  // LOAD DATA
   const loadData = async (exam:any, classId?:string)=>{
 
     let class_id = exam.class_id
@@ -54,18 +54,21 @@ export default function MarksPage(){
       class_id = classId
     }
 
-    if(!class_id) return
+    if(!class_id){
+      console.log("No class_id found")
+      return
+    }
 
-    // STUDENTS
+    // 🔥 FIX: removed school_id filter
     const { data:studentsData } = await supabase
       .from("students")
       .select("*")
       .eq("class_id", class_id)
-      .eq("school_id", schoolId)
+
+    console.log("Students:", studentsData)
 
     setStudents(studentsData || [])
 
-    // SUBJECTS + MARKS CONFIG
     const { data:subData } = await supabase
       .from("exam_subjects")
       .select("*, subjects(name)")
@@ -79,7 +82,6 @@ export default function MarksPage(){
 
     setSubjects(formatted)
 
-    // LOAD EXISTING MARKS
     const { data:marksData } = await supabase
       .from("marks")
       .select("*")
@@ -113,7 +115,6 @@ export default function MarksPage(){
     loadData(selectedExam, classId)
   }
 
-  // ================= UPDATE =================
   const updateMarks = (studentId:string, subjectId:string, value:any)=>{
     setMarks((prev:any)=>({
       ...prev,
@@ -130,9 +131,7 @@ export default function MarksPage(){
     return "F"
   }
 
-  // ================= SAVE =================
   const saveMarks = async ()=>{
-
     if(!selectedExam) return
 
     const rows:any[] = []
@@ -145,7 +144,6 @@ export default function MarksPage(){
 
         if(val !== undefined && val !== null){
 
-          // ❗ VALIDATION
           if(val > sub.total_marks){
             alert(`Marks > total for ${sub.name}`)
             return
@@ -177,9 +175,7 @@ export default function MarksPage(){
     alert("Marks saved ✅")
   }
 
-  // ================= PUBLISH =================
   const publishResult = async ()=>{
-
     if(userRole !== "admin"){
       alert("Only admin")
       return
@@ -262,11 +258,8 @@ export default function MarksPage(){
       )}
 
       {students.length > 0 && (
-
         <div className="overflow-auto">
-
           <table className="min-w-full border">
-
             <thead>
               <tr>
                 <th>Student</th>
@@ -276,11 +269,8 @@ export default function MarksPage(){
                 <th>Grade</th>
               </tr>
             </thead>
-
             <tbody>
-
               {students.map(st=>{
-
                 let total = 0
                 let max = 0
 
@@ -314,11 +304,8 @@ export default function MarksPage(){
                   </tr>
                 )
               })}
-
             </tbody>
-
           </table>
-
         </div>
       )}
 
@@ -333,7 +320,6 @@ export default function MarksPage(){
               Publish
             </button>
           )}
-
         </div>
       )}
 
