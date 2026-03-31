@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
-import { getActiveAcademicYear } from "@/lib/academic"
 
 export default function PromotionPage(){
 
@@ -22,49 +21,44 @@ export default function PromotionPage(){
 
   const [loading,setLoading] = useState(false)
 
-  // ================= SCHOOL =================
+  // ================= INIT =================
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
 
-  // ================= LOAD YEARS =================
+  // ================= LOAD YEARS + AUTO SET =================
   useEffect(()=>{
     if(!schoolId) return
 
     const loadYears = async ()=>{
-      const { data, error } = await supabase
+
+      const { data } = await supabase
         .from("academic_years")
         .select("*")
         .eq("school_id", schoolId)
+        .order("created_at",{ ascending:true })
 
-      if(error){
-        console.error("Year error:", error)
-        return
-      }
+      const list = data || []
+      setYears(list)
 
-      setYears(data || [])
+      // 🔥 AUTO SET CURRENT & NEXT
+      const current = list.find(y=>y.is_active)
+      const next = list.find(y=>!y.is_active)
+
+      if(current) setCurrentYear(current.id)
+      if(next) setNextYear(next.id)
     }
 
     loadYears()
 
   },[schoolId])
 
-  // ================= DEFAULT CURRENT YEAR =================
-  useEffect(()=>{
-    const init = async ()=>{
-      const y = await getActiveAcademicYear()
-      if(y){
-        setCurrentYear(y.id)
-      }
-    }
-    init()
-  },[])
-
   // ================= LOAD CLASSES =================
   useEffect(()=>{
     if(!schoolId) return
 
-    supabase.from("classes")
+    supabase
+      .from("classes")
       .select("*")
       .eq("school_id", schoolId)
       .then(({data})=>setClasses(data || []))
@@ -95,6 +89,7 @@ export default function PromotionPage(){
 
       setStudents(formatted)
 
+      // 🔥 AUTO SELECT ALL
       const map:any = {}
       formatted.forEach((s:any)=> map[s.id] = true)
       setSelected(map)
@@ -121,7 +116,7 @@ export default function PromotionPage(){
     }
 
     if(currentYear === nextYear){
-      alert("Next year must be different")
+      alert("Current and Next year cannot be same")
       return
     }
 
@@ -161,6 +156,12 @@ export default function PromotionPage(){
 
       alert("✅ Students promoted successfully 🚀")
 
+      // 🔥 RESET AFTER SUCCESS
+      setStudents([])
+      setSelected({})
+      setFromClass("")
+      setToClass("")
+
     }catch(err){
       console.error(err)
       alert("Promotion failed")
@@ -184,7 +185,14 @@ export default function PromotionPage(){
 
           <select
             value={currentYear}
-            onChange={(e)=>setCurrentYear(e.target.value)}
+            onChange={(e)=>{
+              setCurrentYear(e.target.value)
+
+              // 🔥 prevent same selection
+              if(e.target.value === nextYear){
+                setNextYear("")
+              }
+            }}
             className="p-3 rounded-xl bg-[#0b1220]"
           >
             <option value="">Current Year</option>
@@ -205,7 +213,7 @@ export default function PromotionPage(){
             <option value="">Next Year</option>
 
             {years
-              .filter(y => y.id !== currentYear) // 🔥 FIX
+              .filter(y => y.id !== currentYear)
               .map(y=>(
                 <option key={y.id} value={y.id}>
                   {y.name}
@@ -221,7 +229,10 @@ export default function PromotionPage(){
 
           <select
             value={fromClass}
-            onChange={(e)=>setFromClass(e.target.value)}
+            onChange={(e)=>{
+              setFromClass(e.target.value)
+              setStudents([]) // reset
+            }}
             className="p-3 rounded-xl bg-[#0b1220]"
           >
             <option value="">From Class</option>
@@ -242,7 +253,7 @@ export default function PromotionPage(){
             <option value="">To Class</option>
 
             {classes
-              .filter(c => c.id !== fromClass) // 🔥 EXTRA UX FIX
+              .filter(c => c.id !== fromClass)
               .map(c=>(
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -264,7 +275,7 @@ export default function PromotionPage(){
           students.map((s:any)=>(
             <div
               key={s.id}
-              className="flex justify-between items-center bg-white/5 p-3 rounded"
+              className="flex justify-between items-center bg-white/5 p-3 rounded hover:bg-white/10 transition"
             >
 
               <span>
@@ -287,7 +298,7 @@ export default function PromotionPage(){
       <button
         onClick={promote}
         disabled={loading}
-        className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700"
+        className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 transition"
       >
         {loading ? "Promoting..." : "Promote Students"}
       </button>
