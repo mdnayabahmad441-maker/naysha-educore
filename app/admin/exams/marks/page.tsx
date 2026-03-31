@@ -48,48 +48,45 @@ export default function MarksPage(){
   // ================= LOAD DATA =================
   const loadData = async (exam:any, classId?:string)=>{
 
-    console.log("Exam:", exam)
+    let class_id = exam.class_id || classId
 
-    let class_id = exam.class_id || classId || selectedClass
-
-    if(!class_id){
-      alert("❌ No class linked to this exam")
+    if(exam.is_all_classes && !class_id){
       return
     }
 
-    console.log("Using class_id:", class_id)
-
-    // ✅ REMOVE school_id filter (main bug)
-    const { data:studentsData, error } = await supabase
+    // ✅ STUDENTS
+    const { data:studentsData } = await supabase
       .from("students")
       .select("*")
       .eq("class_id", class_id)
 
-    console.log("Students:", studentsData)
-    console.log("Error:", error)
-
-    if(error){
-      alert(error.message)
-      return
-    }
-
     setStudents(studentsData || [])
 
-    // SUBJECTS
-    const { data:subData } = await supabase
+    // ✅ SUBJECTS (FIXED)
+    const { data:subData, error:subError } = await supabase
       .from("exam_subjects")
-      .select("*, subjects(name)")
+      .select(`
+        subject_id,
+        total_marks,
+        subjects(name)
+      `)
       .eq("exam_id", exam.id)
+
+    if(subError){
+      console.error("Subjects error:", subError)
+    }
 
     const formatted = subData?.map((s:any)=>({
       id: s.subject_id,
-      name: s.subjects?.name,
+      name: s.subjects?.name || "Subject",
       total_marks: s.total_marks
     })) || []
 
+    console.log("Subjects:", formatted)
+
     setSubjects(formatted)
 
-    // MARKS
+    // ✅ MARKS (LOAD EXISTING)
     const { data:marksData } = await supabase
       .from("marks")
       .select("*")
@@ -110,8 +107,8 @@ export default function MarksPage(){
     setSelectedExam(exam)
     setStudents([])
     setSubjects([])
-    setSelectedClass("")
     setMarks({})
+    setSelectedClass("")
 
     if(exam && !exam.is_all_classes){
       loadData(exam)
@@ -123,7 +120,7 @@ export default function MarksPage(){
     loadData(selectedExam, classId)
   }
 
-  // UPDATE
+  // ================= UPDATE =================
   const updateMarks = (studentId:string, subjectId:string, value:any)=>{
     setMarks((prev:any)=>({
       ...prev,
@@ -140,26 +137,20 @@ export default function MarksPage(){
     return "F"
   }
 
-  // SAVE
+  // ================= SAVE =================
   const saveMarks = async ()=>{
 
     if(!selectedExam) return
 
     const rows:any[] = []
 
-    for(let s of students){
-      for(let sub of subjects){
+    students.forEach(s=>{
+      subjects.forEach(sub=>{
 
         const key = `${s.id}_${sub.id}`
         const val = Number(marks[key])
 
-        if(val !== undefined && val !== null){
-
-          if(val > sub.total_marks){
-            alert(`Marks > total for ${sub.name}`)
-            return
-          }
-
+        if(val || val === 0){
           rows.push({
             school_id: schoolId,
             exam_id: selectedExam.id,
@@ -168,8 +159,9 @@ export default function MarksPage(){
             marks_obtained: val
           })
         }
-      }
-    }
+
+      })
+    })
 
     if(rows.length === 0){
       alert("Enter marks")
@@ -183,104 +175,49 @@ export default function MarksPage(){
       return
     }
 
-    alert("Marks saved ✅")
+    alert("Saved ✅")
   }
 
-  // PUBLISH
-  const publishResult = async ()=>{
-
-    if(userRole !== "admin"){
-      alert("Only admin")
-      return
-    }
-
-    if(!selectedExam) return
-
-    const { data } = await supabase
-      .from("marks")
-      .select("*")
-      .eq("exam_id", selectedExam.id)
-
-    if(!data) return
-
-    const grouped:any = {}
-
-    data.forEach((m:any)=>{
-      if(!grouped[m.student_id]){
-        grouped[m.student_id] = { total:0, max:0, fail:false }
-      }
-
-      const subject = subjects.find(s=>s.id === m.subject_id)
-
-      grouped[m.student_id].total += m.marks_obtained
-      grouped[m.student_id].max += subject?.total_marks || 100
-
-      if(m.marks_obtained < (subject?.total_marks * 0.33)){
-        grouped[m.student_id].fail = true
-      }
-    })
-
-    let results = Object.entries(grouped).map(([student_id,val]:any)=>{
-
-      const percentage = (val.total/val.max)*100
-
-      return {
-        id: crypto.randomUUID(),
-        school_id: schoolId,
-        exam_id: selectedExam.id,
-        student_id,
-        total: val.total,
-        percentage,
-        status: val.fail ? "FAIL":"PASS",
-        grade: getGrade(percentage)
-      }
-    })
-
-    results.sort((a:any,b:any)=>b.total - a.total)
-
-    results = results.map((r:any,i:number)=>({
-      ...r,
-      rank: i+1
-    }))
-
-    await supabase.from("results").upsert(results)
-
-    await supabase
-      .from("exams")
-      .update({ is_published: true })
-      .eq("id", selectedExam.id)
-
-    alert("Result Published 🚀")
-  }
-
+  // ================= UI =================
   return(
     <div className="p-6 text-white space-y-6">
 
       <h1 className="text-2xl">Marks Entry</h1>
 
-      <select onChange={(e)=>handleExamChange(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+      {/* EXAM */}
+      <select
+        onChange={(e)=>handleExamChange(e.target.value)}
+        className="p-3 bg-[#0b1220] rounded"
+      >
         <option>Select Exam</option>
         {exams.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
       </select>
 
+      {/* CLASS */}
       {selectedExam?.is_all_classes && (
-        <select onChange={(e)=>handleClassChange(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+        <select
+          onChange={(e)=>handleClassChange(e.target.value)}
+          className="p-3 bg-[#0b1220] rounded"
+        >
           <option>Select Class</option>
           {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       )}
 
-      {students.length === 0 && selectedExam && (
-        <p className="text-gray-400">No students found for this class</p>
-      )}
-
-      {students.length > 0 && (
+      {/* TABLE */}
+      {students.length > 0 && subjects.length > 0 && (
         <div className="overflow-auto">
-          <table className="min-w-full border">
+
+          <table className="min-w-full border text-sm">
+
             <thead>
               <tr>
-                <th>Student</th>
-                {subjects.map(s=><th key={s.id}>{s.name} ({s.total_marks})</th>)}
+                <th className="p-2 border">Student</th>
+                {subjects.map(s=>(
+                  <th key={s.id} className="p-2 border">
+                    {s.name} ({s.total_marks})
+                  </th>
+                ))}
                 <th>Total</th>
                 <th>%</th>
                 <th>Grade</th>
@@ -288,29 +225,31 @@ export default function MarksPage(){
             </thead>
 
             <tbody>
+
               {students.map(st=>{
+
                 let total = 0
                 let max = 0
 
                 return(
                   <tr key={st.id}>
-                    <td>{st.name}</td>
+                    <td className="p-2 border">{st.name}</td>
 
                     {subjects.map(sub=>{
                       const key = `${st.id}_${sub.id}`
-                      const val = marks[key] || ""
+                      const val = marks[key] ?? ""
                       const num = Number(val) || 0
 
                       total += num
                       max += sub.total_marks
 
                       return(
-                        <td key={sub.id}>
+                        <td key={sub.id} className="p-2 border">
                           <input
                             type="number"
                             value={val}
                             onChange={(e)=>updateMarks(st.id, sub.id, e.target.value)}
-                            className="w-20 bg-[#0b1220]"
+                            className="w-20 bg-[#0b1220] p-1"
                           />
                         </td>
                       )
@@ -322,23 +261,29 @@ export default function MarksPage(){
                   </tr>
                 )
               })}
+
             </tbody>
+
           </table>
+
         </div>
       )}
 
-      {students.length > 0 && (
-        <div className="flex gap-4">
-          <button onClick={saveMarks} className="px-6 py-3 bg-white/10 rounded">
-            Save
-          </button>
+      {/* EMPTY STATE */}
+      {selectedExam && subjects.length === 0 && (
+        <p className="text-red-400">
+          ⚠ No subjects added to this exam
+        </p>
+      )}
 
-          {userRole === "admin" && (
-            <button onClick={publishResult} className="px-6 py-3 bg-white/10 rounded">
-              Publish
-            </button>
-          )}
-        </div>
+      {/* ACTIONS */}
+      {students.length > 0 && (
+        <button
+          onClick={saveMarks}
+          className="px-6 py-3 bg-white/10 rounded"
+        >
+          Save Marks
+        </button>
       )}
 
     </div>
