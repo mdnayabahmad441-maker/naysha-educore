@@ -45,7 +45,7 @@ export default function StudentProfile(){
 
       try{
 
-        // ✅ STUDENT (REMOVED sections relation to avoid crash)
+        // ✅ CLEAN STUDENT QUERY (NO SECTIONS)
         const { data:studentData, error:studentError } = await supabase
           .from("students")
           .select(`
@@ -119,12 +119,11 @@ export default function StudentProfile(){
 
   },[id])
 
-  // ✅ FIX: proper loading state
+  // ================= UI STATES =================
   if(loading){
     return <div className="p-10 text-white">Loading...</div>
   }
 
-  // ✅ FIX: if student not found
   if(!student){
     return <div className="p-10 text-red-400">Student not found</div>
   }
@@ -156,7 +155,6 @@ export default function StudentProfile(){
           <div className="text-sm text-gray-300 mt-3 space-y-1">
             <p>Roll: {student.roll_number || "-"}</p>
             <p>Class: {student.classes?.name || "-"}</p>
-            {/* ❌ removed sections to prevent crash */}
           </div>
 
           <button
@@ -172,7 +170,6 @@ export default function StudentProfile(){
 
       {/* TABS */}
       <div className="flex flex-wrap gap-3 mb-6">
-
         {["profile","attendance","payments","documents","reportcards"].map(t=>(
           <button
             key={t}
@@ -186,17 +183,13 @@ export default function StudentProfile(){
             {t.toUpperCase()}
           </button>
         ))}
-
       </div>
 
       {/* PROFILE */}
       {tab==="profile" && (
-
         <div className="bg-white/10 p-6 rounded-xl space-y-6">
-
           <div>
             <h2 className="text-lg mb-3">Student Details</h2>
-
             <p>Name: {student.name}</p>
             <p>Email: {student.email}</p>
             <p>Roll: {student.roll_number}</p>
@@ -204,92 +197,65 @@ export default function StudentProfile(){
 
           <div>
             <h2 className="text-lg mb-3">Parents</h2>
-
             <p>Father: {parent?.father_name || "-"}</p>
             <p>Mother: {parent?.mother_name || "-"}</p>
             <p>Phone: {parent?.phone || "-"}</p>
             <p>Email: {parent?.email || "-"}</p>
           </div>
-
         </div>
-
       )}
 
       {/* ATTENDANCE */}
       {tab==="attendance" && (
-
         <div className="bg-white/10 p-6 rounded-xl">
-
           <h2 className="text-lg mb-4">Attendance</h2>
-
           <table className="w-full text-sm border border-white/10">
-
             <thead>
               <tr>
                 <th className="p-2 border">Date</th>
                 <th className="p-2 border">Status</th>
               </tr>
             </thead>
-
             <tbody>
-
               {attendance.map(a=>(
                 <tr key={a.id}>
                   <td className="p-2 border">{a.date}</td>
                   <td className="p-2 border">
-                    {a.status === "present"
-                      ? "✅ Present"
-                      : "❌ Absent"}
+                    {a.status === "present" ? "✅ Present" : "❌ Absent"}
                   </td>
                 </tr>
               ))}
-
             </tbody>
-
           </table>
-
         </div>
-
       )}
 
       {/* PAYMENTS */}
       {tab==="payments" && (
-
         <div className="bg-white/10 p-6 rounded-xl">
-
           <h2 className="text-lg mb-4">Payments</h2>
-
           <table className="w-full text-sm border border-white/10">
-
             <thead>
               <tr>
                 <th className="p-2 border">Date</th>
                 <th className="p-2 border">Amount</th>
               </tr>
             </thead>
-
             <tbody>
-
               {payments.map(p=>(
                 <tr key={p.id}>
                   <td className="p-2 border">{p.date}</td>
                   <td className="p-2 border">₹{p.amount}</td>
                 </tr>
               ))}
-
             </tbody>
-
           </table>
-
         </div>
-
       )}
 
       {/* DOCUMENTS */}
       {tab==="documents" && (
-
         <div className="bg-white/10 p-6 rounded-xl">
-
           <h2 className="text-lg mb-4">Documents</h2>
 
           {documents.length === 0 && (
@@ -306,26 +272,19 @@ export default function StudentProfile(){
               {d.document_type}
             </a>
           ))}
-
         </div>
-
       )}
 
       {/* REPORT CARDS */}
       {tab==="reportcards" && (
-
         <div className="bg-white/10 p-6 rounded-xl">
-
           <h2 className="text-lg mb-4">Report Cards</h2>
 
           {reports.length === 0 && (
-            <p className="text-gray-400">
-              No report cards generated yet
-            </p>
+            <p className="text-gray-400">No report cards generated yet</p>
           )}
 
           <div className="space-y-3">
-
             {reports.map(r=>(
               <div
                 key={r.id}
@@ -350,11 +309,9 @@ export default function StudentProfile(){
 
               </div>
             ))}
-
           </div>
 
         </div>
-
       )}
 
     </div>
