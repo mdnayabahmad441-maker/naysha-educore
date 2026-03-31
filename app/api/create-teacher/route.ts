@@ -28,7 +28,7 @@ export async function POST(req: Request){
     }
 
     // =========================
-    // ✅ CREATE AUTH USER (NO PASSWORD)
+    // ✅ CREATE AUTH USER
     // =========================
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
@@ -36,8 +36,10 @@ export async function POST(req: Request){
         email_confirm: true
       })
 
-    if(authError){
-      return NextResponse.json({ error: authError.message },{ status:400 })
+    if(authError || !authData?.user){
+      return NextResponse.json({
+        error: authError?.message || "Auth user not created"
+      },{ status:400 })
     }
 
     const authId = authData.user.id
@@ -50,7 +52,7 @@ export async function POST(req: Request){
       .from("teachers")
       .insert({
         id: teacherId,
-        auth_id: authId, // ✅ REQUIRED COLUMN
+        auth_id: authId,
         name,
         email,
         phone,
@@ -78,27 +80,23 @@ export async function POST(req: Request){
     }
 
     // =========================
-    // 🔥 GENERATE MAGIC LINK (OTP LOGIN)
+    // 🔥 MAGIC LINK
     // =========================
-    const { data: linkData, error: linkError } =
+    const { data: linkData } =
       await supabaseAdmin.auth.admin.generateLink({
         type: "magiclink",
         email
       })
 
-    if(linkError){
-      console.error("Magic link error:", linkError)
-    }
-
     const magicLink = linkData?.properties?.action_link
 
     // =========================
-    // ✅ 🔥 FIXED BASE URL (SaaS READY)
+    // ✅ SaaS SAFE BASE URL
     // =========================
     const baseUrl = new URL(req.url).origin
 
     // =========================
-    // 📧 EMAIL (LOGIN LINK)
+    // 📧 EMAIL
     // =========================
     await fetch(`${baseUrl}/api/send-email`,{
       method:"POST",
@@ -109,9 +107,8 @@ export async function POST(req: Request){
         message: `
           Hello ${name},<br/><br/>
           Your teacher account has been created.<br/><br/>
-          👉 Click below to login:<br/><br/>
-          <a href="${magicLink}">Login Now</a><br/><br/>
-          (This link will log you in instantly)
+          👉 Login:<br/>
+          <a href="${magicLink}">Click here</a>
         `
       })
     })
@@ -129,12 +126,8 @@ export async function POST(req: Request){
 
 Hello ${name},
 
-Your account is ready.
-
 Login here:
-${magicLink}
-
-- School ERP`
+${magicLink}`
         })
       })
     }
@@ -150,7 +143,10 @@ ${magicLink}
       type: "system"
     })
 
-    return NextResponse.json({ success:true })
+    return NextResponse.json({
+      success:true,
+      teacher: { id: teacherId }
+    })
 
   }catch(err:any){
     return NextResponse.json({ error: err.message },{ status:500 })
