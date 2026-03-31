@@ -7,96 +7,134 @@ import { getSchoolId } from "@/lib/school"
 export default function ResultPage(){
 
   const [schoolId,setSchoolId] = useState<string | null>(null)
+
   const [exams,setExams] = useState<any[]>([])
+  const [selectedExam,setSelectedExam] = useState("")
+
   const [students,setStudents] = useState<any[]>([])
   const [subjects,setSubjects] = useState<any[]>([])
   const [marksMap,setMarksMap] = useState<any>({})
   const [results,setResults] = useState<any[]>([])
 
+  const [loading,setLoading] = useState(false)
+
+  // ================= INIT =================
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
 
-  // LOAD EXAMS
+  // ================= LOAD EXAMS =================
   useEffect(()=>{
     if(!schoolId) return
 
-    supabase
-      .from("exams")
-      .select("*")
-      .eq("school_id", schoolId)
-      .eq("is_published", true)
-      .then(({data})=>setExams(data || []))
+    const loadExams = async ()=>{
+
+      const { data, error } = await supabase
+        .from("exams")
+        .select("*")
+        .eq("school_id", schoolId)
+        .eq("is_published", true)
+
+      if(error){
+        console.error("Exam error:", error)
+        return
+      }
+
+      setExams(data || [])
+    }
+
+    loadExams()
+
   },[schoolId])
 
-  // LOAD RESULT
+  // ================= LOAD RESULT =================
   const loadResult = async (examId:string)=>{
 
-    const exam = exams.find(e=>String(e.id) === String(examId))
+    if(!examId || !schoolId) return
 
-    if(!exam){
-      console.log("Exam not found")
-      return
+    setLoading(true)
+
+    try{
+
+      const exam = exams.find(e=>String(e.id) === String(examId))
+
+      if(!exam){
+        alert("Exam not found")
+        return
+      }
+
+      if(exam.is_all_classes){
+        alert("Use report card for multi-class")
+        return
+      }
+
+      const class_id = exam.class_id
+
+      // ✅ STUDENTS
+      const { data:studentsData, error:stErr } = await supabase
+        .from("students")
+        .select("*")
+        .eq("class_id", class_id)
+        .eq("school_id", schoolId)
+
+      if(stErr){
+        console.error(stErr)
+      }
+
+      setStudents(studentsData || [])
+
+      // ✅ SUBJECTS
+      const { data:subjectData } = await supabase
+        .from("exam_subjects")
+        .select(`
+          subject_id,
+          subjects(name)
+        `)
+        .eq("exam_id", exam.id)
+
+      const formattedSubjects = subjectData?.map((s:any)=>({
+        id: s.subject_id,
+        name: s.subjects?.name || "Subject"
+      })) || []
+
+      setSubjects(formattedSubjects)
+
+      // ✅ MARKS
+      const { data:marksData } = await supabase
+        .from("marks")
+        .select("*")
+        .eq("exam_id", exam.id)
+        .eq("school_id", schoolId)
+
+      const map:any = {}
+
+      marksData?.forEach((m:any)=>{
+        map[`${m.student_id}_${m.subject_id}`] = m.marks_obtained
+      })
+
+      setMarksMap(map)
+
+      // ✅ RESULTS
+      const { data:resultData } = await supabase
+        .from("results")
+        .select("*")
+        .eq("exam_id", exam.id)
+        .eq("school_id", schoolId)
+
+      const sorted = (resultData || [])
+        .sort((a:any,b:any)=> (b.percentage || 0) - (a.percentage || 0))
+        .map((r:any,i:number)=>({
+          ...r,
+          rank: r.rank || i+1
+        }))
+
+      setResults(sorted)
+
+    }catch(err){
+      console.error("LOAD ERROR:", err)
+    }finally{
+      setLoading(false)
     }
-
-    if(exam.is_all_classes){
-      alert("Use report card for multi-class")
-      return
-    }
-
-    const class_id = exam.class_id
-
-    // STUDENTS
-    const { data:studentsData } = await supabase
-      .from("students")
-      .select("*")
-      .eq("class_id", class_id)
-
-    setStudents(studentsData || [])
-
-    // ✅ SUBJECTS FIXED
-    const { data:subjectData } = await supabase
-      .from("exam_subjects")
-      .select(`
-        subject_id,
-        subjects(name)
-      `)
-      .eq("exam_id", exam.id)
-
-    const formatted = subjectData?.map((s:any)=>({
-      id: s.subject_id,
-      name: s.subjects?.name
-    })) || []
-
-    setSubjects(formatted)
-
-    // MARKS MAP
-    const { data:marksData } = await supabase
-      .from("marks")
-      .select("*")
-      .eq("exam_id", exam.id)
-
-    const map:any = {}
-    marksData?.forEach((m:any)=>{
-      map[`${m.student_id}_${m.subject_id}`] = m.marks_obtained
-    })
-
-    setMarksMap(map)
-
-    // RESULTS
-    const { data:resultData } = await supabase
-      .from("results")
-      .select("*")
-      .eq("exam_id", exam.id)
-
-    const sorted = (resultData || [])
-      .sort((a:any,b:any)=> (b.percentage || 0) - (a.percentage || 0))
-      .map((r:any,i:number)=>({
-        ...r,
-        rank: r.rank || i+1
-      }))
-
-    setResults(sorted)
   }
 
   const getColor = (p:number)=>{
@@ -112,9 +150,13 @@ export default function ResultPage(){
 
       <h1 className="text-2xl">Results</h1>
 
-      {/* ✅ FIXED SELECT */}
+      {/* SELECT EXAM */}
       <select
-        onChange={(e)=>loadResult(e.target.value)}
+        value={selectedExam}
+        onChange={(e)=>{
+          setSelectedExam(e.target.value)
+          loadResult(e.target.value) // 🔥 FIXED trigger
+        }}
         className="p-3 bg-[#0b1220]"
       >
         <option value="">Select Exam</option>
@@ -122,6 +164,16 @@ export default function ResultPage(){
           <option key={e.id} value={e.id}>{e.name}</option>
         ))}
       </select>
+
+      {/* LOADING */}
+      {loading && (
+        <p className="text-gray-400">Loading results...</p>
+      )}
+
+      {/* EMPTY */}
+      {!loading && selectedExam && results.length === 0 && (
+        <p className="text-gray-400">No results found</p>
+      )}
 
       {/* TABLE */}
       {results.length > 0 && (
@@ -160,7 +212,6 @@ export default function ResultPage(){
                     </td>
                   ))}
 
-                  {/* ✅ FIXED COLUMN */}
                   <td className="p-2">{r.total}</td>
 
                   <td className="p-2">
