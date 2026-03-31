@@ -7,7 +7,9 @@ import { getUserRole } from "@/lib/getUserRole"
 
 export default function StudentProfile(){
 
-  const { id } = useParams()
+  const params = useParams()
+  const id = Array.isArray(params.id) ? params.id[0] : params.id
+
   const router = useRouter()
 
   const [tab,setTab] = useState("profile")
@@ -19,6 +21,9 @@ export default function StudentProfile(){
   const [payments,setPayments] = useState<any[]>([])
   const [reports,setReports] = useState<any[]>([])
 
+  const [loading,setLoading] = useState(true)
+
+  // ================= ROLE CHECK =================
   useEffect(() => {
     const checkRole = async () => {
       const roleData = await getUserRole()
@@ -31,73 +36,97 @@ export default function StudentProfile(){
     checkRole()
   }, [])
 
+  // ================= LOAD DATA =================
   useEffect(()=>{
+
+    if(!id) return
 
     const load = async()=>{
 
-      const { data:studentData } = await supabase
-        .from("students")
-        .select(`
-          *,
-          classes(name),
-          sections(name)
-        `)
-        .eq("id",id)
-        .single()
+      try{
 
-      setStudent(studentData)
+        // ✅ STUDENT (REMOVED sections relation to avoid crash)
+        const { data:studentData, error:studentError } = await supabase
+          .from("students")
+          .select(`
+            *,
+            classes(name)
+          `)
+          .eq("id",id)
+          .single()
 
-      const { data:parentData } = await supabase
-        .from("parents")
-        .select("*")
-        .eq("student_id",id)
-        .maybeSingle()
+        if(studentError){
+          console.error("Student error:", studentError)
+        }
 
-      setParent(parentData)
+        setStudent(studentData)
 
-      const { data:docData } = await supabase
-        .from("student_documents")
-        .select("*")
-        .eq("student_id",id)
+        // ✅ PARENT
+        const { data:parentData } = await supabase
+          .from("parents")
+          .select("*")
+          .eq("student_id",id)
+          .maybeSingle()
 
-      setDocuments(docData || [])
+        setParent(parentData)
 
-      const { data:attData } = await supabase
-        .from("attendance")
-        .select("*")
-        .eq("student_id",id)
-        .order("date",{ascending:false})
+        // ✅ DOCUMENTS
+        const { data:docData } = await supabase
+          .from("student_documents")
+          .select("*")
+          .eq("student_id",id)
 
-      setAttendance(attData || [])
+        setDocuments(docData || [])
 
-      const { data:payData } = await supabase
-        .from("payments")
-        .select("*")
-        .eq("student_id",id)
-        .order("date",{ascending:false})
+        // ✅ ATTENDANCE
+        const { data:attData } = await supabase
+          .from("attendance")
+          .select("*")
+          .eq("student_id",id)
+          .order("date",{ascending:false})
 
-      setPayments(payData || [])
+        setAttendance(attData || [])
 
-      // 🔥 LOAD REPORT CARDS
-      const { data:reportData } = await supabase
-        .from("report_cards")
-        .select(`
-          *,
-          exams(name)
-        `)
-        .eq("student_id",id)
-        .order("created_at",{ascending:false})
+        // ✅ PAYMENTS
+        const { data:payData } = await supabase
+          .from("payments")
+          .select("*")
+          .eq("student_id",id)
+          .order("date",{ascending:false})
 
-      setReports(reportData || [])
+        setPayments(payData || [])
 
+        // ✅ REPORT CARDS
+        const { data:reportData } = await supabase
+          .from("report_cards")
+          .select(`
+            *,
+            exams(name)
+          `)
+          .eq("student_id",id)
+          .order("created_at",{ascending:false})
+
+        setReports(reportData || [])
+
+      }catch(err){
+        console.error("LOAD ERROR:", err)
+      }finally{
+        setLoading(false)
+      }
     }
 
     load()
 
   },[id])
 
-  if(!student){
+  // ✅ FIX: proper loading state
+  if(loading){
     return <div className="p-10 text-white">Loading...</div>
+  }
+
+  // ✅ FIX: if student not found
+  if(!student){
+    return <div className="p-10 text-red-400">Student not found</div>
   }
 
   return(
@@ -127,7 +156,7 @@ export default function StudentProfile(){
           <div className="text-sm text-gray-300 mt-3 space-y-1">
             <p>Roll: {student.roll_number || "-"}</p>
             <p>Class: {student.classes?.name || "-"}</p>
-            <p>Section: {student.sections?.name || "-"}</p>
+            {/* ❌ removed sections to prevent crash */}
           </div>
 
           <button
