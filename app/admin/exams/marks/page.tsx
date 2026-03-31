@@ -20,6 +20,7 @@ export default function MarksPage(){
   const [subjects,setSubjects] = useState<any[]>([])
 
   const [marks,setMarks] = useState<any>({})
+  const [isPublished,setIsPublished] = useState(false)
 
   // INIT
   useEffect(()=>{
@@ -53,6 +54,8 @@ export default function MarksPage(){
     if(exam.is_all_classes && !class_id){
       return
     }
+
+    setIsPublished(exam.is_published === true)
 
     // STUDENTS
     const { data:studentsData } = await supabase
@@ -103,6 +106,7 @@ export default function MarksPage(){
     setSubjects([])
     setMarks({})
     setSelectedClass("")
+    setIsPublished(false)
 
     if(exam && !exam.is_all_classes){
       loadData(exam)
@@ -116,6 +120,8 @@ export default function MarksPage(){
 
   // UPDATE
   const updateMarks = (studentId:string, subjectId:string, value:any)=>{
+    if(isPublished) return // 🔒 LOCK
+
     setMarks((prev:any)=>({
       ...prev,
       [`${studentId}_${subjectId}`]: value
@@ -133,6 +139,11 @@ export default function MarksPage(){
 
   // SAVE
   const saveMarks = async ()=>{
+
+    if(isPublished){
+      alert("❌ Cannot edit after publish")
+      return
+    }
 
     if(!selectedExam) return
 
@@ -170,7 +181,7 @@ export default function MarksPage(){
     alert("Saved ✅")
   }
 
-  // 🔥 PUBLISH (UPDATED)
+  // PUBLISH
   const publishResult = async ()=>{
 
     if(userRole !== "admin"){
@@ -178,23 +189,15 @@ export default function MarksPage(){
       return
     }
 
-    if(!selectedExam){
-      alert("Select exam")
-      return
-    }
+    if(!selectedExam) return
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("marks")
       .select("*")
       .eq("exam_id", selectedExam.id)
 
-    if(error){
-      alert(error.message)
-      return
-    }
-
     if(!data || data.length === 0){
-      alert("No marks to publish")
+      alert("No marks")
       return
     }
 
@@ -231,7 +234,6 @@ export default function MarksPage(){
       }
     })
 
-    // RANK
     results.sort((a:any,b:any)=>b.total - a.total)
 
     results = results.map((r:any,i:number)=>({
@@ -246,6 +248,8 @@ export default function MarksPage(){
       .update({ is_published: true })
       .eq("id", selectedExam.id)
 
+    setIsPublished(true)
+
     alert("Published 🚀")
   }
 
@@ -254,6 +258,12 @@ export default function MarksPage(){
     <div className="p-6 text-white space-y-6">
 
       <h1 className="text-2xl">Marks Entry</h1>
+
+      {isPublished && (
+        <div className="text-green-400">
+          ✅ Results Published (Locked)
+        </div>
+      )}
 
       <select onChange={(e)=>handleExamChange(e.target.value)} className="p-3 bg-[#0b1220] rounded">
         <option>Select Exam</option>
@@ -308,8 +318,9 @@ export default function MarksPage(){
                           <input
                             type="number"
                             value={val}
+                            disabled={isPublished} // 🔒 LOCK INPUT
                             onChange={(e)=>updateMarks(st.id, sub.id, e.target.value)}
-                            className="w-20 bg-[#0b1220] p-1"
+                            className="w-20 bg-[#0b1220] p-1 disabled:opacity-50"
                           />
                         </td>
                       )
@@ -327,18 +338,22 @@ export default function MarksPage(){
         </div>
       )}
 
-      {selectedExam && subjects.length === 0 && (
-        <p className="text-red-400">⚠ No subjects added</p>
-      )}
-
       {students.length > 0 && (
         <div className="flex gap-4">
-          <button onClick={saveMarks} className="px-6 py-3 bg-white/10 rounded">
+          <button
+            onClick={saveMarks}
+            disabled={isPublished}
+            className="px-6 py-3 bg-white/10 rounded disabled:opacity-50"
+          >
             Save
           </button>
 
           {userRole === "admin" && (
-            <button onClick={publishResult} className="px-6 py-3 bg-white/10 rounded">
+            <button
+              onClick={publishResult}
+              disabled={isPublished}
+              className="px-6 py-3 bg-white/10 rounded disabled:opacity-50"
+            >
               Publish
             </button>
           )}
