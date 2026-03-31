@@ -26,15 +26,19 @@ export default function StudentProfile(){
   // ================= ROLE CHECK =================
   useEffect(() => {
     const checkRole = async () => {
-      const roleData = await getUserRole()
+      try{
+        const roleData = await getUserRole()
 
-      if (roleData?.role === "teacher") {
-        window.location.href = "/unauthorized"
+        if (roleData?.role === "teacher") {
+          router.replace("/unauthorized")
+        }
+      }catch(err){
+        console.error("Role error:", err)
       }
     }
 
     checkRole()
-  }, [])
+  }, [router])
 
   // ================= LOAD DATA =================
   useEffect(()=>{
@@ -43,70 +47,68 @@ export default function StudentProfile(){
 
     const load = async()=>{
 
+      setLoading(true)
+
       try{
 
-        // ✅ CLEAN STUDENT QUERY (NO SECTIONS)
-        const { data:studentData, error:studentError } = await supabase
-          .from("students")
-          .select(`
-            *,
-            classes(name)
-          `)
-          .eq("id",id)
-          .single()
+        // 🔥 LOAD EVERYTHING IN PARALLEL (FASTER)
+        const [
+          studentRes,
+          parentRes,
+          docRes,
+          attRes,
+          payRes,
+          reportRes
+        ] = await Promise.all([
 
-        if(studentError){
-          console.error("Student error:", studentError)
+          supabase
+            .from("students")
+            .select(`*, classes(name)`)
+            .eq("id",id)
+            .single(),
+
+          supabase
+            .from("parents")
+            .select("*")
+            .eq("student_id",id)
+            .maybeSingle(),
+
+          supabase
+            .from("student_documents")
+            .select("*")
+            .eq("student_id",id),
+
+          supabase
+            .from("attendance")
+            .select("*")
+            .eq("student_id",id)
+            .order("date",{ascending:false}),
+
+          supabase
+            .from("payments")
+            .select("*")
+            .eq("student_id",id)
+            .order("date",{ascending:false}),
+
+          supabase
+            .from("report_cards")
+            .select(`*, exams(name)`)
+            .eq("student_id",id)
+            .order("created_at",{ascending:false})
+        ])
+
+        // ✅ STUDENT
+        if(studentRes.error){
+          console.error(studentRes.error)
         }
+        setStudent(studentRes.data)
 
-        setStudent(studentData)
-
-        // ✅ PARENT
-        const { data:parentData } = await supabase
-          .from("parents")
-          .select("*")
-          .eq("student_id",id)
-          .maybeSingle()
-
-        setParent(parentData)
-
-        // ✅ DOCUMENTS
-        const { data:docData } = await supabase
-          .from("student_documents")
-          .select("*")
-          .eq("student_id",id)
-
-        setDocuments(docData || [])
-
-        // ✅ ATTENDANCE
-        const { data:attData } = await supabase
-          .from("attendance")
-          .select("*")
-          .eq("student_id",id)
-          .order("date",{ascending:false})
-
-        setAttendance(attData || [])
-
-        // ✅ PAYMENTS
-        const { data:payData } = await supabase
-          .from("payments")
-          .select("*")
-          .eq("student_id",id)
-          .order("date",{ascending:false})
-
-        setPayments(payData || [])
-
-        // ✅ REPORT CARDS
-        const { data:reportData } = await supabase
-          .from("report_cards")
-          .select(`
-            *,
-            exams(name)
-          `)
-          .eq("student_id",id)
-          .order("created_at",{ascending:false})
-
-        setReports(reportData || [])
+        // ✅ OTHERS
+        setParent(parentRes.data || null)
+        setDocuments(docRes.data || [])
+        setAttendance(attRes.data || [])
+        setPayments(payRes.data || [])
+        setReports(reportRes.data || [])
 
       }catch(err){
         console.error("LOAD ERROR:", err)
@@ -119,27 +121,40 @@ export default function StudentProfile(){
 
   },[id])
 
-  // ================= UI STATES =================
+  // ================= STATES =================
   if(loading){
-    return <div className="p-10 text-white">Loading...</div>
+    return (
+      <div className="p-10 text-white animate-pulse">
+        Loading student data...
+      </div>
+    )
   }
 
   if(!student){
-    return <div className="p-10 text-red-400">Student not found</div>
+    return (
+      <div className="p-10 text-red-400">
+        Student not found
+      </div>
+    )
   }
 
+  // ================= UI =================
   return(
 
-    <div className="p-6 md:p-10 text-white max-w-6xl mx-auto">
+    <div className="p-6 md:p-10 text-white max-w-6xl mx-auto space-y-6">
 
       {/* HEADER */}
-      <div className="bg-white/10 border border-white/10 rounded-xl p-6 mb-6 flex flex-col md:flex-row gap-6 items-center">
+      <div className="bg-white/10 border border-white/10 rounded-xl p-6 flex flex-col md:flex-row gap-6 items-center">
 
-        {student.photo && (
+        {student.photo ? (
           <img
             src={student.photo}
             className="w-28 h-28 rounded-full object-cover border border-white/20"
           />
+        ) : (
+          <div className="w-28 h-28 rounded-full bg-white/10 flex items-center justify-center text-2xl">
+            👤
+          </div>
         )}
 
         <div>
@@ -149,7 +164,7 @@ export default function StudentProfile(){
           </h1>
 
           <p className="text-gray-400 mt-1">
-            {student.email}
+            {student.email || "No email"}
           </p>
 
           <div className="text-sm text-gray-300 mt-3 space-y-1">
@@ -169,15 +184,15 @@ export default function StudentProfile(){
       </div>
 
       {/* TABS */}
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap gap-3">
         {["profile","attendance","payments","documents","reportcards"].map(t=>(
           <button
             key={t}
             onClick={()=>setTab(t)}
-            className={`px-4 py-2 rounded-xl border ${
+            className={`px-4 py-2 rounded-xl border transition ${
               tab===t
                 ? "bg-white/20 border-white/20"
-                : "bg-white/5 border-white/10"
+                : "bg-white/5 border-white/10 hover:bg-white/10"
             }`}
           >
             {t.toUpperCase()}
@@ -188,11 +203,12 @@ export default function StudentProfile(){
       {/* PROFILE */}
       {tab==="profile" && (
         <div className="bg-white/10 p-6 rounded-xl space-y-6">
+
           <div>
             <h2 className="text-lg mb-3">Student Details</h2>
             <p>Name: {student.name}</p>
-            <p>Email: {student.email}</p>
-            <p>Roll: {student.roll_number}</p>
+            <p>Email: {student.email || "-"}</p>
+            <p>Roll: {student.roll_number || "-"}</p>
           </div>
 
           <div>
@@ -202,54 +218,66 @@ export default function StudentProfile(){
             <p>Phone: {parent?.phone || "-"}</p>
             <p>Email: {parent?.email || "-"}</p>
           </div>
+
         </div>
       )}
 
       {/* ATTENDANCE */}
       {tab==="attendance" && (
-        <div className="bg-white/10 p-6 rounded-xl">
+        <div className="bg-white/10 p-6 rounded-xl overflow-auto">
           <h2 className="text-lg mb-4">Attendance</h2>
-          <table className="w-full text-sm border border-white/10">
-            <thead>
-              <tr>
-                <th className="p-2 border">Date</th>
-                <th className="p-2 border">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendance.map(a=>(
-                <tr key={a.id}>
-                  <td className="p-2 border">{a.date}</td>
-                  <td className="p-2 border">
-                    {a.status === "present" ? "✅ Present" : "❌ Absent"}
-                  </td>
+
+          {attendance.length === 0 ? (
+            <p className="text-gray-400">No attendance records</p>
+          ) : (
+            <table className="w-full text-sm border border-white/10">
+              <thead>
+                <tr>
+                  <th className="p-2 border">Date</th>
+                  <th className="p-2 border">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {attendance.map(a=>(
+                  <tr key={a.id}>
+                    <td className="p-2 border">{a.date}</td>
+                    <td className="p-2 border">
+                      {a.status === "present" ? "✅ Present" : "❌ Absent"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
         </div>
       )}
 
       {/* PAYMENTS */}
       {tab==="payments" && (
-        <div className="bg-white/10 p-6 rounded-xl">
+        <div className="bg-white/10 p-6 rounded-xl overflow-auto">
           <h2 className="text-lg mb-4">Payments</h2>
-          <table className="w-full text-sm border border-white/10">
-            <thead>
-              <tr>
-                <th className="p-2 border">Date</th>
-                <th className="p-2 border">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map(p=>(
-                <tr key={p.id}>
-                  <td className="p-2 border">{p.date}</td>
-                  <td className="p-2 border">₹{p.amount}</td>
+
+          {payments.length === 0 ? (
+            <p className="text-gray-400">No payments found</p>
+          ) : (
+            <table className="w-full text-sm border border-white/10">
+              <thead>
+                <tr>
+                  <th className="p-2 border">Date</th>
+                  <th className="p-2 border">Amount</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {payments.map(p=>(
+                  <tr key={p.id}>
+                    <td className="p-2 border">{p.date}</td>
+                    <td className="p-2 border">₹{p.amount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
@@ -258,20 +286,20 @@ export default function StudentProfile(){
         <div className="bg-white/10 p-6 rounded-xl">
           <h2 className="text-lg mb-4">Documents</h2>
 
-          {documents.length === 0 && (
+          {documents.length === 0 ? (
             <p className="text-gray-400">No documents uploaded</p>
+          ) : (
+            documents.map(d=>(
+              <a
+                key={d.id}
+                href={d.file_url}
+                target="_blank"
+                className="block text-blue-400 mb-2 hover:underline"
+              >
+                {d.document_type}
+              </a>
+            ))
           )}
-
-          {documents.map(d=>(
-            <a
-              key={d.id}
-              href={d.file_url}
-              target="_blank"
-              className="block text-blue-400 mb-2"
-            >
-              {d.document_type}
-            </a>
-          ))}
         </div>
       )}
 
@@ -280,36 +308,35 @@ export default function StudentProfile(){
         <div className="bg-white/10 p-6 rounded-xl">
           <h2 className="text-lg mb-4">Report Cards</h2>
 
-          {reports.length === 0 && (
+          {reports.length === 0 ? (
             <p className="text-gray-400">No report cards generated yet</p>
-          )}
-
-          <div className="space-y-3">
-            {reports.map(r=>(
-              <div
-                key={r.id}
-                className="flex justify-between items-center bg-white/5 p-3 rounded-lg"
-              >
-                <div>
-                  <p className="font-medium">
-                    {r.exams?.name || "Exam"}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {new Date(r.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-
-                <a
-                  href={r.file_url}
-                  target="_blank"
-                  className="px-3 py-1 bg-blue-600 rounded text-sm"
+          ) : (
+            <div className="space-y-3">
+              {reports.map(r=>(
+                <div
+                  key={r.id}
+                  className="flex justify-between items-center bg-white/5 p-3 rounded-lg"
                 >
-                  View PDF
-                </a>
+                  <div>
+                    <p className="font-medium">
+                      {r.exams?.name || "Exam"}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
 
-              </div>
-            ))}
-          </div>
+                  <a
+                    href={r.file_url}
+                    target="_blank"
+                    className="px-3 py-1 bg-blue-600 rounded text-sm"
+                  >
+                    View PDF
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
 
         </div>
       )}
