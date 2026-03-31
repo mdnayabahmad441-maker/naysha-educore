@@ -30,9 +30,14 @@ export default function ResultPage(){
   },[schoolId])
 
   // LOAD RESULT
-  const loadResult = async (exam:any)=>{
+  const loadResult = async (examId:string)=>{
 
-    if(!exam) return
+    const exam = exams.find(e=>String(e.id) === String(examId))
+
+    if(!exam){
+      console.log("Exam not found")
+      return
+    }
 
     if(exam.is_all_classes){
       alert("Use report card for multi-class")
@@ -46,17 +51,23 @@ export default function ResultPage(){
       .from("students")
       .select("*")
       .eq("class_id", class_id)
-      .eq("school_id", schoolId)
 
     setStudents(studentsData || [])
 
-    // SUBJECTS
+    // ✅ SUBJECTS FIXED
     const { data:subjectData } = await supabase
       .from("exam_subjects")
-      .select("subjects(*)")
+      .select(`
+        subject_id,
+        subjects(name)
+      `)
       .eq("exam_id", exam.id)
 
-    const formatted = subjectData?.map((s:any)=>s.subjects) || []
+    const formatted = subjectData?.map((s:any)=>({
+      id: s.subject_id,
+      name: s.subjects?.name
+    })) || []
+
     setSubjects(formatted)
 
     // MARKS MAP
@@ -64,7 +75,6 @@ export default function ResultPage(){
       .from("marks")
       .select("*")
       .eq("exam_id", exam.id)
-      .eq("school_id", schoolId)
 
     const map:any = {}
     marksData?.forEach((m:any)=>{
@@ -78,9 +88,7 @@ export default function ResultPage(){
       .from("results")
       .select("*")
       .eq("exam_id", exam.id)
-      .eq("school_id", schoolId)
 
-    // ✅ SORT + SAFE RANK
     const sorted = (resultData || [])
       .sort((a:any,b:any)=> (b.percentage || 0) - (a.percentage || 0))
       .map((r:any,i:number)=>({
@@ -91,7 +99,6 @@ export default function ResultPage(){
     setResults(sorted)
   }
 
-  // COLOR LOGIC
   const getColor = (p:number)=>{
     if(p < 33) return "bg-red-900"
     if(p <= 60) return "bg-yellow-600"
@@ -105,12 +112,9 @@ export default function ResultPage(){
 
       <h1 className="text-2xl">Results</h1>
 
-      {/* SELECT EXAM */}
+      {/* ✅ FIXED SELECT */}
       <select
-        onChange={(e)=>{
-          const ex = exams.find(x=>x.id===e.target.value)
-          loadResult(ex)
-        }}
+        onChange={(e)=>loadResult(e.target.value)}
         className="p-3 bg-[#0b1220]"
       >
         <option value="">Select Exam</option>
@@ -156,7 +160,8 @@ export default function ResultPage(){
                     </td>
                   ))}
 
-                  <td className="p-2">{r.total_marks}</td>
+                  {/* ✅ FIXED COLUMN */}
+                  <td className="p-2">{r.total}</td>
 
                   <td className="p-2">
                     {Number(r.percentage || 0).toFixed(1)}%
