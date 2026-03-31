@@ -10,11 +10,11 @@ import { getSchoolId } from "@/lib/school"
 export default function TeachersPage(){
 
   const [teachers,setTeachers] = useState<any[]>([])
-  const [classes,setClasses] = useState<any[]>([])
   const [subjects,setSubjects] = useState<any[]>([])
-  const [teacherSubjects,setTeacherSubjects] = useState<any[]>([]) // 🔥 NEW
+  const [teacherSubjects,setTeacherSubjects] = useState<any[]>([])
 
   const [showForm,setShowForm] = useState(false)
+  const [selectedTeacher,setSelectedTeacher] = useState<any>(null)
   const [editingTeacher,setEditingTeacher] = useState<any>(null)
 
   const [loading,setLoading] = useState(false)
@@ -24,12 +24,15 @@ export default function TeachersPage(){
     email:"",
     phone:"",
     qualification:"",
-    experience_years:"",
-    selectedClasses:[] as string[],
-    selectedSubjects:[] as string[]
+    experience_years:""
   })
 
-  // ================= LOAD DATA =================
+  // ================= FIX (MISSING FUNCTION) =================
+  const handleChange = (key:string,val:any)=>{
+    setForm(prev=>({...prev,[key]:val}))
+  }
+
+  // ================= LOAD =================
   const load = async () => {
 
     const data = await getTeachers()
@@ -37,21 +40,13 @@ export default function TeachersPage(){
 
     const schoolId = await getSchoolId()
 
-    const { data: cls } = await supabase
-      .from("classes")
-      .select("id,name")
-      .eq("school_id",schoolId)
-
-    setClasses(cls || [])
-
     const { data: sub } = await supabase
       .from("subjects")
-      .select("id,name,class_id")
+      .select("id,name")
       .eq("school_id", schoolId)
 
     setSubjects(sub || [])
 
-    // 🔥 LOAD TEACHER SUBJECTS
     const { data: ts } = await supabase
       .from("teacher_subjects")
       .select("teacher_id,subject_id")
@@ -64,9 +59,8 @@ export default function TeachersPage(){
     load()
   },[])
 
-  // ================= GET SUBJECTS FOR TEACHER =================
+  // ================= SUBJECT DISPLAY =================
   const getTeacherSubjects = (teacherId:string)=>{
-
     const subjectIds = teacherSubjects
       .filter(ts=>ts.teacher_id === teacherId)
       .map(ts=>ts.subject_id)
@@ -76,49 +70,6 @@ export default function TeachersPage(){
       .map(s=>s.name)
 
     return names.join(", ") || "-"
-  }
-
-  // ================= FILTER SUBJECTS =================
-  const filteredSubjects = subjects.filter(s =>
-    form.selectedClasses.includes(s.class_id)
-  )
-
-  // ================= FORM =================
-  const handleChange = (key:string,val:any)=>{
-    setForm(prev=>({...prev,[key]:val}))
-  }
-
-  const toggleClass = (id:string)=>{
-    setForm(prev=>{
-      const exists = prev.selectedClasses.includes(id)
-
-      let newClasses = exists
-        ? prev.selectedClasses.filter(c=>c!==id)
-        : [...prev.selectedClasses,id]
-
-      const validSubjects = prev.selectedSubjects.filter(sid=>{
-        const subject = subjects.find(s=>s.id === sid)
-        return subject && newClasses.includes(subject.class_id)
-      })
-
-      return {
-        ...prev,
-        selectedClasses: newClasses,
-        selectedSubjects: validSubjects
-      }
-    })
-  }
-
-  const toggleSubject = (id:string)=>{
-    setForm(prev=>{
-      const exists = prev.selectedSubjects.includes(id)
-      return {
-        ...prev,
-        selectedSubjects: exists
-          ? prev.selectedSubjects.filter(s=>s!==id)
-          : [...prev.selectedSubjects,id]
-      }
-    })
   }
 
   // ================= CREATE =================
@@ -138,10 +89,7 @@ export default function TeachersPage(){
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          phone: form.phone,
-          qualification: form.qualification,
+          ...form,
           experience_years: Number(form.experience_years),
           school_id: schoolId
         })
@@ -152,31 +100,6 @@ export default function TeachersPage(){
       if(!res.ok){
         alert(data.error)
         return
-      }
-
-      const teacherId = data.teacher.id
-
-      if(form.selectedClasses.length){
-        const classRows = form.selectedClasses.map(c=>({
-          teacher_id: teacherId,
-          class_id: c,
-          school_id: schoolId
-        }))
-        await supabase.from("teacher_classes").insert(classRows)
-      }
-
-      if(form.selectedSubjects.length){
-        const subjectRows = form.selectedSubjects.map(s=>{
-          const subject = subjects.find(sub=>sub.id === s)
-
-          return {
-            teacher_id: teacherId,
-            subject_id: s,
-            class_id: subject?.class_id,
-            school_id: schoolId
-          }
-        })
-        await supabase.from("teacher_subjects").insert(subjectRows)
       }
 
       alert("✅ Teacher created")
@@ -192,22 +115,53 @@ export default function TeachersPage(){
     }
   }
 
-  // ================= UPDATE + DELETE (UNCHANGED) =================
-  const updateTeacher = async () => { /* keep your same code */ }
-  const deleteTeacher = async (id:string)=>{ /* keep your same code */ }
-  const openEdit = async (teacher:any)=>{ /* keep your same code */ }
+  // ================= DELETE =================
+  const deleteTeacher = async (id:string)=>{
+
+    if(!confirm("Delete this teacher?")) return
+
+    const schoolId = await getSchoolId()
+
+    await supabase.from("teacher_subjects").delete().eq("teacher_id", id)
+    await supabase.from("teacher_classes").delete().eq("teacher_id", id)
+
+    await supabase
+      .from("teachers")
+      .delete()
+      .eq("id", id)
+      .eq("school_id", schoolId)
+
+    alert("Deleted")
+    setSelectedTeacher(null)
+    load()
+  }
+
+  // ================= EDIT =================
+  const openEdit = (teacher:any)=>{
+    setSelectedTeacher(null)
+    setEditingTeacher(teacher)
+
+    setForm({
+      name: teacher.name || "",
+      email: teacher.email || "",
+      phone: teacher.phone || "",
+      qualification: teacher.qualification || "",
+      experience_years: teacher.experience_years || ""
+    })
+
+    setShowForm(true)
+  }
 
   const resetForm = ()=>{
     setShowForm(false)
     setEditingTeacher(null)
+
     setForm({
       name:"",
       email:"",
       phone:"",
       qualification:"",
-      experience_years:"",
-      selectedClasses:[],
-      selectedSubjects:[]
+      experience_years:""
     })
   }
 
@@ -223,67 +177,96 @@ export default function TeachersPage(){
         </Button>
       </div>
 
-      {/* 🔥 UPDATED TABLE */}
+      {/* TABLE */}
       <Card>
         <table className="w-full text-sm">
           <thead className="bg-white/10">
             <tr>
               <th className="p-3 text-left">Name</th>
               <th className="p-3 text-left">Subjects</th>
-              <th className="p-3 text-left">Actions</th>
             </tr>
           </thead>
 
           <tbody>
             {teachers.map((t)=>(
-              <tr key={t.id} className="border-t border-white/10">
+              <tr
+                key={t.id}
+                onClick={()=>setSelectedTeacher(t)}
+                className="border-t border-white/10 cursor-pointer hover:bg-white/5"
+              >
                 <td className="p-3">{t.name}</td>
-                <td className="p-3">
-                  {getTeacherSubjects(t.id)}
-                </td>
-                <td className="p-3 flex gap-2">
-                  <button onClick={()=>openEdit(t)} className="text-blue-400">
-                    Edit
-                  </button>
-                  <button onClick={()=>deleteTeacher(t.id)} className="text-red-400">
-                    Delete
-                  </button>
-                </td>
+                <td className="p-3">{getTeacherSubjects(t.id)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </Card>
 
-      {/* MODAL (UNCHANGED) */}
-      {showForm && (
+      {/* PROFILE MODAL */}
+      {selectedTeacher && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-[#020c1b] p-6 rounded-xl w-[600px] space-y-4">
+          <div className="bg-[#020c1b] p-6 rounded-xl w-[500px] space-y-4">
 
-            <h2 className="text-lg font-semibold">
-              {editingTeacher ? "Edit Teacher" : "Add Teacher"}
+            <h2 className="text-xl font-semibold">
+              {selectedTeacher.name}
             </h2>
 
-            <input placeholder="Name" value={form.name}
+            <p className="text-gray-400">{selectedTeacher.email}</p>
+            <p>📞 {selectedTeacher.phone || "-"}</p>
+
+            <div>
+              <p className="text-sm text-gray-400">Subjects</p>
+              <p>{getTeacherSubjects(selectedTeacher.id)}</p>
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <Button onClick={()=>openEdit(selectedTeacher)}>Edit</Button>
+              <Button color="red" onClick={()=>deleteTeacher(selectedTeacher.id)}>Delete</Button>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={()=>setSelectedTeacher(null)}>Close</Button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* FORM MODAL */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-[#020c1b] p-6 rounded-xl w-[500px] space-y-4">
+
+            <h2>{editingTeacher ? "Edit Teacher" : "Add Teacher"}</h2>
+
+            <input placeholder="Name"
+              value={form.name}
               onChange={e=>handleChange("name",e.target.value)}
               className="bg-white/10 p-2 rounded w-full"/>
 
-            <input placeholder="Email" value={form.email}
+            <input placeholder="Email"
+              value={form.email}
               disabled={!!editingTeacher}
               onChange={e=>handleChange("email",e.target.value)}
               className="bg-white/10 p-2 rounded w-full"/>
 
-            <input placeholder="Phone" value={form.phone}
+            <input placeholder="Phone"
+              value={form.phone}
               onChange={e=>handleChange("phone",e.target.value)}
+              className="bg-white/10 p-2 rounded w-full"/>
+
+            <input placeholder="Experience"
+              value={form.experience_years}
+              onChange={e=>handleChange("experience_years",e.target.value)}
               className="bg-white/10 p-2 rounded w-full"/>
 
             <div className="flex justify-end gap-3 pt-4">
               <Button onClick={resetForm}>Cancel</Button>
 
               <Button color="green"
-                onClick={editingTeacher ? updateTeacher : submit}
+                onClick={submit}
                 disabled={loading}>
-                {loading ? "Saving..." : editingTeacher ? "Update" : "Create"}
+                {loading ? "Saving..." : "Save"}
               </Button>
             </div>
 
