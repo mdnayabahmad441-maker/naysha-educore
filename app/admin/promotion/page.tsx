@@ -26,7 +26,7 @@ export default function PromotionPage(){
     getSchoolId().then(setSchoolId)
   },[])
 
-  // ================= LOAD YEARS + AUTO SET =================
+  // ================= LOAD YEARS =================
   useEffect(()=>{
     if(!schoolId) return
 
@@ -41,9 +41,14 @@ export default function PromotionPage(){
       const list = data || []
       setYears(list)
 
-      // 🔥 AUTO SET CURRENT & NEXT
+      // ✅ FIXED LOGIC (CURRENT + NEXT)
       const current = list.find(y=>y.is_active)
-      const next = list.find(y=>!y.is_active)
+
+      let next = null
+      if(current){
+        const index = list.findIndex(y=>y.id === current.id)
+        next = list[index + 1]
+      }
 
       if(current) setCurrentYear(current.id)
       if(next) setNextYear(next.id)
@@ -89,7 +94,6 @@ export default function PromotionPage(){
 
       setStudents(formatted)
 
-      // 🔥 AUTO SELECT ALL
       const map:any = {}
       formatted.forEach((s:any)=> map[s.id] = true)
       setSelected(map)
@@ -107,7 +111,7 @@ export default function PromotionPage(){
     }))
   }
 
-  // ================= PROMOTE =================
+  // ================= MANUAL PROMOTE =================
   const promote = async ()=>{
 
     if(!toClass || !nextYear){
@@ -141,7 +145,6 @@ export default function PromotionPage(){
 
       if(payload.length === 0){
         alert("No students selected")
-        setLoading(false)
         return
       }
 
@@ -156,7 +159,6 @@ export default function PromotionPage(){
 
       alert("✅ Students promoted successfully 🚀")
 
-      // 🔥 RESET AFTER SUCCESS
       setStudents([])
       setSelected({})
       setFromClass("")
@@ -165,6 +167,80 @@ export default function PromotionPage(){
     }catch(err){
       console.error(err)
       alert("Promotion failed")
+    }finally{
+      setLoading(false)
+    }
+  }
+
+  // ================= AUTO PROMOTION =================
+  const autoPromote = async ()=>{
+
+    if(!schoolId || !currentYear || !nextYear){
+      alert("Academic years not set")
+      return
+    }
+
+    setLoading(true)
+
+    try{
+
+      // 🔥 GET ORDERED CLASSES
+      const { data: classList } = await supabase
+        .from("classes")
+        .select("*")
+        .eq("school_id", schoolId)
+        .order("order_number",{ ascending:true })
+
+      // 🔥 GET ALL STUDENTS
+      const { data: enrollments } = await supabase
+        .from("student_enrollments")
+        .select("*")
+        .eq("school_id", schoolId)
+        .eq("academic_year_id", currentYear)
+
+      const payload:any[] = []
+
+      enrollments?.forEach((e:any)=>{
+
+        const currentClass = classList?.find(c=>c.id === e.class_id)
+        if(!currentClass) return
+
+        const nextClass = classList?.find(
+          c => c.order_number === currentClass.order_number + 1
+        )
+
+        if(!nextClass) return // last class skip
+
+        payload.push({
+          id: crypto.randomUUID(),
+          student_id: e.student_id,
+          class_id: nextClass.id,
+          school_id: schoolId,
+          academic_year_id: nextYear,
+          roll_number: e.roll_number
+        })
+
+      })
+
+      if(payload.length === 0){
+        alert("No students to promote")
+        return
+      }
+
+      const { error } = await supabase
+        .from("student_enrollments")
+        .insert(payload)
+
+      if(error){
+        alert(error.message)
+        return
+      }
+
+      alert("🚀 Auto Promotion Completed!")
+
+    }catch(err){
+      console.error(err)
+      alert("Auto promotion failed")
     }finally{
       setLoading(false)
     }
@@ -185,24 +261,13 @@ export default function PromotionPage(){
 
           <select
             value={currentYear}
-            onChange={(e)=>{
-              setCurrentYear(e.target.value)
-
-              // 🔥 prevent same selection
-              if(e.target.value === nextYear){
-                setNextYear("")
-              }
-            }}
+            onChange={(e)=>setCurrentYear(e.target.value)}
             className="p-3 rounded-xl bg-[#0b1220]"
           >
             <option value="">Current Year</option>
-
             {years.map(y=>(
-              <option key={y.id} value={y.id}>
-                {y.name}
-              </option>
+              <option key={y.id} value={y.id}>{y.name}</option>
             ))}
-
           </select>
 
           <select
@@ -211,15 +276,9 @@ export default function PromotionPage(){
             className="p-3 rounded-xl bg-[#0b1220]"
           >
             <option value="">Next Year</option>
-
-            {years
-              .filter(y => y.id !== currentYear)
-              .map(y=>(
-                <option key={y.id} value={y.id}>
-                  {y.name}
-                </option>
-              ))}
-
+            {years.filter(y=>y.id !== currentYear).map(y=>(
+              <option key={y.id} value={y.id}>{y.name}</option>
+            ))}
           </select>
 
         </div>
@@ -229,20 +288,13 @@ export default function PromotionPage(){
 
           <select
             value={fromClass}
-            onChange={(e)=>{
-              setFromClass(e.target.value)
-              setStudents([]) // reset
-            }}
+            onChange={(e)=>setFromClass(e.target.value)}
             className="p-3 rounded-xl bg-[#0b1220]"
           >
             <option value="">From Class</option>
-
             {classes.map(c=>(
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
-
           </select>
 
           <select
@@ -251,15 +303,9 @@ export default function PromotionPage(){
             className="p-3 rounded-xl bg-[#0b1220]"
           >
             <option value="">To Class</option>
-
-            {classes
-              .filter(c => c.id !== fromClass)
-              .map(c=>(
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-
+            {classes.filter(c=>c.id !== fromClass).map(c=>(
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
           </select>
 
         </div>
@@ -273,14 +319,10 @@ export default function PromotionPage(){
           <p className="text-gray-400">No students found</p>
         ) : (
           students.map((s:any)=>(
-            <div
-              key={s.id}
-              className="flex justify-between items-center bg-white/5 p-3 rounded hover:bg-white/10 transition"
-            >
+            <div key={s.id}
+              className="flex justify-between items-center bg-white/5 p-3 rounded">
 
-              <span>
-                {s.name} (Roll: {s.roll})
-              </span>
+              <span>{s.name} (Roll: {s.roll})</span>
 
               <input
                 type="checkbox"
@@ -294,14 +336,26 @@ export default function PromotionPage(){
 
       </div>
 
-      {/* ACTION */}
-      <button
-        onClick={promote}
-        disabled={loading}
-        className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 transition"
-      >
-        {loading ? "Promoting..." : "Promote Students"}
-      </button>
+      {/* ACTIONS */}
+      <div className="flex gap-3">
+
+        <button
+          onClick={promote}
+          disabled={loading}
+          className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700"
+        >
+          {loading ? "Processing..." : "Promote Selected"}
+        </button>
+
+        <button
+          onClick={autoPromote}
+          disabled={loading}
+          className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700"
+        >
+          {loading ? "Processing..." : "Auto Promote All"}
+        </button>
+
+      </div>
 
     </div>
   )
