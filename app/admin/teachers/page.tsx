@@ -11,6 +11,7 @@ export default function TeachersPage(){
 
   const [teachers,setTeachers] = useState<any[]>([])
   const [classes,setClasses] = useState<any[]>([])
+  const [subjects,setSubjects] = useState<any[]>([])
 
   const [showForm,setShowForm] = useState(false)
   const [loading,setLoading] = useState(false)
@@ -19,10 +20,10 @@ export default function TeachersPage(){
     name:"",
     email:"",
     phone:"",
-    subject:"",
     qualification:"",
     experience_years:"",
-    selectedClasses:[] as string[]
+    selectedClasses:[] as string[],
+    selectedSubjects:[] as string[]
   })
 
   // ================= LOAD DATA =================
@@ -39,11 +40,23 @@ export default function TeachersPage(){
       .eq("school_id",schoolId)
 
     setClasses(cls || [])
+
+    const { data: sub } = await supabase
+      .from("subjects")
+      .select("id,name,class_id")
+      .eq("school_id", schoolId)
+
+    setSubjects(sub || [])
   }
 
   useEffect(()=>{
     load()
   },[])
+
+  // ================= FILTER SUBJECTS =================
+  const filteredSubjects = subjects.filter(s =>
+    form.selectedClasses.includes(s.class_id)
+  )
 
   // ================= FORM =================
   const handleChange = (key:string,val:any)=>{
@@ -53,16 +66,38 @@ export default function TeachersPage(){
   const toggleClass = (id:string)=>{
     setForm(prev=>{
       const exists = prev.selectedClasses.includes(id)
+
+      let newClasses = exists
+        ? prev.selectedClasses.filter(c=>c!==id)
+        : [...prev.selectedClasses,id]
+
+      // 🔥 REMOVE SUBJECTS NOT IN SELECTED CLASSES
+      const validSubjects = prev.selectedSubjects.filter(sid=>{
+        const subject = subjects.find(s=>s.id === sid)
+        return subject && newClasses.includes(subject.class_id)
+      })
+
       return {
         ...prev,
-        selectedClasses: exists
-          ? prev.selectedClasses.filter(c=>c!==id)
-          : [...prev.selectedClasses,id]
+        selectedClasses: newClasses,
+        selectedSubjects: validSubjects
       }
     })
   }
 
-  // ================= ✅ FULLY UPDATED SUBMIT =================
+  const toggleSubject = (id:string)=>{
+    setForm(prev=>{
+      const exists = prev.selectedSubjects.includes(id)
+      return {
+        ...prev,
+        selectedSubjects: exists
+          ? prev.selectedSubjects.filter(s=>s!==id)
+          : [...prev.selectedSubjects,id]
+      }
+    })
+  }
+
+  // ================= SUBMIT =================
   const submit = async () => {
 
     if(!form.name || !form.email){
@@ -76,7 +111,6 @@ export default function TeachersPage(){
 
     try{
 
-      // 🔥 CREATE TEACHER (AUTH + DB + NOTIFICATIONS)
       const res = await fetch("/api/create-teacher",{
         method:"POST",
         headers:{ "Content-Type":"application/json" },
@@ -84,7 +118,6 @@ export default function TeachersPage(){
           name: form.name,
           email: form.email,
           phone: form.phone,
-          subject: form.subject,
           qualification: form.qualification,
           experience_years: Number(form.experience_years),
           school_id: schoolId
@@ -100,18 +133,34 @@ export default function TeachersPage(){
 
       const teacherId = data.teacher.id
 
-      // 🔥 ASSIGN CLASSES AFTER CREATION
+      // 🔥 ASSIGN CLASSES
       if(form.selectedClasses.length){
-        const rows = form.selectedClasses.map(c=>({
+        const classRows = form.selectedClasses.map(c=>({
           teacher_id: teacherId,
           class_id: c,
           school_id: schoolId
         }))
 
-        await supabase.from("teacher_classes").insert(rows)
+        await supabase.from("teacher_classes").insert(classRows)
       }
 
-      alert("✅ Teacher created + notified (Email + WhatsApp)")
+      // 🔥 ASSIGN SUBJECTS
+      if(form.selectedSubjects.length){
+        const subjectRows = form.selectedSubjects.map(s=>{
+          const subject = subjects.find(sub=>sub.id === s)
+
+          return {
+            teacher_id: teacherId,
+            subject_id: s,
+            class_id: subject?.class_id,
+            school_id: schoolId
+          }
+        })
+
+        await supabase.from("teacher_subjects").insert(subjectRows)
+      }
+
+      alert("✅ Teacher created + subjects assigned")
 
       setShowForm(false)
 
@@ -119,10 +168,10 @@ export default function TeachersPage(){
         name:"",
         email:"",
         phone:"",
-        subject:"",
         qualification:"",
         experience_years:"",
-        selectedClasses:[]
+        selectedClasses:[],
+        selectedSubjects:[]
       })
 
       load()
@@ -163,8 +212,6 @@ export default function TeachersPage(){
           <thead className="bg-white/10 text-gray-300">
             <tr>
               <th className="p-3 text-left">Name</th>
-              <th className="p-3 text-left">Subject</th>
-              <th className="p-3 text-left">Experience</th>
               <th className="p-3 text-left">Phone</th>
             </tr>
           </thead>
@@ -174,10 +221,6 @@ export default function TeachersPage(){
             {teachers.map((t)=>(
               <tr key={t.id} className="border-t border-white/10">
                 <td className="p-3">{t.name}</td>
-                <td className="p-3">{t.subject || "-"}</td>
-                <td className="p-3">
-                  {t.experience_years ? `${t.experience_years} yrs` : "-"}
-                </td>
                 <td className="p-3">{t.phone || "-"}</td>
               </tr>
             ))}
@@ -216,11 +259,6 @@ export default function TeachersPage(){
                 onChange={e=>handleChange("phone",e.target.value)}
                 className="bg-white/10 p-2 rounded"/>
 
-              <input placeholder="Subject"
-                value={form.subject}
-                onChange={e=>handleChange("subject",e.target.value)}
-                className="bg-white/10 p-2 rounded"/>
-
               <input placeholder="Qualification"
                 value={form.qualification}
                 onChange={e=>handleChange("qualification",e.target.value)}
@@ -254,6 +292,36 @@ export default function TeachersPage(){
                 ))}
 
               </div>
+            </div>
+
+            {/* 🔥 FILTERED SUBJECTS */}
+            <div>
+              <p className="text-sm mb-2">Assign Subjects</p>
+
+              {filteredSubjects.length === 0 ? (
+                <p className="text-gray-400 text-sm">
+                  Select class first
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+
+                  {filteredSubjects.map(s=>(
+                    <button
+                      key={s.id}
+                      onClick={()=>toggleSubject(s.id)}
+                      className={`px-3 py-1 rounded text-sm ${
+                        form.selectedSubjects.includes(s.id)
+                          ? "bg-green-500"
+                          : "bg-white/10"
+                      }`}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+
+                </div>
+              )}
+
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
