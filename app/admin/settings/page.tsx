@@ -17,20 +17,17 @@ export default function SettingsPage(){
   const [classes,setClasses] = useState<any[]>([])
   const [classFees,setClassFees] = useState<any>({})
 
-  // 🔥 NEW STATES (ACADEMIC)
   const [years,setYears] = useState<any[]>([])
   const [yearName,setYearName] = useState("")
 
   const [loading,setLoading] = useState(true)
 
+  // INIT
   useEffect(()=>{
-    const init = async ()=>{
-      const id = await getSchoolId()
-      setSchoolId(id)
-    }
-    init()
+    getSchoolId().then(setSchoolId)
   },[])
 
+  // LOAD DATA
   useEffect(()=>{
     if(!schoolId) return
 
@@ -82,7 +79,6 @@ export default function SettingsPage(){
 
       setClassFees(map)
 
-      // 🔥 LOAD ACADEMIC YEARS
       const { data: yrs } = await supabase
         .from("academic_years")
         .select("*")
@@ -98,88 +94,10 @@ export default function SettingsPage(){
 
   },[schoolId])
 
-  // ================= ACADEMIC FUNCTIONS =================
-  const reloadYears = async ()=>{
-    const { data } = await supabase
-      .from("academic_years")
-      .select("*")
-      .eq("school_id", schoolId)
-
-    setYears(data || [])
-  }
-
-  const addYear = async ()=>{
-    if(!yearName) return alert("Enter year")
-
-    await supabase.from("academic_years").insert({
-      id: crypto.randomUUID(),
-      name: yearName,
-      school_id: schoolId,
-      is_active: false
-    })
-
-    setYearName("")
-    reloadYears()
-  }
-
-  const setActiveYear = async (id:string)=>{
-
-    await supabase
-      .from("academic_years")
-      .update({ is_active:false })
-      .eq("school_id", schoolId)
-
-    await supabase
-      .from("academic_years")
-      .update({ is_active:true })
-      .eq("id", id)
-
-    reloadYears()
-  }
-
-  const deleteYear = async (id:string)=>{
-    if(!confirm("Delete year?")) return
-
-    await supabase
-      .from("academic_years")
-      .delete()
-      .eq("id", id)
-
-    reloadYears()
-  }
-
-  // ================= YOUR EXISTING FUNCTIONS (UNCHANGED) =================
-  const uploadFile = async (file:File, folder:string)=>{
-    const fileName = `${folder}/${Date.now()}-${file.name}`
-
-    const { error } = await supabase.storage
-      .from("school-assets")
-      .upload(fileName, file)
-
-    if(error){
-      alert("Upload failed")
-      return null
-    }
-
-    const { data } = supabase
-      .storage
-      .from("school-assets")
-      .getPublicUrl(fileName)
-
-    return data.publicUrl
-  }
+  // ================= FUNCTIONS =================
 
   const saveSchool = async ()=>{
-    await supabase.from("schools").update({
-      name: school.name,
-      email: school.email,
-      phone: school.phone,
-      address: school.address,
-      website: school.website,
-      logo_url: school.logo_url,
-      stamp_url: school.stamp_url
-    }).eq("id", schoolId)
-
+    await supabase.from("schools").update(school).eq("id", schoolId)
     alert("Saved ✅")
   }
 
@@ -211,33 +129,162 @@ export default function SettingsPage(){
     alert("Class Fees Saved ✅")
   }
 
+  const reloadYears = async ()=>{
+    const { data } = await supabase
+      .from("academic_years")
+      .select("*")
+      .eq("school_id", schoolId)
+
+    setYears(data || [])
+  }
+
+  const addYear = async ()=>{
+    if(!yearName) return alert("Enter year")
+
+    await supabase.from("academic_years").insert({
+      id: crypto.randomUUID(),
+      name: yearName,
+      school_id: schoolId,
+      is_active: false
+    })
+
+    setYearName("")
+    reloadYears()
+  }
+
+  const setActiveYear = async (id:string)=>{
+    await supabase.from("academic_years").update({is_active:false}).eq("school_id", schoolId)
+    await supabase.from("academic_years").update({is_active:true}).eq("id", id)
+    reloadYears()
+  }
+
+  const deleteYear = async (id:string)=>{
+    await supabase.from("academic_years").delete().eq("id", id)
+    reloadYears()
+  }
+
   if(loading) return <div className="p-10 text-white">Loading...</div>
 
   return(
     <div className="flex text-white min-h-screen">
 
-      {/* LEFT MENU */}
+      {/* SIDEBAR */}
       <div className="w-64 bg-[#0b1a33] p-6 space-y-3">
         <button onClick={()=>setTab("school")} className="block w-full text-left">School</button>
         <button onClick={()=>setTab("exam")} className="block w-full text-left">Exam</button>
         <button onClick={()=>setTab("fees")} className="block w-full text-left">Fees</button>
-
-        {/* 🔥 NEW TAB */}
         <button onClick={()=>setTab("academic")} className="block w-full text-left text-cyan-400">
           Academic Year
         </button>
       </div>
 
-      {/* RIGHT */}
+      {/* CONTENT */}
       <div className="flex-1 p-10">
 
-        {/* ================= ACADEMIC TAB ================= */}
+        {/* ================= SCHOOL ================= */}
+        {tab==="school" && (
+          <div className="space-y-4 max-w-lg">
+
+            <input className="input" placeholder="Name"
+              value={school.name || ""}
+              onChange={(e)=>setSchool({...school,name:e.target.value})}
+            />
+
+            <input className="input" placeholder="Email"
+              value={school.email || ""}
+              onChange={(e)=>setSchool({...school,email:e.target.value})}
+            />
+
+            <input className="input" placeholder="Phone"
+              value={school.phone || ""}
+              onChange={(e)=>setSchool({...school,phone:e.target.value})}
+            />
+
+            <input className="input" placeholder="Address"
+              value={school.address || ""}
+              onChange={(e)=>setSchool({...school,address:e.target.value})}
+            />
+
+            <button onClick={saveSchool} className="btn bg-blue-600">Save</button>
+
+          </div>
+        )}
+
+        {/* ================= EXAM ================= */}
+        {tab==="exam" && (
+          <div className="space-y-4 max-w-lg">
+
+            <input className="input" placeholder="Passing %"
+              value={exam.passing || ""}
+              onChange={(e)=>setExam({...exam,passing:e.target.value})}
+            />
+
+            <select
+              className="input"
+              value={exam.grading || "percentage"}
+              onChange={(e)=>setExam({...exam,grading:e.target.value})}
+            >
+              <option value="percentage">Percentage</option>
+              <option value="grade">Grade</option>
+            </select>
+
+            <button onClick={saveExam} className="btn bg-blue-600">Save</button>
+
+          </div>
+        )}
+
+        {/* ================= FEES ================= */}
+        {tab==="fees" && (
+          <div className="space-y-6">
+
+            <div className="space-y-3 max-w-lg">
+              <input className="input" placeholder="Prefix"
+                value={fees.prefix || ""}
+                onChange={(e)=>setFees({...fees,prefix:e.target.value})}
+              />
+              <input className="input" placeholder="Late Fee"
+                value={fees.late_fee || ""}
+                onChange={(e)=>setFees({...fees,late_fee:e.target.value})}
+              />
+              <button onClick={saveFees} className="btn bg-blue-600">Save</button>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg">Class Fees</h3>
+
+              {classes.map(c=>(
+                <div key={c.id} className="grid grid-cols-3 gap-2">
+                  <input className="input"
+                    value={classFees[c.id]?.tuition || ""}
+                    onChange={(e)=>setClassFees({...classFees,[c.id]:{...classFees[c.id],tuition:e.target.value}})}
+                    placeholder={`${c.name} Tuition`}
+                  />
+                  <input className="input"
+                    value={classFees[c.id]?.transport || ""}
+                    onChange={(e)=>setClassFees({...classFees,[c.id]:{...classFees[c.id],transport:e.target.value}})}
+                    placeholder="Transport"
+                  />
+                  <input className="input"
+                    value={classFees[c.id]?.hostel || ""}
+                    onChange={(e)=>setClassFees({...classFees,[c.id]:{...classFees[c.id],hostel:e.target.value}})}
+                    placeholder="Hostel"
+                  />
+                </div>
+              ))}
+
+              <button onClick={saveClassFees} className="btn bg-green-600">
+                Save Class Fees
+              </button>
+            </div>
+
+          </div>
+        )}
+
+        {/* ================= ACADEMIC ================= */}
         {tab==="academic" && (
           <div className="space-y-6 max-w-lg">
 
-            <h2 className="text-xl font-semibold">
-              Academic Year
-            </h2>
+            <h2 className="text-xl font-semibold">Academic Year</h2>
 
             <div className="flex gap-3">
               <input
@@ -252,43 +299,27 @@ export default function SettingsPage(){
               </button>
             </div>
 
-            <div className="space-y-3">
-              {years.map(y=>(
-                <div key={y.id}
-                  className="bg-white/5 p-4 rounded-xl border border-white/10 flex justify-between items-center">
+            {years.map(y=>(
+              <div key={y.id}
+                className="bg-white/5 p-4 rounded-xl flex justify-between">
 
-                  <div>
-                    <p className="font-semibold">{y.name}</p>
-                    {y.is_active && (
-                      <span className="text-green-400 text-sm">Active</span>
-                    )}
-                  </div>
-
-                  <div className="flex gap-3 text-sm">
-
-                    {!y.is_active && (
-                      <button onClick={()=>setActiveYear(y.id)} className="text-blue-400">
-                        Set Active
-                      </button>
-                    )}
-
-                    <button onClick={()=>deleteYear(y.id)} className="text-red-400">
-                      Delete
-                    </button>
-
-                  </div>
-
+                <div>
+                  <p>{y.name}</p>
+                  {y.is_active && <span className="text-green-400 text-sm">Active</span>}
                 </div>
-              ))}
-            </div>
+
+                <div className="flex gap-3">
+                  {!y.is_active && (
+                    <button onClick={()=>setActiveYear(y.id)}>Active</button>
+                  )}
+                  <button onClick={()=>deleteYear(y.id)}>Delete</button>
+                </div>
+
+              </div>
+            ))}
 
           </div>
         )}
-
-        {/* ================= YOUR ORIGINAL TABS (UNCHANGED) ================= */}
-        {tab==="school" && (/* SAME AS YOUR CODE */ <div className="space-y-4 max-w-lg"> ... </div>)}
-        {tab==="exam" && (/* SAME */ <div> ... </div>)}
-        {tab==="fees" && (/* SAME */ <div> ... </div>)}
 
       </div>
 
@@ -298,7 +329,6 @@ export default function SettingsPage(){
           padding:12px;
           border-radius:8px;
           background:#0b1220;
-          border:1px solid rgba(255,255,255,0.1);
         }
         .btn {
           padding:10px;
