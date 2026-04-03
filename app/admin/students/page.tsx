@@ -60,6 +60,7 @@ export default function StudentsPage(){
       class_name: e.classes?.name
     }))
 
+    // SORT
     const sorted = formatted.sort((a:any,b:any)=>{
       if(a.class_name === b.class_name){
         return Number(a.roll_number || 0) - Number(b.roll_number || 0)
@@ -67,8 +68,14 @@ export default function StudentsPage(){
       return (a.class_name || "").localeCompare(b.class_name || "")
     })
 
-    setStudents(sorted)
-    setFiltered(sorted)
+    // ✅ ADD DISPLAY ID (ST01, ST02...)
+    const withDisplayId = sorted.map((s:any,index:number)=>({
+      ...s,
+      display_id: `ST${String(index + 1).padStart(2,"0")}`
+    }))
+
+    setStudents(withDisplayId)
+    setFiltered(withDisplayId)
     setLoading(false)
   }
 
@@ -81,7 +88,7 @@ export default function StudentsPage(){
 
     const f = students.filter(s =>
       (s.name || "").toLowerCase().includes(term) ||
-      (s.id || "").toLowerCase().includes(term) ||
+      (s.display_id || "").toLowerCase().includes(term) ||
       (s.class_name || "").toLowerCase().includes(term)
     )
 
@@ -157,8 +164,9 @@ export default function StudentsPage(){
             ) : filtered.map((s)=>(
               <tr key={s.id} className="border-t border-white/5 hover:bg-white/5">
 
-                <td className="p-4 text-gray-400">
-                  {s.id?.slice(0,4)}
+                {/* ✅ DISPLAY ID */}
+                <td className="p-4 text-gray-400 font-medium">
+                  {s.display_id}
                 </td>
 
                 <td className="p-4 font-medium">{s.name}</td>
