@@ -16,11 +16,9 @@ export default function FeesPage(){
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
   const [classes,setClasses] = useState<any[]>([])
-  const [sections,setSections] = useState<any[]>([])
   const [fees,setFees] = useState<any[]>([])
 
   const [selectedClass,setSelectedClass] = useState("")
-  const [selectedSection,setSelectedSection] = useState("")
   const [selectedMonth,setSelectedMonth] = useState("")
 
   const [loading,setLoading] = useState(false)
@@ -42,19 +40,7 @@ export default function FeesPage(){
 
   },[schoolId])
 
-  // ================= LOAD SECTIONS =================
-  useEffect(()=>{
-    if(!schoolId || !selectedClass) return
-
-    supabase.from("sections")
-      .select("*")
-      .eq("school_id",schoolId) // ✅ FIX
-      .eq("class_id",selectedClass)
-      .then(({data})=>setSections(data || []))
-
-  },[schoolId,selectedClass])
-
-  // ================= LOAD FEES (FIXED) =================
+  // ================= LOAD FEES =================
   const loadFees = async ()=>{
     if(!schoolId) return
 
@@ -66,7 +52,6 @@ export default function FeesPage(){
       .eq("school_id",schoolId)
 
     if(selectedClass) query = query.eq("class_id",selectedClass)
-    if(selectedSection) query = query.eq("section_id",selectedSection)
     if(selectedMonth) query = query.eq("month",selectedMonth)
 
     const { data: feeData } = await query
@@ -77,14 +62,14 @@ export default function FeesPage(){
       return
     }
 
-    // ✅ SAFE STUDENT FETCH
+    // ✅ STUDENTS
     const studentIds = feeData.map(f => f.student_id)
 
     const { data: students } = await supabase
       .from("students")
       .select("id,name,roll_number,class_id")
       .in("id", studentIds)
-      .eq("school_id", schoolId) // ✅ CRITICAL FIX
+      .eq("school_id", schoolId)
 
     const studentMap:any = {}
     students?.forEach(s => {
@@ -105,7 +90,7 @@ export default function FeesPage(){
 
   useEffect(()=>{
     loadFees()
-  },[schoolId,selectedClass,selectedSection,selectedMonth])
+  },[schoolId,selectedClass,selectedMonth])
 
   // ================= RECEIPT =================
   const generateReceipt = async (f:any)=>{
@@ -134,7 +119,6 @@ export default function FeesPage(){
       await new Promise(requestAnimationFrame)
       await new Promise(requestAnimationFrame)
 
-      // ✅ REMOVE OKLAB ISSUE
       container.querySelectorAll("*").forEach((el:any)=>{
         el.style.color = "#000"
         el.style.background = "#fff"
@@ -200,17 +184,12 @@ export default function FeesPage(){
       return
     }
 
-    let query = supabase
+    // ✅ STUDENTS (NO SECTION)
+    const { data: students } = await supabase
       .from("students")
       .select("*")
       .eq("school_id",schoolId)
       .eq("class_id",selectedClass)
-
-    if(selectedSection){
-      query = query.eq("section_id",selectedSection)
-    }
-
-    const { data: students } = await query
 
     for(const s of students || []){
 
@@ -219,7 +198,7 @@ export default function FeesPage(){
         .select("id")
         .eq("student_id",s.id)
         .eq("month",selectedMonth)
-        .eq("school_id",schoolId) // ✅ FIX
+        .eq("school_id",schoolId)
         .maybeSingle()
 
       if(existing) continue
@@ -228,7 +207,6 @@ export default function FeesPage(){
         student_id:s.id,
         school_id:schoolId,
         class_id:s.class_id,
-        section_id:s.section_id,
         month:selectedMonth,
         total_amount: total,
         paid_amount:0,
@@ -259,19 +237,13 @@ export default function FeesPage(){
         Receipt History
       </button>
 
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
+      {/* FILTERS */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
 
         <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="input">
           <option value="">Class</option>
           {classes.map(c=>(
             <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-
-        <select value={selectedSection} onChange={(e)=>setSelectedSection(e.target.value)} className="input">
-          <option value="">Section</option>
-          {sections.map(s=>(
-            <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
 
@@ -289,6 +261,7 @@ export default function FeesPage(){
 
       </div>
 
+      {/* TABLE */}
       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
 
         {loading ? "Loading..." : (
