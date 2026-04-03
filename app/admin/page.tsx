@@ -67,14 +67,16 @@ if(school){
 setSchoolName(school.name)
 }
 
-/* COUNTS */
+/* ✅ FIXED STUDENT COUNT (USE ENROLLMENTS) */
 const { count:studentCount } = await supabase
-.from("students")
+.from("student_enrollments")
 .select("*",{count:"exact",head:true})
 .eq("school_id",schoolId)
+.eq("academic_year_id", year?.id)
 
 setStudents(studentCount || 0)
 
+/* TEACHERS */
 const { count:teacherCount } = await supabase
 .from("teachers")
 .select("*",{count:"exact",head:true})
@@ -82,6 +84,7 @@ const { count:teacherCount } = await supabase
 
 setTeachers(teacherCount || 0)
 
+/* CLASSES */
 const { count:classCount } = await supabase
 .from("classes")
 .select("*",{count:"exact",head:true})
@@ -146,15 +149,24 @@ setClassAttendance(formatted)
 const overall = total ? Math.round((totalPresent/total)*100) : 0
 setAttendance(overall)
 
-/* RECENT STUDENTS */
+/* ✅ FIXED RECENT STUDENTS (USE ENROLLMENTS) */
 const { data:studentsList } = await supabase
-.from("students")
-.select("id,name")
+.from("student_enrollments")
+.select(`
+  id,
+  students(id,name)
+`)
 .eq("school_id",schoolId)
+.eq("academic_year_id", year?.id)
 .order("created_at",{ascending:false})
 .limit(5)
 
-setRecentStudents(studentsList || [])
+const formattedStudents = (studentsList || []).map((s:any)=>({
+  id: s.students?.id,
+  name: s.students?.name
+}))
+
+setRecentStudents(formattedStudents)
 
 /* RECENT PAYMENTS */
 if(roleData?.role !== "teacher"){
@@ -218,7 +230,7 @@ return(
 
 </div>
 
-{/* 🔥 CLASS ATTENDANCE */}
+{/* ATTENDANCE */}
 <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
 <h2 className="text-lg font-semibold">Today's Attendance</h2>
 
@@ -243,7 +255,7 @@ style={{ width: `${c.percent}%` }}
 ))}
 </div>
 
-{/* 🔥 CHART */}
+{/* CHART */}
 <div className="bg-white/5 border border-white/10 rounded-xl p-6">
 <h2 className="mb-4 font-semibold">Attendance Overview</h2>
 
@@ -257,7 +269,7 @@ style={{ width: `${c.percent}%` }}
 </ResponsiveContainer>
 </div>
 
-{/* 🔥 QUICK ACTIONS */}
+{/* QUICK ACTIONS */}
 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
 
 <button onClick={()=>router.push("/admin/students/create")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10">Add Student</button>
