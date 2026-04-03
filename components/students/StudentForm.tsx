@@ -45,13 +45,25 @@ export default function StudentForm({ reload }: any){
     load()
   },[schoolId])
 
+  // ================= GENERATE STUDENT CODE =================
+  const generateStudentCode = async ()=>{
+    const { count } = await supabase
+      .from("students")
+      .select("*",{count:"exact", head:true})
+      .eq("school_id", schoolId)
+
+    const next = (count || 0) + 1
+
+    return `ST${String(next).padStart(2,"0")}`
+  }
+
   // ================= SAVE =================
   const save = async ()=>{
 
     try{
 
-      if(!name || !email || !selectedClass){
-        alert("Fill all fields")
+      if(!name || !selectedClass){
+        alert("Fill required fields")
         return
       }
 
@@ -82,20 +94,24 @@ export default function StudentForm({ reload }: any){
 
       const studentId = crypto.randomUUID()
 
+      // 🔥 GENERATE CODE
+      const studentCode = await generateStudentCode()
+
       // ================= CREATE STUDENT =================
       await dbInsert("students", {
         id: studentId,
         school_id: schoolId,
         name: name.trim(),
-        email: email.trim(),
-        photo: photoUrl
+        email: email.trim() || null,
+        photo: photoUrl,
+        student_code: studentCode
       })
 
-      // ================= ENROLLMENT (🔥 CORE LOGIC) =================
+      // ================= ENROLLMENT =================
       const year = await getActiveAcademicYear()
 
       if(!year){
-        alert("No active academic year found")
+        alert("No active academic year")
         return
       }
 
@@ -105,18 +121,18 @@ export default function StudentForm({ reload }: any){
         class_id: selectedClass,
         school_id: schoolId,
         academic_year_id: year.id,
-        roll_number: roll
+        roll_number: roll || null
       })
 
       // ================= PARENT =================
-      if(parentEmail){
+      if(parentName || parentEmail){
         await dbInsert("parents", {
           id: crypto.randomUUID(),
           school_id: schoolId,
           student_id: studentId,
-          name: parentName,
-          email: parentEmail.trim(),
-          phone: parentPhone
+          name: parentName || null,
+          email: parentEmail || null,
+          phone: parentPhone || null
         })
       }
 
@@ -130,10 +146,13 @@ export default function StudentForm({ reload }: any){
       setParentEmail("")
       setParentPhone("")
 
+      alert(`Student Created ✅ (${studentCode})`)
+
       if(reload) await reload()
 
     }catch(err){
-      console.error(err)
+      console.error("Student create error:", err)
+      alert("Something went wrong")
     }finally{
       setLoading(false)
     }
@@ -173,7 +192,7 @@ export default function StudentForm({ reload }: any){
 
           <input
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg"
             onChange={(e)=>setPhoto(e.target.files?.[0] || null)}
             className="text-sm text-gray-300"
           />
