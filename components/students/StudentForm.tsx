@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { dbInsert } from "@/lib/db"
 import { getSchoolId } from "@/lib/school"
 import { getActiveAcademicYear } from "@/lib/academic"
 
@@ -53,7 +52,6 @@ export default function StudentForm({ reload }: any){
       .eq("school_id", schoolId)
 
     const next = (count || 0) + 1
-
     return `ST${String(next).padStart(2,"0")}`
   }
 
@@ -85,6 +83,7 @@ export default function StudentForm({ reload }: any){
           .upload(fileName, photo)
 
         if(error){
+          console.error(error)
           alert("Image upload failed")
           return
         }
@@ -93,19 +92,25 @@ export default function StudentForm({ reload }: any){
       }
 
       const studentId = crypto.randomUUID()
-
-      // 🔥 GENERATE CODE
       const studentCode = await generateStudentCode()
 
       // ================= CREATE STUDENT =================
-      await dbInsert("students", {
-        id: studentId,
-        school_id: schoolId,
-        name: name.trim(),
-        email: email.trim() || null,
-        photo: photoUrl,
-        student_code: studentCode
-      })
+      const { error: studentError } = await supabase
+        .from("students")
+        .insert({
+          id: studentId,
+          school_id: schoolId,
+          name: name.trim(),
+          email: email.trim() || null,
+          photo: photoUrl || null,
+          student_code: studentCode
+        })
+
+      if(studentError){
+        console.error("Student insert error:", studentError)
+        alert(studentError.message)
+        return
+      }
 
       // ================= ENROLLMENT =================
       const year = await getActiveAcademicYear()
@@ -115,25 +120,40 @@ export default function StudentForm({ reload }: any){
         return
       }
 
-      await dbInsert("student_enrollments", {
-        id: crypto.randomUUID(),
-        student_id: studentId,
-        class_id: selectedClass,
-        school_id: schoolId,
-        academic_year_id: year.id,
-        roll_number: roll || null
-      })
+      const { error: enrollError } = await supabase
+        .from("student_enrollments")
+        .insert({
+          id: crypto.randomUUID(),
+          student_id: studentId,
+          class_id: selectedClass,
+          school_id: schoolId,
+          academic_year_id: year.id,
+          roll_number: roll || null
+        })
+
+      if(enrollError){
+        console.error("Enrollment error:", enrollError)
+        alert(enrollError.message)
+        return
+      }
 
       // ================= PARENT =================
       if(parentName || parentEmail){
-        await dbInsert("parents", {
-          id: crypto.randomUUID(),
-          school_id: schoolId,
-          student_id: studentId,
-          name: parentName || null,
-          email: parentEmail || null,
-          phone: parentPhone || null
-        })
+
+        const { error: parentError } = await supabase
+          .from("parents")
+          .insert({
+            id: crypto.randomUUID(),
+            school_id: schoolId,
+            student_id: studentId,
+            name: parentName || null,
+            email: parentEmail || null,
+            phone: parentPhone || null
+          })
+
+        if(parentError){
+          console.error("Parent error:", parentError)
+        }
       }
 
       // ================= RESET =================
