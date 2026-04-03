@@ -21,10 +21,14 @@ export default function SettingsPage(){
   const [yearName,setYearName] = useState("")
 
   const [loading,setLoading] = useState(true)
+  const [saving,setSaving] = useState(false)
 
   // INIT
   useEffect(()=>{
-    getSchoolId().then(setSchoolId)
+    getSchoolId().then(id=>{
+      console.log("School ID:", id)
+      setSchoolId(id)
+    })
   },[])
 
   // LOAD DATA
@@ -97,33 +101,62 @@ export default function SettingsPage(){
   // ================= FUNCTIONS =================
 
   const saveSchool = async ()=>{
-    await supabase.from("schools").update(school).eq("id", schoolId)
-    alert("Saved ✅")
+    const { error } = await supabase
+      .from("schools")
+      .update(school)
+      .eq("id", schoolId)
+
+    if(error){
+      console.error(error)
+      alert(error.message)
+    }else{
+      alert("Saved ✅")
+    }
   }
 
   const saveExam = async ()=>{
-    await updateSettings("exam", exam)
-    alert("Saved ✅")
+    try{
+      await updateSettings("exam", exam)
+      alert("Saved ✅")
+    }catch(e){
+      console.error(e)
+      alert("Save failed")
+    }
   }
 
   const saveFees = async ()=>{
-    await updateSettings("fees", fees)
-    alert("Saved ✅")
+    try{
+      console.log("Saving fees:", fees)
+      await updateSettings("fees", fees)
+      alert("Saved ✅")
+    }catch(e){
+      console.error(e)
+      alert("Save failed")
+    }
   }
 
   const saveClassFees = async ()=>{
     for(const classId in classFees){
+
       const f = classFees[classId]
 
-      await supabase.from("class_fee_settings").upsert({
-        class_id: classId,
-        school_id: schoolId,
-        tuition_fee: f.tuition,
-        transport_fee: f.transport,
-        hostel_fee: f.hostel
-      },{
-        onConflict:"class_id,school_id"
-      })
+      const { error } = await supabase
+        .from("class_fee_settings")
+        .upsert({
+          class_id: classId,
+          school_id: schoolId,
+          tuition_fee: Number(f.tuition || 0),
+          transport_fee: Number(f.transport || 0),
+          hostel_fee: Number(f.hostel || 0)
+        },{
+          onConflict:"class_id,school_id"
+        })
+
+      if(error){
+        console.error(error)
+        alert(error.message)
+        return
+      }
     }
 
     alert("Class Fees Saved ✅")
@@ -141,12 +174,20 @@ export default function SettingsPage(){
   const addYear = async ()=>{
     if(!yearName) return alert("Enter year")
 
-    await supabase.from("academic_years").insert({
-      id: crypto.randomUUID(),
-      name: yearName,
-      school_id: schoolId,
-      is_active: false
-    })
+    const { error } = await supabase
+      .from("academic_years")
+      .insert({
+        id: crypto.randomUUID(),
+        name: yearName,
+        school_id: schoolId,
+        is_active: false
+      })
+
+    if(error){
+      console.error(error)
+      alert(error.message)
+      return
+    }
 
     setYearName("")
     reloadYears()
