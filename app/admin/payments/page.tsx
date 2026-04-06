@@ -18,42 +18,57 @@ export default function PaymentsPage(){
 
   const [loading,setLoading] = useState(false)
 
-  // INIT SCHOOL
+  // ================= INIT SCHOOL =================
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
+      console.log("School ID:", id) // 🔥 DEBUG
       setSchoolId(id)
     }
     init()
   },[])
 
-  // LOAD STUDENTS
+  // ================= LOAD STUDENTS =================
   useEffect(()=>{
-    if(!schoolId) return
+    if(!schoolId) return // 🔥 CRITICAL FIX
 
     const loadStudents = async ()=>{
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("students")
-        .select("id,name")
-        .eq("school_id", schoolId)
+        .select("id,name,school_id")
 
-      setStudents(data || [])
+      if(error){
+        console.error("Students load error:", error)
+        return
+      }
+
+      // 🔥 FORCE FILTER (DOUBLE SAFETY)
+      const filtered = (data || []).filter(
+        s => s.school_id === schoolId
+      )
+
+      setStudents(filtered)
     }
 
     loadStudents()
 
   },[schoolId])
 
-  // LOAD FEES
+  // ================= LOAD FEES =================
   useEffect(()=>{
-    if(!studentId) return
+    if(!studentId || !schoolId) return // 🔥 FIX
 
     const loadFees = async ()=>{
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("fees")
         .select("*")
         .eq("student_id", studentId)
         .eq("school_id", schoolId)
+
+      if(error){
+        console.error("Fees load error:", error)
+        return
+      }
 
       setFees(data || [])
     }
@@ -62,11 +77,16 @@ export default function PaymentsPage(){
 
   },[studentId,schoolId])
 
-  // 💰 SAVE PAYMENT (🔥 FULL FIX)
+  // ================= SAVE PAYMENT =================
   const save = async ()=>{
 
     if(!studentId || !feeId || !amount){
       alert("Fill all fields")
+      return
+    }
+
+    if(!schoolId){
+      alert("School not loaded")
       return
     }
 
@@ -82,9 +102,16 @@ export default function PaymentsPage(){
       }
 
       const payAmount = Number(amount)
+
+      if(payAmount <= 0){
+        alert("Invalid amount")
+        setLoading(false)
+        return
+      }
+
       const newPaid = (fee.paid_amount || 0) + payAmount
 
-      // ✅ INSERT PAYMENT
+      // ================= INSERT PAYMENT =================
       const { error: paymentError } = await supabase
         .from("payments")
         .insert({
@@ -94,26 +121,28 @@ export default function PaymentsPage(){
           amount: payAmount,
           school_id: schoolId,
           receipt_number: "RCPT-"+Date.now(),
-          date: new Date()
+          date: new Date().toISOString()
         })
 
       if(paymentError){
+        console.error(paymentError)
         alert(paymentError.message)
         setLoading(false)
         return
       }
 
-      // ✅ UPDATE FEE (🔥 IMPORTANT)
+      // ================= UPDATE FEE =================
       const { error: feeError } = await supabase
         .from("fees")
         .update({
           paid_amount: newPaid,
-          status: newPaid >= fee.total_amount ? "paid" : "pending"
+          status: newPaid >= fee.total_amount ? "paid" : "partial"
         })
         .eq("id", feeId)
         .eq("school_id", schoolId)
 
       if(feeError){
+        console.error(feeError)
         alert(feeError.message)
         setLoading(false)
         return
@@ -121,11 +150,22 @@ export default function PaymentsPage(){
 
       alert("Payment successful ✅")
 
+      // 🔥 RESET
       setAmount("")
       setFeeId("")
 
+      // 🔥 RELOAD FEES
+      const { data } = await supabase
+        .from("fees")
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("school_id", schoolId)
+
+      setFees(data || [])
+
     }catch(err){
-      console.error(err)
+      console.error("Payment error:", err)
+      alert("Something went wrong")
     }
 
     setLoading(false)
