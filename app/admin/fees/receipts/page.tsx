@@ -11,6 +11,7 @@ export default function ReceiptHistoryPage(){
   const [payments,setPayments] = useState<any[]>([])
   const [loading,setLoading] = useState(true)
   const [schoolId,setSchoolId] = useState<string | null>(null)
+  const [school,setSchool] = useState<any>(null)
 
   // ================= INIT =================
   useEffect(()=>{
@@ -19,10 +20,24 @@ export default function ReceiptHistoryPage(){
 
   useEffect(()=>{
     if(!schoolId) return
+
     loadPayments()
+    loadSchool()
+
   },[schoolId])
 
-  // ================= LOAD PAYMENTS (FIXED) =================
+  // ================= LOAD SCHOOL =================
+  const loadSchool = async ()=>{
+    const { data } = await supabase
+      .from("schools")
+      .select("*")
+      .eq("id", schoolId)
+      .single()
+
+    setSchool(data)
+  }
+
+  // ================= LOAD PAYMENTS =================
   const loadPayments = async ()=>{
 
     setLoading(true)
@@ -35,7 +50,9 @@ export default function ReceiptHistoryPage(){
           id,
           name,
           roll_number,
-          phone
+          phone,
+          classes(name),
+          parents(name,phone)
         ),
         fees (
           total_amount,
@@ -45,7 +62,7 @@ export default function ReceiptHistoryPage(){
           hostel_fee
         )
       `)
-      .eq("school_id", schoolId) // ✅ CRITICAL FIX
+      .eq("school_id", schoolId)
       .order("date",{ ascending:false })
 
     if(error){
@@ -58,97 +75,90 @@ export default function ReceiptHistoryPage(){
     setLoading(false)
   }
 
-  // ================= PDF =================
+  // ================= PDF (MATCHES FeeReceipt) =================
   const generatePDF = async (payment:any)=>{
-
-    const { data: school } = await supabase
-      .from("schools")
-      .select("*")
-      .eq("id", payment.school_id)
-      .single()
-
-    const verifyUrl = `${window.location.origin}/verify-receipt/${payment.id}`
-    const qr = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${verifyUrl}`
 
     const container = document.createElement("div")
 
     container.style.position = "fixed"
     container.style.top = "-9999px"
     container.style.width = "800px"
-    container.style.padding = "30px"
+    container.style.padding = "40px"
     container.style.background = "#ffffff"
     container.style.color = "#000"
 
+    const student = payment.students || {}
+    const fee = payment.fees || {}
+
+    const total = Number(fee.total_amount || 0)
+    const paid = Number(payment.amount || 0)
+    const balance = total - paid
+
+    const breakdown = [
+      { label: "Tuition Fee", value: fee.tuition_fee || 0 },
+      { label: "Transport Fee", value: fee.transport_fee || 0 },
+      { label: "Hostel Fee", value: fee.hostel_fee || 0 },
+    ].filter(i=>i.value > 0)
+
     container.innerHTML = `
-      <div style="border:2px solid #000; padding:20px">
+      <div style="border:2px solid #000;padding:20px">
 
-        <div style="display:flex; justify-content:space-between; align-items:center">
-
-          <img src="${school?.logo_url || ""}" style="height:60px"/>
-
-          <div style="text-align:center">
-            <h2>${school?.name || "School"}</h2>
-            <p style="font-size:12px">${school?.address || ""}</p>
-          </div>
-
-          <img src="${qr}" />
+        <div style="text-align:center">
+          <h2>${school?.name || "School"}</h2>
+          <p>${school?.address || ""}</p>
+          <p>${school?.phone || ""}</p>
+          <h3>Fee Receipt</h3>
         </div>
 
-        <hr/>
-
-        <h3 style="text-align:center">FEE RECEIPT</h3>
-
-        <div style="display:flex; justify-content:space-between; margin-top:20px">
+        <div style="display:flex;justify-content:space-between;margin-top:20px">
 
           <div>
-            <p><b>Name:</b> ${payment.students?.name || "Unknown"}</p>
-            <p><b>Roll:</b> ${payment.students?.roll_number || "-"}</p>
+            <p><b>Name:</b> ${student.name || "N/A"}</p>
+            <p><b>Class:</b> ${student.classes?.name || "N/A"}</p>
+            <p><b>Roll:</b> ${student.roll_number || "-"}</p>
+            <p><b>Parent:</b> ${student.parents?.name || "N/A"}</p>
+            <p><b>Phone:</b> ${student.parents?.phone || "N/A"}</p>
+          </div>
+
+          <div style="text-align:right">
             <p><b>Date:</b> ${new Date(payment.date).toLocaleDateString()}</p>
+            <p><b>Receipt:</b> ${payment.id}</p>
           </div>
 
         </div>
 
-        <table style="width:100%; border-collapse:collapse; margin-top:20px">
+        <table style="width:100%;margin-top:20px;border-collapse:collapse">
           <tr>
             <th style="border:1px solid #000;padding:8px">Fee</th>
             <th style="border:1px solid #000;padding:8px">Amount</th>
           </tr>
 
-          <tr>
-            <td style="border:1px solid #000;padding:8px">Tuition</td>
-            <td style="border:1px solid #000;padding:8px">
-              ₹${payment.fees?.tuition_fee || 0}
-            </td>
-          </tr>
-
           ${
-            payment.fees?.transport_fee ? `
-            <tr>
-              <td style="border:1px solid #000;padding:8px">Transport</td>
-              <td style="border:1px solid #000;padding:8px">
-                ₹${payment.fees.transport_fee}
-              </td>
-            </tr>` : ""
-          }
-
-          ${
-            payment.fees?.hostel_fee ? `
-            <tr>
-              <td style="border:1px solid #000;padding:8px">Hostel</td>
-              <td style="border:1px solid #000;padding:8px">
-                ₹${payment.fees.hostel_fee}
-              </td>
-            </tr>` : ""
+            breakdown.length > 0
+            ? breakdown.map(b=>`
+              <tr>
+                <td style="border:1px solid #000;padding:8px">${b.label}</td>
+                <td style="border:1px solid #000;padding:8px">₹${b.value}</td>
+              </tr>
+            `).join("")
+            : `
+              <tr>
+                <td style="border:1px solid #000;padding:8px">Total Fee</td>
+                <td style="border:1px solid #000;padding:8px">₹${total}</td>
+              </tr>
+            `
           }
 
         </table>
 
-        <div style="text-align:right;margin-top:10px">
-          <h3>Total Paid: ₹${payment.amount}</h3>
+        <div style="margin-top:15px;text-align:right">
+          <p><b>Total:</b> ₹${total}</p>
+          <p style="color:green"><b>Paid:</b> ₹${paid}</p>
+          <p style="color:orange"><b>Balance:</b> ₹${balance}</p>
         </div>
 
-        <p style="text-align:center;margin-top:20px;font-size:12px">
-          Scan QR to verify receipt
+        <p style="margin-top:20px;text-align:center">
+          ${balance <= 0 ? "PAID" : "PARTIAL"}
         </p>
 
       </div>
@@ -185,7 +195,7 @@ export default function ReceiptHistoryPage(){
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
         to: payment.students.phone,
-        studentName: payment.students.name || "Student",
+        studentName: payment.students.name,
         pdfUrl: `${window.location.origin}/api/receipt/${payment.id}`
       })
     })

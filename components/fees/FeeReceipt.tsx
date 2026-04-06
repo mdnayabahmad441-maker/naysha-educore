@@ -2,13 +2,14 @@
 
 import Button from "@/components/ui/Button"
 
-export default function FeeReceipt({ student, fee, payment }: any){
+export default function FeeReceipt({ student, fee, payment, school }: any){
 
   const print = () => window.print()
 
   const safeStudent = student || {}
   const safeFee = fee || {}
   const safePayment = payment || {}
+  const safeSchool = school || {}
 
   const total = Number(safeFee.total_amount || 0)
   const paid = Number(safePayment.amount || safeFee.paid_amount || 0)
@@ -19,7 +20,7 @@ export default function FeeReceipt({ student, fee, payment }: any){
     safeFee?.created_at ||
     new Date().toISOString()
 
-  // 🔥 BREAKDOWN (CORE FIX)
+  // 🔥 BREAKDOWN
   const breakdown = [
     { label: "Tuition Fee", value: Number(safeFee.tuition_fee || 0) },
     { label: "Transport Fee", value: Number(safeFee.transport_fee || 0) },
@@ -30,35 +31,80 @@ export default function FeeReceipt({ student, fee, payment }: any){
 
     <div className="bg-[#0b1220] text-white p-10 rounded-2xl border border-white/10">
 
-      {/* HEADER */}
+      {/* ================= HEADER ================= */}
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-green-400">NaySha School</h1>
-        <p className="text-sm opacity-70">Fee Payment Receipt</p>
+
+        {/* 🔥 SCHOOL NAME (FIXED) */}
+        <h1 className="text-3xl font-bold text-green-400">
+          {safeSchool.name || "School"}
+        </h1>
+
+        <p className="text-sm opacity-70">
+          {safeSchool.address || ""}
+        </p>
+
+        <p className="text-sm opacity-70">
+          {safeSchool.phone || ""}
+        </p>
+
+        <p className="text-sm opacity-70 mt-2">
+          Fee Payment Receipt
+        </p>
+
       </div>
 
-      {/* STUDENT INFO */}
+      {/* ================= STUDENT INFO ================= */}
       <div className="flex justify-between mb-6 text-sm">
 
         <div className="space-y-1">
-          <p><span className="text-green-400">Name:</span> {safeStudent.name || "N/A"}</p>
-          <p><span className="text-green-400">Class:</span> {safeStudent.class_name || "N/A"}</p>
-          <p><span className="text-green-400">Roll No:</span> {safeStudent.roll_number || "N/A"}</p>
+
+          <p>
+            <span className="text-green-400">Name:</span>{" "}
+            {safeStudent.name || "N/A"}
+          </p>
+
+          {/* 🔥 CLASS FIX */}
+          <p>
+            <span className="text-green-400">Class:</span>{" "}
+            {safeStudent.classes?.name || safeStudent.class_name || "N/A"}
+          </p>
+
+          {/* 🔥 ROLL FIX */}
+          <p>
+            <span className="text-green-400">Roll No:</span>{" "}
+            {safeStudent.roll_number || safeStudent.roll_no || "-"}
+          </p>
+
+          {/* 🔥 PARENT FIX */}
+          <p>
+            <span className="text-green-400">Parent:</span>{" "}
+            {safeStudent.parents?.name || safeStudent.parent_name || "N/A"}
+          </p>
+
+          <p>
+            <span className="text-green-400">Phone:</span>{" "}
+            {safeStudent.parents?.phone || safeStudent.parent_phone || "N/A"}
+          </p>
+
         </div>
 
         <div className="space-y-1 text-right">
+
           <p>
             <span className="text-green-400">Date:</span>{" "}
             {new Date(safeDate).toLocaleDateString()}
           </p>
+
           <p>
             <span className="text-green-400">Receipt ID:</span>{" "}
             {safePayment.id || safeFee.id || "N/A"}
           </p>
+
         </div>
 
       </div>
 
-      {/* 🔥 BREAKDOWN TABLE */}
+      {/* ================= BREAKDOWN ================= */}
       <div className="overflow-hidden rounded-xl border border-white/10 mb-6">
         <table className="w-full text-sm">
 
@@ -90,7 +136,7 @@ export default function FeeReceipt({ student, fee, payment }: any){
         </table>
       </div>
 
-      {/* 🔥 SUMMARY */}
+      {/* ================= SUMMARY ================= */}
       <div className="overflow-hidden rounded-xl border border-white/10">
         <table className="w-full text-sm">
 
@@ -116,7 +162,7 @@ export default function FeeReceipt({ student, fee, payment }: any){
         </table>
       </div>
 
-      {/* STATUS */}
+      {/* ================= STATUS ================= */}
       <div className="mt-6 flex justify-between items-center">
 
         <p className="text-lg font-semibold text-green-400">
@@ -127,7 +173,7 @@ export default function FeeReceipt({ student, fee, payment }: any){
 
       </div>
 
-      {/* ACTION */}
+      {/* ================= ACTION ================= */}
       <div className="mt-6">
         <Button color="blue" onClick={print}>
           Download / Print
