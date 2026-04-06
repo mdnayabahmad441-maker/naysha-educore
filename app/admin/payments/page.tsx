@@ -22,7 +22,7 @@ export default function PaymentsPage(){
   useEffect(()=>{
     const init = async ()=>{
       const id = await getSchoolId()
-      console.log("School ID:", id) // 🔥 DEBUG
+      console.log("School ID:", id)
       setSchoolId(id)
     }
     init()
@@ -30,7 +30,7 @@ export default function PaymentsPage(){
 
   // ================= LOAD STUDENTS =================
   useEffect(()=>{
-    if(!schoolId) return // 🔥 CRITICAL FIX
+    if(!schoolId) return
 
     const loadStudents = async ()=>{
       const { data, error } = await supabase
@@ -42,7 +42,6 @@ export default function PaymentsPage(){
         return
       }
 
-      // 🔥 FORCE FILTER (DOUBLE SAFETY)
       const filtered = (data || []).filter(
         s => s.school_id === schoolId
       )
@@ -56,7 +55,7 @@ export default function PaymentsPage(){
 
   // ================= LOAD FEES =================
   useEffect(()=>{
-    if(!studentId || !schoolId) return // 🔥 FIX
+    if(!studentId || !schoolId) return
 
     const loadFees = async ()=>{
       const { data, error } = await supabase
@@ -111,11 +110,14 @@ export default function PaymentsPage(){
 
       const newPaid = (fee.paid_amount || 0) + payAmount
 
+      // 🔥 CREATE PAYMENT ID (IMPORTANT FIX)
+      const paymentId = crypto.randomUUID()
+
       // ================= INSERT PAYMENT =================
       const { error: paymentError } = await supabase
         .from("payments")
         .insert({
-          id: crypto.randomUUID(),
+          id: paymentId,
           student_id: studentId,
           fee_id: feeId,
           amount: payAmount,
@@ -148,13 +150,27 @@ export default function PaymentsPage(){
         return
       }
 
+      // ================= 🔥 AUTOMATION TRIGGER =================
+      try{
+        await fetch("/api/send-receipt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paymentId: paymentId,
+            studentId: studentId
+          })
+        })
+      }catch(err){
+        console.error("Notification error:", err)
+      }
+
       alert("Payment successful ✅")
 
-      // 🔥 RESET
+      // RESET
       setAmount("")
       setFeeId("")
 
-      // 🔥 RELOAD FEES
+      // RELOAD FEES
       const { data } = await supabase
         .from("fees")
         .select("*")
