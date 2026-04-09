@@ -110,7 +110,7 @@ export default function PaymentsPage(){
 
       const newPaid = (fee.paid_amount || 0) + payAmount
 
-      // 🔥 CREATE PAYMENT ID (IMPORTANT FIX)
+      // 🔥 CREATE PAYMENT ID
       const paymentId = crypto.randomUUID()
 
       // ================= INSERT PAYMENT =================
@@ -150,14 +150,14 @@ export default function PaymentsPage(){
         return
       }
 
-      // ================= 🔥 AUTOMATION TRIGGER =================
+      // ================= 🔥 CENTRAL NOTIFICATION =================
       try{
-        await fetch("/api/send-receipt", {
+        await fetch("/api/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            paymentId: paymentId,
-            studentId: studentId
+            type: "payment",
+            refId: paymentId
           })
         })
       }catch(err){
@@ -249,6 +249,5 @@ export default function PaymentsPage(){
       </div>
 
     </div>
-
   )
 }
