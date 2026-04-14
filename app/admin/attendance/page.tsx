@@ -45,20 +45,17 @@ export default function AttendancePage(){
       .then(({data})=>setClasses(data || []))
   },[schoolId])
 
-  // ================= LOAD STUDENTS (FIXED) =================
+  // ================= LOAD STUDENTS (FINAL FIX) =================
   useEffect(()=>{
     if(!selectedClass || !schoolId || !selectedDate) return
 
     const load = async ()=>{
 
-      console.log("🔍 Loading students:", {
-        selectedClass,
-        schoolId
-      })
+      console.log("🔍 Loading students:", { selectedClass, schoolId })
 
       let finalStudents:any[] = []
 
-      // ================= TRY ENROLLMENTS =================
+      // ================= ENROLLMENTS =================
       try{
 
         const year = await getActiveAcademicYear()
@@ -70,8 +67,7 @@ export default function AttendancePage(){
             roll_number,
             students (
               id,
-              name,
-              student_type
+              name
             )
           `)
           .eq("class_id", selectedClass)
@@ -91,25 +87,24 @@ export default function AttendancePage(){
 
           finalStudents = data.map((e:any)=>({
             id: e.student_id,
-            name: e.students?.name || "Unknown",
-            student_type: e.students?.student_type || null
+            name: e.students?.name || "Unknown"
           }))
 
-          console.log("✅ Using enrollment students:", finalStudents.length)
+          console.log("✅ Enrollment students:", finalStudents.length)
         }
 
       }catch(err){
-        console.log("⚠️ Enrollment failed:", err)
+        console.error("Enrollment failed:", err)
       }
 
-      // ================= FALLBACK (FIXED) =================
+      // ================= FALLBACK =================
       if(finalStudents.length === 0){
 
         console.log("⚠️ Using fallback students")
 
         const { data, error } = await supabase
           .from("students")
-          .select("id,name,student_type")
+          .select("id,name")
           .eq("school_id", schoolId)
 
         if(error){
@@ -118,8 +113,7 @@ export default function AttendancePage(){
 
         finalStudents = (data || []).map((s:any)=>({
           id: s.id,
-          name: s.name,
-          student_type: s.student_type
+          name: s.name
         }))
       }
 
@@ -161,6 +155,7 @@ export default function AttendancePage(){
 
     students.forEach((s:any)=>{
       const status = attendance[s.id] || "present"
+
       if(status === "present") present++
       else absent++
     })
@@ -202,6 +197,7 @@ export default function AttendancePage(){
         date: selectedDate
       }))
 
+      // DELETE OLD
       await supabase
         .from("attendance")
         .delete()
@@ -209,6 +205,7 @@ export default function AttendancePage(){
         .eq("school_id", schoolId)
         .eq("date", selectedDate)
 
+      // INSERT NEW
       const { error } = await supabase
         .from("attendance")
         .insert(payload)
@@ -244,6 +241,7 @@ export default function AttendancePage(){
           type: "attendance"
         })
 
+        // WhatsApp
         if(status === "absent" && parent?.phone){
           await fetch("/api/whatsapp",{
             method:"POST",
@@ -255,6 +253,7 @@ export default function AttendancePage(){
           })
         }
 
+        // Email
         if(parent?.email){
           await fetch("/api/email",{
             method:"POST",
@@ -287,6 +286,7 @@ export default function AttendancePage(){
 
       <div className="bg-white/10 p-6 rounded-xl space-y-6">
 
+        {/* FILTERS */}
         <div className="flex flex-wrap gap-4">
 
           <select
@@ -309,6 +309,7 @@ export default function AttendancePage(){
 
         </div>
 
+        {/* STATS */}
         <div className="grid grid-cols-3 gap-4">
 
           <div className="bg-white/5 p-4 rounded-xl text-center">
@@ -328,6 +329,7 @@ export default function AttendancePage(){
 
         </div>
 
+        {/* STUDENTS */}
         <div className="space-y-3">
 
           {students.map((s:any)=>{
