@@ -11,69 +11,50 @@ export async function POST(req: Request){
       return NextResponse.json({ error: "Invalid type" })
     }
 
-    // ================= PAYMENT =================
-    const { data: payment, error: paymentError } = await supabaseAdmin
+    // ================= SINGLE QUERY (🔥 CORE FIX) =================
+    const { data: payment, error } = await supabaseAdmin
       .from("payments")
-      .select("*")
+      .select(`
+        *,
+        students (
+          id,
+          name,
+          student_enrollments (
+            roll_number,
+            classes ( name )
+          ),
+          parents ( name, email, phone )
+        ),
+        schools ( name )
+      `)
       .eq("id", refId)
       .single()
 
-    if(paymentError || !payment){
-      console.error("❌ Payment error:", paymentError)
+    if(error || !payment){
+      console.error("❌ Payment fetch error:", error)
       return NextResponse.json({ error: "Payment not found" })
     }
 
-    // ================= STUDENT =================
-    const { data: student } = await supabaseAdmin
-      .from("students")
-      .select("id,name")
-      .eq("id", payment.student_id)
-      .single()
+    // ================= EXTRACT DATA =================
+    const student = payment.students
+    const parent = student?.parents?.[0]
+    const enrollment = student?.student_enrollments?.[0]
 
-    // ================= PARENT =================
-    const { data: parent } = await supabaseAdmin
-      .from("parents")
-      .select("name,email,phone")
-      .eq("student_id", payment.student_id)
-      .maybeSingle()
+    const className = enrollment?.classes?.name || "N/A"
+    const roll = enrollment?.roll_number || "-"
+    const schoolName = payment.schools?.name || "School"
 
-    // ================= SCHOOL =================
-    const { data: school } = await supabaseAdmin
-      .from("schools")
-      .select("name")
-      .eq("id", payment.school_id)
-      .single()
-
-    // ================= ENROLLMENT =================
-    const { data: enrollment } = await supabaseAdmin
-      .from("student_enrollments")
-      .select("roll_number, class_id")
-      .eq("student_id", payment.student_id)
-      .maybeSingle()
-
-    let className = "N/A"
-    let roll = "-"
-
-    if(enrollment){
-      roll = enrollment.roll_number || "-"
-
-      const { data: cls } = await supabaseAdmin
-        .from("classes")
-        .select("name")
-        .eq("id", enrollment.class_id)
-        .single()
-
-      className = cls?.name || "N/A"
-    }
-
-    console.log("✅ DEBUG:", {
+    console.log("✅ DEBUG DATA:", {
       student,
       parent,
-      school,
       className,
       roll,
       payment
     })
+
+    // ================= STATUS TRACKING =================
+    let emailStatus = "not_sent"
+    let whatsappStatus = "not_sent"
 
     // ================= EMAIL =================
     if(parent?.email){
@@ -86,7 +67,7 @@ export async function POST(req: Request){
             to: parent.email,
             subject: "Payment Received",
             html: `
-              <h2>${school?.name || "School"}</h2>
+              <h2>${schoolName}</h2>
 
               <p>Dear ${parent?.name || "Parent"},</p>
 
@@ -102,12 +83,11 @@ export async function POST(req: Request){
           })
         })
 
-        if(!res.ok){
-          console.error("❌ Email API failed")
-        }
+        emailStatus = res.ok ? "sent" : "failed"
 
       }catch(err){
-        console.error("❌ Email send error:", err)
+        console.error("❌ Email error:", err)
+        emailStatus = "error"
       }
 
     }
@@ -122,11 +102,11 @@ export async function POST(req: Request){
           body: JSON.stringify({
             to: parent.phone,
             message: `
-${school?.name || "School"}
+${schoolName}
 
 Payment Received ✅
 
-Student: ${student?.name || "Student"}
+Student: ${student?.name}
 Class: ${className}
 Roll: ${roll}
 
@@ -137,17 +117,21 @@ Thank you
           })
         })
 
-        if(!res.ok){
-          console.error("❌ WhatsApp API failed")
-        }
+        whatsappStatus = res.ok ? "sent" : "failed"
 
       }catch(err){
-        console.error("❌ WhatsApp send error:", err)
+        console.error("❌ WhatsApp error:", err)
+        whatsappStatus = "error"
       }
 
     }
 
-    return NextResponse.json({ success:true })
+    // ================= FINAL RESPONSE =================
+    return NextResponse.json({
+      success: true,
+      emailStatus,
+      whatsappStatus
+    })
 
   }catch(err){
     console.error("🔥 SERVER ERROR:", err)

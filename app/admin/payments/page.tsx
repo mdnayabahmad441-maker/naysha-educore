@@ -20,33 +20,29 @@ export default function PaymentsPage(){
 
   // ================= INIT SCHOOL =================
   useEffect(()=>{
-    const init = async ()=>{
-      const id = await getSchoolId()
+    getSchoolId().then((id)=>{
       console.log("School ID:", id)
       setSchoolId(id)
-    }
-    init()
+    })
   },[])
 
-  // ================= LOAD STUDENTS =================
+  // ================= LOAD STUDENTS (FIXED PROPERLY) =================
   useEffect(()=>{
     if(!schoolId) return
 
     const loadStudents = async ()=>{
+
       const { data, error } = await supabase
         .from("students")
-        .select("id,name,school_id")
+        .select("id,name")
+        .eq("school_id", schoolId) // ✅ FIXED (no cross-school)
 
       if(error){
         console.error("Students load error:", error)
         return
       }
 
-      const filtered = (data || []).filter(
-        s => s.school_id === schoolId
-      )
-
-      setStudents(filtered)
+      setStudents(data || [])
     }
 
     loadStudents()
@@ -58,6 +54,7 @@ export default function PaymentsPage(){
     if(!studentId || !schoolId) return
 
     const loadFees = async ()=>{
+
       const { data, error } = await supabase
         .from("fees")
         .select("*")
@@ -94,6 +91,7 @@ export default function PaymentsPage(){
     try{
 
       const fee = fees.find(f=>f.id === feeId)
+
       if(!fee){
         alert("Fee not found")
         setLoading(false)
@@ -110,7 +108,6 @@ export default function PaymentsPage(){
 
       const newPaid = (fee.paid_amount || 0) + payAmount
 
-      // 🔥 CREATE PAYMENT ID
       const paymentId = crypto.randomUUID()
 
       // ================= INSERT PAYMENT =================
@@ -150,9 +147,11 @@ export default function PaymentsPage(){
         return
       }
 
-      // ================= 🔥 CENTRAL NOTIFICATION =================
+      // ================= 🔥 NOTIFICATION WITH RESULT =================
+      let notifyResult:any = {}
+
       try{
-        await fetch("/api/notify", {
+        const res = await fetch("/api/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -160,11 +159,22 @@ export default function PaymentsPage(){
             refId: paymentId
           })
         })
+
+        notifyResult = await res.json()
+
+        console.log("NOTIFY RESULT:", notifyResult)
+
       }catch(err){
         console.error("Notification error:", err)
       }
 
-      alert("Payment successful ✅")
+      // ================= SUCCESS MESSAGE =================
+      alert(`
+Payment successful ✅
+
+Email: ${notifyResult?.emailStatus || "unknown"}
+WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
+`)
 
       // RESET
       setAmount("")
