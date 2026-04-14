@@ -74,6 +74,17 @@ export default function CreateExamPage(){
     }))
   }
 
+  // ================= DATE VALIDATION =================
+  const isPastDate = (examDate:string)=>{
+    const today = new Date()
+    today.setHours(0,0,0,0)
+
+    const selected = new Date(examDate)
+    selected.setHours(0,0,0,0)
+
+    return selected < today
+  }
+
   // ================= SAVE =================
   const saveExam = async ()=>{
 
@@ -85,6 +96,22 @@ export default function CreateExamPage(){
     if(!schoolId){
       alert("School not loaded")
       return
+    }
+
+    // ❌ BLOCK PAST CREATION
+    if(isPastDate(date) && !editingId){
+      alert("❌ Cannot create exam in past date")
+      return
+    }
+
+    // ❌ BLOCK EDIT PAST
+    if(editingId){
+      const oldExam = exams.find(e=>e.id === editingId)
+
+      if(oldExam && isPastDate(oldExam.date)){
+        alert("❌ Cannot edit past exam")
+        return
+      }
     }
 
     const examId = editingId || crypto.randomUUID()
@@ -145,6 +172,12 @@ export default function CreateExamPage(){
   // ================= EDIT =================
   const editExam = async (exam:any)=>{
 
+    // ❌ BLOCK EDIT IF PAST
+    if(isPastDate(exam.date)){
+      alert("❌ Cannot edit past exam")
+      return
+    }
+
     setEditingId(exam.id)
     setExamName(exam.name)
     setDate(exam.date)
@@ -173,8 +206,18 @@ export default function CreateExamPage(){
 
   // ================= DELETE =================
   const deleteExam = async (id:string)=>{
+
+    const exam = exams.find(e=>e.id === id)
+
+    // ❌ BLOCK DELETE IF PAST
+    if(exam && isPastDate(exam.date)){
+      alert("❌ Cannot delete past exam")
+      return
+    }
+
     await supabase.from("exam_subjects").delete().eq("exam_id", id)
     await supabase.from("exams").delete().eq("id", id)
+
     load()
   }
 
@@ -240,13 +283,13 @@ export default function CreateExamPage(){
                       type="number"
                       placeholder="Total Marks"
                       value={marksConfig[s.id]?.total || ""}
-                      onClick={(e)=>e.stopPropagation()}   // ✅ FIX
+                      onClick={(e)=>e.stopPropagation()}
                       onChange={(e)=>updateMarks(s.id,e.target.value)}
                       className="mt-2 w-full p-2 bg-[#0b1220]"
                     />
 
                     <p
-                      onClick={(e)=>e.stopPropagation()}   // ✅ EXTRA SAFE
+                      onClick={(e)=>e.stopPropagation()}
                       className="text-xs text-gray-400 mt-1"
                     >
                       Passing: {marksConfig[s.id]?.passing || 0}

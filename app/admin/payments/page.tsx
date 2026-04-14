@@ -15,6 +15,7 @@ export default function PaymentsPage(){
   const [studentId,setStudentId] = useState("")
   const [feeId,setFeeId] = useState("")
   const [amount,setAmount] = useState("")
+  const [paymentDate,setPaymentDate] = useState("")
 
   const [loading,setLoading] = useState(false)
 
@@ -26,16 +27,15 @@ export default function PaymentsPage(){
     })
   },[])
 
-  // ================= LOAD STUDENTS (FIXED PROPERLY) =================
+  // ================= LOAD STUDENTS =================
   useEffect(()=>{
     if(!schoolId) return
 
     const loadStudents = async ()=>{
-
       const { data, error } = await supabase
         .from("students")
         .select("id,name")
-        .eq("school_id", schoolId) // ✅ FIXED (no cross-school)
+        .eq("school_id", schoolId)
 
       if(error){
         console.error("Students load error:", error)
@@ -54,7 +54,6 @@ export default function PaymentsPage(){
     if(!studentId || !schoolId) return
 
     const loadFees = async ()=>{
-
       const { data, error } = await supabase
         .from("fees")
         .select("*")
@@ -86,6 +85,30 @@ export default function PaymentsPage(){
       return
     }
 
+    const payAmount = Number(amount)
+
+    if(payAmount <= 0){
+      alert("Invalid amount")
+      return
+    }
+
+    // ================= DATE LOGIC =================
+    const selectedDate = paymentDate
+      ? new Date(paymentDate)
+      : new Date()
+
+    const today = new Date()
+    today.setHours(0,0,0,0)
+
+    // ❌ BLOCK FUTURE
+    if(selectedDate > today){
+      alert("❌ Future payment not allowed")
+      return
+    }
+
+    // ✅ MANUAL FLAG
+    const isManual = selectedDate < today
+
     setLoading(true)
 
     try{
@@ -98,16 +121,7 @@ export default function PaymentsPage(){
         return
       }
 
-      const payAmount = Number(amount)
-
-      if(payAmount <= 0){
-        alert("Invalid amount")
-        setLoading(false)
-        return
-      }
-
       const newPaid = (fee.paid_amount || 0) + payAmount
-
       const paymentId = crypto.randomUUID()
 
       // ================= INSERT PAYMENT =================
@@ -120,7 +134,9 @@ export default function PaymentsPage(){
           amount: payAmount,
           school_id: schoolId,
           receipt_number: "RCPT-"+Date.now(),
-          date: new Date().toISOString()
+          date: new Date().toISOString(),
+          payment_date: selectedDate.toISOString(),
+          is_manual: isManual
         })
 
       if(paymentError){
@@ -147,7 +163,7 @@ export default function PaymentsPage(){
         return
       }
 
-      // ================= 🔥 NOTIFICATION WITH RESULT =================
+      // ================= NOTIFY =================
       let notifyResult:any = {}
 
       try{
@@ -162,15 +178,15 @@ export default function PaymentsPage(){
 
         notifyResult = await res.json()
 
-        console.log("NOTIFY RESULT:", notifyResult)
-
       }catch(err){
         console.error("Notification error:", err)
       }
 
-      // ================= SUCCESS MESSAGE =================
+      // ================= SUCCESS =================
       alert(`
 Payment successful ✅
+
+${isManual ? "⚠️ Manual Entry (Past Date)" : "Real-time Payment"}
 
 Email: ${notifyResult?.emailStatus || "unknown"}
 WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
@@ -179,6 +195,7 @@ WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
       // RESET
       setAmount("")
       setFeeId("")
+      setPaymentDate("")
 
       // RELOAD FEES
       const { data } = await supabase
@@ -245,6 +262,14 @@ WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
           value={amount}
           onChange={(e)=>setAmount(e.target.value)}
           placeholder="Enter Amount"
+          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl"
+        />
+
+        {/* 🔥 NEW DATE FIELD */}
+        <input
+          type="date"
+          value={paymentDate}
+          onChange={(e)=>setPaymentDate(e.target.value)}
           className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl"
         />
 
