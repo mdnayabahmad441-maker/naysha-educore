@@ -11,50 +11,63 @@ export async function POST(req: Request){
       return NextResponse.json({ error: "Invalid type" })
     }
 
-    // ================= SINGLE QUERY (🔥 CORE FIX) =================
-    const { data: payment, error } = await supabaseAdmin
+    // ================= PAYMENT =================
+    const { data: payment } = await supabaseAdmin
       .from("payments")
-      .select(`
-        *,
-        students (
-          id,
-          name,
-          student_enrollments (
-            roll_number,
-            classes ( name )
-          ),
-          parents ( name, email, phone )
-        ),
-        schools ( name )
-      `)
+      .select("*")
       .eq("id", refId)
       .single()
 
-    if(error || !payment){
-      console.error("❌ Payment fetch error:", error)
+    if(!payment){
       return NextResponse.json({ error: "Payment not found" })
     }
 
-    // ================= EXTRACT DATA =================
-    const student = payment.students
-    const parent = student?.parents?.[0]
-    const enrollment = student?.student_enrollments?.[0]
+    // ================= STUDENT =================
+    const { data: student } = await supabaseAdmin
+      .from("students")
+      .select("id,name")
+      .eq("id", payment.student_id)
+      .single()
 
-    const className = enrollment?.classes?.name || "N/A"
-    const roll = enrollment?.roll_number || "-"
-    const schoolName = payment.schools?.name || "School"
+    // ================= PARENT =================
+    const { data: parent } = await supabaseAdmin
+      .from("parents")
+      .select("name,email,phone")
+      .eq("student_id", payment.student_id)
+      .maybeSingle()
 
-    console.log("✅ DEBUG DATA:", {
-      student,
-      parent,
-      className,
-      roll,
-      payment
-    })
+    // ================= SCHOOL =================
+    const { data: school } = await supabaseAdmin
+      .from("schools")
+      .select("name")
+      .eq("id", payment.school_id)
+      .single()
 
-    // ================= STATUS TRACKING =================
-    let emailStatus = "not_sent"
-    let whatsappStatus = "not_sent"
+    // ================= CLASS =================
+    const { data: enrollment } = await supabaseAdmin
+      .from("student_enrollments")
+      .select("roll_number, class_id")
+      .eq("student_id", payment.student_id)
+      .maybeSingle()
+
+    let className = "N/A"
+    let roll = "-"
+
+    if(enrollment){
+      roll = enrollment.roll_number || "-"
+
+      const { data: cls } = await supabaseAdmin
+        .from("classes")
+        .select("name")
+        .eq("id", enrollment.class_id)
+        .single()
+
+      className = cls?.name || "N/A"
+    }
+
+    // ================= STATUS =================
+    let emailStatus = "skipped"
+    let whatsappStatus = "skipped"
 
     // ================= EMAIL =================
     if(parent?.email){
@@ -64,21 +77,19 @@ export async function POST(req: Request){
           method:"POST",
           headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({
-            to: parent.email,
+            email: parent.email,
             subject: "Payment Received",
-            html: `
-              <h2>${schoolName}</h2>
+            message: `
+${school?.name || "School"}
 
-              <p>Dear ${parent?.name || "Parent"},</p>
+Payment received for ${student?.name}
 
-              <p>Payment received for <b>${student?.name || "Student"}</b></p>
+Class: ${className}
+Roll: ${roll}
 
-              <p>Class: ${className}</p>
-              <p>Roll: ${roll}</p>
+Amount: ₹${payment.amount}
 
-              <p><b>Amount: ₹${payment.amount}</b></p>
-
-              <p>Thank you</p>
+Thank you
             `
           })
         })
@@ -86,10 +97,9 @@ export async function POST(req: Request){
         emailStatus = res.ok ? "sent" : "failed"
 
       }catch(err){
-        console.error("❌ Email error:", err)
+        console.error("Email error:", err)
         emailStatus = "error"
       }
-
     }
 
     // ================= WHATSAPP =================
@@ -100,9 +110,9 @@ export async function POST(req: Request){
           method:"POST",
           headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({
-            to: parent.phone,
+            phone: parent.phone,
             message: `
-${schoolName}
+${school?.name || "School"}
 
 Payment Received ✅
 
@@ -120,21 +130,31 @@ Thank you
         whatsappStatus = res.ok ? "sent" : "failed"
 
       }catch(err){
-        console.error("❌ WhatsApp error:", err)
+        console.error("WhatsApp error:", err)
         whatsappStatus = "error"
       }
-
     }
 
-    // ================= FINAL RESPONSE =================
+    // ================= LOG =================
+    await supabaseAdmin.from("notifications_log").insert({
+      type: "payment",
+      ref_id: payment.id,
+      student_id: payment.student_id,
+      school_id: payment.school_id,
+      email: parent?.email || null,
+      phone: parent?.phone || null,
+      email_status: emailStatus,
+      whatsapp_status: whatsappStatus
+    })
+
     return NextResponse.json({
-      success: true,
+      success:true,
       emailStatus,
       whatsappStatus
     })
 
   }catch(err){
-    console.error("🔥 SERVER ERROR:", err)
+    console.error("SERVER ERROR:", err)
     return NextResponse.json({ error:"Server error" })
   }
 }

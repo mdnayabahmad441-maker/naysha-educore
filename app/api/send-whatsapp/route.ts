@@ -7,7 +7,7 @@ export async function POST(req: Request) {
 
     const body = await req.json()
 
-    const { phone, message, studentName, pdfUrl } = body // ✅ FIXED (phone instead of to)
+    const { phone, message } = body
 
     if(!phone){
       return NextResponse.json(
@@ -21,38 +21,10 @@ export async function POST(req: Request) {
       process.env.TWILIO_AUTH_TOKEN!
     )
 
-    let finalMessage = ""
-
-    // 📄 REPORT CARD
-    if(studentName && pdfUrl){
-      finalMessage = `📄 Report Card Available
-
-Hello,
-
-Your child *${studentName}*'s report card is ready.
-
-👉 Download here:
-${pdfUrl}
-
-- NaySha School`
-    }
-
-    // 📢 NORMAL MESSAGE (ATTENDANCE)
-    else if(message){
-      finalMessage = message
-    }
-
-    else{
-      return NextResponse.json(
-        { error: "Provide message or report data" },
-        { status: 400 }
-      )
-    }
-
     const msg = await client.messages.create({
-      body: finalMessage,
+      body: message,
       from: "whatsapp:+14155238886",
-      to: `whatsapp:${phone}` // ✅ FIXED
+      to: `whatsapp:${phone}`
     })
 
     return NextResponse.json({

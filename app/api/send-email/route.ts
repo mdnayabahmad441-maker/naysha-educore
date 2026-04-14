@@ -8,7 +8,7 @@ export async function POST(req: Request){
 
     const body = await req.json()
 
-    const { email, subject, message } = body // ✅ FIXED (email instead of to)
+    const { email, subject, message } = body
 
     if(!email || !message){
       return Response.json({
@@ -19,9 +19,9 @@ export async function POST(req: Request){
 
     const data = await resend.emails.send({
       from: "NaySha <onboarding@resend.dev>",
-      to: email, // ✅ FIXED
+      to: email,
       subject: subject || "Notification",
-      html: `<p>${message}</p>`
+      html: `<pre style="font-family:sans-serif">${message}</pre>`
     })
 
     return Response.json({ success: true, data })
@@ -34,5 +34,4 @@ export async function POST(req: Request){
       error: err.message
     },{ status:500 })
   }
-
 }
