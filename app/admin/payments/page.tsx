@@ -265,13 +265,40 @@ export default function PaymentsPage() {
   // ── Students ───────────────────────────────────────────────────────────────
 
   const loadStudents = async () => {
-    const { data } = await supabase
-      .from("students")
-      .select("id, name, class")
-      .eq("school_id", schoolId)
-      .order("name")
-    setStudents(data || [])
+
+  if(!schoolId) return
+
+  console.log("🔍 Loading students with class info...")
+
+  const { data, error } = await supabase
+    .from("student_enrollments")
+    .select(`
+      student_id,
+      students (
+        id,
+        name
+      ),
+      classes (
+        name
+      )
+    `)
+    .eq("school_id", schoolId)
+
+  if(error){
+    console.error("❌ Student load error:", error)
+    return
   }
+
+  const formatted = (data || []).map((e:any)=>({
+    id: e.student_id,
+    name: e.students?.name || "Unknown",
+    class: e.classes?.name || ""
+  }))
+
+  console.log("✅ Students loaded:", formatted)
+
+  setStudents(formatted)
+}
 
   // ── Fees for selected student ──────────────────────────────────────────────
 
