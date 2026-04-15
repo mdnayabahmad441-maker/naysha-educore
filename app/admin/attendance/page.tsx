@@ -45,26 +45,21 @@ export default function AttendancePage(){
       .then(({data})=>setClasses(data || []))
   },[schoolId])
 
-  // ================= LOAD STUDENTS (FINAL FIX) =================
+  // ================= LOAD STUDENTS =================
   useEffect(()=>{
     if(!selectedClass || !schoolId || !selectedDate) return
 
     const load = async ()=>{
 
-      console.log("🔍 Loading students:", { selectedClass, schoolId })
-
       let finalStudents:any[] = []
 
-      // ================= ENROLLMENTS =================
       try{
-
         const year = await getActiveAcademicYear()
 
         let query = supabase
           .from("student_enrollments")
           .select(`
             student_id,
-            roll_number,
             students (
               id,
               name
@@ -84,32 +79,23 @@ export default function AttendancePage(){
         }
 
         if(data && data.length > 0){
-
           finalStudents = data.map((e:any)=>({
             id: e.student_id,
             name: e.students?.name || "Unknown"
           }))
-
-          console.log("✅ Enrollment students:", finalStudents.length)
         }
 
       }catch(err){
         console.error("Enrollment failed:", err)
       }
 
-      // ================= FALLBACK =================
+      // FALLBACK
       if(finalStudents.length === 0){
 
-        console.log("⚠️ Using fallback students")
-
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("students")
           .select("id,name")
           .eq("school_id", schoolId)
-
-        if(error){
-          console.error("Fallback error:", error)
-        }
 
         finalStudents = (data || []).map((s:any)=>({
           id: s.id,
@@ -119,7 +105,7 @@ export default function AttendancePage(){
 
       setStudents(finalStudents)
 
-      // ================= LOAD ATTENDANCE =================
+      // LOAD ATTENDANCE
       const { data:attendanceData } = await supabase
         .from("attendance")
         .select("*")
@@ -155,7 +141,6 @@ export default function AttendancePage(){
 
     students.forEach((s:any)=>{
       const status = attendance[s.id] || "present"
-
       if(status === "present") present++
       else absent++
     })
@@ -231,6 +216,7 @@ export default function AttendancePage(){
         const status = attendance[s.id] || "present"
         const parent = parentMap[s.id]
 
+        // DB notification
         await sendNotification({
           school_id: schoolId,
           student_id: s.id,
@@ -241,29 +227,37 @@ export default function AttendancePage(){
           type: "attendance"
         })
 
-        // WhatsApp
+        // ✅ WHATSAPP FIXED
         if(status === "absent" && parent?.phone){
-          await fetch("/api/whatsapp",{
-            method:"POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              phone: parent.phone,
-              message: `${s.name} was absent on ${new Date(selectedDate).toLocaleDateString()} ❌`
+          try{
+            await fetch("/api/send-whatsapp",{
+              method:"POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                phone: parent.phone,
+                message: `${s.name} was absent on ${new Date(selectedDate).toLocaleDateString()} ❌`
+              })
             })
-          })
+          }catch(err){
+            console.error("WhatsApp error:", err)
+          }
         }
 
-        // Email
+        // ✅ EMAIL FIXED
         if(parent?.email){
-          await fetch("/api/email",{
-            method:"POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: parent.email,
-              subject: "Attendance Update",
-              message: `${s.name} is ${status} on ${new Date(selectedDate).toLocaleDateString()}`
+          try{
+            await fetch("/api/send-email",{
+              method:"POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: parent.email,
+                subject: "Attendance Update",
+                message: `${s.name} is ${status} on ${new Date(selectedDate).toLocaleDateString()}`
+              })
             })
-          })
+          }catch(err){
+            console.error("Email error:", err)
+          }
         }
 
       }
@@ -279,14 +273,12 @@ export default function AttendancePage(){
   }
 
   return(
-
     <div className="p-6 md:p-10 text-white max-w-6xl mx-auto space-y-8">
 
       <h1 className="text-3xl font-bold">Attendance</h1>
 
       <div className="bg-white/10 p-6 rounded-xl space-y-6">
 
-        {/* FILTERS */}
         <div className="flex flex-wrap gap-4">
 
           <select
@@ -309,7 +301,6 @@ export default function AttendancePage(){
 
         </div>
 
-        {/* STATS */}
         <div className="grid grid-cols-3 gap-4">
 
           <div className="bg-white/5 p-4 rounded-xl text-center">
@@ -329,7 +320,6 @@ export default function AttendancePage(){
 
         </div>
 
-        {/* STUDENTS */}
         <div className="space-y-3">
 
           {students.map((s:any)=>{
@@ -337,10 +327,7 @@ export default function AttendancePage(){
             const current = attendance[s.id] || "present"
 
             return(
-              <div
-                key={s.id}
-                className="flex items-center justify-between bg-white/5 p-4 rounded-xl"
-              >
+              <div key={s.id} className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
 
                 <span>{s.name}</span>
 
@@ -348,22 +335,14 @@ export default function AttendancePage(){
 
                   <button
                     onClick={()=>setStatus(s.id,"present")}
-                    className={`px-4 py-2 rounded ${
-                      current === "present"
-                        ? "bg-green-500"
-                        : "bg-white/10"
-                    }`}
+                    className={`px-4 py-2 rounded ${current === "present" ? "bg-green-500" : "bg-white/10"}`}
                   >
                     Present
                   </button>
 
                   <button
                     onClick={()=>setStatus(s.id,"absent")}
-                    className={`px-4 py-2 rounded ${
-                      current === "absent"
-                        ? "bg-red-500"
-                        : "bg-white/10"
-                    }`}
+                    className={`px-4 py-2 rounded ${current === "absent" ? "bg-red-500" : "bg-white/10"}`}
                   >
                     Absent
                   </button>
