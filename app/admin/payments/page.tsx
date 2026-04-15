@@ -18,34 +18,22 @@ export default function PaymentsPage(){
   const [paymentDate,setPaymentDate] = useState("")
 
   const [loading,setLoading] = useState(false)
+  const [error,setError] = useState("")
 
-  // ================= INIT SCHOOL =================
+  // ================= INIT =================
   useEffect(()=>{
-    getSchoolId().then((id)=>{
-      console.log("School ID:", id)
-      setSchoolId(id)
-    })
+    getSchoolId().then(setSchoolId)
   },[])
 
   // ================= LOAD STUDENTS =================
   useEffect(()=>{
     if(!schoolId) return
 
-    const loadStudents = async ()=>{
-      const { data, error } = await supabase
-        .from("students")
-        .select("id,name")
-        .eq("school_id", schoolId)
-
-      if(error){
-        console.error("Students load error:", error)
-        return
-      }
-
-      setStudents(data || [])
-    }
-
-    loadStudents()
+    supabase
+      .from("students")
+      .select("id,name")
+      .eq("school_id", schoolId)
+      .then(({data})=>setStudents(data || []))
 
   },[schoolId])
 
@@ -53,46 +41,54 @@ export default function PaymentsPage(){
   useEffect(()=>{
     if(!studentId || !schoolId) return
 
-    const loadFees = async ()=>{
-      const { data, error } = await supabase
-        .from("fees")
-        .select("*")
-        .eq("student_id", studentId)
-        .eq("school_id", schoolId)
-
-      if(error){
-        console.error("Fees load error:", error)
-        return
-      }
-
-      setFees(data || [])
-    }
-
-    loadFees()
+    supabase
+      .from("fees")
+      .select("*")
+      .eq("student_id", studentId)
+      .eq("school_id", schoolId)
+      .then(({data})=>setFees(data || []))
 
   },[studentId,schoolId])
 
-  // ================= SAVE PAYMENT =================
+  // ================= DATE VALIDATION =================
+  const validateDate = ()=>{
+    if(!paymentDate) return true
+
+    const selected = new Date(paymentDate)
+    const today = new Date()
+    today.setHours(0,0,0,0)
+
+    if(selected > today){
+      setError("Future payments are not allowed")
+      return false
+    }
+
+    setError("")
+    return true
+  }
+
+  // ================= SAVE =================
   const save = async ()=>{
 
     if(!studentId || !feeId || !amount){
-      alert("Fill all fields")
+      setError("Please fill all fields")
       return
     }
 
+    if(!validateDate()) return
+
     if(!schoolId){
-      alert("School not loaded")
+      setError("School not loaded")
       return
     }
 
     const payAmount = Number(amount)
 
     if(payAmount <= 0){
-      alert("Invalid amount")
+      setError("Invalid amount")
       return
     }
 
-    // ================= DATE LOGIC =================
     const selectedDate = paymentDate
       ? new Date(paymentDate)
       : new Date()
@@ -100,23 +96,17 @@ export default function PaymentsPage(){
     const today = new Date()
     today.setHours(0,0,0,0)
 
-    // ❌ BLOCK FUTURE
-    if(selectedDate > today){
-      alert("❌ Future payment not allowed")
-      return
-    }
-
-    // ✅ MANUAL FLAG
     const isManual = selectedDate < today
 
     setLoading(true)
+    setError("")
 
     try{
 
       const fee = fees.find(f=>f.id === feeId)
 
       if(!fee){
-        alert("Fee not found")
+        setError("Fee not found")
         setLoading(false)
         return
       }
@@ -124,7 +114,7 @@ export default function PaymentsPage(){
       const newPaid = (fee.paid_amount || 0) + payAmount
       const paymentId = crypto.randomUUID()
 
-      // ================= INSERT PAYMENT =================
+      // ================= INSERT =================
       const { error: paymentError } = await supabase
         .from("payments")
         .insert({
@@ -140,14 +130,13 @@ export default function PaymentsPage(){
         })
 
       if(paymentError){
-        console.error(paymentError)
-        alert(paymentError.message)
+        setError(paymentError.message)
         setLoading(false)
         return
       }
 
       // ================= UPDATE FEE =================
-      const { error: feeError } = await supabase
+      await supabase
         .from("fees")
         .update({
           paid_amount: newPaid,
@@ -155,13 +144,6 @@ export default function PaymentsPage(){
         })
         .eq("id", feeId)
         .eq("school_id", schoolId)
-
-      if(feeError){
-        console.error(feeError)
-        alert(feeError.message)
-        setLoading(false)
-        return
-      }
 
       // ================= NOTIFY =================
       let notifyResult:any = {}
@@ -177,12 +159,11 @@ export default function PaymentsPage(){
         })
 
         notifyResult = await res.json()
+      }catch{}
 
-      }catch(err){
-        console.error("Notification error:", err)
-      }
+      // ================= SUCCESS UI =================
+      setError("")
 
-      // ================= SUCCESS =================
       alert(`
 Payment successful ✅
 
@@ -192,12 +173,11 @@ Email: ${notifyResult?.emailStatus || "unknown"}
 WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
 `)
 
-      // RESET
       setAmount("")
       setFeeId("")
       setPaymentDate("")
 
-      // RELOAD FEES
+      // reload
       const { data } = await supabase
         .from("fees")
         .select("*")
@@ -207,20 +187,19 @@ WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
       setFees(data || [])
 
     }catch(err){
-      console.error("Payment error:", err)
-      alert("Something went wrong")
+      console.error(err)
+      setError("Something went wrong")
     }
 
     setLoading(false)
   }
 
+  // ================= UI =================
   return(
 
     <div className="p-6 md:p-10 text-white max-w-7xl mx-auto space-y-6">
 
-      <h1 className="text-2xl font-semibold">
-        Fee Payments
-      </h1>
+      <h1 className="text-2xl font-semibold">Fee Payments</h1>
 
       <div className="bg-white/10 p-6 rounded-xl flex flex-wrap gap-4">
 
@@ -234,11 +213,8 @@ WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
           className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl"
         >
           <option value="">Select Student</option>
-
           {students.map(s=>(
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
+            <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
 
@@ -249,7 +225,6 @@ WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
           className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl"
         >
           <option value="">Select Fee</option>
-
           {fees.map(f=>(
             <option key={f.id} value={f.id}>
               ₹{f.total_amount} ({f.status})
@@ -265,23 +240,34 @@ WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
           className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl"
         />
 
-        {/* 🔥 NEW DATE FIELD */}
+        {/* DATE */}
         <input
           type="date"
           value={paymentDate}
-          onChange={(e)=>setPaymentDate(e.target.value)}
+          onChange={(e)=>{
+            setPaymentDate(e.target.value)
+            setError("")
+          }}
+          max={new Date().toISOString().split("T")[0]} // ✅ prevents future selection
           className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl"
         />
 
         <Button
           color="green"
           onClick={save}
-          disabled={loading}
+          disabled={loading || !!error}
         >
           {loading ? "Processing..." : "Pay"}
         </Button>
 
       </div>
+
+      {/* 🔥 CLEAN ERROR UI */}
+      {error && (
+        <div className="bg-red-500/20 border border-red-500 text-red-300 p-3 rounded-xl">
+          {error}
+        </div>
+      )}
 
     </div>
   )
