@@ -264,40 +264,46 @@ export default function PaymentsPage() {
 
   // ── Students ───────────────────────────────────────────────────────────────
 
-  const loadStudents = async () => {
+ const loadStudents = async () => {
 
   if(!schoolId) return
 
-  console.log("🔍 Loading students with class info...")
+  console.log("🔍 Loading students...")
 
+  // STEP 1: Try enrollments
   const { data, error } = await supabase
     .from("student_enrollments")
-    .select(`
-      student_id,
-      students (
-        id,
-        name
-      ),
-      classes (
-        name
-      )
-    `)
+    .select("student_id")
     .eq("school_id", schoolId)
 
   if(error){
-    console.error("❌ Student load error:", error)
+    console.error("❌ Enrollment error:", error)
+  }
+
+  let studentIds = (data || []).map((e:any)=>e.student_id)
+
+  // STEP 2: fallback if empty
+  if(studentIds.length === 0){
+    console.log("⚠️ No enrollments, loading all students")
+
+    const { data: allStudents } = await supabase
+      .from("students")
+      .select("id,name,class")
+      .eq("school_id", schoolId)
+
+    setStudents(allStudents || [])
     return
   }
 
-  const formatted = (data || []).map((e:any)=>({
-    id: e.student_id,
-    name: e.students?.name || "Unknown",
-    class: e.classes?.name || ""
-  }))
+  // STEP 3: fetch student details
+  const { data: studentData } = await supabase
+    .from("students")
+    .select("id,name,class")
+    .in("id", studentIds)
 
-  console.log("✅ Students loaded:", formatted)
+  console.log("✅ Students loaded:", studentData)
 
-  setStudents(formatted)
+  setStudents(studentData || [])
 }
 
   // ── Fees for selected student ──────────────────────────────────────────────
