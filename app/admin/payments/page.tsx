@@ -184,15 +184,47 @@ export default function PaymentsPage() {
       })
   }
 
-  const loadStudents = async () => {
-    const { data } = await supabase
-      .from("students")
-      .select("id, name, class")
-      .eq("school_id", schoolId)
-      .order("name")
-    setStudents(data || [])
+ const loadStudents = async () => {
+
+  if(!schoolId) return
+
+  console.log("🔍 Loading students...")
+
+  // STEP 1: Try enrollments
+  const { data, error } = await supabase
+    .from("student_enrollments")
+    .select("student_id")
+    .eq("school_id", schoolId)
+
+  if(error){
+    console.error("❌ Enrollment error:", error)
   }
 
+  let studentIds = (data || []).map((e:any)=>e.student_id)
+
+  // STEP 2: fallback if empty
+  if(studentIds.length === 0){
+    console.log("⚠️ No enrollments, loading all students")
+
+    const { data: allStudents } = await supabase
+      .from("students")
+      .select("id,name,class")
+      .eq("school_id", schoolId)
+
+    setStudents(allStudents || [])
+    return
+  }
+
+  // STEP 3: fetch student details
+  const { data: studentData } = await supabase
+    .from("students")
+    .select("id,name,class")
+    .in("id", studentIds)
+
+  console.log("✅ Students loaded:", studentData)
+
+  setStudents(studentData || [])
+}
   // ── Filters ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
