@@ -12,7 +12,7 @@ export default function NoticesPage(){
   const [title,setTitle] = useState("")
   const [message,setMessage] = useState("")
 
-  const [mode,setMode] = useState("all") // 🔥 all | class | student
+  const [mode,setMode] = useState("all")
   const [selectedClass,setSelectedClass] = useState("")
   const [selectedStudent,setSelectedStudent] = useState("")
 
@@ -22,12 +22,12 @@ export default function NoticesPage(){
 
   const [sending,setSending] = useState(false)
 
-  // SCHOOL
+  // LOAD SCHOOL
   useEffect(()=>{
     getSchoolId().then(setSchoolId)
   },[])
 
-  // CLASSES
+  // LOAD CLASSES
   useEffect(()=>{
     if(!schoolId) return
 
@@ -37,7 +37,7 @@ export default function NoticesPage(){
       .then(({data})=>setClasses(data || []))
   },[schoolId])
 
-  // STUDENTS (for dropdown)
+  // LOAD STUDENTS
   useEffect(()=>{
     if(!schoolId) return
 
@@ -88,17 +88,16 @@ export default function NoticesPage(){
 
     try{
 
-      // ✅ SAVE NOTICE
+      // ✅ SAVE NOTICE (FIXED)
       await supabase.from("notices").insert({
         id: crypto.randomUUID(),
         school_id: schoolId,
         title,
         message,
-        class_id: mode === "class" ? selectedClass : null,
-        student_id: mode === "student" ? selectedStudent : null
+        class_id: mode === "class" ? selectedClass : null
       })
 
-      // 🔥 TARGET STUDENTS
+      // 🎯 TARGET STUDENTS
       let targetStudents:any[] = []
 
       if(mode === "all"){
@@ -123,7 +122,7 @@ export default function NoticesPage(){
         if(student) targetStudents = [student]
       }
 
-      // 🔥 GET PARENTS
+      // 👨‍👩‍👧 GET PARENTS
       const { data: parents } = await supabase
         .from("parents")
         .select("student_id,email,phone")
@@ -134,12 +133,12 @@ export default function NoticesPage(){
         parentMap[p.student_id] = p
       })
 
-      // 🔥 SEND (SMART LOOP ONLY TARGETS)
+      // 🚀 SEND LOOP
       for (const s of targetStudents){
 
         const parent = parentMap[s.id]
 
-        // DB
+        // DB log
         await sendNotification({
           school_id: schoolId,
           student_id: s.id,
@@ -177,6 +176,7 @@ export default function NoticesPage(){
 
       alert("Notice sent successfully 🚀")
 
+      // RESET
       setTitle("")
       setMessage("")
       setSelectedClass("")
@@ -215,7 +215,6 @@ export default function NoticesPage(){
           className="w-full p-3 bg-[#0b1220] rounded-xl h-32"
         />
 
-        {/* 🔥 MODE SELECT */}
         <select
           value={mode}
           onChange={(e)=>setMode(e.target.value)}
@@ -226,7 +225,6 @@ export default function NoticesPage(){
           <option value="student">Specific Student</option>
         </select>
 
-        {/* CLASS */}
         {mode === "class" && (
           <select
             value={selectedClass}
@@ -240,7 +238,6 @@ export default function NoticesPage(){
           </select>
         )}
 
-        {/* STUDENT */}
         {mode === "student" && (
           <select
             value={selectedStudent}
@@ -273,7 +270,13 @@ export default function NoticesPage(){
           <div key={n.id} className="bg-white/5 p-4 rounded-xl">
             <h3 className="font-semibold">{n.title}</h3>
             <p className="text-sm text-gray-300 mt-1">{n.message}</p>
-            <p className="text-xs text-gray-500 mt-2">
+
+            {/* SHOW TYPE */}
+            <p className="text-xs text-blue-400 mt-2">
+              {n.class_id ? "Class Notice" : "All Students"}
+            </p>
+
+            <p className="text-xs text-gray-500 mt-1">
               {new Date(n.created_at).toLocaleString()}
             </p>
           </div>
