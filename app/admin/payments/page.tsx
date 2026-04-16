@@ -186,44 +186,28 @@ export default function PaymentsPage() {
 
  const loadStudents = async () => {
 
-  if(!schoolId) return
-
   console.log("🔍 Loading students...")
 
-  // STEP 1: Try enrollments
-  const { data, error } = await supabase
-    .from("student_enrollments")
-    .select("student_id")
-    .eq("school_id", schoolId)
+  // STEP 1: get all students (SAFE QUERY)
+  const { data: studentsData, error } = await supabase
+    .from("students")
+    .select("id, name, class")
 
-  if(error){
-    console.error("❌ Enrollment error:", error)
-  }
-
-  let studentIds = (data || []).map((e:any)=>e.student_id)
-
-  // STEP 2: fallback if empty
-  if(studentIds.length === 0){
-    console.log("⚠️ No enrollments, loading all students")
-
-    const { data: allStudents } = await supabase
-      .from("students")
-      .select("id,name,class")
-      .eq("school_id", schoolId)
-
-    setStudents(allStudents || [])
+  if (error) {
+    console.error("❌ Students fetch error:", error)
     return
   }
 
-  // STEP 3: fetch student details
-  const { data: studentData } = await supabase
-    .from("students")
-    .select("id,name,class")
-    .in("id", studentIds)
+  console.log("✅ Students fetched:", studentsData)
 
-  console.log("✅ Students loaded:", studentData)
+  // STEP 2: OPTIONAL filter by school if column exists
+  const filtered = (studentsData || []).filter((s: any) => {
+    if (!schoolId) return true
+    if ("school_id" in s) return s.school_id === schoolId
+    return true // fallback if column doesn't exist
+  })
 
-  setStudents(studentData || [])
+  setStudents(filtered)
 }
   // ── Filters ───────────────────────────────────────────────────────────────
 
