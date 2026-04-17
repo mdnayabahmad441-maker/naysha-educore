@@ -165,10 +165,10 @@ export default function NoticesPage(){
           await fetch("/api/send-whatsapp",{
             method:"POST",
             headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify({
-              phone: parent.phone,
-              message: `📢 ${title}\n\n${message}`
-            })
+           body: JSON.stringify({
+  phone: `91${parent.phone}@c.us`,
+  message: `📢 ${title}\n\n${message}`
+})
           })
         }
 
