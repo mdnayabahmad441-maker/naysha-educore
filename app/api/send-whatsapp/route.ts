@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import pkg from "whatsapp-web.js"
+
+const pkg = require("whatsapp-web.js")
 const qrcode = require("qrcode-terminal")
 
 const { Client, LocalAuth } = pkg
