@@ -1,65 +1,64 @@
 import { NextResponse } from "next/server"
-import twilio from "twilio"
+import pkg from "whatsapp-web.js"
+const qrcode = require("qrcode-terminal")
+
+const { Client, LocalAuth } = pkg
+
+let client: any
+let isReady = false
+
+if (!client) {
+  client = new Client({
+    authStrategy: new LocalAuth()
+  })
+
+  client.on("qr", (qr: string) => {
+    console.log("📱 Scan this QR below:")
+    qrcode.generate(qr, { small: true })
+  })
+
+  client.on("ready", () => {
+    console.log("✅ WhatsApp is READY")
+    isReady = true
+  })
+
+  client.initialize()
+}
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
+    const { phone, message } = await req.json()
 
-    // ✅ Accept both formats (phone OR to)
-    let phone: string = body.phone || body.to
-    const message: string = body.message
-
-    // ✅ Validation
-    if (!phone) {
+    if (!phone || !message) {
       return NextResponse.json(
-        { error: "Missing phone" },
+        { error: "Missing phone or message" },
         { status: 400 }
       )
     }
 
-    if (!message) {
+    if (!isReady) {
       return NextResponse.json(
-        { error: "Missing message" },
-        { status: 400 }
+        { error: "WhatsApp not ready yet" },
+        { status: 500 }
       )
     }
 
-    // ✅ Format phone (auto add +91 if missing)
-    phone = phone.trim()
+    const formatted = phone.includes("@c.us")
+      ? phone
+      : `91${phone}@c.us`
 
-    if (!phone.startsWith("+")) {
-      phone = `+91${phone}`
-    }
-
-    // ✅ Init Twilio client
-    const client = twilio(
-      process.env.TWILIO_ACCOUNT_SID!,
-      process.env.TWILIO_AUTH_TOKEN!
-    )
-
-    console.log("📲 Sending WhatsApp to:", phone)
-
-    // ✅ Send message
-    const msg = await client.messages.create({
-      body: message,
-      from: "whatsapp:+14155238886", // Twilio sandbox number
-      to: `whatsapp:${phone}`,
-    })
-
-    console.log("✅ Message sent:", msg.sid)
+    const result = await client.sendMessage(formatted, message)
 
     return NextResponse.json({
       success: true,
-      sid: msg.sid,
+      id: result.id._serialized
     })
 
   } catch (err: any) {
-    console.error("❌ WhatsApp Error:", err)
+    console.error("WhatsApp Error:", err)
 
     return NextResponse.json(
-      {
-        error: err.message || "Something went wrong",
-      },
+      { error: err.message },
       { status: 500 }
     )
   }
