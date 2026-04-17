@@ -88,7 +88,7 @@ export default function NoticesPage(){
 
     try{
 
-      // ✅ SAVE NOTICE (FIXED)
+      // ✅ SAVE NOTICE
       await supabase.from("notices").insert({
         id: crypto.randomUUID(),
         school_id: schoolId,
@@ -133,10 +133,17 @@ export default function NoticesPage(){
         parentMap[p.student_id] = p
       })
 
+      let successCount = 0
+
       // 🚀 SEND LOOP
       for (const s of targetStudents){
 
         const parent = parentMap[s.id]
+
+        if(!parent){
+          console.log("No parent for student:", s.id)
+          continue
+        }
 
         // DB log
         await sendNotification({
@@ -147,34 +154,48 @@ export default function NoticesPage(){
           type: "notice"
         })
 
-        // EMAIL
-        if(parent?.email){
-          await fetch("/api/send-email",{
-            method:"POST",
-            headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify({
-              email: parent.email,
-              subject: title,
-              message
+        // 📧 EMAIL
+        if(parent.email){
+          try{
+            await fetch("/api/send-email",{
+              method:"POST",
+              headers:{ "Content-Type":"application/json" },
+              body: JSON.stringify({
+                email: parent.email,
+                subject: title,
+                message
+              })
             })
-          })
+          }catch(err){
+            console.log("Email failed:", parent.email)
+          }
         }
 
-        // WHATSAPP
-        if(parent?.phone){
-          await fetch("/api/send-whatsapp",{
-            method:"POST",
-            headers:{ "Content-Type":"application/json" },
-           body: JSON.stringify({
-  phone: `91${parent.phone}@c.us`,
-  message: `📢 ${title}\n\n${message}`
-})
-          })
+        // 📱 WHATSAPP (NEW SERVER)
+        if(parent.phone){
+          try{
+
+            console.log("Sending WhatsApp:", parent.phone)
+
+            await fetch("http://127.0.0.1:5000/send",{
+              method:"POST",
+              headers:{ "Content-Type":"application/json" },
+              body: JSON.stringify({
+                phone: String(parent.phone).trim(),
+                message: `📢 ${title}\n\n${message}`
+              })
+            })
+
+            successCount++
+
+          }catch(err){
+            console.log("WhatsApp failed:", parent.phone)
+          }
         }
 
       }
 
-      alert("Notice sent successfully 🚀")
+      alert(`Notice sent to ${successCount} parents 🚀`)
 
       // RESET
       setTitle("")
@@ -271,7 +292,6 @@ export default function NoticesPage(){
             <h3 className="font-semibold">{n.title}</h3>
             <p className="text-sm text-gray-300 mt-1">{n.message}</p>
 
-            {/* SHOW TYPE */}
             <p className="text-xs text-blue-400 mt-2">
               {n.class_id ? "Class Notice" : "All Students"}
             </p>
