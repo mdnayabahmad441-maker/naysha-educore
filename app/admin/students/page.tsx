@@ -18,14 +18,41 @@ type StudentListRow = {
 
 type EnrollmentQueryRow = {
   roll_number: number | null
-  students: {
+  students:
+    | {
+        id: string
+        name: string
+        student_code: string | null
+      }[]
+    | {
+        id: string
+        name: string
+        student_code: string | null
+      }
+    | null
+  classes:
+    | {
+        name: string
+      }[]
+    | {
+        name: string
+      }
+    | null
+}
+
+function getSingleRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (!value) return null
+  return Array.isArray(value) ? value[0] ?? null : value
+}
+
+type StudentRelation = {
     id: string
     name: string
     student_code: string | null
-  } | null
-  classes: {
-    name: string
-  } | null
+}
+
+type ClassRelation = {
+  name: string
 }
 
 async function fetchStudentsForSchool(schoolId: string): Promise<StudentListRow[]> {
@@ -52,14 +79,18 @@ async function fetchStudentsForSchool(schoolId: string): Promise<StudentListRow[
   }
 
   const rows = ((data as EnrollmentQueryRow[] | null) ?? [])
-    .map((row, index) => ({
-      id: row.students?.id ?? `missing-${index}`,
-      name: row.students?.name ?? "Unknown",
+    .map((row, index) => {
+      const student = getSingleRelation<StudentRelation>(row.students)
+      const schoolClass = getSingleRelation<ClassRelation>(row.classes)
+
+      return {
+      id: student?.id ?? `missing-${index}`,
+      name: student?.name ?? "Unknown",
       roll_number: row.roll_number,
-      class_name: row.classes?.name ?? null,
+      class_name: schoolClass?.name ?? null,
       display_id:
-        row.students?.student_code || `ST${String(index + 1).padStart(2, "0")}`
-    }))
+        student?.student_code || `ST${String(index + 1).padStart(2, "0")}`
+    }})
     .filter((row) => !row.id.startsWith("missing-"))
 
   return rows.sort((a, b) => {
