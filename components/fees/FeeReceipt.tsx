@@ -40,7 +40,7 @@ export default function FeeReceipt({ student, fee, payment, school }: FeeReceipt
   const receiptNumber = payment?.receipt_number || payment?.id || "N/A"
 
   return (
-    <div className="mx-auto max-w-3xl rounded-lg bg-white p-10 text-black">
+    <div className="mx-auto w-full max-w-3xl rounded-lg bg-white p-10 text-black print:max-w-none print:p-6">
       <div className="mb-6 text-center">
         <h1 className="text-2xl font-bold">{school?.name || "School"}</h1>
 
@@ -48,8 +48,8 @@ export default function FeeReceipt({ student, fee, payment, school }: FeeReceipt
         {school?.phone && <p className="text-sm">{school.phone}</p>}
       </div>
 
-      <div className="mb-4 flex justify-between gap-6 text-sm">
-        <div>
+      <div className="mb-4 grid gap-6 md:grid-cols-[minmax(0,1fr)_280px] text-sm">
+        <div className="space-y-2 min-w-0">
           <p>
             <b>Student Name:</b> {student?.name || "N/A"}
           </p>
@@ -70,7 +70,7 @@ export default function FeeReceipt({ student, fee, payment, school }: FeeReceipt
           </p>
         </div>
 
-        <div className="text-right">
+        <div className="space-y-2 text-right">
           <p>
             <b>Date:</b>{" "}
             {payment?.date ? new Date(payment.date).toLocaleDateString() : "N/A"}
@@ -84,7 +84,7 @@ export default function FeeReceipt({ student, fee, payment, school }: FeeReceipt
         </div>
       </div>
 
-      <table className="mb-4 w-full border border-black text-sm">
+      <table className="mb-4 w-full border-collapse border border-black text-sm">
         <thead>
           <tr className="border-b border-black">
             <th className="p-2 text-left">Fee Head</th>
@@ -116,7 +116,7 @@ export default function FeeReceipt({ student, fee, payment, school }: FeeReceipt
         This is a computer-generated receipt and valid without signature.
       </p>
 
-      <div className="flex justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm">Accounts Office</p>
 
         <button

@@ -12,6 +12,7 @@ type EditFormState = {
   email: string
   roll: string
   class_id: string
+  student_type: string
   parentEmail: string
   parentPhone: string
   father_name: string
@@ -28,6 +29,7 @@ type StudentRecord = {
   email: string | null
   roll_number: number | null
   class_id: string | null
+  student_type?: string | null
 }
 
 type ParentRecord = {
@@ -49,6 +51,7 @@ const EMPTY_FORM: EditFormState = {
   email: "",
   roll: "",
   class_id: "",
+  student_type: "day_scholar",
   parentEmail: "",
   parentPhone: "",
   father_name: "",
@@ -111,7 +114,7 @@ export default function EditStudentPage() {
         const [studentRes, parentRes, classRes, enrollmentRes] = await Promise.all([
           supabase
             .from("students")
-            .select("name,email,roll_number,class_id")
+            .select("name,email,roll_number,class_id,student_type")
             .eq("id", id)
             .single(),
 
@@ -146,6 +149,7 @@ export default function EditStudentPage() {
             email: student.email || "",
             roll: String(enrollment?.roll_number ?? student.roll_number ?? ""),
             class_id: enrollment?.class_id || student.class_id || "",
+            student_type: student.student_type || "day_scholar",
             parentEmail: parent?.email || "",
             parentPhone: parent?.phone || "",
             father_name: parent?.father_name || "",
@@ -220,7 +224,8 @@ export default function EditStudentPage() {
           name: form.name.trim(),
           email: form.email.trim() || null,
           class_id: form.class_id,
-          roll_number: parsedRoll
+          roll_number: parsedRoll,
+          student_type: form.student_type
         })
         .eq("id", id)
         .eq("school_id", schoolId)
@@ -357,6 +362,16 @@ export default function EditStudentPage() {
               {schoolClass.name}
             </option>
           ))}
+        </select>
+
+        <select
+          value={form.student_type}
+          onChange={(event) => updateField("student_type", event.target.value)}
+          className="w-full rounded bg-[#0b1220] p-3"
+        >
+          <option value="day_scholar">Day Scholar</option>
+          <option value="day_scholar_transport">Day Scholar + Transport</option>
+          <option value="hosteler">Hosteler</option>
         </select>
 
         <input

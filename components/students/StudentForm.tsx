@@ -26,6 +26,7 @@ export default function StudentForm({ reload }: StudentFormProps) {
 
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [selectedClass, setSelectedClass] = useState("")
+  const [studentType, setStudentType] = useState("day_scholar")
 
   const [loading, setLoading] = useState(false)
 
@@ -73,7 +74,7 @@ export default function StudentForm({ reload }: StudentFormProps) {
   }
 
   const save = async () => {
-    if (!name.trim() || !selectedClass) {
+    if (!name.trim() || !selectedClass || !studentType) {
       alert("Fill required fields")
       return
     }
@@ -130,7 +131,8 @@ export default function StudentForm({ reload }: StudentFormProps) {
         photo: photoUrl || null,
         student_code: studentCode,
         class_id: selectedClass,
-        roll_number: parsedRoll
+        roll_number: parsedRoll,
+        student_type: studentType
       })
 
       if (studentError) {
@@ -178,6 +180,7 @@ export default function StudentForm({ reload }: StudentFormProps) {
       setRoll("")
       setPhoto(null)
       setSelectedClass("")
+      setStudentType("day_scholar")
       setFatherName("")
       setMotherName("")
       setParentEmail("")
@@ -241,6 +244,16 @@ export default function StudentForm({ reload }: StudentFormProps) {
                 {schoolClass.name}
               </option>
             ))}
+          </select>
+
+          <select
+            value={studentType}
+            onChange={(event) => setStudentType(event.target.value)}
+            className="rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
+          >
+            <option value="day_scholar">Day Scholar</option>
+            <option value="day_scholar_transport">Day Scholar + Transport</option>
+            <option value="hosteler">Hosteler</option>
           </select>
         </div>
       </div>

@@ -21,6 +21,7 @@ type Student = {
   student_code?: string | null
   roll_number: string | null
   class_id: string | null
+  student_type?: string | null
 }
 
 type FeeRecord = {
@@ -372,7 +373,7 @@ export default function FeesPage() {
 
       const { data: students, error: studentsError } = await supabase
         .from("students")
-        .select("id,class_id")
+        .select("id,class_id,student_type")
         .eq("school_id", schoolId)
         .eq("class_id", selectedClass)
 
@@ -381,7 +382,38 @@ export default function FeesPage() {
       }
 
       for (const student of
-        ((students as Pick<Student, "id" | "class_id">[] | null) ?? [])) {
+        ((students as Pick<Student, "id" | "class_id" | "student_type">[] | null) ?? [])) {
+        const studentType = (student.student_type || "day_scholar").toLowerCase()
+        const tuition = Number(settings.tuition_fee ?? 0)
+        const transport = Number(settings.transport_fee ?? 0)
+        const hostel = Number(settings.hostel_fee ?? 0)
+
+        const payload = {
+          student_id: student.id,
+          school_id: schoolId,
+          class_id: student.class_id,
+          month: selectedMonth,
+          total_amount: 0,
+          paid_amount: 0,
+          status: "pending",
+          tuition_fee: 0,
+          transport_fee: 0,
+          hostel_fee: 0
+        }
+
+        if (studentType === "hosteler") {
+          payload.tuition_fee = tuition
+          payload.hostel_fee = hostel
+          payload.total_amount = tuition + hostel
+        } else if (studentType === "day_scholar_transport") {
+          payload.tuition_fee = tuition
+          payload.transport_fee = transport
+          payload.total_amount = tuition + transport
+        } else {
+          payload.tuition_fee = tuition
+          payload.total_amount = tuition
+        }
+
         const { data: existing, error: existingError } = await supabase
           .from("fees")
           .select("id")
@@ -396,15 +428,7 @@ export default function FeesPage() {
 
         if (existing) continue
 
-        const { error: insertError } = await supabase.from("fees").insert({
-          student_id: student.id,
-          school_id: schoolId,
-          class_id: student.class_id,
-          month: selectedMonth,
-          total_amount: total,
-          paid_amount: 0,
-          status: "pending"
-        })
+        const { error: insertError } = await supabase.from("fees").insert(payload)
 
         if (insertError) {
           throw insertError
