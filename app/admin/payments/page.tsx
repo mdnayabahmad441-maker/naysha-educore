@@ -9,9 +9,12 @@ export default function PaymentsPage(){
 
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
+  const [classes,setClasses] = useState<any[]>([])
   const [students,setStudents] = useState<any[]>([])
   const [fees,setFees] = useState<any[]>([])
 
+  const [selectedClass,setSelectedClass] = useState("")
+  const [studentSearch,setStudentSearch] = useState("")
   const [studentId,setStudentId] = useState("")
   const [feeId,setFeeId] = useState("")
   const [amount,setAmount] = useState("")
@@ -23,21 +26,49 @@ export default function PaymentsPage(){
     getSchoolId().then(setSchoolId)
   },[])
 
-  // LOAD STUDENTS
+  // LOAD CLASSES
   useEffect(()=>{
     if(!schoolId) return
+
+    const load = async ()=>{
+      const { data } = await supabase
+        .from("classes")
+        .select("id,name")
+        .eq("school_id", schoolId)
+
+      setClasses(data || [])
+    }
+
+    load()
+  },[schoolId])
+
+  // LOAD STUDENTS FOR SELECTED CLASS
+  useEffect(()=>{
+    if(!schoolId) return
+
+    if(!selectedClass){
+      setStudents([])
+      setStudentId("")
+      setFeeId("")
+      setFees([])
+      return
+    }
 
     const load = async ()=>{
       const { data } = await supabase
         .from("students")
         .select("id,name")
         .eq("school_id", schoolId)
+        .eq("class_id", selectedClass)
 
       setStudents(data || [])
+      setStudentId("")
+      setFeeId("")
+      setFees([])
     }
 
     load()
-  },[schoolId])
+  },[schoolId, selectedClass])
 
   // LOAD FEES
   useEffect(()=>{
@@ -55,6 +86,11 @@ export default function PaymentsPage(){
 
     load()
   },[studentId,schoolId])
+
+  const filteredStudents = students.filter((student) => {
+    if (!studentSearch) return true
+    return student.name.toLowerCase().includes(studentSearch.toLowerCase())
+  })
 
   // SAVE PAYMENT
   const save = async ()=>{
@@ -164,26 +200,59 @@ export default function PaymentsPage(){
       <div className="bg-white/10 p-6 rounded-xl flex flex-wrap gap-4">
 
         <select
-          value={studentId}
-          onChange={(e)=>{
-            setStudentId(e.target.value)
+          value={selectedClass}
+          onChange={(e) => {
+            setSelectedClass(e.target.value)
+            setStudentId("")
             setFeeId("")
+            setStudentSearch("")
           }}
           className="bg-[#0b1220] px-4 py-3 rounded-xl"
         >
+          <option value="">Select Class</option>
+          {classes.map((cls) => (
+            <option key={cls.id} value={cls.id}>
+              {cls.name}
+            </option>
+          ))}
+        </select>
+
+        <input
+          value={studentSearch}
+          onChange={(e) => setStudentSearch(e.target.value)}
+          placeholder="Search student..."
+          disabled={!selectedClass}
+          className="bg-[#0b1220] px-4 py-3 rounded-xl"
+          style={{ minWidth: "220px" }}
+        />
+
+        <select
+          value={studentId}
+          onChange={(e) => {
+            setStudentId(e.target.value)
+            setFeeId("")
+          }}
+          disabled={!selectedClass}
+          className="bg-[#0b1220] px-4 py-3 rounded-xl"
+          style={{ minWidth: "220px" }}
+        >
           <option value="">Select Student</option>
-          {students.map(s=>(
-            <option key={s.id} value={s.id}>{s.name}</option>
+          {filteredStudents.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
           ))}
         </select>
 
         <select
           value={feeId}
-          onChange={(e)=>setFeeId(e.target.value)}
+          onChange={(e) => setFeeId(e.target.value)}
+          disabled={!studentId}
           className="bg-[#0b1220] px-4 py-3 rounded-xl"
+          style={{ minWidth: "220px" }}
         >
           <option value="">Select Fee</option>
-          {fees.map(f=>(
+          {fees.map((f) => (
             <option key={f.id} value={f.id}>
               ₹{f.total_amount} ({f.status})
             </option>
@@ -195,6 +264,7 @@ export default function PaymentsPage(){
           onChange={(e)=>setAmount(e.target.value)}
           placeholder="Enter Amount"
           className="bg-[#0b1220] px-4 py-3 rounded-xl"
+          style={{ minWidth: "220px" }}
         />
 
         <Button color="green" onClick={save} disabled={loading}>
