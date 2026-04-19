@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react"
 import FeeReceipt from "@/components/fees/FeeReceipt"
-import { fetchReceiptByPaymentId, type ReceiptViewData } from "@/lib/payment-receipts"
+import { fetchReceiptByPaymentId } from "@/lib/payment-receipts"
 import { useParams } from "next/navigation"
 
 export default function ReceiptPage() {
   const params = useParams()
-  const id = Array.isArray(params.id) ? params.id[0] : params.id
 
-  const [data, setData] = useState<ReceiptViewData | null>(null)
+  const id = Array.isArray(params?.id)
+    ? params.id[0]
+    : params?.id
+
+  const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -21,12 +24,15 @@ export default function ReceiptPage() {
       setLoading(true)
 
       try {
-        const receiptData = await fetchReceiptByPaymentId(id)
+        const res = await fetchReceiptByPaymentId(id)
+
+        console.log("RECEIPT DATA:", res) // 🔍 debug
+
         if (!cancelled) {
-          setData(receiptData)
+          setData(res)
         }
-      } catch (error) {
-        console.error(error)
+      } catch (err) {
+        console.error("Receipt error:", err)
         if (!cancelled) {
           setData(null)
         }
@@ -37,7 +43,7 @@ export default function ReceiptPage() {
       }
     }
 
-    void load()
+    load()
 
     return () => {
       cancelled = true
@@ -45,24 +51,34 @@ export default function ReceiptPage() {
   }, [id])
 
   if (loading) {
-    return "Loading..."
+    return (
+      <div className="p-10 text-white">
+        Loading receipt...
+      </div>
+    )
   }
 
   if (!data) {
-    return "Receipt not found"
+    return (
+      <div className="p-10 text-red-500">
+        Receipt not found
+      </div>
+    )
   }
 
   return (
-    <FeeReceipt
-      student={data.student}
-      fee={data.fee}
-      payment={{
-        amount: data.payment.amount,
-        date: data.payment.date,
-        id: data.payment.receipt_number,
-        payment_mode: data.payment.payment_mode
-      }}
-      school={data.school}
-    />
+    <div className="p-6 bg-[#020617] min-h-screen">
+      <FeeReceipt
+        student={data.student}
+        fee={data.fee}
+        payment={{
+          amount: data.payment?.amount,
+          date: data.payment?.date,
+          id: data.payment?.receipt_number,
+          payment_mode: data.payment?.payment_mode
+        }}
+        school={data.school}
+      />
+    </div>
   )
 }
