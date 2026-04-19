@@ -32,6 +32,8 @@ export default function DashboardPage() {
 
   const [chartData,setChartData] = useState<any[]>([])
 
+  const [admissionEnquiries, setAdmissionEnquiries] = useState<any[]>([])
+
   const [year,setYear] = useState<any>(null)
   const [today,setToday] = useState("")
 
@@ -188,6 +190,16 @@ export default function DashboardPage() {
 
         setChartData(chart)
 
+        // ================= ADMISSION ENQUIRIES =================
+        const { data: enquiries } = await supabase
+          .from("admission_enquiries")
+          .select("*")
+          .eq("school_id", schoolId)
+          .order("created_at", { ascending: false })
+          .limit(5) // Show only recent 5
+
+        setAdmissionEnquiries(enquiries || [])
+
       } catch (error) {
         console.error(error)
       } finally {
@@ -303,7 +315,59 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* 💰 FEES */}
+      {/* � ADMISSION ENQUIRIES */}
+      <Card className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Recent Admission Enquiries</h2>
+          <button
+            onClick={() => router.push('/admin/admission-enquiry')}
+            className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            View All →
+          </button>
+        </div>
+
+        {admissionEnquiries.length === 0 ? (
+          <p className="text-sm text-gray-400">No enquiries yet</p>
+        ) : (
+          <div className="space-y-3">
+            {admissionEnquiries.map((enquiry) => (
+              <div key={enquiry.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">{enquiry.student_name}</span>
+                    <span className="text-xs text-gray-400">({enquiry.father_name})</span>
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Class: {enquiry.class_wanted} • {enquiry.phone}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`text-xs px-2 py-1 rounded-full ${
+                    enquiry.status === 'new'
+                      ? 'bg-green-500/20 text-green-400'
+                      : enquiry.status === 'contacted'
+                      ? 'bg-blue-500/20 text-blue-400'
+                      : enquiry.status === 'admitted'
+                      ? 'bg-purple-500/20 text-purple-400'
+                      : 'bg-gray-500/20 text-gray-400'
+                  }`}>
+                    {enquiry.status}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {new Date(enquiry.created_at).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short'
+                    })}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* �💰 FEES */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         <Card className="bg-green-500/10 border border-green-500/20">
