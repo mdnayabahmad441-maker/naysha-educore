@@ -1,12 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import FeeReceipt from "@/components/fees/FeeReceipt"
 import { fetchReceiptByPaymentId } from "@/lib/payment-receipts"
 import { getSchoolId } from "@/lib/school"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
-import { createRoot } from "react-dom/client"
 
 type PaymentItem = {
   id: string
@@ -29,7 +27,7 @@ export default function ReceiptHistoryPage() {
     getSchoolId().then(setSchoolId)
   }, [])
 
-  // 🔹 Load payments (NEW API)
+  // 🔹 Load payments
   useEffect(() => {
     if (!schoolId) return
 
@@ -39,7 +37,6 @@ export default function ReceiptHistoryPage() {
       try {
         const res = await fetch(`/api/payments-history?school_id=${schoolId}`)
         const data = await res.json()
-
         setPayments(data || [])
       } catch (err) {
         console.error(err)
@@ -52,12 +49,9 @@ export default function ReceiptHistoryPage() {
     load()
   }, [schoolId])
 
-  // 📄 PDF GENERATE
+  // ✅ FIXED PDF GENERATION
   const generatePDF = async (paymentId: string) => {
     setBusyId(paymentId)
-
-    let container: HTMLDivElement | null = null
-    let root: ReturnType<typeof createRoot> | null = null
 
     try {
       const receiptData = await fetchReceiptByPaymentId(paymentId)
@@ -67,36 +61,25 @@ export default function ReceiptHistoryPage() {
         return
       }
 
-      container = document.createElement("div")
+      const container = document.createElement("div")
       container.style.position = "fixed"
       container.style.top = "-9999px"
       container.style.width = "800px"
       document.body.appendChild(container)
 
-      root = createRoot(container)
-      root.render(
-        <FeeReceipt
-          student={receiptData.student}
-          fee={receiptData.fee}
-          payment={{
-            amount: receiptData.payment.amount,
-            date: receiptData.payment.date,
-            id: receiptData.payment.id,
-            payment_mode: receiptData.payment.payment_mode
-          }}
-          school={receiptData.school}
-        />
-      )
+      container.innerHTML = `
+        <div style="padding:20px;font-family:sans-serif">
+          <h2>${receiptData.school.name}</h2>
+          <p><b>Student:</b> ${receiptData.student.name}</p>
+          <p><b>Class:</b> ${receiptData.student.class_name}</p>
+          <p><b>Amount:</b> ₹${receiptData.payment.amount}</p>
+          <p><b>Receipt No:</b> ${receiptData.payment.id}</p>
+        </div>
+      `
 
-      await new Promise(requestAnimationFrame)
-      await new Promise(requestAnimationFrame)
-
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        backgroundColor: "#ffffff"
-      })
-
+      const canvas = await html2canvas(container, { scale: 2 })
       const img = canvas.toDataURL("image/png")
+
       const pdf = new jsPDF("p", "mm", "a4")
 
       const width = 190
@@ -104,47 +87,12 @@ export default function ReceiptHistoryPage() {
 
       pdf.addImage(img, "PNG", 10, 10, width, height)
       pdf.save(`receipt-${receiptData.payment.id}.pdf`)
+
+      container.remove()
+
     } catch (err) {
       console.error(err)
       alert("Failed to generate receipt")
-    } finally {
-      root?.unmount()
-      container?.remove()
-      setBusyId(null)
-    }
-  }
-
-  // 📲 WHATSAPP
-  const resendWhatsApp = async (paymentId: string) => {
-    setBusyId(paymentId)
-
-    try {
-      const receiptData = await fetchReceiptByPaymentId(paymentId)
-
-      if (!receiptData?.student.parent_phone) {
-        alert("No parent phone")
-        return
-      }
-
-      await fetch("/api/send-whatsapp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          phone: receiptData.student.parent_phone,
-          message: `${receiptData.school?.name || "School"}
-
-Receipt for ${receiptData.student.name}
-Amount: Rs. ${receiptData.payment.amount}
-Receipt No: ${receiptData.payment.id}`
-        })
-      })
-
-      alert("Sent successfully")
-    } catch (err) {
-      console.error(err)
-      alert("Failed")
     } finally {
       setBusyId(null)
     }
@@ -169,7 +117,7 @@ Receipt No: ${receiptData.payment.id}`
                   {p.studentClass || "No class"}
                 </p>
                 <p className="text-green-400 font-medium">
-                  Rs. {p.amount}
+                  ₹{p.amount}
                 </p>
                 <p className="text-sm text-gray-400">
                   {new Date(p.paymentDate).toLocaleString()}
@@ -179,23 +127,13 @@ Receipt No: ${receiptData.payment.id}`
                 </p>
               </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => generatePDF(p.id)}
-                  disabled={busyId === p.id}
-                  className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700"
-                >
-                  Download
-                </button>
-
-                <button
-                  onClick={() => resendWhatsApp(p.id)}
-                  disabled={busyId === p.id}
-                  className="bg-green-600 px-3 py-1 rounded hover:bg-green-700"
-                >
-                  WhatsApp
-                </button>
-              </div>
+              <button
+                onClick={() => generatePDF(p.id)}
+                disabled={busyId === p.id}
+                className="bg-blue-600 px-3 py-1 rounded"
+              >
+                {busyId === p.id ? "Generating..." : "Download"}
+              </button>
             </div>
           ))}
         </div>
