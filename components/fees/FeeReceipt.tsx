@@ -3,6 +3,7 @@
 import { buildFeeBreakdown } from "@/lib/payment-receipts"
 
 export default function FeeReceipt({ student, fee, payment, school }: any) {
+
   const print = () => window.print()
 
   const breakdown = buildFeeBreakdown(fee)
@@ -15,11 +16,17 @@ export default function FeeReceipt({ student, fee, payment, school }: any) {
       {/* HEADER */}
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold">
-          {school?.name || "DEEP ENGLISH SCHOOL"}
+          {school?.name || "School"}
         </h1>
-        <p className="text-sm">
-          Excellence in Education • Discipline • Character
-        </p>
+
+        {/* OPTIONAL ADDRESS */}
+        {school?.address && (
+          <p className="text-sm">{school.address}</p>
+        )}
+
+        {school?.phone && (
+          <p className="text-sm">{school.phone}</p>
+        )}
       </div>
 
       {/* TOP INFO */}
@@ -28,12 +35,19 @@ export default function FeeReceipt({ student, fee, payment, school }: any) {
           <p><b>Student Name:</b> {student?.name || "N/A"}</p>
           <p><b>Class:</b> {student?.class_name || "N/A"}</p>
           <p><b>Roll No:</b> {student?.roll_number || "N/A"}</p>
-          <p><b>Father's Name:</b> {student?.parent_name || "N/A"}</p>
+          <p><b>Parent Name:</b> {student?.parent_name || "N/A"}</p>
         </div>
 
         <div className="text-right">
-          <p><b>Date:</b> {new Date(payment?.date).toLocaleDateString()}</p>
-          <p><b>Receipt No:</b> {payment?.id}</p>
+          <p>
+            <b>Date:</b>{" "}
+            {payment?.date
+              ? new Date(payment.date).toLocaleDateString()
+              : "N/A"}
+          </p>
+
+          <p><b>Receipt No:</b> {payment?.id || "N/A"}</p>
+          <p><b>Mode:</b> {payment?.payment_mode || "N/A"}</p>
         </div>
       </div>
 
@@ -50,24 +64,25 @@ export default function FeeReceipt({ student, fee, payment, school }: any) {
           {breakdown.map((item: any) => (
             <tr key={item.label} className="border-b border-black">
               <td className="p-2">{item.label}</td>
-              <td className="p-2 text-right">{item.value}</td>
+              <td className="p-2 text-right">₹ {item.value}</td>
             </tr>
           ))}
 
           <tr>
             <td className="p-2 font-bold">Grand Total</td>
-            <td className="p-2 text-right font-bold">{total}</td>
+            <td className="p-2 text-right font-bold">₹ {total}</td>
           </tr>
         </tbody>
       </table>
 
       {/* FOOTER */}
       <p className="text-sm mb-6">
-        Received with thanks towards institutional dues. This is a computer-generated receipt and valid without signature.
+        This is a computer-generated receipt and valid without signature.
       </p>
 
       <div className="flex justify-between">
-        <p className="text-sm">Authorized Accounts Office</p>
+        <p className="text-sm">Accounts Office</p>
+
         <button
           onClick={print}
           className="bg-black text-white px-4 py-2 rounded"

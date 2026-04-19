@@ -81,7 +81,7 @@ export default function ReceiptHistoryPage() {
           payment={{
             amount: receiptData.payment.amount,
             date: receiptData.payment.date,
-            id: receiptData.payment.receipt_number,
+            id: receiptData.payment.id,
             payment_mode: receiptData.payment.payment_mode
           }}
           school={receiptData.school}
@@ -103,7 +103,7 @@ export default function ReceiptHistoryPage() {
       const height = (canvas.height * width) / canvas.width
 
       pdf.addImage(img, "PNG", 10, 10, width, height)
-      pdf.save(`receipt-${receiptData.payment.receipt_number}.pdf`)
+      pdf.save(`receipt-${receiptData.payment.id}.pdf`)
     } catch (err) {
       console.error(err)
       alert("Failed to generate receipt")
@@ -137,7 +137,7 @@ export default function ReceiptHistoryPage() {
 
 Receipt for ${receiptData.student.name}
 Amount: Rs. ${receiptData.payment.amount}
-Receipt No: ${receiptData.payment.receipt_number}`
+Receipt No: ${receiptData.payment.id}`
         })
       })
 
