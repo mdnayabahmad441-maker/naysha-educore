@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import StudentForm from "@/components/students/StudentForm"
 import { getActiveAcademicYear } from "@/lib/academic"
 import { getUserRole } from "@/lib/getUserRole"
@@ -71,10 +71,16 @@ async function fetchStudentsForSchool(schoolId: string): Promise<StudentListRow[
   const cleanRows = rows.filter(Boolean) as StudentListRow[]
 
   return cleanRows.sort((a, b) => {
-    if (a.class_name === b.class_name) {
-      return Number(a.roll_number || 0) - Number(b.roll_number || 0)
-    }
-    return (a.class_name || "").localeCompare(b.class_name || "")
+    const classA = a.class_name || "zzzz"
+    const classB = b.class_name || "zzzz"
+    const classCompare = classA.localeCompare(classB)
+    if (classCompare !== 0) return classCompare
+
+    const rollA = a.roll_number ?? Number.MAX_SAFE_INTEGER
+    const rollB = b.roll_number ?? Number.MAX_SAFE_INTEGER
+    if (rollA !== rollB) return rollA - rollB
+
+    return a.name.localeCompare(b.name)
   })
 }
 
@@ -86,6 +92,7 @@ export default function StudentsPage() {
   const [students, setStudents] = useState<StudentListRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
+  const [classFilter, setClassFilter] = useState("")
   const [role, setRole] = useState<string | null>(null)
   const [schoolId, setSchoolId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -147,9 +154,15 @@ export default function StudentsPage() {
     router.push(`/admin/students/${id}`)
   }
 
+  const classOptions = useMemo(
+    () => [...new Set((students.map((student) => student.class_name).filter(Boolean) as string[]))],
+    [students]
+  )
+
   const searchTerm = search.toLowerCase()
 
   const filteredStudents = students.filter((s) => {
+    if (classFilter && s.class_name !== classFilter) return false
     if (!searchTerm) return true
 
     return (
@@ -173,19 +186,36 @@ export default function StudentsPage() {
         {role === "admin" && (
           <button
             onClick={() => setShowForm((c) => !c)}
-            className="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm"
+            className="rounded-lg bg-blue-500 px-4 py-2 text-sm"
           >
             {showForm ? "Close" : "+ Add Student"}
           </button>
         )}
       </div>
 
-      <input
-        placeholder="Search..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full md:w-96 rounded-lg border border-white/10 bg-[#0b1220] px-4 py-2 text-sm"
-      />
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
+          <select
+            value={classFilter}
+            onChange={(e) => setClassFilter(e.target.value)}
+            className="w-full max-w-sm rounded-lg border border-white/10 bg-[#0b1220] px-4 py-2 text-sm text-white"
+          >
+            <option value="">All Classes</option>
+            {classOptions.map((className) => (
+              <option key={className ?? "unknown"} value={className ?? ""}>
+                {className}
+              </option>
+            ))}
+          </select>
+
+          <input
+            placeholder="Search by name, ID, or class..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-white/10 bg-[#0b1220] px-4 py-2 text-sm text-white"
+          />
+        </div>
+      </div>
 
       {role === "admin" && showForm && (
         <div className="rounded-xl border border-white/10 bg-white/5 p-6">

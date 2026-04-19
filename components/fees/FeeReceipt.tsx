@@ -41,7 +41,7 @@ export default function FeeReceipt({ student, fee, payment, school }: FeeReceipt
 
   return (
     <div className="mx-auto w-full max-w-3xl rounded-lg bg-white p-10 text-black print:max-w-none print:p-6">
-      <div className="mb-6 text-center">
+      <div className="mb-6 mx-auto max-w-md text-center">
         <h1 className="text-2xl font-bold">{school?.name || "School"}</h1>
 
         {school?.address && <p className="text-sm">{school.address}</p>}
