@@ -1,278 +1,346 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { getActiveAcademicYear } from "@/lib/academic"
+import { getUserRole } from "@/lib/getUserRole"
+import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
 import { useParams, useRouter } from "next/navigation"
-import { getUserRole } from "@/lib/getUserRole"
 
-export default function StudentProfile(){
+type StudentTab = "profile" | "attendance" | "payments" | "documents" | "reportcards"
 
+type StudentRecord = {
+  id: string
+  name: string
+  email: string | null
+  photo: string | null
+  student_code: string | null
+}
+
+type ParentRecord = {
+  father_name: string | null
+  mother_name: string | null
+  email: string | null
+  phone: string | null
+  name: string | null
+}
+
+type EnrollmentRecord = {
+  roll_number: number | null
+  classes: {
+    name: string
+  } | null
+}
+
+type StudentDocument = {
+  id: string
+  document_type: string
+  file_url: string
+}
+
+type AttendanceRecord = {
+  id: string
+  date: string
+  status: string
+}
+
+type PaymentRecord = {
+  id: string
+  date: string
+  amount: number
+}
+
+type ReportRecord = {
+  id: string
+  created_at: string
+  file_url: string
+  exams: {
+    name: string
+  } | null
+}
+
+export default function StudentProfile() {
   const params = useParams()
   const id = Array.isArray(params.id) ? params.id[0] : params.id
 
   const router = useRouter()
 
-  const [tab,setTab] = useState("profile")
+  const [tab, setTab] = useState<StudentTab>("profile")
 
-  const [student,setStudent] = useState<any>(null)
-  const [parent,setParent] = useState<any>(null)
-  const [documents,setDocuments] = useState<any[]>([])
-  const [attendance,setAttendance] = useState<any[]>([])
-  const [payments,setPayments] = useState<any[]>([])
-  const [reports,setReports] = useState<any[]>([])
+  const [student, setStudent] = useState<StudentRecord | null>(null)
+  const [parent, setParent] = useState<ParentRecord | null>(null)
+  const [enrollment, setEnrollment] = useState<EnrollmentRecord | null>(null)
+  const [documents, setDocuments] = useState<StudentDocument[]>([])
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([])
+  const [payments, setPayments] = useState<PaymentRecord[]>([])
+  const [reports, setReports] = useState<ReportRecord[]>([])
 
-  const [loading,setLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
 
-  // ================= ROLE CHECK =================
   useEffect(() => {
     const checkRole = async () => {
-      try{
+      try {
         const roleData = await getUserRole()
 
         if (roleData?.role === "teacher") {
           router.replace("/unauthorized")
         }
-      }catch(err){
-        console.error("Role error:", err)
+      } catch (error) {
+        console.error("Role error:", error)
       }
     }
 
-    checkRole()
+    void checkRole()
   }, [router])
 
-  // ================= LOAD DATA =================
-  useEffect(()=>{
+  useEffect(() => {
+    if (!id) return
 
-    if(!id) return
+    let cancelled = false
 
-    const load = async()=>{
-
+    const load = async () => {
       setLoading(true)
 
-      try{
+      try {
+        const [schoolId, year] = await Promise.all([
+          getSchoolId(),
+          getActiveAcademicYear()
+        ])
 
-        // 🔥 LOAD EVERYTHING IN PARALLEL (FASTER)
+        if (!schoolId) {
+          throw new Error("School not found")
+        }
+
+        let enrollmentQuery = supabase
+          .from("student_enrollments")
+          .select("roll_number, classes(name)")
+          .eq("student_id", id)
+          .eq("school_id", schoolId)
+
+        if (year?.id) {
+          enrollmentQuery = enrollmentQuery.eq("academic_year_id", year.id)
+        }
+
         const [
           studentRes,
           parentRes,
+          enrollmentRes,
           docRes,
-          attRes,
-          payRes,
+          attendanceRes,
+          paymentRes,
           reportRes
         ] = await Promise.all([
-
           supabase
             .from("students")
-            .select(`*, classes(name)`)
-            .eq("id",id)
+            .select("id,name,email,photo,student_code")
+            .eq("id", id)
             .single(),
 
           supabase
             .from("parents")
-            .select("*")
-            .eq("student_id",id)
+            .select("father_name,mother_name,email,phone,name")
+            .eq("student_id", id)
             .maybeSingle(),
+
+          enrollmentQuery.maybeSingle(),
 
           supabase
             .from("student_documents")
-            .select("*")
-            .eq("student_id",id),
+            .select("id,document_type,file_url")
+            .eq("student_id", id),
 
           supabase
             .from("attendance")
-            .select("*")
-            .eq("student_id",id)
-            .order("date",{ascending:false}),
+            .select("id,date,status")
+            .eq("student_id", id)
+            .order("date", { ascending: false }),
 
           supabase
             .from("payments")
-            .select("*")
-            .eq("student_id",id)
-            .order("date",{ascending:false}),
+            .select("id,date,amount")
+            .eq("student_id", id)
+            .order("date", { ascending: false }),
 
           supabase
             .from("report_cards")
-            .select(`*, exams(name)`)
-            .eq("student_id",id)
-            .order("created_at",{ascending:false})
+            .select("id,created_at,file_url,exams(name)")
+            .eq("student_id", id)
+            .order("created_at", { ascending: false })
         ])
 
-        // ✅ STUDENT
-        if(studentRes.error){
-          console.error(studentRes.error)
+        if (studentRes.error) {
+          throw studentRes.error
         }
-        setStudent(studentRes.data)
 
-        // ✅ OTHERS
-        setParent(parentRes.data || null)
-        setDocuments(docRes.data || [])
-        setAttendance(attRes.data || [])
-        setPayments(payRes.data || [])
-        setReports(reportRes.data || [])
+        if (!cancelled) {
+          setStudent(studentRes.data as StudentRecord | null)
+          setParent((parentRes.data as ParentRecord | null) ?? null)
+          setEnrollment((enrollmentRes.data as EnrollmentRecord | null) ?? null)
+          setDocuments((docRes.data as StudentDocument[] | null) ?? [])
+          setAttendance((attendanceRes.data as AttendanceRecord[] | null) ?? [])
+          setPayments((paymentRes.data as PaymentRecord[] | null) ?? [])
+          setReports((reportRes.data as ReportRecord[] | null) ?? [])
+        }
+      } catch (error) {
+        console.error("Load error:", error)
 
-      }catch(err){
-        console.error("LOAD ERROR:", err)
-      }finally{
-        setLoading(false)
+        if (!cancelled) {
+          setStudent(null)
+          setParent(null)
+          setEnrollment(null)
+          setDocuments([])
+          setAttendance([])
+          setPayments([])
+          setReports([])
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
 
-    load()
+    void load()
 
-  },[id])
+    return () => {
+      cancelled = true
+    }
+  }, [id])
 
-  // ================= STATES =================
-  if(loading){
-    return (
-      <div className="p-10 text-white animate-pulse">
-        Loading student data...
-      </div>
-    )
+  if (loading) {
+    return <div className="animate-pulse p-10 text-white">Loading student data...</div>
   }
 
-  if(!student){
-    return (
-      <div className="p-10 text-red-400">
-        Student not found
-      </div>
-    )
+  if (!student) {
+    return <div className="p-10 text-red-400">Student not found</div>
   }
 
-  // ================= UI =================
-  return(
+  const className = enrollment?.classes?.name || "-"
+  const rollNumber = enrollment?.roll_number || "-"
 
-    <div className="p-6 md:p-10 text-white max-w-6xl mx-auto space-y-6">
-
-      {/* HEADER */}
-      <div className="bg-white/10 border border-white/10 rounded-xl p-6 flex flex-col md:flex-row gap-6 items-center">
-
+  return (
+    <div className="mx-auto max-w-6xl space-y-6 p-6 text-white md:p-10">
+      <div className="flex flex-col items-center gap-6 rounded-xl border border-white/10 bg-white/10 p-6 md:flex-row">
         {student.photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={student.photo}
-            className="w-28 h-28 rounded-full object-cover border border-white/20"
+            alt={`${student.name} profile`}
+            className="h-28 w-28 rounded-full border border-white/20 object-cover"
           />
         ) : (
-          <div className="w-28 h-28 rounded-full bg-white/10 flex items-center justify-center text-2xl">
-            👤
+          <div className="flex h-28 w-28 items-center justify-center rounded-full bg-white/10 text-2xl">
+            Student
           </div>
         )}
 
         <div>
+          <h1 className="text-2xl font-semibold">{student.name}</h1>
 
-          <h1 className="text-2xl font-semibold">
-            {student.name}
-          </h1>
+          <p className="mt-1 text-gray-400">{student.email || "No email"}</p>
 
-          <p className="text-gray-400 mt-1">
-            {student.email || "No email"}
-          </p>
-
-          <div className="text-sm text-gray-300 mt-3 space-y-1">
-            <p>Roll: {student.roll_number || "-"}</p>
-            <p>Class: {student.classes?.name || "-"}</p>
+          <div className="mt-3 space-y-1 text-sm text-gray-300">
+            <p>Student ID: {student.student_code || "-"}</p>
+            <p>Roll: {rollNumber}</p>
+            <p>Class: {className}</p>
           </div>
 
           <button
-            onClick={()=>router.push(`/admin/students/${id}/edit`)}
-            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm"
+            onClick={() => router.push(`/admin/students/${id}/edit`)}
+            className="mt-4 rounded bg-blue-600 px-4 py-2 text-sm hover:bg-blue-700"
           >
             Edit Student
           </button>
-
         </div>
-
       </div>
 
-      {/* TABS */}
       <div className="flex flex-wrap gap-3">
-        {["profile","attendance","payments","documents","reportcards"].map(t=>(
-          <button
-            key={t}
-            onClick={()=>setTab(t)}
-            className={`px-4 py-2 rounded-xl border transition ${
-              tab===t
-                ? "bg-white/20 border-white/20"
-                : "bg-white/5 border-white/10 hover:bg-white/10"
-            }`}
-          >
-            {t.toUpperCase()}
-          </button>
-        ))}
+        {(["profile", "attendance", "payments", "documents", "reportcards"] as StudentTab[]).map(
+          (item) => (
+            <button
+              key={item}
+              onClick={() => setTab(item)}
+              className={`rounded-xl border px-4 py-2 transition ${
+                tab === item
+                  ? "border-white/20 bg-white/20"
+                  : "border-white/10 bg-white/5 hover:bg-white/10"
+              }`}
+            >
+              {item.toUpperCase()}
+            </button>
+          )
+        )}
       </div>
 
-      {/* PROFILE */}
-      {tab==="profile" && (
-        <div className="bg-white/10 p-6 rounded-xl space-y-6">
-
+      {tab === "profile" && (
+        <div className="space-y-6 rounded-xl bg-white/10 p-6">
           <div>
-            <h2 className="text-lg mb-3">Student Details</h2>
+            <h2 className="mb-3 text-lg">Student Details</h2>
             <p>Name: {student.name}</p>
             <p>Email: {student.email || "-"}</p>
-            <p>Roll: {student.roll_number || "-"}</p>
+            <p>Student ID: {student.student_code || "-"}</p>
+            <p>Roll: {rollNumber}</p>
+            <p>Class: {className}</p>
           </div>
 
           <div>
-            <h2 className="text-lg mb-3">Parents</h2>
+            <h2 className="mb-3 text-lg">Parents</h2>
             <p>Father: {parent?.father_name || "-"}</p>
             <p>Mother: {parent?.mother_name || "-"}</p>
             <p>Phone: {parent?.phone || "-"}</p>
             <p>Email: {parent?.email || "-"}</p>
           </div>
-
         </div>
       )}
 
-      {/* ATTENDANCE */}
-      {tab==="attendance" && (
-        <div className="bg-white/10 p-6 rounded-xl overflow-auto">
-          <h2 className="text-lg mb-4">Attendance</h2>
+      {tab === "attendance" && (
+        <div className="overflow-auto rounded-xl bg-white/10 p-6">
+          <h2 className="mb-4 text-lg">Attendance</h2>
 
           {attendance.length === 0 ? (
             <p className="text-gray-400">No attendance records</p>
           ) : (
-            <table className="w-full text-sm border border-white/10">
+            <table className="w-full border border-white/10 text-sm">
               <thead>
                 <tr>
-                  <th className="p-2 border">Date</th>
-                  <th className="p-2 border">Status</th>
+                  <th className="border p-2">Date</th>
+                  <th className="border p-2">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {attendance.map(a=>(
-                  <tr key={a.id}>
-                    <td className="p-2 border">{a.date}</td>
-                    <td className="p-2 border">
-                      {a.status === "present" ? "✅ Present" : "❌ Absent"}
+                {attendance.map((record) => (
+                  <tr key={record.id}>
+                    <td className="border p-2">{record.date}</td>
+                    <td className="border p-2">
+                      {record.status === "present" ? "Present" : "Absent"}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-
         </div>
       )}
 
-      {/* PAYMENTS */}
-      {tab==="payments" && (
-        <div className="bg-white/10 p-6 rounded-xl overflow-auto">
-          <h2 className="text-lg mb-4">Payments</h2>
+      {tab === "payments" && (
+        <div className="overflow-auto rounded-xl bg-white/10 p-6">
+          <h2 className="mb-4 text-lg">Payments</h2>
 
           {payments.length === 0 ? (
             <p className="text-gray-400">No payments found</p>
           ) : (
-            <table className="w-full text-sm border border-white/10">
+            <table className="w-full border border-white/10 text-sm">
               <thead>
                 <tr>
-                  <th className="p-2 border">Date</th>
-                  <th className="p-2 border">Amount</th>
+                  <th className="border p-2">Date</th>
+                  <th className="border p-2">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                {payments.map(p=>(
-                  <tr key={p.id}>
-                    <td className="p-2 border">{p.date}</td>
-                    <td className="p-2 border">₹{p.amount}</td>
+                {payments.map((payment) => (
+                  <tr key={payment.id}>
+                    <td className="border p-2">{payment.date}</td>
+                    <td className="border p-2">Rs. {payment.amount}</td>
                   </tr>
                 ))}
               </tbody>
@@ -281,55 +349,53 @@ export default function StudentProfile(){
         </div>
       )}
 
-      {/* DOCUMENTS */}
-      {tab==="documents" && (
-        <div className="bg-white/10 p-6 rounded-xl">
-          <h2 className="text-lg mb-4">Documents</h2>
+      {tab === "documents" && (
+        <div className="rounded-xl bg-white/10 p-6">
+          <h2 className="mb-4 text-lg">Documents</h2>
 
           {documents.length === 0 ? (
             <p className="text-gray-400">No documents uploaded</p>
           ) : (
-            documents.map(d=>(
+            documents.map((document) => (
               <a
-                key={d.id}
-                href={d.file_url}
+                key={document.id}
+                href={document.file_url}
                 target="_blank"
-                className="block text-blue-400 mb-2 hover:underline"
+                rel="noreferrer"
+                className="mb-2 block text-blue-400 hover:underline"
               >
-                {d.document_type}
+                {document.document_type}
               </a>
             ))
           )}
         </div>
       )}
 
-      {/* REPORT CARDS */}
-      {tab==="reportcards" && (
-        <div className="bg-white/10 p-6 rounded-xl">
-          <h2 className="text-lg mb-4">Report Cards</h2>
+      {tab === "reportcards" && (
+        <div className="rounded-xl bg-white/10 p-6">
+          <h2 className="mb-4 text-lg">Report Cards</h2>
 
           {reports.length === 0 ? (
             <p className="text-gray-400">No report cards generated yet</p>
           ) : (
             <div className="space-y-3">
-              {reports.map(r=>(
+              {reports.map((report) => (
                 <div
-                  key={r.id}
-                  className="flex justify-between items-center bg-white/5 p-3 rounded-lg"
+                  key={report.id}
+                  className="flex items-center justify-between rounded-lg bg-white/5 p-3"
                 >
                   <div>
-                    <p className="font-medium">
-                      {r.exams?.name || "Exam"}
-                    </p>
+                    <p className="font-medium">{report.exams?.name || "Exam"}</p>
                     <p className="text-xs text-gray-400">
-                      {new Date(r.created_at).toLocaleDateString()}
+                      {new Date(report.created_at).toLocaleDateString()}
                     </p>
                   </div>
 
                   <a
-                    href={r.file_url}
+                    href={report.file_url}
                     target="_blank"
-                    className="px-3 py-1 bg-blue-600 rounded text-sm"
+                    rel="noreferrer"
+                    className="rounded bg-blue-600 px-3 py-1 text-sm"
                   >
                     View PDF
                   </a>
@@ -337,10 +403,8 @@ export default function StudentProfile(){
               ))}
             </div>
           )}
-
         </div>
       )}
-
     </div>
   )
 }

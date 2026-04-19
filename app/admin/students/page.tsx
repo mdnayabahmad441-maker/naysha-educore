@@ -2,111 +2,159 @@
 
 import { useEffect, useState } from "react"
 import StudentForm from "@/components/students/StudentForm"
-import { useRouter } from "next/navigation"
-import { getUserRole } from "@/lib/getUserRole"
-import { supabase } from "@/lib/supabase"
-import { getSchoolId } from "@/lib/school"
 import { getActiveAcademicYear } from "@/lib/academic"
+import { getUserRole } from "@/lib/getUserRole"
+import { getSchoolId } from "@/lib/school"
+import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
-export default function StudentsPage(){
+type StudentListRow = {
+  id: string
+  name: string
+  roll_number: number | null
+  class_name: string | null
+  display_id: string
+}
 
+type EnrollmentQueryRow = {
+  roll_number: number | null
+  students: {
+    id: string
+    name: string
+    student_code: string | null
+  } | null
+  classes: {
+    name: string
+  } | null
+}
+
+async function fetchStudentsForSchool(schoolId: string): Promise<StudentListRow[]> {
+  const year = await getActiveAcademicYear()
+
+  if (!year?.id) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from("student_enrollments")
+    .select(
+      `
+        roll_number,
+        students(id,name,student_code),
+        classes(name)
+      `
+    )
+    .eq("school_id", schoolId)
+    .eq("academic_year_id", year.id)
+
+  if (error) {
+    throw error
+  }
+
+  const rows = ((data as EnrollmentQueryRow[] | null) ?? [])
+    .map((row, index) => ({
+      id: row.students?.id ?? `missing-${index}`,
+      name: row.students?.name ?? "Unknown",
+      roll_number: row.roll_number,
+      class_name: row.classes?.name ?? null,
+      display_id:
+        row.students?.student_code || `ST${String(index + 1).padStart(2, "0")}`
+    }))
+    .filter((row) => !row.id.startsWith("missing-"))
+
+  return rows.sort((a, b) => {
+    if (a.class_name === b.class_name) {
+      return Number(a.roll_number || 0) - Number(b.roll_number || 0)
+    }
+
+    return (a.class_name || "").localeCompare(b.class_name || "")
+  })
+}
+
+export default function StudentsPage() {
   const router = useRouter()
 
-  const [students,setStudents] = useState<any[]>([])
-  const [filtered,setFiltered] = useState<any[]>([])
-  const [loading,setLoading] = useState(true)
-  const [search,setSearch] = useState("")
-  const [role,setRole] = useState<string | null>(null)
-  const [schoolId,setSchoolId] = useState<string | null>(null)
-  const [showForm,setShowForm] = useState(false)
+  const [students, setStudents] = useState<StudentListRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState("")
+  const [role, setRole] = useState<string | null>(null)
+  const [schoolId, setSchoolId] = useState<string | null>(null)
+  const [showForm, setShowForm] = useState(false)
 
-  useEffect(()=>{
-    getUserRole().then(r=>setRole(r?.role || null))
-  },[])
+  useEffect(() => {
+    void getUserRole().then((result) => setRole(result?.role || null))
+  }, [])
 
-  useEffect(()=>{
-    getSchoolId().then(setSchoolId)
-  },[])
+  useEffect(() => {
+    void getSchoolId().then(setSchoolId)
+  }, [])
 
-  const loadStudents = async () => {
+  useEffect(() => {
+    if (!schoolId) return
 
-    if(!schoolId) return
+    let cancelled = false
 
     setLoading(true)
 
-    const year = await getActiveAcademicYear()
+    void fetchStudentsForSchool(schoolId)
+      .then((rows) => {
+        if (cancelled) return
+        setStudents(rows)
+      })
+      .catch((error) => {
+        console.error(error)
+        if (cancelled) return
+        setStudents([])
+      })
+      .finally(() => {
+        if (cancelled) return
+        setLoading(false)
+      })
 
-    const { data, error } = await supabase
-      .from("student_enrollments")
-      .select(`
-        id,
-        roll_number,
-        students(id,name),
-        classes(name)
-      `)
-      .eq("school_id", schoolId)
-      .eq("academic_year_id", year?.id)
-
-    if(error){
-      console.error(error)
-      setLoading(false)
-      return
+    return () => {
+      cancelled = true
     }
+  }, [schoolId])
 
-    const formatted = (data || []).map((e:any)=>({
-      id: e.students?.id,
-      name: e.students?.name,
-      roll_number: e.roll_number,
-      class_name: e.classes?.name
-    }))
+  const reloadStudents = async () => {
+    if (!schoolId) return
 
-    // SORT
-    const sorted = formatted.sort((a:any,b:any)=>{
-      if(a.class_name === b.class_name){
-        return Number(a.roll_number || 0) - Number(b.roll_number || 0)
-      }
-      return (a.class_name || "").localeCompare(b.class_name || "")
-    })
+    setLoading(true)
 
-    // ✅ ADD DISPLAY ID (ST01, ST02...)
-    const withDisplayId = sorted.map((s:any,index:number)=>({
-      ...s,
-      display_id: `ST${String(index + 1).padStart(2,"0")}`
-    }))
-
-    setStudents(withDisplayId)
-    setFiltered(withDisplayId)
-    setLoading(false)
+    try {
+      const rows = await fetchStudentsForSchool(schoolId)
+      setStudents(rows)
+    } catch (error) {
+      console.error(error)
+      setStudents([])
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(()=>{
-    loadStudents()
-  },[schoolId])
-
-  useEffect(()=>{
-    const term = search.toLowerCase()
-
-    const f = students.filter(s =>
-      (s.name || "").toLowerCase().includes(term) ||
-      (s.display_id || "").toLowerCase().includes(term) ||
-      (s.class_name || "").toLowerCase().includes(term)
-    )
-
-    setFiltered(f)
-  },[search,students])
-
-  const handleView = (id:string)=>{
-    if(role === "teacher"){
+  const handleView = (id: string) => {
+    if (role === "teacher") {
       alert("Not allowed")
       return
     }
+
     router.push(`/admin/students/${id}`)
   }
 
-  return(
-    <div className="p-6 md:p-10 text-white max-w-7xl mx-auto space-y-6">
+  const searchTerm = search.trim().toLowerCase()
+  const filteredStudents = students.filter((student) => {
+    if (!searchTerm) return true
 
-      <div className="flex justify-between items-center">
+    return (
+      student.name.toLowerCase().includes(searchTerm) ||
+      student.display_id.toLowerCase().includes(searchTerm) ||
+      (student.class_name || "").toLowerCase().includes(searchTerm)
+    )
+  })
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-6 p-6 text-white md:p-10">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Students</h1>
           <p className="text-sm text-gray-400">
@@ -116,8 +164,8 @@ export default function StudentsPage(){
 
         {role === "admin" && (
           <button
-            onClick={()=>setShowForm(prev=>!prev)}
-            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-sm"
+            onClick={() => setShowForm((current) => !current)}
+            className="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm"
           >
             {showForm ? "Close" : "+ Add Student"}
           </button>
@@ -127,24 +175,24 @@ export default function StudentsPage(){
       <input
         placeholder="Search..."
         value={search}
-        onChange={(e)=>setSearch(e.target.value)}
-        className="w-full md:w-96 px-4 py-2 rounded-lg bg-[#0b1220] border border-white/10 text-sm"
+        onChange={(event) => setSearch(event.target.value)}
+        className="w-full rounded-lg border border-white/10 bg-[#0b1220] px-4 py-2 text-sm md:w-96"
       />
 
       {role === "admin" && showForm && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-          <StudentForm reload={()=>{
-            loadStudents()
-            setShowForm(false)
-          }}/>
+        <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+          <StudentForm
+            reload={async () => {
+              await reloadStudents()
+              setShowForm(false)
+            }}
+          />
         </div>
       )}
 
-      <div className="bg-[#0b1220] border border-white/10 rounded-xl overflow-hidden">
-
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0b1220]">
         <table className="w-full text-sm">
-
-          <thead className="text-gray-400 border-b border-white/10">
+          <thead className="border-b border-white/10 text-gray-400">
             <tr>
               <th className="p-4 text-left">ID</th>
               <th className="p-4 text-left">Name</th>
@@ -161,37 +209,36 @@ export default function StudentsPage(){
                   Loading...
                 </td>
               </tr>
-            ) : filtered.map((s)=>(
-              <tr key={s.id} className="border-t border-white/5 hover:bg-white/5">
+            ) : (
+              filteredStudents.map((student) => (
+                <tr
+                  key={student.id}
+                  className="border-t border-white/5 hover:bg-white/5"
+                >
+                  <td className="p-4 font-medium text-gray-400">
+                    {student.display_id}
+                  </td>
 
-                {/* ✅ DISPLAY ID */}
-                <td className="p-4 text-gray-400 font-medium">
-                  {s.display_id}
-                </td>
+                  <td className="p-4 font-medium">{student.name}</td>
 
-                <td className="p-4 font-medium">{s.name}</td>
+                  <td className="p-4">{student.class_name || "-"}</td>
 
-                <td className="p-4">{s.class_name || "-"}</td>
+                  <td className="p-4">{student.roll_number || "-"}</td>
 
-                <td className="p-4">{s.roll_number || "-"}</td>
-
-                <td className="p-4 text-right">
-                  <button
-                    onClick={()=>handleView(s.id)}
-                    className="px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-xs"
-                  >
-                    View
-                  </button>
-                </td>
-
-              </tr>
-            ))}
+                  <td className="p-4 text-right">
+                    <button
+                      onClick={() => handleView(student.id)}
+                      className="rounded-md bg-white/10 px-3 py-1 text-xs hover:bg-white/20"
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
-
         </table>
-
       </div>
-
     </div>
   )
 }

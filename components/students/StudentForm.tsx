@@ -1,88 +1,116 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
-import { getSchoolId } from "@/lib/school"
 import { getActiveAcademicYear } from "@/lib/academic"
+import { getSchoolId } from "@/lib/school"
+import { supabase } from "@/lib/supabase"
 
-export default function StudentForm({ reload }: any){
+type StudentFormProps = {
+  reload?: () => void | Promise<void>
+}
 
-  const [name,setName] = useState("")
-  const [email,setEmail] = useState("")
-  const [roll,setRoll] = useState("")
-  const [photo,setPhoto] = useState<File | null>(null)
+type SchoolClass = {
+  id: string
+  name: string
+}
 
-  const [classes,setClasses] = useState<any[]>([])
-  const [selectedClass,setSelectedClass] = useState("")
+type AcademicYear = {
+  id: string
+}
 
-  const [loading,setLoading] = useState(false)
+export default function StudentForm({ reload }: StudentFormProps) {
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [roll, setRoll] = useState("")
+  const [photo, setPhoto] = useState<File | null>(null)
 
-  const [parentName,setParentName] = useState("")
-  const [parentEmail,setParentEmail] = useState("")
-  const [parentPhone,setParentPhone] = useState("")
+  const [classes, setClasses] = useState<SchoolClass[]>([])
+  const [selectedClass, setSelectedClass] = useState("")
 
-  const [schoolId,setSchoolId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  // ================= LOAD SCHOOL =================
-  useEffect(()=>{
-    getSchoolId().then(setSchoolId)
-  },[])
+  const [fatherName, setFatherName] = useState("")
+  const [motherName, setMotherName] = useState("")
+  const [parentEmail, setParentEmail] = useState("")
+  const [parentPhone, setParentPhone] = useState("")
 
-  // ================= LOAD CLASSES =================
-  useEffect(()=>{
-    const load = async ()=>{
-      if(!schoolId) return
+  const [schoolId, setSchoolId] = useState<string | null>(null)
 
-      const { data } = await supabase
-        .from("classes")
-        .select("*")
-        .eq("school_id", schoolId)
+  useEffect(() => {
+    void getSchoolId().then(setSchoolId)
+  }, [])
 
-      setClasses(data || [])
+  useEffect(() => {
+    if (!schoolId) return
+
+    void supabase
+      .from("classes")
+      .select("id,name")
+      .eq("school_id", schoolId)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Class load error:", error)
+          setClasses([])
+          return
+        }
+
+        setClasses((data as SchoolClass[] | null) ?? [])
+      })
+  }, [schoolId])
+
+  const generateStudentCode = async (currentSchoolId: string) => {
+    const { count, error } = await supabase
+      .from("students")
+      .select("*", { count: "exact", head: true })
+      .eq("school_id", currentSchoolId)
+
+    if (error) {
+      throw error
     }
 
-    load()
-  },[schoolId])
-
-  // ================= GENERATE STUDENT CODE =================
-  const generateStudentCode = async ()=>{
-    const { count } = await supabase
-      .from("students")
-      .select("*",{count:"exact", head:true})
-      .eq("school_id", schoolId)
-
     const next = (count || 0) + 1
-    return `ST${String(next).padStart(2,"0")}`
+    return `ST${String(next).padStart(2, "0")}`
   }
 
-  // ================= SAVE =================
-  const save = async ()=>{
+  const save = async () => {
+    if (!name.trim() || !selectedClass) {
+      alert("Fill required fields")
+      return
+    }
 
-    try{
+    if (!schoolId) {
+      alert("School not found")
+      return
+    }
 
-      if(!name || !selectedClass){
-        alert("Fill required fields")
+    const trimmedRoll = roll.trim()
+    const parsedRoll = trimmedRoll ? Number(trimmedRoll) : null
+
+    if (trimmedRoll && Number.isNaN(parsedRoll)) {
+      alert("Roll number must be numeric")
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const activeYear = (await getActiveAcademicYear()) as AcademicYear | null
+
+      if (!activeYear) {
+        alert("No active academic year")
         return
       }
-
-      if(!schoolId){
-        alert("School not found")
-        return
-      }
-
-      setLoading(true)
 
       let photoUrl = ""
 
-      // 📸 UPLOAD PHOTO
-      if(photo){
+      if (photo) {
         const fileName = `${Date.now()}-${photo.name}`
 
         const { error } = await supabase.storage
           .from("students")
           .upload(fileName, photo)
 
-        if(error){
+        if (error) {
           console.error(error)
           alert("Image upload failed")
           return
@@ -92,31 +120,22 @@ export default function StudentForm({ reload }: any){
       }
 
       const studentId = crypto.randomUUID()
-      const studentCode = await generateStudentCode()
+      const studentCode = await generateStudentCode(schoolId)
 
-      // ================= CREATE STUDENT =================
-      const { error: studentError } = await supabase
-        .from("students")
-        .insert({
-          id: studentId,
-          school_id: schoolId,
-          name: name.trim(),
-          email: email.trim() || null,
-          photo: photoUrl || null,
-          student_code: studentCode
-        })
+      const { error: studentError } = await supabase.from("students").insert({
+        id: studentId,
+        school_id: schoolId,
+        name: name.trim(),
+        email: email.trim() || null,
+        photo: photoUrl || null,
+        student_code: studentCode,
+        class_id: selectedClass,
+        roll_number: parsedRoll
+      })
 
-      if(studentError){
+      if (studentError) {
         console.error("Student insert error:", studentError)
         alert(studentError.message)
-        return
-      }
-
-      // ================= ENROLLMENT =================
-      const year = await getActiveAcademicYear()
-
-      if(!year){
-        alert("No active academic year")
         return
       }
 
@@ -127,156 +146,148 @@ export default function StudentForm({ reload }: any){
           student_id: studentId,
           class_id: selectedClass,
           school_id: schoolId,
-          academic_year_id: year.id,
-          roll_number: roll || null
+          academic_year_id: activeYear.id,
+          roll_number: parsedRoll
         })
 
-      if(enrollError){
+      if (enrollError) {
         console.error("Enrollment error:", enrollError)
         alert(enrollError.message)
         return
       }
 
-      // ================= PARENT =================
-      if(parentName || parentEmail){
+      if (fatherName || motherName || parentEmail || parentPhone) {
+        const { error: parentError } = await supabase.from("parents").insert({
+          id: crypto.randomUUID(),
+          school_id: schoolId,
+          student_id: studentId,
+          name: fatherName.trim() || motherName.trim() || null,
+          father_name: fatherName.trim() || null,
+          mother_name: motherName.trim() || null,
+          email: parentEmail.trim() || null,
+          phone: parentPhone.trim() || null
+        })
 
-        const { error: parentError } = await supabase
-          .from("parents")
-          .insert({
-            id: crypto.randomUUID(),
-            school_id: schoolId,
-            student_id: studentId,
-            name: parentName || null,
-            email: parentEmail || null,
-            phone: parentPhone || null
-          })
-
-        if(parentError){
+        if (parentError) {
           console.error("Parent error:", parentError)
         }
       }
 
-      // ================= RESET =================
       setName("")
       setEmail("")
       setRoll("")
       setPhoto(null)
       setSelectedClass("")
-      setParentName("")
+      setFatherName("")
+      setMotherName("")
       setParentEmail("")
       setParentPhone("")
 
-      alert(`Student Created ✅ (${studentCode})`)
+      alert(`Student created (${studentCode})`)
 
-      if(reload) await reload()
-
-    }catch(err){
-      console.error("Student create error:", err)
+      if (reload) {
+        await reload()
+      }
+    } catch (error) {
+      console.error("Student create error:", error)
       alert("Something went wrong")
-    }finally{
+    } finally {
       setLoading(false)
     }
   }
 
-  return(
-
+  return (
     <div className="space-y-6">
-
-      {/* STUDENT */}
-      <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
-
+      <div className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6">
         <h2 className="text-lg font-semibold">Student Details</h2>
 
-        <div className="grid md:grid-cols-2 gap-4">
-
+        <div className="grid gap-4 md:grid-cols-2">
           <input
             placeholder="Student Name"
             value={name}
-            onChange={(e)=>setName(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
+            onChange={(event) => setName(event.target.value)}
+            className="rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
           />
 
           <input
             placeholder="Student Email"
             value={email}
-            onChange={(e)=>setEmail(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
+            onChange={(event) => setEmail(event.target.value)}
+            className="rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
           />
 
           <input
             placeholder="Roll Number"
             value={roll}
-            onChange={(e)=>setRoll(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
+            onChange={(event) => setRoll(event.target.value)}
+            className="rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
           />
 
           <input
             type="file"
             accept="image/png,image/jpeg"
-            onChange={(e)=>setPhoto(e.target.files?.[0] || null)}
+            onChange={(event) => setPhoto(event.target.files?.[0] || null)}
             className="text-sm text-gray-300"
           />
 
           <select
             value={selectedClass}
-            onChange={(e)=>setSelectedClass(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
+            onChange={(event) => setSelectedClass(event.target.value)}
+            className="rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
           >
             <option value="">Select Class</option>
-            {classes.map(c=>(
-              <option key={c.id} value={c.id}>{c.name}</option>
+            {classes.map((schoolClass) => (
+              <option key={schoolClass.id} value={schoolClass.id}>
+                {schoolClass.name}
+              </option>
             ))}
           </select>
-
         </div>
-
       </div>
 
-      {/* PARENT */}
-      <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
-
+      <div className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6">
         <h2 className="text-lg font-semibold">Parent Details</h2>
 
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <input
+            placeholder="Father Name"
+            value={fatherName}
+            onChange={(event) => setFatherName(event.target.value)}
+            className="rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
+          />
 
           <input
-            placeholder="Parent Name"
-            value={parentName}
-            onChange={(e)=>setParentName(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
+            placeholder="Mother Name"
+            value={motherName}
+            onChange={(event) => setMotherName(event.target.value)}
+            className="rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
           />
 
           <input
             placeholder="Parent Email"
             value={parentEmail}
-            onChange={(e)=>setParentEmail(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
+            onChange={(event) => setParentEmail(event.target.value)}
+            className="rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
           />
 
           <input
             placeholder="Parent Phone"
             value={parentPhone}
-            onChange={(e)=>setParentPhone(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10 text-white"
+            onChange={(event) => setParentPhone(event.target.value)}
+            className="rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
           />
-
         </div>
-
       </div>
 
-      {/* BUTTON */}
       <div className="flex justify-end">
-
         <button
           onClick={save}
           disabled={loading}
-          className="px-8 py-3 rounded-xl font-medium bg-gradient-to-r from-blue-600 to-indigo-600"
+          className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3 font-medium"
         >
           {loading ? "Saving..." : "Save Student"}
         </button>
-
       </div>
-
     </div>
   )
 }
