@@ -9,8 +9,6 @@ export default function PaymentsPage() {
   const [selectedClass, setSelectedClass] = useState("")
   const [selectedStudent, setSelectedStudent] = useState("")
   const [selectedStudentName, setSelectedStudentName] = useState("")
-  const [selectedGateway, setSelectedGateway] = useState("UPI / QR")
-  const [remark, setRemark] = useState("")
   const [saving, setSaving] = useState(false)
   const [showReceipt, setShowReceipt] = useState(false)
   const [lastPayment, setLastPayment] = useState<any>(null)
@@ -27,74 +25,53 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<any[]>([])
 
   const feeCategories = [
-    { key: "tuition", label: "School Fee", icon: "🏫", desc: "Tuition + Dev charges" },
-    { key: "hostel", label: "Hostel Fee", icon: "🏠", desc: "Boarding + Meals" },
+    { key: "tuition",   label: "School Fee",   icon: "🏫", desc: "Tuition + Dev charges" },
+    { key: "hostel",    label: "Hostel Fee",    icon: "🏠", desc: "Boarding + Meals" },
     { key: "transport", label: "Transport Fee", icon: "🚌", desc: "Bus route charges" },
-    { key: "misc", label: "Misc Fee", icon: "📋", desc: "Library, Lab, Sports" },
-    { key: "other", label: "Other Fee", icon: "📝", desc: "Exam / Fine / Extra" },
-  ]
-
-  const gateways = [
-    { name: "UPI / QR", icon: "📱", desc: "PhonePe, GPay, Paytm", bg: "#e0f2fe" },
-    { name: "Card", icon: "💳", desc: "Credit / Debit card", bg: "#fce7f3" },
-    { name: "Cash", icon: "💵", desc: "Counter payment", bg: "#d1fae5" },
-    { name: "NEFT / RTGS", icon: "🏦", desc: "Bank transfer", bg: "#ede9fe" },
-    { name: "Razorpay", icon: "⚡", desc: "Online payment link", bg: "#fef3c7" },
-    { name: "Cheque / DD", icon: "📄", desc: "Enter cheque number", bg: "#fff7ed" },
+    { key: "misc",      label: "Misc Fee",      icon: "📋", desc: "Library, Lab, Sports" },
+    { key: "other",     label: "Other Fee",     icon: "📝", desc: "Exam / Fine / Extra" },
   ]
 
   const total =
-    Number(fees.tuition || 0) +
-    Number(fees.hostel || 0) +
+    Number(fees.tuition   || 0) +
+    Number(fees.hostel    || 0) +
     Number(fees.transport || 0) +
-    Number(fees.misc || 0) +
-    Number(fees.other || 0)
+    Number(fees.misc      || 0) +
+    Number(fees.other     || 0)
 
-  const formatINR = (n: number) =>
-    "₹" + n.toLocaleString("en-IN")
+  const fmt = (n: number) => "₹" + n.toLocaleString("en-IN")
 
-  // LOAD CLASSES
   useEffect(() => {
-    supabase.from("classes").select("id,name").then(({ data }) => {
-      setClasses(data || [])
-    })
+    supabase.from("classes").select("id,name").then(({ data }) => setClasses(data || []))
   }, [])
 
-  // LOAD STUDENTS
   useEffect(() => {
     if (!selectedClass) return
     supabase
       .from("student_enrollments")
       .select("students(id,name)")
       .eq("class_id", selectedClass)
-      .then(({ data }) => {
-        setStudents(data?.map((d: any) => d.students) || [])
-      })
+      .then(({ data }) => setStudents(data?.map((d: any) => d.students) || []))
   }, [selectedClass])
 
-  // AUTO FILL FEES
   useEffect(() => {
     if (!selectedStudent) return
-    const loadFees = async () => {
-      const { data } = await supabase
-        .from("fees")
-        .select("*")
-        .eq("student_id", selectedStudent)
-        .maybeSingle()
-      if (data) {
-        setFees({
-          tuition: data.tuition_fee || "",
-          hostel: data.hostel_fee || "",
+    supabase
+      .from("fees")
+      .select("*")
+      .eq("student_id", selectedStudent)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setFees({
+          tuition:   data.tuition_fee   || "",
+          hostel:    data.hostel_fee    || "",
           transport: data.transport_fee || "",
-          misc: data.misc_fee || "",
-          other: data.other_fee || "",
+          misc:      data.misc_fee      || "",
+          other:     data.other_fee     || "",
         })
-      }
-    }
-    loadFees()
+      })
   }, [selectedStudent])
 
-  // LOAD PAYMENTS
   const loadPayments = async () => {
     const { data } = await supabase
       .from("payments")
@@ -103,392 +80,316 @@ export default function PaymentsPage() {
     setPayments(data || [])
   }
 
-  useEffect(() => {
-    loadPayments()
-  }, [])
+  useEffect(() => { loadPayments() }, [])
 
-  // SAVE PAYMENT
   const addPayment = async () => {
     if (!selectedStudent) return alert("Please select a student")
     if (total === 0) return alert("Enter at least one fee amount")
     setSaving(true)
-
-    const { data, error } = await supabase
-      .from("payments")
-      .insert({
-        student_id: selectedStudent,
-        amount: total,
-        date: new Date().toISOString(),
-      })
-      .select()
-      .single()
-
-    setSaving(false)
-
-    if (error) {
-      alert("Error saving payment")
-      console.error(error)
-      return
-    }
-
-    const receiptNo = "RCP-" + Date.now().toString().slice(-8)
-    setLastPayment({
-      receiptNo,
-      studentName: selectedStudentName,
+    const { error } = await supabase.from("payments").insert({
+      student_id: selectedStudent,
       amount: total,
-      gateway: selectedGateway,
+      date: new Date().toISOString(),
+    })
+    setSaving(false)
+    if (error) { alert("Error saving payment"); console.error(error); return }
+    setLastPayment({
+      receiptNo: "RCP-" + Date.now().toString().slice(-8),
+      studentName: selectedStudentName,
+      className: classes.find(c => c.id === selectedClass)?.name || "",
+      amount: total,
       date: new Date().toLocaleString("en-IN"),
-      fees,
+      fees: { ...fees },
     })
     setShowReceipt(true)
     loadPayments()
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f0f4f8", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14 }}>
+    <div className="min-h-screen bg-slate-100 text-slate-900">
 
-      {/* ── SIDEBAR ── */}
-      <nav style={{ width: 230, background: "#0f172a", display: "flex", flexDirection: "column", flexShrink: 0, position: "sticky", top: 0, height: "100vh", overflowY: "auto" }}>
-        <div style={{ padding: "22px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, background: "linear-gradient(135deg,#2563eb,#7c3aed)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 15, flexShrink: 0 }}>N</div>
-            <div>
-              <div style={{ fontWeight: 800, color: "#fff", fontSize: 15 }}>NaySha</div>
-              <div style={{ fontSize: 10, color: "#94a3b8" }}>EduCore ERP</div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ margin: "12px 14px 0", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "9px 12px" }}>
-          <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 600 }}>Active School</div>
-          <div style={{ fontSize: 12, color: "#e2e8f0", fontWeight: 600, marginTop: 2 }}>Delhi Public School, Patna</div>
-        </div>
-
-        <div style={{ padding: "14px 10px", flex: 1 }}>
-          {[
-            { label: "Overview", items: [{ icon: "🏠", name: "Dashboard" }, { icon: "📊", name: "Analytics" }] },
-            { label: "Students", items: [{ icon: "🎓", name: "All Students" }, { icon: "➕", name: "Admissions" }] },
-            { label: "Academics", items: [{ icon: "👨‍🏫", name: "Teachers" }, { icon: "📅", name: "Attendance" }, { icon: "📝", name: "Exams" }, { icon: "🏆", name: "Results" }] },
-            { label: "Finance", items: [{ icon: "💳", name: "Collect Fee", active: true }, { icon: "📋", name: "Fee Register" }, { icon: "📈", name: "Reports" }] },
-          ].map((group) => (
-            <div key={group.label}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#475569", padding: "10px 10px 6px" }}>{group.label}</div>
-              {group.items.map((item: any) => (
-                <div key={item.name} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 500, color: item.active ? "#93c5fd" : "#94a3b8", cursor: "pointer", marginBottom: 1, background: item.active ? "linear-gradient(135deg,rgba(37,99,235,.22),rgba(124,58,237,.12))" : "transparent", borderLeft: item.active ? "2px solid #2563eb" : "2px solid transparent" }}>
-                  <span style={{ fontSize: 15, width: 20 }}>{item.icon}</span>
-                  {item.name}
-                  {item.active && <span style={{ marginLeft: "auto", background: "#dc2626", color: "#fff", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 20 }}>7</span>}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: 8 }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#2563eb,#7c3aed)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>N</div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0" }}>Nayab Ahmed</div>
-              <div style={{ fontSize: 11, color: "#64748b" }}>Super Admin</div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* ── MAIN ── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-
-        {/* TOPBAR */}
-        <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "0 28px", height: 56, display: "flex", alignItems: "center", gap: 14, boxShadow: "0 1px 3px rgba(0,0,0,.05)", position: "sticky", top: 0, zIndex: 20 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, color: "#64748b" }}>
-              Finance <span style={{ color: "#cbd5e1", margin: "0 4px" }}>›</span>
-              <span style={{ color: "#0f172a", fontWeight: 600 }}>Collect Fee</span>
-            </div>
-          </div>
-          <div style={{ position: "relative", width: 36, height: 36, borderRadius: 8, background: "#f0f4f8", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15 }}>
-            🔔
-            <span style={{ position: "absolute", top: -4, right: -4, background: "#dc2626", color: "#fff", fontSize: 9, fontWeight: 800, width: 16, height: 16, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>7</span>
-          </div>
-        </div>
-
-        <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px" }}>
-
-          {/* TABS */}
-          <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 6, boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-            {(["collect", "history", "dues"] as const).map((tab) => {
-              const labels: any = { collect: "💳 Collect Fee", history: "🕐 Payment History", dues: "⚠️ Outstanding Dues" }
-              return (
-                <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: "9px 18px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "none", background: activeTab === tab ? "#2563eb" : "transparent", color: activeTab === tab ? "#fff" : "#64748b", boxShadow: activeTab === tab ? "0 2px 8px rgba(37,99,235,.25)" : "none", transition: "all .2s", fontFamily: "inherit" }}>
-                  {labels[tab]}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* ── COLLECT FEE TAB ── */}
-          {activeTab === "collect" && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20 }}>
-
-              {/* LEFT */}
-              <div>
-
-                {/* STUDENT SELECT */}
-                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden", marginBottom: 20, boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                  <div style={{ padding: "16px 22px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 16 }}>🔍</span>
-                    <span style={{ fontSize: 14, fontWeight: 700 }}>Select Student</span>
-                  </div>
-                  <div style={{ padding: "20px 22px", display: "flex", gap: 14 }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", display: "block", marginBottom: 6 }}>Class <span style={{ color: "#dc2626" }}>*</span></label>
-                      <select
-                        value={selectedClass}
-                        onChange={(e) => { setSelectedClass(e.target.value); setSelectedStudent(""); setSelectedStudentName(""); }}
-                        style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e2e8f0", borderRadius: 10, fontSize: 13.5, fontFamily: "inherit", background: "#f8fafc", color: "#0f172a", outline: "none", cursor: "pointer" }}
-                      >
-                        <option value="">— Select Class —</option>
-                        {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", display: "block", marginBottom: 6 }}>Student <span style={{ color: "#dc2626" }}>*</span></label>
-                      <select
-                        value={selectedStudent}
-                        onChange={(e) => {
-                          setSelectedStudent(e.target.value)
-                          const s = students.find((s) => s.id === e.target.value)
-                          setSelectedStudentName(s?.name || "")
-                        }}
-                        style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e2e8f0", borderRadius: 10, fontSize: 13.5, fontFamily: "inherit", background: "#f8fafc", color: "#0f172a", outline: "none", cursor: "pointer" }}
-                      >
-                        <option value="">— Select Student —</option>
-                        {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Student Found Card */}
-                  {selectedStudentName && (
-                    <div style={{ margin: "0 22px 20px", background: "#eff6ff", border: "1.5px solid #bfdbfe", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 12, background: "linear-gradient(135deg,#2563eb,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20, fontWeight: 800, flexShrink: 0 }}>
-                        {selectedStudentName[0]}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 16, fontWeight: 800 }}>{selectedStudentName}</div>
-                        <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
-                          <span style={{ marginRight: 10 }}>📚 {classes.find(c => c.id === selectedClass)?.name}</span>
-                        </div>
-                      </div>
-                      <div style={{ marginLeft: "auto", fontSize: 12, color: "#2563eb", fontWeight: 700, cursor: "pointer" }} onClick={() => { setSelectedStudent(""); setSelectedStudentName(""); }}>Change ✕</div>
-                    </div>
-                  )}
-                </div>
-
-                {/* FEE CATEGORIES */}
-                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden", marginBottom: 20, boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                  <div style={{ padding: "16px 22px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 16 }}>📂</span>
-                    <span style={{ fontSize: 14, fontWeight: 700 }}>Fee Breakdown</span>
-                  </div>
-                  <div style={{ padding: "20px 22px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-                      {feeCategories.map((cat) => (
-                        <div key={cat.key} style={{ border: `1.5px solid ${(fees as any)[cat.key] ? "#2563eb" : "#e2e8f0"}`, borderRadius: 12, padding: "14px 16px", background: (fees as any)[cat.key] ? "#eff6ff" : "#fff", transition: "all .2s" }}>
-                          <div style={{ fontSize: 22, marginBottom: 6 }}>{cat.icon}</div>
-                          <div style={{ fontSize: 13, fontWeight: 700 }}>{cat.label}</div>
-                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2, marginBottom: 10 }}>{cat.desc}</div>
-                          <div style={{ position: "relative" }}>
-                            <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontWeight: 700, color: "#64748b", fontSize: 14 }}>₹</span>
-                            <input
-                              type="number"
-                              value={(fees as any)[cat.key]}
-                              onChange={(e) => setFees({ ...fees, [cat.key]: e.target.value })}
-                              placeholder="0"
-                              style={{ width: "100%", padding: "9px 10px 9px 24px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 15, fontWeight: 700, fontFamily: "inherit", background: "#f8fafc", color: "#0f172a", outline: "none" }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Remark */}
-                    <div style={{ marginBottom: 0 }}>
-                      <label style={{ fontSize: 12, fontWeight: 700, display: "block", marginBottom: 6 }}>Remarks</label>
-                      <textarea
-                        value={remark}
-                        onChange={(e) => setRemark(e.target.value)}
-                        placeholder="Optional note (e.g. 'Paid by father at counter', 'Online UPI by mother')..."
-                        style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #e2e8f0", borderRadius: 10, fontSize: 13, fontFamily: "inherit", background: "#f8fafc", color: "#0f172a", outline: "none", resize: "none", height: 72 }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* PAYMENT GATEWAY */}
-                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                  <div style={{ padding: "16px 22px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 16 }}>💳</span>
-                    <span style={{ fontSize: 14, fontWeight: 700 }}>Payment Method</span>
-                  </div>
-                  <div style={{ padding: "20px 22px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                      {gateways.map((gw) => (
-                        <div key={gw.name} onClick={() => setSelectedGateway(gw.name)} style={{ border: `1.5px solid ${selectedGateway === gw.name ? "#2563eb" : "#e2e8f0"}`, borderRadius: 12, padding: "13px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, background: selectedGateway === gw.name ? "#eff6ff" : "#fff", transition: "all .2s" }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 8, background: gw.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>{gw.icon}</div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 700 }}>{gw.name}</div>
-                            <div style={{ fontSize: 11, color: "#64748b" }}>{gw.desc}</div>
-                          </div>
-                          <div style={{ marginLeft: "auto", width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selectedGateway === gw.name ? "#2563eb" : "#e2e8f0"}`, background: selectedGateway === gw.name ? "#2563eb" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                            {selectedGateway === gw.name && <div style={{ width: 8, height: 8, background: "#fff", borderRadius: "50%" }} />}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* RIGHT SUMMARY */}
-              <div style={{ position: "sticky", top: 80, alignSelf: "start" }}>
-                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                  <div style={{ padding: "16px 22px", borderBottom: "1px solid #e2e8f0" }}>
-                    <span style={{ fontSize: 14, fontWeight: 700 }}>💰 Payment Summary</span>
-                  </div>
-
-                  {selectedStudentName && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", borderBottom: "1px solid #e2e8f0" }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 10, background: "linear-gradient(135deg,#2563eb,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 15, flexShrink: 0 }}>{selectedStudentName[0]}</div>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 700 }}>{selectedStudentName}</div>
-                        <div style={{ fontSize: 12, color: "#64748b" }}>{classes.find(c => c.id === selectedClass)?.name}</div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    {feeCategories.map((cat) => (fees as any)[cat.key] ? (
-                      <div key={cat.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "11px 18px", borderBottom: "1px solid #f1f5f9" }}>
-                        <span style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}><span>{cat.icon}</span>{cat.label}</span>
-                        <span style={{ fontSize: 13, fontWeight: 700 }}>{formatINR(Number((fees as any)[cat.key]))}</span>
-                      </div>
-                    ) : null)}
-                  </div>
-
-                  <div style={{ height: 1, background: "#e2e8f0", margin: "0 18px" }} />
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px", background: "#f8fafc" }}>
-                    <span style={{ fontSize: 14, fontWeight: 800 }}>Total Payable</span>
-                    <span style={{ fontSize: 24, fontWeight: 900, color: "#2563eb" }}>{formatINR(total)}</span>
-                  </div>
-
-                  <div style={{ padding: "16px 18px" }}>
-                    <button
-                      onClick={addPayment}
-                      disabled={saving || !selectedStudent || total === 0}
-                      style={{ width: "100%", padding: "14px", background: saving || !selectedStudent || total === 0 ? "#94a3b8" : "linear-gradient(135deg,#1d4ed8,#2563eb)", color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 800, cursor: saving || !selectedStudent || total === 0 ? "not-allowed" : "pointer", fontFamily: "inherit", boxShadow: "0 4px 14px rgba(37,99,235,.3)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-                    >
-                      {saving ? "⏳ Processing..." : `✓ Confirm & Collect ${formatINR(total)}`}
-                    </button>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 11, color: "#64748b", marginTop: 10 }}>
-                      🔒 Secure · Auto SMS to Parent
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── HISTORY TAB ── */}
-          {activeTab === "history" && (
-            <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-              <div style={{ padding: "16px 22px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 14, fontWeight: 700 }}>🕐 Recent Payments</span>
-                <span style={{ fontSize: 12, color: "#64748b" }}>{payments.length} records</span>
-              </div>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    {["Student", "Amount", "Date"].map((h) => (
-                      <th key={h} style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".09em", color: "#64748b", padding: "12px 22px", textAlign: "left", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.length === 0 && (
-                    <tr><td colSpan={3} style={{ padding: "32px", textAlign: "center", color: "#64748b" }}>No payments yet</td></tr>
-                  )}
-                  {payments.map((p) => (
-                    <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "13px 22px", fontSize: 13, fontWeight: 600 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg,#2563eb,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                            {p.students?.name?.[0] || "?"}
-                          </div>
-                          {p.students?.name || "Unknown"}
-                        </div>
-                      </td>
-                      <td style={{ padding: "13px 22px", fontSize: 14, fontWeight: 800, color: "#059669" }}>{formatINR(p.amount)}</td>
-                      <td style={{ padding: "13px 22px", fontSize: 13, color: "#64748b" }}>{new Date(p.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* ── DUES TAB ── */}
-          {activeTab === "dues" && (
-            <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-              <div style={{ padding: "16px 22px", borderBottom: "1px solid #e2e8f0" }}>
-                <span style={{ fontSize: 14, fontWeight: 700 }}>⚠️ Outstanding Fee Dues</span>
-              </div>
-              <div style={{ padding: "40px", textAlign: "center", color: "#64748b" }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>Connect your fees table to show dues</div>
-                <div style={{ fontSize: 13, marginTop: 6 }}>Query students with unpaid fee records</div>
-              </div>
-            </div>
-          )}
-
+      {/* TOP BAR */}
+      <div className="sticky top-0 z-20 bg-white border-b border-slate-200 px-8 h-14 flex items-center justify-between shadow-sm">
+        <p className="text-sm text-slate-400">
+          Finance <span className="mx-1">›</span>
+          <span className="text-slate-800 font-semibold">Collect Fee</span>
+        </p>
+        <div className="relative w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center cursor-pointer">
+          🔔
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">7</span>
         </div>
       </div>
 
-      {/* ── RECEIPT MODAL ── */}
-      {showReceipt && lastPayment && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
-          <div style={{ background: "#fff", borderRadius: 20, width: 420, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,.2)" }}>
-            <div style={{ background: "linear-gradient(135deg,#1d4ed8,#7c3aed)", padding: "28px 28px 24px", textAlign: "center", borderRadius: "20px 20px 0 0" }}>
-              <div style={{ width: 56, height: 56, background: "rgba(255,255,255,.2)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 26 }}>✅</div>
-              <div style={{ fontWeight: 800, color: "#fff", fontSize: 22 }}>Payment Received</div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,.75)", marginTop: 4 }}>Delhi Public School, Patna</div>
-              <div style={{ fontSize: 38, fontWeight: 900, color: "#fff", marginTop: 14 }}>{formatINR(lastPayment.amount)}</div>
-            </div>
-            <div style={{ padding: "24px 28px" }}>
-              <div style={{ background: "#f8fafc", border: "1px dashed #e2e8f0", borderRadius: 10, padding: "12px 16px", marginBottom: 16, textAlign: "center" }}>
-                <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em" }}>Receipt Number</div>
-                <div style={{ fontSize: 17, fontWeight: 900, marginTop: 4, fontFamily: "monospace", letterSpacing: ".05em" }}>{lastPayment.receiptNo}</div>
+      <div className="max-w-6xl mx-auto px-8 py-7">
+
+        {/* TABS */}
+        <div className="flex gap-1 mb-6 bg-white rounded-xl border border-slate-200 p-1.5 shadow-sm w-fit">
+          {(["collect", "history", "dues"] as const).map(tab => {
+            const label = { collect: "💳  Collect Fee", history: "🕐  Payment History", dues: "⚠️  Outstanding Dues" }[tab]
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all border-none cursor-pointer ${
+                  activeTab === tab
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "bg-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                }`}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* ══════ COLLECT FEE ══════ */}
+        {activeTab === "collect" && (
+          <div className="grid gap-6" style={{ gridTemplateColumns: "1fr 300px" }}>
+
+            {/* LEFT */}
+            <div className="space-y-5">
+
+              {/* Student selectors */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <p className="font-bold text-sm mb-4 flex items-center gap-2"><span>🔍</span> Select Student</p>
+                <div className="flex gap-4 mb-4">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Class <span className="text-red-500">*</span></label>
+                    <select
+                      value={selectedClass}
+                      onChange={e => {
+                        setSelectedClass(e.target.value)
+                        setSelectedStudent("")
+                        setSelectedStudentName("")
+                        setFees({ tuition: "", hostel: "", transport: "", misc: "", other: "" })
+                      }}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                      <option value="">— Select Class —</option>
+                      {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Student <span className="text-red-500">*</span></label>
+                    <select
+                      value={selectedStudent}
+                      onChange={e => {
+                        setSelectedStudent(e.target.value)
+                        setSelectedStudentName(students.find(s => s.id === e.target.value)?.name || "")
+                      }}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                      <option value="">— Select Student —</option>
+                      {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Selected student chip */}
+                {selectedStudentName && (
+                  <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center text-white font-black text-lg flex-shrink-0">
+                      {selectedStudentName[0]}
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">{selectedStudentName}</p>
+                      <p className="text-xs text-slate-500">{classes.find(c => c.id === selectedClass)?.name}</p>
+                    </div>
+                    <button
+                      onClick={() => { setSelectedStudent(""); setSelectedStudentName(""); setFees({ tuition: "", hostel: "", transport: "", misc: "", other: "" }) }}
+                      className="ml-auto text-xs font-bold text-blue-600 bg-transparent border-none cursor-pointer"
+                    >
+                      Change ✕
+                    </button>
+                  </div>
+                )}
               </div>
-              {[
-                ["Student", lastPayment.studentName],
-                ["Payment Mode", lastPayment.gateway],
-                ["Date & Time", lastPayment.date],
-              ].map(([label, val]) => (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
-                  <span style={{ fontSize: 12.5, color: "#64748b" }}>{label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{val}</span>
+
+              {/* Fee category cards */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <p className="font-bold text-sm mb-4 flex items-center gap-2"><span>📂</span> Fee Breakdown</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {feeCategories.map(cat => (
+                    <div
+                      key={cat.key}
+                      className="rounded-xl border p-4 transition-all duration-200"
+                      style={{
+                        borderColor: (fees as any)[cat.key] ? "#2563eb" : "#e2e8f0",
+                        background:  (fees as any)[cat.key] ? "#eff6ff" : "#f8fafc",
+                      }}
+                    >
+                      <div className="text-xl mb-1">{cat.icon}</div>
+                      <p className="font-bold text-sm">{cat.label}</p>
+                      <p className="text-[11px] text-slate-400 mb-3">{cat.desc}</p>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">₹</span>
+                        <input
+                          type="number"
+                          value={(fees as any)[cat.key]}
+                          onChange={e => setFees({ ...fees, [cat.key]: e.target.value })}
+                          placeholder="0"
+                          className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-bold outline-none focus:border-blue-500 transition-all"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* RIGHT — SUMMARY */}
+            <div className="sticky" style={{ top: 72, alignSelf: "start" }}>
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 font-bold text-sm">💰 Payment Summary</div>
+
+                {selectedStudentName ? (
+                  <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-100">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
+                      {selectedStudentName[0]}
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">{selectedStudentName}</p>
+                      <p className="text-xs text-slate-400">{classes.find(c => c.id === selectedClass)?.name}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="px-5 py-3.5 text-xs text-slate-400 border-b border-slate-100">No student selected</p>
+                )}
+
+                {/* Fee rows */}
+                <div>
+                  {feeCategories.map(cat =>
+                    (fees as any)[cat.key] ? (
+                      <div key={cat.key} className="flex justify-between items-center px-5 py-3 border-b border-slate-50 text-sm">
+                        <span className="text-slate-500">{cat.icon} {cat.label}</span>
+                        <span className="font-bold">{fmt(Number((fees as any)[cat.key]))}</span>
+                      </div>
+                    ) : null
+                  )}
+                  {total === 0 && (
+                    <p className="px-5 py-4 text-xs text-slate-400 text-center">Enter fee amounts to see total</p>
+                  )}
+                </div>
+
+                {/* Total */}
+                <div className="flex justify-between items-center px-5 py-4 bg-slate-50 border-t border-slate-200">
+                  <span className="font-black text-sm">Total Payable</span>
+                  <span className="text-2xl font-black text-blue-600">{fmt(total)}</span>
+                </div>
+
+                {/* Button */}
+                <div className="px-5 pb-5 pt-4">
+                  <button
+                    onClick={addPayment}
+                    disabled={saving || !selectedStudent || total === 0}
+                    className="w-full py-3.5 rounded-xl text-white font-black text-sm border-none cursor-pointer transition-all"
+                    style={{
+                      background: saving || !selectedStudent || total === 0 ? "#94a3b8" : "linear-gradient(135deg,#1d4ed8,#2563eb)",
+                      boxShadow: saving || !selectedStudent || total === 0 ? "none" : "0 4px 14px rgba(37,99,235,.35)",
+                    }}
+                  >
+                    {saving ? "⏳ Processing..." : `✓ Confirm & Collect ${fmt(total)}`}
+                  </button>
+                  <p className="text-center text-[11px] text-slate-400 mt-2">🔒 Secure · Auto SMS to Parent</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ══════ PAYMENT HISTORY ══════ */}
+        {activeTab === "history" && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+              <span className="font-bold text-sm">🕐 Recent Payments</span>
+              <span className="text-xs text-slate-400">{payments.length} records</span>
+            </div>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  {["Student", "Amount", "Date"].map(h => (
+                    <th key={h} className="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {payments.length === 0 && (
+                  <tr><td colSpan={3} className="px-6 py-12 text-center text-slate-400 text-sm">No payments recorded yet</td></tr>
+                )}
+                {payments.map(p => (
+                  <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center text-white text-xs font-black flex-shrink-0">
+                          {p.students?.name?.[0] || "?"}
+                        </div>
+                        <span className="font-semibold text-sm">{p.students?.name || "Unknown"}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-3.5 font-black text-green-600 text-sm">{fmt(p.amount)}</td>
+                    <td className="px-6 py-3.5 text-sm text-slate-400">
+                      {new Date(p.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ══════ OUTSTANDING DUES ══════ */}
+        {activeTab === "dues" && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+            <div className="px-6 py-4 border-b border-slate-100 font-bold text-sm">⚠️ Outstanding Dues</div>
+            <div className="py-16 text-center text-slate-400">
+              <div className="text-4xl mb-3">📋</div>
+              <p className="font-semibold text-sm">Query students with unpaid fees to show dues here</p>
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      {/* ══════ RECEIPT MODAL ══════ */}
+      {showReceipt && lastPayment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-5">
+          <div className="bg-white rounded-2xl w-[390px] max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="rounded-t-2xl text-center p-7" style={{ background: "linear-gradient(135deg,#1d4ed8,#7c3aed)" }}>
+              <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-3xl mx-auto mb-3">✅</div>
+              <p className="text-white font-black text-xl">Payment Received</p>
+              <p className="text-white/70 text-xs mt-1">Delhi Public School, Patna</p>
+              <p className="text-white font-black text-4xl mt-4">{fmt(lastPayment.amount)}</p>
+            </div>
+            <div className="p-6">
+              <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl p-3 text-center mb-4">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Receipt Number</p>
+                <p className="font-black text-base mt-1 font-mono">{lastPayment.receiptNo}</p>
+              </div>
+              {[["Student", lastPayment.studentName], ["Class", lastPayment.className], ["Date & Time", lastPayment.date]].map(([l, v]) => (
+                <div key={l} className="flex justify-between py-2.5 border-b border-slate-50 text-sm">
+                  <span className="text-slate-400">{l}</span>
+                  <span className="font-bold">{v}</span>
                 </div>
               ))}
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderTop: "2px solid #e2e8f0", marginTop: 4 }}>
-                <span style={{ fontSize: 14, fontWeight: 800 }}>Total Paid</span>
-                <span style={{ fontSize: 20, fontWeight: 900, color: "#2563eb" }}>{formatINR(lastPayment.amount)}</span>
+              {feeCategories.map(cat =>
+                lastPayment.fees[cat.key] ? (
+                  <div key={cat.key} className="flex justify-between py-2 border-b border-slate-50 text-sm">
+                    <span className="text-slate-400">{cat.icon} {cat.label}</span>
+                    <span className="font-semibold">{fmt(Number(lastPayment.fees[cat.key]))}</span>
+                  </div>
+                ) : null
+              )}
+              <div className="flex justify-between py-3 border-t-2 border-slate-200 mt-1">
+                <span className="font-black text-sm">Total Paid</span>
+                <span className="font-black text-blue-600 text-xl">{fmt(lastPayment.amount)}</span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 20 }}>
-                <button onClick={() => window.print()} style={{ border: "1.5px solid #e2e8f0", background: "#fff", padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>🖨️ Print</button>
-                <button style={{ background: "linear-gradient(135deg,#1d4ed8,#2563eb)", color: "#fff", border: "none", padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>📱 SMS Parent</button>
+              <div className="grid grid-cols-2 gap-2.5 mt-4">
+                <button onClick={() => window.print()} className="border border-slate-200 bg-white py-2.5 rounded-xl text-sm font-bold cursor-pointer hover:border-blue-400">🖨️ Print</button>
+                <button className="text-white py-2.5 rounded-xl text-sm font-bold border-none cursor-pointer" style={{ background: "linear-gradient(135deg,#1d4ed8,#2563eb)" }}>📱 SMS Parent</button>
               </div>
-              <button onClick={() => setShowReceipt(false)} style={{ width: "100%", marginTop: 10, background: "none", border: "none", color: "#64748b", fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 8 }}>Close</button>
+              <button onClick={() => setShowReceipt(false)} className="w-full mt-2 py-2 text-sm text-slate-400 bg-transparent border-none cursor-pointer">Close</button>
             </div>
           </div>
         </div>
