@@ -20,6 +20,34 @@ export default function VerifyPageClient() {
     )
   }
 
+  const getCurrentSubdomain = () => {
+    if (typeof window === "undefined") return null
+
+    const host = window.location.hostname
+    const subdomain = host.split(".")[0]
+
+    if (
+      host.includes("localhost") ||
+      subdomain === "www" ||
+      subdomain === "erp" ||
+      subdomain === "naysha"
+    ) {
+      return null
+    }
+
+    return subdomain
+  }
+
+  const findSchoolSubdomain = async (schoolId: string) => {
+    const { data: school } = await supabase
+      .from("schools")
+      .select("subdomain")
+      .eq("id", schoolId)
+      .maybeSingle()
+
+    return school?.subdomain || getCurrentSubdomain()
+  }
+
   const redirectWithSession = async (subdomain: string, next: string) => {
 
     const { data: sessionData } = await supabase.auth.getSession()
@@ -134,45 +162,49 @@ export default function VerifyPageClient() {
     // =========================
     const { data: parents } = await supabase
       .from("parents")
-      .select("id, student_id")
-      .ilike("email", email)
+      .select("id, student_id, school_id")
+      .ilike("email", `%${email}%`)
       .limit(1)
 
     const parent = parents?.[0]
 
     if (parent) {
 
-      const { data: student } = await supabase
-        .from("students")
-        .select("school_id")
-        .eq("id", parent.student_id)
-        .maybeSingle()
+      let schoolId = parent.school_id
 
-      if (!student?.school_id) {
+      if (!schoolId) {
+        const { data: student } = await supabase
+          .from("students")
+          .select("school_id")
+          .eq("id", parent.student_id)
+          .maybeSingle()
+
+        schoolId = student?.school_id
+      }
+
+      if (!schoolId) {
+        setLoading(false)
         alert("Parent linked school not found")
         return
       }
 
-      const { data: school } = await supabase
-        .from("schools")
-        .select("subdomain")
-        .eq("id", student.school_id)
-        .maybeSingle()
+      const subdomain = await findSchoolSubdomain(schoolId)
 
-      if (!school?.subdomain) {
+      if (!subdomain) {
+        setLoading(false)
         alert("School not found")
         return
       }
 
       await supabase.from("profiles").upsert({
         id: userId,
-        school_id: student.school_id,
+        school_id: schoolId,
         role: "parent"
       })
 
       await supabase.auth.updateUser({
         data: {
-          school_id: student.school_id,
+          school_id: schoolId,
           role: "parent"
         }
       })
@@ -185,7 +217,7 @@ export default function VerifyPageClient() {
       }
 
       // 🔥 FIXED REDIRECT
-      await redirectWithSession(school.subdomain, "/parent")
+      await redirectWithSession(subdomain, "/parent")
       return
     }
 
@@ -200,13 +232,10 @@ export default function VerifyPageClient() {
 
     if (teacher) {
 
-      const { data: school } = await supabase
-        .from("schools")
-        .select("subdomain")
-        .eq("id", teacher.school_id)
-        .maybeSingle()
+      const subdomain = await findSchoolSubdomain(teacher.school_id)
 
-      if (!school?.subdomain) {
+      if (!subdomain) {
+        setLoading(false)
         alert("School not found")
         return
       }
@@ -237,7 +266,7 @@ export default function VerifyPageClient() {
       }
 
       // 🔥 FIXED REDIRECT
-      await redirectWithSession(school.subdomain, "/teacher")
+      await redirectWithSession(subdomain, "/teacher")
       return
     }
 
@@ -252,7 +281,7 @@ export default function VerifyPageClient() {
 
     if (!school?.subdomain) {
       setLoading(false)
-      alert("School not found")
+      alert("No parent, teacher, or admin account found for this email")
       return
     }
 
