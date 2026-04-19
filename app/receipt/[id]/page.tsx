@@ -1,50 +1,68 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
 import FeeReceipt from "@/components/fees/FeeReceipt"
+import { fetchReceiptByPaymentId, type ReceiptViewData } from "@/lib/payment-receipts"
+import { useParams } from "next/navigation"
 
-export default function Page({ params }:any){
+export default function ReceiptPage() {
+  const params = useParams()
+  const id = Array.isArray(params.id) ? params.id[0] : params.id
 
-  const [data,setData] = useState<any>(null)
+  const [data, setData] = useState<ReceiptViewData | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  useEffect(()=>{
-    const load = async ()=>{
-      const { data: receipt } = await supabase
-        .from("receipts")
-        .select("*")
-        .eq("id",params.id)
-        .single()
+  useEffect(() => {
+    if (!id) return
 
-      const { data: fee } = await supabase
-        .from("fees")
-        .select("*")
-        .eq("id",receipt.fee_id)
-        .single()
+    let cancelled = false
 
-      const { data: student } = await supabase
-        .from("students")
-        .select("*")
-        .eq("id",receipt.student_id)
-        .single()
+    const load = async () => {
+      setLoading(true)
 
-      setData({ receipt, fee, student })
+      try {
+        const receiptData = await fetchReceiptByPaymentId(id)
+        if (!cancelled) {
+          setData(receiptData)
+        }
+      } catch (error) {
+        console.error(error)
+        if (!cancelled) {
+          setData(null)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
     }
 
-    load()
-  },[])
+    void load()
 
-  if(!data) return "Loading..."
+    return () => {
+      cancelled = true
+    }
+  }, [id])
 
-  return(
+  if (loading) {
+    return "Loading..."
+  }
+
+  if (!data) {
+    return "Receipt not found"
+  }
+
+  return (
     <FeeReceipt
       student={data.student}
       fee={data.fee}
       payment={{
-        amount:data.receipt.amount,
-        date:data.receipt.created_at,
-        id:data.receipt.receipt_number
+        amount: data.payment.amount,
+        date: data.payment.payment_date,
+        id: data.payment.receipt_number,
+        payment_mode: data.payment.payment_mode
       }}
+      school={data.school}
     />
   )
 }

@@ -1,264 +1,214 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import FeeReceipt from "@/components/fees/FeeReceipt"
+import {
+  fetchReceiptByPaymentId,
+  fetchReceiptHistoryForSchool,
+  type ReceiptHistoryItem
+} from "@/lib/payment-receipts"
+import { getSchoolId } from "@/lib/school"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
-import { getSchoolId } from "@/lib/school"
+import { createRoot } from "react-dom/client"
 
-export default function ReceiptHistoryPage(){
+export default function ReceiptHistoryPage() {
+  const [payments, setPayments] = useState<ReceiptHistoryItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [schoolId, setSchoolId] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
-  const [payments,setPayments] = useState<any[]>([])
-  const [loading,setLoading] = useState(true)
-  const [schoolId,setSchoolId] = useState<string | null>(null)
-  const [school,setSchool] = useState<any>(null)
+  useEffect(() => {
+    void getSchoolId().then(setSchoolId)
+  }, [])
 
-  // ================= INIT =================
-  useEffect(()=>{
-    getSchoolId().then(setSchoolId)
-  },[])
+  useEffect(() => {
+    if (!schoolId) return
 
-  useEffect(()=>{
-    if(!schoolId) return
+    let cancelled = false
 
-    loadPayments()
-    loadSchool()
+    const load = async () => {
+      setLoading(true)
 
-  },[schoolId])
-
-  // ================= LOAD SCHOOL =================
-  const loadSchool = async ()=>{
-    const { data } = await supabase
-      .from("schools")
-      .select("*")
-      .eq("id", schoolId)
-      .single()
-
-    setSchool(data)
-  }
-
-  // ================= LOAD PAYMENTS =================
-  const loadPayments = async ()=>{
-
-    setLoading(true)
-
-    const { data, error } = await supabase
-      .from("payments")
-      .select(`
-        *,
-        students (
-          id,
-          name,
-          roll_number,
-          phone,
-          classes(name),
-          parents(name,phone)
-        ),
-        fees (
-          total_amount,
-          paid_amount,
-          tuition_fee,
-          transport_fee,
-          hostel_fee
-        )
-      `)
-      .eq("school_id", schoolId)
-      .order("date",{ ascending:false })
-
-    if(error){
-      console.error(error)
-      setLoading(false)
-      return
+      try {
+        const rows = await fetchReceiptHistoryForSchool(schoolId)
+        if (!cancelled) {
+          setPayments(rows)
+        }
+      } catch (error) {
+        console.error(error)
+        if (!cancelled) {
+          setPayments([])
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
     }
 
-    setPayments(data || [])
-    setLoading(false)
-  }
+    void load()
 
-  // ================= PDF (MATCHES FeeReceipt) =================
-  const generatePDF = async (payment:any)=>{
-
-    const container = document.createElement("div")
-
-    container.style.position = "fixed"
-    container.style.top = "-9999px"
-    container.style.width = "800px"
-    container.style.padding = "40px"
-    container.style.background = "#ffffff"
-    container.style.color = "#000"
-
-    const student = payment.students || {}
-    const fee = payment.fees || {}
-
-    const total = Number(fee.total_amount || 0)
-    const paid = Number(payment.amount || 0)
-    const balance = total - paid
-
-    const breakdown = [
-      { label: "Tuition Fee", value: fee.tuition_fee || 0 },
-      { label: "Transport Fee", value: fee.transport_fee || 0 },
-      { label: "Hostel Fee", value: fee.hostel_fee || 0 },
-    ].filter(i=>i.value > 0)
-
-    container.innerHTML = `
-      <div style="border:2px solid #000;padding:20px">
-
-        <div style="text-align:center">
-          <h2>${school?.name || "School"}</h2>
-          <p>${school?.address || ""}</p>
-          <p>${school?.phone || ""}</p>
-          <h3>Fee Receipt</h3>
-        </div>
-
-        <div style="display:flex;justify-content:space-between;margin-top:20px">
-
-          <div>
-            <p><b>Name:</b> ${student.name || "N/A"}</p>
-            <p><b>Class:</b> ${student.classes?.name || "N/A"}</p>
-            <p><b>Roll:</b> ${student.roll_number || "-"}</p>
-            <p><b>Parent:</b> ${student.parents?.name || "N/A"}</p>
-            <p><b>Phone:</b> ${student.parents?.phone || "N/A"}</p>
-          </div>
-
-          <div style="text-align:right">
-            <p><b>Date:</b> ${new Date(payment.date).toLocaleDateString()}</p>
-            <p><b>Receipt:</b> ${payment.id}</p>
-          </div>
-
-        </div>
-
-        <table style="width:100%;margin-top:20px;border-collapse:collapse">
-          <tr>
-            <th style="border:1px solid #000;padding:8px">Fee</th>
-            <th style="border:1px solid #000;padding:8px">Amount</th>
-          </tr>
-
-          ${
-            breakdown.length > 0
-            ? breakdown.map(b=>`
-              <tr>
-                <td style="border:1px solid #000;padding:8px">${b.label}</td>
-                <td style="border:1px solid #000;padding:8px">₹${b.value}</td>
-              </tr>
-            `).join("")
-            : `
-              <tr>
-                <td style="border:1px solid #000;padding:8px">Total Fee</td>
-                <td style="border:1px solid #000;padding:8px">₹${total}</td>
-              </tr>
-            `
-          }
-
-        </table>
-
-        <div style="margin-top:15px;text-align:right">
-          <p><b>Total:</b> ₹${total}</p>
-          <p style="color:green"><b>Paid:</b> ₹${paid}</p>
-          <p style="color:orange"><b>Balance:</b> ₹${balance}</p>
-        </div>
-
-        <p style="margin-top:20px;text-align:center">
-          ${balance <= 0 ? "PAID" : "PARTIAL"}
-        </p>
-
-      </div>
-    `
-
-    document.body.appendChild(container)
-
-    const canvas = await html2canvas(container,{
-      scale:2,
-      useCORS:true,
-      backgroundColor:"#ffffff"
-    })
-
-    const img = canvas.toDataURL("image/png")
-
-    const pdf = new jsPDF("p","mm","a4")
-    pdf.addImage(img,"PNG",10,10,190,0)
-
-    pdf.save(`receipt-${payment.id}.pdf`)
-
-    document.body.removeChild(container)
-  }
-
-  // ================= WHATSAPP =================
-  const resendWhatsApp = async (payment:any)=>{
-
-    if(!payment.students?.phone){
-      alert("No phone number")
-      return
+    return () => {
+      cancelled = true
     }
+  }, [schoolId])
 
-    await fetch("/api/send-whatsapp",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({
-        to: payment.students.phone,
-        studentName: payment.students.name,
-        pdfUrl: `${window.location.origin}/api/receipt/${payment.id}`
+  const generatePDF = async (paymentId: string) => {
+    setBusyId(paymentId)
+
+    let container: HTMLDivElement | null = null
+    let root: ReturnType<typeof createRoot> | null = null
+
+    try {
+      const receiptData = await fetchReceiptByPaymentId(paymentId)
+
+      if (!receiptData) {
+        alert("Receipt not found")
+        return
+      }
+
+      container = document.createElement("div")
+      container.style.position = "fixed"
+      container.style.top = "-9999px"
+      container.style.width = "800px"
+      document.body.appendChild(container)
+
+      root = createRoot(container)
+      root.render(
+        <FeeReceipt
+          student={receiptData.student}
+          fee={receiptData.fee}
+          payment={{
+            amount: receiptData.payment.amount,
+            date: receiptData.payment.payment_date,
+            id: receiptData.payment.receipt_number,
+            payment_mode: receiptData.payment.payment_mode
+          }}
+          school={receiptData.school}
+        />
+      )
+
+      await new Promise(requestAnimationFrame)
+      await new Promise(requestAnimationFrame)
+
+      container.querySelectorAll<HTMLElement>("*").forEach((element) => {
+        element.style.color = "#000"
+        element.style.background = "#fff"
+        element.style.borderColor = "#000"
+        element.style.boxShadow = "none"
       })
-    })
 
-    alert("Sent again ✅")
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff"
+      })
+
+      const img = canvas.toDataURL("image/png")
+      const pdf = new jsPDF("p", "mm", "a4")
+      const width = 190
+      const height = (canvas.height * width) / canvas.width
+
+      pdf.addImage(img, "PNG", 10, 10, width, height)
+      pdf.save(`receipt-${receiptData.payment.receipt_number}.pdf`)
+    } catch (error) {
+      console.error(error)
+      alert("Failed to generate receipt")
+    } finally {
+      root?.unmount()
+      if (container?.parentNode) {
+        container.parentNode.removeChild(container)
+      }
+      setBusyId(null)
+    }
   }
 
-  return(
-    <div className="p-6 min-h-screen bg-[#020617] text-white">
+  const resendWhatsApp = async (paymentId: string) => {
+    setBusyId(paymentId)
 
-      <h1 className="text-2xl font-bold mb-6">Receipt History</h1>
+    try {
+      const receiptData = await fetchReceiptByPaymentId(paymentId)
 
-      {loading ? "Loading..." : (
+      if (!receiptData?.student.parent_phone) {
+        alert("No parent phone number found")
+        return
+      }
 
+      const response = await fetch("/api/send-whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: receiptData.student.parent_phone,
+          message: `${receiptData.school?.name || "School"}\n\nPayment receipt for ${
+            receiptData.student.name
+          }\nReceipt: ${receiptData.payment.receipt_number}\nAmount: Rs. ${
+            receiptData.payment.amount
+          }\nView receipt: ${window.location.origin}/receipt/${paymentId}`
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error("WhatsApp send failed")
+      }
+
+      alert("Sent again")
+    } catch (error) {
+      console.error(error)
+      alert("Failed to send WhatsApp")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-[#020617] p-6 text-white">
+      <h1 className="mb-6 text-2xl font-bold">Receipt History</h1>
+
+      {loading ? (
+        "Loading..."
+      ) : (
         <div className="space-y-4">
-
-          {payments.map(p=>(
-
+          {payments.map((payment) => (
             <div
-              key={p.id}
-              className="p-4 bg-[#0f172a] border border-white/10 rounded-xl flex justify-between items-center"
+              key={payment.id}
+              className="flex items-center justify-between rounded-xl border border-white/10 bg-[#0f172a] p-4"
             >
-
               <div>
-                <p className="font-semibold text-lg">
-                  {p.students?.name || "Unknown"}
-                </p>
-
-                <p className="text-green-400 font-medium">
-                  ₹{p.amount}
-                </p>
-
+                <p className="text-lg font-semibold">{payment.studentName}</p>
                 <p className="text-sm text-gray-400">
-                  {new Date(p.date).toLocaleString()}
+                  {payment.studentClass || "Class not assigned"}
+                </p>
+                <p className="font-medium text-green-400">Rs. {payment.amount}</p>
+                <p className="text-sm text-gray-400">
+                  {new Date(payment.paymentDate).toLocaleString()}
+                </p>
+                <p className="text-sm text-blue-400">
+                  {payment.receiptNumber} • {payment.feeLabel}
                 </p>
               </div>
 
               <div className="flex gap-2">
-
                 <button
-                  onClick={()=>generatePDF(p)}
-                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded"
+                  onClick={() => generatePDF(payment.id)}
+                  disabled={busyId === payment.id}
+                  className="rounded bg-blue-600 px-3 py-1 hover:bg-blue-700 disabled:opacity-60"
                 >
                   Download
                 </button>
 
                 <button
-                  onClick={()=>resendWhatsApp(p)}
-                  className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded"
+                  onClick={() => resendWhatsApp(payment.id)}
+                  disabled={busyId === payment.id}
+                  className="rounded bg-green-600 px-3 py-1 hover:bg-green-700 disabled:opacity-60"
                 >
                   WhatsApp
                 </button>
-
               </div>
-
             </div>
-
           ))}
-
         </div>
-
       )}
-
     </div>
   )
 }

@@ -1,67 +1,122 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getActiveAcademicYear } from "@/lib/academic"
 import { getSchoolId } from "@/lib/school"
+import { supabase } from "@/lib/supabase"
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface Student {
+type StudentOption = {
   id: string
   name: string
-  class?: string
+  className: string | null
+  rollNumber: number | null
 }
 
-interface Fee {
+type FeeOption = {
   id: string
   label: string
-  total_amount: number
-  paid_amount: number
-  status: "paid" | "partial" | "due"
-  fee_type?: string
-  month?: string
+  totalAmount: number
+  paidAmount: number
+  status: "paid" | "partial" | "pending"
 }
 
-interface Payment {
+type PaymentRow = {
   id: string
-  student_name: string
-  receipt_number: string
-  fee_label: string
+  studentName: string
+  studentClass: string | null
+  receiptNumber: string
+  feeLabel: string
   amount: number
-  total_amount: number
-  payment_date: string
-  status: "paid" | "partial" | "due"
-  is_manual: boolean
-  payment_mode: string
+  totalAmount: number
+  progressPaid: number
+  paymentDate: string
+  status: "paid" | "partial" | "pending"
+  isManual: boolean
+  paymentMode: string
 }
 
-interface Stats {
+type Stats = {
   totalCollected: number
   totalPending: number
   thisMonth: number
   todayCount: number
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+type PaymentRecord = {
+  id: string
+  student_id: string
+  fee_id: string
+  amount: number | null
+  receipt_number: string | null
+  payment_date: string | null
+  date: string | null
+  is_manual: boolean | null
+  payment_mode: string | null
+}
+
+type FeeRecord = {
+  id: string
+  student_id: string
+  month: string | null
+  total_amount: number | null
+  paid_amount: number | null
+  status: string | null
+  tuition_fee: number | null
+  transport_fee: number | null
+  hostel_fee: number | null
+}
+
+type StudentRecord = {
+  id: string
+  name: string
+}
+
+type EnrollmentRecord = {
+  student_id: string
+  roll_number: number | null
+  students:
+    | {
+        id: string
+        name: string
+      }[]
+    | {
+        id: string
+        name: string
+      }
+    | null
+  classes:
+    | {
+        name: string
+      }[]
+    | {
+        name: string
+      }
+    | null
+}
+
+function getSingleRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (!value) return null
+  return Array.isArray(value) ? value[0] ?? null : value
+}
 
 function initials(name: string) {
   return name
     .split(" ")
-    .map((w) => w[0])
+    .map((word) => word[0] || "")
     .join("")
     .slice(0, 2)
     .toUpperCase()
 }
 
 function formatINR(amount: number) {
-  return "₹" + amount.toLocaleString("en-IN")
+  return "Rs. " + amount.toLocaleString("en-IN")
 }
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
-    year: "numeric",
+    year: "numeric"
   })
 }
 
@@ -69,13 +124,39 @@ function todayISO() {
   return new Date().toISOString().split("T")[0]
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+function toFeeLabel(fee: FeeRecord) {
+  if (fee.month) {
+    return `${fee.month} Fee`
+  }
+
+  const breakdown = [
+    fee.tuition_fee ? "Tuition" : null,
+    fee.transport_fee ? "Transport" : null,
+    fee.hostel_fee ? "Hostel" : null
+  ].filter(Boolean)
+
+  if (breakdown.length > 0) {
+    return breakdown.join(" + ")
+  }
+
+  return "Fee"
+}
+
+function normalizePaymentStatus(status: string | null | undefined): "paid" | "partial" | "pending" {
+  if (status === "paid") return "paid"
+  if (status === "partial") return "partial"
+  return "pending"
+}
+
+function receiptNumberFromNow() {
+  return `RCPT-${Date.now()}`
+}
 
 function StatCard({
   label,
   value,
   sub,
-  color,
+  color
 }: {
   label: string
   value: string
@@ -93,50 +174,285 @@ function StatCard({
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
+function StatusBadge({ status }: { status: PaymentRow["status"] }) {
+  const map: Record<PaymentRow["status"], string> = {
     paid: "badge-paid",
     partial: "badge-partial",
-    due: "badge-due",
+    pending: "badge-due"
   }
-  return <span className={`badge ${map[status] || "badge-due"}`}>{status}</span>
+
+  return <span className={`badge ${map[status]}`}>{status}</span>
 }
 
 function ProgressBar({ paid, total }: { paid: number; total: number }) {
-  const pct = Math.min(100, Math.round((paid / total) * 100))
+  const safeTotal = total > 0 ? total : 1
+  const pct = Math.min(100, Math.round((paid / safeTotal) * 100))
   const color = pct === 100 ? "#639922" : pct > 50 ? "#185FA5" : "#BA7517"
+
   return (
     <div>
       <div className="progress-label">{pct}%</div>
       <div className="progress-track">
-        <div className="progress-fill" style={{ width: pct + "%", background: color }} />
+        <div
+          className="progress-fill"
+          style={{ width: pct + "%", background: color }}
+        />
       </div>
     </div>
   )
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+async function fetchStudentOptions(schoolId: string): Promise<StudentOption[]> {
+  const year = await getActiveAcademicYear()
+
+  if (year?.id) {
+    const { data, error } = await supabase
+      .from("student_enrollments")
+      .select(
+        `
+          student_id,
+          roll_number,
+          students(id,name),
+          classes(name)
+        `
+      )
+      .eq("school_id", schoolId)
+      .eq("academic_year_id", year.id)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      throw error
+    }
+
+    const rows = ((data as EnrollmentRecord[] | null) ?? []).map((row) => {
+      const student = getSingleRelation<{ id: string; name: string }>(row.students)
+      const schoolClass = getSingleRelation<{ name: string }>(row.classes)
+
+      return {
+        id: student?.id || row.student_id,
+        name: student?.name || "Unknown",
+        className: schoolClass?.name || null,
+        rollNumber: row.roll_number
+      }
+    })
+
+    if (rows.length > 0) {
+      return rows.sort((a, b) => a.name.localeCompare(b.name))
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("students")
+    .select("id,name")
+    .eq("school_id", schoolId)
+    .order("name")
+
+  if (error) {
+    throw error
+  }
+
+  return ((data as StudentRecord[] | null) ?? []).map((student) => ({
+    id: student.id,
+    name: student.name,
+    className: null,
+    rollNumber: null
+  }))
+}
+
+async function fetchFeesForStudent(schoolId: string, studentId: string): Promise<FeeOption[]> {
+  const { data, error } = await supabase
+    .from("fees")
+    .select(
+      "id,student_id,month,total_amount,paid_amount,status,tuition_fee,transport_fee,hostel_fee"
+    )
+    .eq("student_id", studentId)
+    .eq("school_id", schoolId)
+    .neq("status", "paid")
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    throw error
+  }
+
+  return ((data as FeeRecord[] | null) ?? []).map((fee) => ({
+    id: fee.id,
+    label: toFeeLabel(fee),
+    totalAmount: Number(fee.total_amount ?? 0),
+    paidAmount: Number(fee.paid_amount ?? 0),
+    status: normalizePaymentStatus(fee.status)
+  }))
+}
+
+async function fetchPaymentsForSchool(schoolId: string): Promise<PaymentRow[]> {
+  const { data: paymentData, error: paymentError } = await supabase
+    .from("payments")
+    .select("id,student_id,fee_id,amount,receipt_number,payment_date,date,is_manual,payment_mode")
+    .eq("school_id", schoolId)
+    .order("payment_date", { ascending: false })
+    .limit(100)
+
+  if (paymentError) {
+    throw paymentError
+  }
+
+  const payments = (paymentData as PaymentRecord[] | null) ?? []
+
+  if (payments.length === 0) {
+    return []
+  }
+
+  const studentIds = [...new Set(payments.map((payment) => payment.student_id))]
+  const feeIds = [...new Set(payments.map((payment) => payment.fee_id))]
+  const year = await getActiveAcademicYear()
+
+  const [studentsRes, feesRes, enrollmentsRes] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id,name")
+      .in("id", studentIds)
+      .eq("school_id", schoolId),
+
+    supabase
+      .from("fees")
+      .select(
+        "id,student_id,month,total_amount,paid_amount,status,tuition_fee,transport_fee,hostel_fee"
+      )
+      .in("id", feeIds)
+      .eq("school_id", schoolId),
+
+    year?.id
+      ? supabase
+          .from("student_enrollments")
+          .select(
+            `
+              student_id,
+              roll_number,
+              students(id,name),
+              classes(name)
+            `
+          )
+          .in("student_id", studentIds)
+          .eq("school_id", schoolId)
+          .eq("academic_year_id", year.id)
+      : Promise.resolve({ data: [], error: null })
+  ])
+
+  if (studentsRes.error) {
+    throw studentsRes.error
+  }
+
+  if (feesRes.error) {
+    throw feesRes.error
+  }
+
+  if (enrollmentsRes.error) {
+    throw enrollmentsRes.error
+  }
+
+  const studentMap = new Map<string, StudentRecord>()
+  ;((studentsRes.data as StudentRecord[] | null) ?? []).forEach((student) => {
+    studentMap.set(student.id, student)
+  })
+
+  const feeMap = new Map<string, FeeRecord>()
+  ;((feesRes.data as FeeRecord[] | null) ?? []).forEach((fee) => {
+    feeMap.set(fee.id, fee)
+  })
+
+  const classMap = new Map<string, string | null>()
+  ;((enrollmentsRes.data as EnrollmentRecord[] | null) ?? []).forEach((row) => {
+    const schoolClass = getSingleRelation<{ name: string }>(row.classes)
+    classMap.set(row.student_id, schoolClass?.name || null)
+  })
+
+  return payments.map((payment) => {
+    const student = studentMap.get(payment.student_id)
+    const fee = feeMap.get(payment.fee_id)
+    const totalAmount = Number(fee?.total_amount ?? 0)
+    const progressPaid = Number(fee?.paid_amount ?? payment.amount ?? 0)
+
+    return {
+      id: payment.id,
+      studentName: student?.name || "Unknown",
+      studentClass: classMap.get(payment.student_id) || null,
+      receiptNumber: payment.receipt_number || payment.id,
+      feeLabel: fee ? toFeeLabel(fee) : "Fee",
+      amount: Number(payment.amount ?? 0),
+      totalAmount,
+      progressPaid,
+      paymentDate: payment.payment_date || payment.date || new Date().toISOString(),
+      status: normalizePaymentStatus(fee?.status),
+      isManual: Boolean(payment.is_manual),
+      paymentMode: payment.payment_mode || "cash"
+    }
+  })
+}
+
+async function fetchPendingTotal(schoolId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("fees")
+    .select("total_amount,paid_amount")
+    .eq("school_id", schoolId)
+    .neq("status", "paid")
+
+  if (error) {
+    throw error
+  }
+
+  return ((data as Pick<FeeRecord, "total_amount" | "paid_amount">[] | null) ?? []).reduce(
+    (sum, fee) => sum + (Number(fee.total_amount ?? 0) - Number(fee.paid_amount ?? 0)),
+    0
+  )
+}
+
+async function computeStatsForSchool(
+  schoolId: string,
+  rows: PaymentRow[]
+): Promise<Stats> {
+  const now = new Date()
+  const thisMonth = now.getMonth()
+  const thisYear = now.getFullYear()
+  const todayStr = todayISO()
+
+  const totalCollected = rows.reduce((sum, row) => sum + row.amount, 0)
+  const todayCount = rows.filter((row) => row.paymentDate.startsWith(todayStr)).length
+  const monthlyTotal = rows
+    .filter((row) => {
+      const date = new Date(row.paymentDate)
+      return date.getMonth() === thisMonth && date.getFullYear() === thisYear
+    })
+    .reduce((sum, row) => sum + row.amount, 0)
+
+  const totalPending = await fetchPendingTotal(schoolId)
+
+  return {
+    totalCollected,
+    totalPending,
+    thisMonth: monthlyTotal,
+    todayCount
+  }
+}
 
 export default function PaymentsPage() {
   const [schoolId, setSchoolId] = useState<string | null>(null)
 
-  // Table data
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [filteredPayments, setFilteredPayments] = useState<Payment[]>([])
-  const [stats, setStats] = useState<Stats>({ totalCollected: 0, totalPending: 0, thisMonth: 0, todayCount: 0 })
+  const [payments, setPayments] = useState<PaymentRow[]>([])
+  const [stats, setStats] = useState<Stats>({
+    totalCollected: 0,
+    totalPending: 0,
+    thisMonth: 0,
+    todayCount: 0
+  })
   const [loadingTable, setLoadingTable] = useState(true)
 
-  // Search / filter
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [monthFilter, setMonthFilter] = useState("")
 
-  // Modal
   const [modalOpen, setModalOpen] = useState(false)
-  const [students, setStudents] = useState<Student[]>([])
-  const [fees, setFees] = useState<Fee[]>([])
+  const [students, setStudents] = useState<StudentOption[]>([])
+  const [fees, setFees] = useState<FeeOption[]>([])
 
-  // Form fields
   const [mStudentId, setMStudentId] = useState("")
   const [mFeeId, setMFeeId] = useState("")
   const [mAmount, setMAmount] = useState("")
@@ -146,180 +462,173 @@ export default function PaymentsPage() {
   const [mLoading, setMLoading] = useState(false)
   const [isManualDate, setIsManualDate] = useState(false)
 
-  // ── Init ──────────────────────────────────────────────────────────────────
-
   useEffect(() => {
-    getSchoolId().then((id) => setSchoolId(id))
+    void getSchoolId().then(setSchoolId)
   }, [])
 
-  // ── Load payments + stats ─────────────────────────────────────────────────
+  const loadPayments = async () => {
+    if (!schoolId) return
+
+    setLoadingTable(true)
+
+    try {
+      const rows = await fetchPaymentsForSchool(schoolId)
+      setPayments(rows)
+      setStats(await computeStatsForSchool(schoolId, rows))
+    } catch (error) {
+      console.error("Failed to load payments:", error)
+      setPayments([])
+      setStats({
+        totalCollected: 0,
+        totalPending: 0,
+        thisMonth: 0,
+        todayCount: 0
+      })
+    } finally {
+      setLoadingTable(false)
+    }
+  }
 
   useEffect(() => {
     if (!schoolId) return
-    loadPayments()
-    loadStudents()
+
+    let cancelled = false
+
+    const load = async () => {
+      try {
+        const [paymentRows, studentRows] = await Promise.all([
+          fetchPaymentsForSchool(schoolId),
+          fetchStudentOptions(schoolId)
+        ])
+
+        if (cancelled) return
+
+        setPayments(paymentRows)
+        setStudents(studentRows)
+
+        try {
+          setStats(await computeStatsForSchool(schoolId, paymentRows))
+        } catch (error) {
+          console.error("Failed to compute stats:", error)
+          if (!cancelled) {
+            setStats({
+              totalCollected: 0,
+              totalPending: 0,
+              thisMonth: 0,
+              todayCount: 0
+            })
+          }
+        }
+      } catch (error) {
+        console.error("Failed to initialize payments page:", error)
+
+        if (cancelled) return
+
+        setPayments([])
+        setStudents([])
+        setStats({
+          totalCollected: 0,
+          totalPending: 0,
+          thisMonth: 0,
+          todayCount: 0
+        })
+      } finally {
+        if (!cancelled) {
+          setLoadingTable(false)
+        }
+      }
+    }
+
+    setLoadingTable(true)
+    void load()
+
+    return () => {
+      cancelled = true
+    }
   }, [schoolId])
 
-  const loadPayments = async () => {
-    setLoadingTable(true)
-    const { data, error } = await supabase
-      .from("payments")
-      .select(`
-        id,
-        amount,
-        receipt_number,
-        payment_date,
-        is_manual,
-        payment_mode,
-        students ( name ),
-        fees ( label, total_amount, paid_amount, status, fee_type )
-      `)
-      .eq("school_id", schoolId)
-      .order("payment_date", { ascending: false })
-      .limit(100)
+  const filteredPayments = payments.filter((payment) => {
+    const query = search.trim().toLowerCase()
 
-    if (error) {
-      console.error(error)
-      setLoadingTable(false)
-      return
+    if (
+      query &&
+      !payment.studentName.toLowerCase().includes(query) &&
+      !payment.receiptNumber.toLowerCase().includes(query) &&
+      !payment.feeLabel.toLowerCase().includes(query)
+    ) {
+      return false
     }
 
-    const rows: Payment[] = (data || []).map((p: any) => ({
-      id: p.id,
-      student_name: p.students?.name || "—",
-      receipt_number: p.receipt_number,
-      fee_label: p.fees?.label || p.fees?.fee_type || "—",
-      amount: p.amount,
-      total_amount: p.fees?.total_amount || 0,
-      payment_date: p.payment_date,
-      status: p.fees?.status || "due",
-      is_manual: p.is_manual,
-      payment_mode: p.payment_mode || "cash",
-    }))
-
-    setPayments(rows)
-    computeStats(rows)
-    setLoadingTable(false)
-  }
-
-  const computeStats = (rows: Payment[]) => {
-    const now = new Date()
-    const thisMonth = now.getMonth()
-    const thisYear = now.getFullYear()
-    const todayStr = todayISO()
-
-    const totalCollected = rows.reduce((s, r) => s + r.amount, 0)
-
-    const todayCount = rows.filter((r) => r.payment_date?.startsWith(todayStr)).length
-    const monthlyTotal = rows
-      .filter((r) => {
-        const d = new Date(r.payment_date)
-        return d.getMonth() === thisMonth && d.getFullYear() === thisYear
-      })
-      .reduce((s, r) => s + r.amount, 0)
-
-    setStats({
-      totalCollected,
-      totalPending: 0, // filled below
-      thisMonth: monthlyTotal,
-      todayCount,
-    })
-
-    // separately fetch pending dues
-    supabase
-      .from("fees")
-      .select("total_amount, paid_amount")
-      .eq("school_id", schoolId)
-      .neq("status", "paid")
-      .then(({ data }) => {
-        const pending = (data || []).reduce((s: number, f: any) => s + (f.total_amount - f.paid_amount), 0)
-        setStats((prev) => ({ ...prev, totalPending: pending }))
-      })
-  }
-
-  // ── Filter ─────────────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    let result = payments
-    if (search) {
-      const q = search.toLowerCase()
-      result = result.filter(
-        (p) =>
-          p.student_name.toLowerCase().includes(q) ||
-          p.receipt_number.toLowerCase().includes(q) ||
-          p.fee_label.toLowerCase().includes(q)
-      )
+    if (statusFilter && payment.status !== statusFilter) {
+      return false
     }
-    if (statusFilter) result = result.filter((p) => p.status === statusFilter)
+
     if (monthFilter) {
-      result = result.filter((p) => {
-        const d = new Date(p.payment_date)
-        return d.toLocaleString("en-IN", { month: "long" }) === monthFilter
-      })
-    }
-    setFilteredPayments(result)
-  }, [search, statusFilter, monthFilter, payments])
-
-  // ─── Students (FIXED – direct query, no enrollments) ──────────────────────
-  const loadStudents = async () => {
-    if (!schoolId) return
-
-    console.log("🔍 Loading students for school:", schoolId)
-
-    const { data, error } = await supabase
-      .from("students")
-      .select("id, name, class")
-      .eq("school_id", schoolId)
-      .order("name")
-
-    if (error) {
-      console.error("❌ Failed to load students:", error)
-      setStudents([])
-      return
+      const date = new Date(payment.paymentDate)
+      if (date.toLocaleString("en-IN", { month: "long" }) !== monthFilter) {
+        return false
+      }
     }
 
-    console.log("✅ Students loaded:", data)
-    setStudents(data || [])
-  }
-
-  // ── Fees for selected student ──────────────────────────────────────────────
+    return true
+  })
 
   const loadFees = async (studentId: string) => {
     setMFeeId("")
     setMAmount("")
     setFees([])
-    if (!studentId) return
-    const { data } = await supabase
-      .from("fees")
-      .select("id, label, fee_type, total_amount, paid_amount, status")
-      .eq("student_id", studentId)
-      .eq("school_id", schoolId)
-      .neq("status", "paid")
-    setFees(data || [])
+
+    if (!studentId || !schoolId) return
+
+    try {
+      const rows = await fetchFeesForStudent(schoolId, studentId)
+      setFees(rows)
+    } catch (error) {
+      console.error("Failed to load fees:", error)
+      setFees([])
+    }
   }
 
   const handleFeeChange = (feeId: string) => {
     setMFeeId(feeId)
-    const fee = fees.find((f) => f.id === feeId)
-    if (fee) setMAmount(String(fee.total_amount - fee.paid_amount))
+
+    const fee = fees.find((item) => item.id === feeId)
+    if (fee) {
+      setMAmount(String(fee.totalAmount - fee.paidAmount))
+    }
   }
 
-  const handleDateChange = (val: string) => {
-    setMDate(val)
+  const handleDateChange = (value: string) => {
+    setMDate(value)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    setIsManualDate(new Date(val) < today)
+    setIsManualDate(new Date(value) < today)
   }
 
-  // ── Save payment ───────────────────────────────────────────────────────────
+  const resetModal = () => {
+    setMStudentId("")
+    setMFeeId("")
+    setMAmount("")
+    setMDate(todayISO())
+    setMMode("cash")
+    setMRemarks("")
+    setIsManualDate(false)
+    setFees([])
+  }
 
   const save = async () => {
+    if (!schoolId) {
+      alert("School not loaded.")
+      return
+    }
+
     if (!mStudentId || !mFeeId || !mAmount) {
       alert("Please fill in all required fields.")
       return
     }
+
     const payAmount = Number(mAmount)
-    if (payAmount <= 0) {
+    if (!Number.isFinite(payAmount) || payAmount <= 0) {
       alert("Enter a valid amount.")
       return
     }
@@ -336,123 +645,183 @@ export default function PaymentsPage() {
     setMLoading(true)
 
     try {
-      const fee = fees.find((f) => f.id === mFeeId)
-      if (!fee) { alert("Fee not found."); setMLoading(false); return }
+      const fee = fees.find((item) => item.id === mFeeId)
 
-      const newPaid = (fee.paid_amount || 0) + payAmount
+      if (!fee) {
+        alert("Fee not found.")
+        return
+      }
+
+      const remaining = fee.totalAmount - fee.paidAmount
+      if (payAmount > remaining) {
+        alert(`Amount cannot exceed due amount (${formatINR(remaining)}).`)
+        return
+      }
+
+      const receiptNumber = receiptNumberFromNow()
       const paymentId = crypto.randomUUID()
+      const paymentDateIso = selectedDate.toISOString()
+      const insertedAtIso = new Date().toISOString()
+      const newPaid = fee.paidAmount + payAmount
 
-      const { error: payErr } = await supabase.from("payments").insert({
+      const { error: paymentError } = await supabase.from("payments").insert({
         id: paymentId,
         student_id: mStudentId,
         fee_id: mFeeId,
         amount: payAmount,
         school_id: schoolId,
-        receipt_number: "RCPT-" + Date.now(),
-        date: new Date().toISOString(),
-        payment_date: selectedDate.toISOString(),
+        receipt_number: receiptNumber,
+        date: insertedAtIso,
+        payment_date: paymentDateIso,
         is_manual: isManualDate,
         payment_mode: mMode,
-        remarks: mRemarks || null,
+        remarks: mRemarks.trim() || null
       })
 
-      if (payErr) { alert(payErr.message); setMLoading(false); return }
+      if (paymentError) {
+        throw paymentError
+      }
 
-      const { error: feeErr } = await supabase
+      const { error: feeError } = await supabase
         .from("fees")
         .update({
           paid_amount: newPaid,
-          status: newPaid >= fee.total_amount ? "paid" : "partial",
+          status: newPaid >= fee.totalAmount ? "paid" : "partial"
         })
         .eq("id", mFeeId)
         .eq("school_id", schoolId)
 
-      if (feeErr) { alert(feeErr.message); setMLoading(false); return }
+      if (feeError) {
+        throw feeError
+      }
 
-      // Notify
       try {
         await fetch("/api/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "payment", refId: paymentId }),
+          body: JSON.stringify({ type: "payment", refId: paymentId })
         })
-      } catch (_) {}
+      } catch (error) {
+        console.error("Notify failed:", error)
+      }
 
-      // Reset + reload
       resetModal()
       setModalOpen(false)
       await loadPayments()
-      alert(`Payment recorded successfully!\n\nReceipt: RCPT-${Date.now()}\nAmount: ${formatINR(payAmount)}${isManualDate ? "\n\n⚠️ Saved as manual back-dated entry." : ""}`)
-    } catch (err) {
-      console.error(err)
+
+      alert(
+        `Payment recorded successfully!\n\nReceipt: ${receiptNumber}\nAmount: ${formatINR(payAmount)}${
+          isManualDate ? "\n\nSaved as manual back-dated entry." : ""
+        }`
+      )
+    } catch (error) {
+      console.error(error)
       alert("Something went wrong. Please try again.")
+    } finally {
+      setMLoading(false)
     }
-
-    setMLoading(false)
   }
-
-  const resetModal = () => {
-    setMStudentId("")
-    setMFeeId("")
-    setMAmount("")
-    setMDate(todayISO())
-    setMMode("cash")
-    setMRemarks("")
-    setIsManualDate(false)
-    setFees([])
-  }
-
-  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <>
       <style>{css}</style>
 
       <div className="pay-page">
-
-        {/* Header */}
         <div className="pay-top">
           <div>
-            <h1 className="pay-title">Fee payments</h1>
+            <h1 className="pay-title">Fee Payments</h1>
             <p className="pay-sub">Manage and record student fee payments</p>
           </div>
+
           <button className="btn-primary" onClick={() => setModalOpen(true)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Record payment
+            Record Payment
           </button>
         </div>
 
-        {/* Stats */}
         <div className="stats-grid">
-          <StatCard label="Total collected" value={formatINR(stats.totalCollected)} sub="This academic year" color="#185FA5" />
-          <StatCard label="Pending dues" value={formatINR(stats.totalPending)} sub="Outstanding fees" color="#A32D2D" />
-          <StatCard label="This month" value={formatINR(stats.thisMonth)} sub={new Date().toLocaleString("en-IN", { month: "long", year: "numeric" })} color="#3B6D11" />
-          <StatCard label="Payments today" value={String(stats.todayCount)} sub="Recorded entries" />
+          <StatCard
+            label="Total collected"
+            value={formatINR(stats.totalCollected)}
+            sub="Recent recorded payments"
+            color="#185FA5"
+          />
+          <StatCard
+            label="Pending dues"
+            value={formatINR(stats.totalPending)}
+            sub="Outstanding fees"
+            color="#A32D2D"
+          />
+          <StatCard
+            label="This month"
+            value={formatINR(stats.thisMonth)}
+            sub={new Date().toLocaleString("en-IN", {
+              month: "long",
+              year: "numeric"
+            })}
+            color="#3B6D11"
+          />
+          <StatCard
+            label="Payments today"
+            value={String(stats.todayCount)}
+            sub="Recorded entries"
+          />
         </div>
 
-        {/* Table card */}
         <div className="pay-card">
           <div className="card-header">
             <div className="card-title">Payment records</div>
+
             <div className="filter-row">
               <input
                 className="search-input"
                 placeholder="Search student or receipt..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(event) => setSearch(event.target.value)}
               />
-              <select className="filter-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+
+              <select
+                className="filter-select"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+              >
                 <option value="">All status</option>
                 <option value="paid">Paid</option>
                 <option value="partial">Partial</option>
-                <option value="due">Due</option>
+                <option value="pending">Pending</option>
               </select>
-              <select className="filter-select" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
+
+              <select
+                className="filter-select"
+                value={monthFilter}
+                onChange={(event) => setMonthFilter(event.target.value)}
+              >
                 <option value="">All months</option>
-                {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m) => (
-                  <option key={m}>{m}</option>
+                {[
+                  "January",
+                  "February",
+                  "March",
+                  "April",
+                  "May",
+                  "June",
+                  "July",
+                  "August",
+                  "September",
+                  "October",
+                  "November",
+                  "December"
+                ].map((month) => (
+                  <option key={month}>{month}</option>
                 ))}
               </select>
             </div>
@@ -468,7 +837,7 @@ export default function PaymentsPage() {
                 <thead>
                   <tr>
                     <th>Student</th>
-                    <th>Receipt no.</th>
+                    <th>Receipt No.</th>
                     <th>Fee</th>
                     <th>Paid</th>
                     <th>Total</th>
@@ -478,28 +847,47 @@ export default function PaymentsPage() {
                     <th>Status</th>
                   </tr>
                 </thead>
+
                 <tbody>
-                  {filteredPayments.map((p) => (
-                    <tr key={p.id}>
+                  {filteredPayments.map((payment) => (
+                    <tr key={payment.id}>
                       <td>
                         <div className="student-cell">
-                          <div className="avatar">{initials(p.student_name)}</div>
-                          <span className="student-name">{p.student_name}</span>
+                          <div className="avatar">{initials(payment.studentName)}</div>
+                          <div>
+                            <span className="student-name">{payment.studentName}</span>
+                            {payment.studentClass && (
+                              <div className="student-sub">{payment.studentClass}</div>
+                            )}
+                          </div>
                         </div>
                       </td>
+
                       <td>
-                        <span className="receipt">{p.receipt_number}</span>
-                        {p.is_manual && <span className="badge badge-manual" style={{ marginLeft: 6 }}>Manual</span>}
+                        <span className="receipt">{payment.receiptNumber}</span>
+                        {payment.isManual && (
+                          <span className="badge badge-manual" style={{ marginLeft: 6 }}>
+                            Manual
+                          </span>
+                        )}
                       </td>
-                      <td className="muted">{p.fee_label}</td>
-                      <td className="bold">{formatINR(p.amount)}</td>
-                      <td className="muted">{formatINR(p.total_amount)}</td>
+
+                      <td className="muted">{payment.feeLabel}</td>
+                      <td className="bold">{formatINR(payment.amount)}</td>
+                      <td className="muted">{formatINR(payment.totalAmount)}</td>
+
                       <td style={{ minWidth: 100 }}>
-                        <ProgressBar paid={p.amount} total={p.total_amount} />
+                        <ProgressBar
+                          paid={payment.progressPaid}
+                          total={payment.totalAmount}
+                        />
                       </td>
-                      <td className="muted nowrap">{formatDate(p.payment_date)}</td>
-                      <td className="muted capitalize">{p.payment_mode}</td>
-                      <td><StatusBadge status={p.status} /></td>
+
+                      <td className="muted nowrap">{formatDate(payment.paymentDate)}</td>
+                      <td className="muted capitalize">{payment.paymentMode}</td>
+                      <td>
+                        <StatusBadge status={payment.status} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -509,18 +897,42 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {/* Modal */}
       {modalOpen && (
-        <div className="overlay" onClick={() => { setModalOpen(false); resetModal() }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="overlay"
+          onClick={() => {
+            setModalOpen(false)
+            resetModal()
+          }}
+        >
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">Record payment</span>
-              <button className="close-btn" onClick={() => { setModalOpen(false); resetModal() }}>&#x2715;</button>
+              <span className="modal-title">Record Payment</span>
+              <button
+                className="close-btn"
+                onClick={() => {
+                  setModalOpen(false)
+                  resetModal()
+                }}
+              >
+                &#x2715;
+              </button>
             </div>
 
             {isManualDate && (
               <div className="notice notice-manual">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
                 This will be saved as a manual back-dated entry.
               </div>
             )}
@@ -530,27 +942,34 @@ export default function PaymentsPage() {
               <select
                 className="form-control"
                 value={mStudentId}
-                onChange={(e) => { setMStudentId(e.target.value); loadFees(e.target.value) }}
+                onChange={(event) => {
+                  setMStudentId(event.target.value)
+                  void loadFees(event.target.value)
+                }}
               >
                 <option value="">Select student</option>
-                {students.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}{s.class ? ` — ${s.class}` : ""}</option>
+                {students.map((student) => (
+                  <option key={student.id} value={student.id}>
+                    {student.name}
+                    {student.className ? ` - ${student.className}` : ""}
+                    {student.rollNumber ? ` (Roll ${student.rollNumber})` : ""}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div className="form-row">
-              <label>Fee type</label>
+              <label>Fee Type</label>
               <select
                 className="form-control"
                 value={mFeeId}
-                onChange={(e) => handleFeeChange(e.target.value)}
+                onChange={(event) => handleFeeChange(event.target.value)}
                 disabled={!mStudentId}
               >
                 <option value="">Select fee</option>
-                {fees.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.label || f.fee_type} — {formatINR(f.total_amount - f.paid_amount)} due
+                {fees.map((fee) => (
+                  <option key={fee.id} value={fee.id}>
+                    {fee.label} - {formatINR(fee.totalAmount - fee.paidAmount)} due
                   </option>
                 ))}
               </select>
@@ -558,34 +977,39 @@ export default function PaymentsPage() {
 
             <div className="form-grid">
               <div className="form-row">
-                <label>Amount (₹)</label>
+                <label>Amount (Rs.)</label>
                 <input
                   type="number"
                   className="form-control"
                   value={mAmount}
-                  onChange={(e) => setMAmount(e.target.value)}
+                  onChange={(event) => setMAmount(event.target.value)}
                   placeholder="0"
                   min="1"
                 />
               </div>
+
               <div className="form-row">
-                <label>Payment date</label>
+                <label>Payment Date</label>
                 <input
                   type="date"
                   className="form-control"
                   value={mDate}
                   max={todayISO()}
-                  onChange={(e) => handleDateChange(e.target.value)}
+                  onChange={(event) => handleDateChange(event.target.value)}
                 />
               </div>
             </div>
 
             <div className="form-row">
-              <label>Payment mode</label>
-              <select className="form-control" value={mMode} onChange={(e) => setMMode(e.target.value)}>
+              <label>Payment Mode</label>
+              <select
+                className="form-control"
+                value={mMode}
+                onChange={(event) => setMMode(event.target.value)}
+              >
                 <option value="cash">Cash</option>
                 <option value="upi">UPI</option>
-                <option value="bank">Bank transfer</option>
+                <option value="bank">Bank Transfer</option>
                 <option value="cheque">Cheque</option>
                 <option value="card">Card</option>
               </select>
@@ -597,18 +1021,38 @@ export default function PaymentsPage() {
                 type="text"
                 className="form-control"
                 value={mRemarks}
-                onChange={(e) => setMRemarks(e.target.value)}
+                onChange={(event) => setMRemarks(event.target.value)}
                 placeholder="e.g. Paid by parent at front desk"
               />
             </div>
 
             <div className="modal-actions">
-              <button className="btn-secondary" onClick={() => { setModalOpen(false); resetModal() }}>Cancel</button>
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setModalOpen(false)
+                  resetModal()
+                }}
+              >
+                Cancel
+              </button>
+
               <button className="btn-primary" onClick={save} disabled={mLoading}>
-                {mLoading ? "Processing..." : (
+                {mLoading ? (
+                  "Processing..."
+                ) : (
                   <>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    Confirm payment
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Confirm Payment
                   </>
                 )}
               </button>
@@ -619,8 +1063,6 @@ export default function PaymentsPage() {
     </>
   )
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const css = `
 .pay-page { padding: 24px; max-width: 1200px; margin: 0 auto; color: #f1f5f9; }
@@ -666,6 +1108,7 @@ tbody tr:hover { background: #0f172a; }
 .student-cell { display: flex; align-items: center; gap: 10px; }
 .avatar { width: 30px; height: 30px; border-radius: 50%; background: #2e1065; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #a78bfa; flex-shrink: 0; }
 .student-name { font-weight: 500; color: #f1f5f9; white-space: nowrap; }
+.student-sub { font-size: 11px; color: #64748b; }
 .receipt { color: #38bdf8; font-size: 12px; }
 
 .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; white-space: nowrap; }
