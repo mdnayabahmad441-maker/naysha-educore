@@ -1,117 +1,209 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import FeeReceipt from "@/components/fees/FeeReceipt"
 import { getSchoolId } from "@/lib/school"
+import { supabase } from "@/lib/supabase"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
-import { createRoot } from "react-dom/client"
-import FeeReceipt from "@/components/fees/FeeReceipt"
 import { useRouter } from "next/navigation"
+import { createRoot } from "react-dom/client"
 
-export default function FeesPage(){
+type SchoolClass = {
+  id: string
+  name: string
+}
 
+type Student = {
+  id: string
+  name: string
+  roll_number: string | null
+  class_id: string | null
+}
+
+type FeeRecord = {
+  id: string
+  student_id: string
+  class_id: string | null
+  month: string
+  total_amount: number | null
+  paid_amount: number | null
+  status: string
+  created_at?: string | null
+  tuition_fee?: number | null
+  transport_fee?: number | null
+  hostel_fee?: number | null
+}
+
+type FeeWithStudent = FeeRecord & {
+  student: Student
+}
+
+type ClassFeeSetting = {
+  tuition_fee: number | null
+  transport_fee: number | null
+  hostel_fee: number | null
+}
+
+const UNKNOWN_STUDENT: Student = {
+  id: "",
+  name: "Unknown",
+  roll_number: "-",
+  class_id: null
+}
+
+async function fetchFees(
+  schoolId: string,
+  selectedClass: string,
+  selectedMonth: string
+): Promise<FeeWithStudent[]> {
+  let query = supabase
+    .from("fees")
+    .select(
+      "id,student_id,class_id,month,total_amount,paid_amount,status,created_at,tuition_fee,transport_fee,hostel_fee"
+    )
+    .eq("school_id", schoolId)
+
+  if (selectedClass) {
+    query = query.eq("class_id", selectedClass)
+  }
+
+  if (selectedMonth) {
+    query = query.eq("month", selectedMonth)
+  }
+
+  const { data: feeData, error: feeError } = await query
+
+  if (feeError) {
+    throw feeError
+  }
+
+  const fees = (feeData as FeeRecord[] | null) ?? []
+
+  if (fees.length === 0) {
+    return []
+  }
+
+  const studentIds = [...new Set(fees.map((fee) => fee.student_id))]
+
+  const { data: students, error: studentsError } = await supabase
+    .from("students")
+    .select("id,name,roll_number,class_id")
+    .in("id", studentIds)
+    .eq("school_id", schoolId)
+
+  if (studentsError) {
+    throw studentsError
+  }
+
+  const studentMap = new Map<string, Student>()
+  ;((students as Student[] | null) ?? []).forEach((student) => {
+    studentMap.set(student.id, student)
+  })
+
+  return fees.map((fee) => ({
+    ...fee,
+    student: studentMap.get(fee.student_id) ?? UNKNOWN_STUDENT
+  }))
+}
+
+export default function FeesPage() {
   const router = useRouter()
 
-  const [schoolId,setSchoolId] = useState<string | null>(null)
+  const [schoolId, setSchoolId] = useState<string | null>(null)
+  const [classes, setClasses] = useState<SchoolClass[]>([])
+  const [fees, setFees] = useState<FeeWithStudent[]>([])
 
-  const [classes,setClasses] = useState<any[]>([])
-  const [fees,setFees] = useState<any[]>([])
+  const [selectedClass, setSelectedClass] = useState("")
+  const [selectedMonth, setSelectedMonth] = useState("")
 
-  const [selectedClass,setSelectedClass] = useState("")
-  const [selectedMonth,setSelectedMonth] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
 
-  const [loading,setLoading] = useState(false)
-  const [generating,setGenerating] = useState(false)
+  useEffect(() => {
+    void getSchoolId().then(setSchoolId)
+  }, [])
 
-  // ================= INIT =================
-  useEffect(()=>{
-    getSchoolId().then(setSchoolId)
-  },[])
+  useEffect(() => {
+    if (!schoolId) return
 
-  // ================= LOAD CLASSES =================
-  useEffect(()=>{
-    if(!schoolId) return
+    void supabase
+      .from("classes")
+      .select("id,name")
+      .eq("school_id", schoolId)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Failed to load classes:", error)
+          setClasses([])
+          return
+        }
 
-    supabase.from("classes")
-      .select("*")
-      .eq("school_id",schoolId)
-      .then(({data})=>setClasses(data || []))
+        setClasses((data as SchoolClass[] | null) ?? [])
+      })
+  }, [schoolId])
 
-  },[schoolId])
+  useEffect(() => {
+    if (!schoolId) return
 
-  // ================= LOAD FEES =================
-  const loadFees = async ()=>{
-    if(!schoolId) return
+    let cancelled = false
+
+    void fetchFees(schoolId, selectedClass, selectedMonth)
+      .then((result) => {
+        if (cancelled) return
+        setFees(result)
+      })
+      .catch((error) => {
+        console.error("Failed to load fees:", error)
+        if (cancelled) return
+        setFees([])
+      })
+      .finally(() => {
+        if (cancelled) return
+        setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [schoolId, selectedClass, selectedMonth])
+
+  const refreshFees = async () => {
+    if (!schoolId) return
 
     setLoading(true)
 
-    let query = supabase
-      .from("fees")
-      .select("*")
-      .eq("school_id",schoolId)
-
-    if(selectedClass) query = query.eq("class_id",selectedClass)
-    if(selectedMonth) query = query.eq("month",selectedMonth)
-
-    const { data: feeData } = await query
-
-    if(!feeData || feeData.length === 0){
+    try {
+      const result = await fetchFees(schoolId, selectedClass, selectedMonth)
+      setFees(result)
+    } catch (error) {
+      console.error("Failed to refresh fees:", error)
       setFees([])
+    } finally {
       setLoading(false)
-      return
     }
-
-    // ✅ STUDENTS
-    const studentIds = feeData.map(f => f.student_id)
-
-    const { data: students } = await supabase
-      .from("students")
-      .select("id,name,roll_number,class_id")
-      .in("id", studentIds)
-      .eq("school_id", schoolId)
-
-    const studentMap:any = {}
-    students?.forEach(s => {
-      studentMap[s.id] = s
-    })
-
-    const finalFees = feeData.map(f => ({
-      ...f,
-      students: studentMap[f.student_id] || {
-        name: "Unknown",
-        roll_number: "-"
-      }
-    }))
-
-    setFees(finalFees)
-    setLoading(false)
   }
 
-  useEffect(()=>{
-    loadFees()
-  },[schoolId,selectedClass,selectedMonth])
+  const generateReceipt = async (fee: FeeWithStudent) => {
+    let container: HTMLDivElement | null = null
+    let root: ReturnType<typeof createRoot> | null = null
 
-  // ================= RECEIPT =================
-  const generateReceipt = async (f:any)=>{
-
-    try{
-      const container = document.createElement("div")
+    try {
+      container = document.createElement("div")
       container.style.position = "fixed"
       container.style.top = "-9999px"
       container.style.width = "800px"
       document.body.appendChild(container)
 
-      const root = createRoot(container)
+      root = createRoot(container)
 
       root.render(
         <FeeReceipt
-          student={f.students}
-          fee={f}
+          student={fee.student}
+          fee={fee}
           payment={{
-            amount: f.paid_amount,
+            amount: fee.paid_amount ?? 0,
             date: new Date().toISOString(),
-            id: f.id
+            id: fee.id
           }}
         />
       )
@@ -119,135 +211,172 @@ export default function FeesPage(){
       await new Promise(requestAnimationFrame)
       await new Promise(requestAnimationFrame)
 
-      container.querySelectorAll("*").forEach((el:any)=>{
-        el.style.color = "#000"
-        el.style.background = "#fff"
-        el.style.borderColor = "#000"
-        el.style.boxShadow = "none"
+      container.querySelectorAll<HTMLElement>("*").forEach((element) => {
+        element.style.color = "#000"
+        element.style.background = "#fff"
+        element.style.borderColor = "#000"
+        element.style.boxShadow = "none"
       })
 
-      const canvas = await html2canvas(container,{
-        scale:2,
-        useCORS:true
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true
       })
 
       const img = canvas.toDataURL("image/png")
-
-      const pdf = new jsPDF("p","mm","a4")
+      const pdf = new jsPDF("p", "mm", "a4")
 
       const width = 210
       const height = (canvas.height * width) / canvas.width
 
-      pdf.addImage(img,"PNG",0,0,width,height)
-      pdf.save(`receipt-${f.id}.pdf`)
+      pdf.addImage(img, "PNG", 0, 0, width, height)
+      pdf.save(`receipt-${fee.id}.pdf`)
+    } catch (error) {
+      console.error(error)
+      alert("Receipt generation failed")
+    } finally {
+      root?.unmount()
 
-      root.unmount()
-      document.body.removeChild(container)
-
-    }catch(e){
-      console.error(e)
-      alert("Receipt generation failed ❌")
+      if (container && container.parentNode) {
+        container.parentNode.removeChild(container)
+      }
     }
   }
 
-  // ================= GENERATE FEES =================
-  const generateFees = async ()=>{
+  const generateFees = async () => {
+    if (!schoolId) {
+      alert("School not loaded")
+      return
+    }
 
-    if(!selectedClass || !selectedMonth){
-      alert("Select class & month")
+    if (!selectedClass || !selectedMonth) {
+      alert("Select class and month")
       return
     }
 
     setGenerating(true)
 
-    const { data: classFee } = await supabase
-      .from("class_fee_settings")
-      .select("*")
-      .eq("class_id", selectedClass)
-      .eq("school_id", schoolId)
-      .maybeSingle()
-
-    if(!classFee){
-      alert("Set class fees first")
-      setGenerating(false)
-      return
-    }
-
-    const total =
-      Number(classFee.tuition_fee || 0) +
-      Number(classFee.transport_fee || 0) +
-      Number(classFee.hostel_fee || 0)
-
-    if(total === 0){
-      alert("Fee is 0. Configure first")
-      setGenerating(false)
-      return
-    }
-
-    // ✅ STUDENTS (NO SECTION)
-    const { data: students } = await supabase
-      .from("students")
-      .select("*")
-      .eq("school_id",schoolId)
-      .eq("class_id",selectedClass)
-
-    for(const s of students || []){
-
-      const { data: existing } = await supabase
-        .from("fees")
-        .select("id")
-        .eq("student_id",s.id)
-        .eq("month",selectedMonth)
-        .eq("school_id",schoolId)
+    try {
+      const { data: classFee, error: classFeeError } = await supabase
+        .from("class_fee_settings")
+        .select("tuition_fee,transport_fee,hostel_fee")
+        .eq("class_id", selectedClass)
+        .eq("school_id", schoolId)
         .maybeSingle()
 
-      if(existing) continue
+      if (classFeeError) {
+        throw classFeeError
+      }
 
-      await supabase.from("fees").insert({
-        student_id:s.id,
-        school_id:schoolId,
-        class_id:s.class_id,
-        month:selectedMonth,
-        total_amount: total,
-        paid_amount:0,
-        status:"pending"
-      })
+      if (!classFee) {
+        alert("Set class fees first")
+        return
+      }
+
+      const settings = classFee as ClassFeeSetting
+      const total =
+        Number(settings.tuition_fee ?? 0) +
+        Number(settings.transport_fee ?? 0) +
+        Number(settings.hostel_fee ?? 0)
+
+      if (total === 0) {
+        alert("Fee is 0. Configure first")
+        return
+      }
+
+      const { data: students, error: studentsError } = await supabase
+        .from("students")
+        .select("id,class_id")
+        .eq("school_id", schoolId)
+        .eq("class_id", selectedClass)
+
+      if (studentsError) {
+        throw studentsError
+      }
+
+      for (const student of
+        ((students as Pick<Student, "id" | "class_id">[] | null) ?? [])) {
+        const { data: existing, error: existingError } = await supabase
+          .from("fees")
+          .select("id")
+          .eq("student_id", student.id)
+          .eq("month", selectedMonth)
+          .eq("school_id", schoolId)
+          .maybeSingle()
+
+        if (existingError) {
+          throw existingError
+        }
+
+        if (existing) continue
+
+        const { error: insertError } = await supabase.from("fees").insert({
+          student_id: student.id,
+          school_id: schoolId,
+          class_id: student.class_id,
+          month: selectedMonth,
+          total_amount: total,
+          paid_amount: 0,
+          status: "pending"
+        })
+
+        if (insertError) {
+          throw insertError
+        }
+      }
+
+      alert("Fees generated")
+      await refreshFees()
+    } catch (error) {
+      console.error(error)
+      alert("Failed to generate fees")
+    } finally {
+      setGenerating(false)
     }
-
-    alert("Fees Generated ✅")
-    setGenerating(false)
-    loadFees()
   }
 
-  const statusColor = (status:string)=>{
-    if(status==="paid") return "bg-green-500/20 text-green-400"
-    if(status==="partial") return "bg-yellow-500/20 text-yellow-400"
+  const statusColor = (status: string) => {
+    if (status === "paid") return "bg-green-500/20 text-green-400"
+    if (status === "partial") return "bg-yellow-500/20 text-yellow-400"
     return "bg-red-500/20 text-red-400"
   }
 
-  return(
-    <div className="p-4 md:p-6 bg-[#020617] min-h-screen text-white">
-
-      <h1 className="text-2xl font-semibold mb-6">Fees</h1>
+  return (
+    <div className="min-h-screen bg-[#020617] p-4 text-white md:p-6">
+      <h1 className="mb-6 text-2xl font-semibold">Fees</h1>
 
       <button
-        onClick={()=>router.push("/admin/fees/receipts")}
-        className="mb-4 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700"
+        onClick={() => router.push("/admin/fees/receipts")}
+        className="mb-4 rounded-xl bg-purple-600 px-4 py-2 hover:bg-purple-700"
       >
         Receipt History
       </button>
 
-      {/* FILTERS */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
-
-        <select value={selectedClass} onChange={(e)=>setSelectedClass(e.target.value)} className="input">
+      <div className="mb-6 grid grid-cols-1 gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 md:grid-cols-4">
+        <select
+          value={selectedClass}
+          onChange={(event) => {
+            setLoading(true)
+            setSelectedClass(event.target.value)
+          }}
+          className="input"
+        >
           <option value="">Class</option>
-          {classes.map(c=>(
-            <option key={c.id} value={c.id}>{c.name}</option>
+          {classes.map((schoolClass) => (
+            <option key={schoolClass.id} value={schoolClass.id}>
+              {schoolClass.name}
+            </option>
           ))}
         </select>
 
-        <select value={selectedMonth} onChange={(e)=>setSelectedMonth(e.target.value)} className="input">
+        <select
+          value={selectedMonth}
+          onChange={(event) => {
+            setLoading(true)
+            setSelectedMonth(event.target.value)
+          }}
+          className="input"
+        >
           <option value="">Month</option>
           <option>January</option>
           <option>February</option>
@@ -258,16 +387,13 @@ export default function FeesPage(){
         <button onClick={generateFees} className="btn bg-blue-600">
           {generating ? "Generating..." : "Generate Fees"}
         </button>
-
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-
-        {loading ? "Loading..." : (
-
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+        {loading ? (
+          "Loading..."
+        ) : (
           <table className="w-full text-sm">
-
             <thead className="bg-white/5 text-gray-400">
               <tr>
                 <th className="p-3 text-left">Student</th>
@@ -280,54 +406,49 @@ export default function FeesPage(){
             </thead>
 
             <tbody>
-
-              {fees.map(f=>(
-                <tr key={f.id} className="border-t border-white/10">
-
-                  <td className="p-3">{f.students?.name}</td>
-                  <td>{f.month}</td>
-                  <td>₹{f.total_amount}</td>
-                  <td>₹{f.paid_amount}</td>
+              {fees.map((fee) => (
+                <tr key={fee.id} className="border-t border-white/10">
+                  <td className="p-3">{fee.student.name}</td>
+                  <td>{fee.month}</td>
+                  <td>Rs. {fee.total_amount ?? 0}</td>
+                  <td>Rs. {fee.paid_amount ?? 0}</td>
 
                   <td>
-                    <span className={`px-2 py-1 rounded text-xs ${statusColor(f.status)}`}>
-                      {f.status}
+                    <span
+                      className={`rounded px-2 py-1 text-xs ${statusColor(fee.status)}`}
+                    >
+                      {fee.status}
                     </span>
                   </td>
 
                   <td>
                     <button
-                      onClick={()=>generateReceipt(f)}
-                      className="px-3 py-1 bg-purple-600 rounded"
+                      onClick={() => generateReceipt(fee)}
+                      className="rounded bg-purple-600 px-3 py-1"
                     >
                       Receipt
                     </button>
                   </td>
-
                 </tr>
               ))}
-
             </tbody>
-
           </table>
-
         )}
-
       </div>
 
       <style jsx>{`
-        .input{
-          background:#0f172a;
-          padding:10px;
-          border-radius:10px;
-          width:100%;
+        .input {
+          background: #0f172a;
+          padding: 10px;
+          border-radius: 10px;
+          width: 100%;
         }
-        .btn{
-          padding:10px 16px;
-          border-radius:10px;
+
+        .btn {
+          padding: 10px 16px;
+          border-radius: 10px;
         }
       `}</style>
-
     </div>
   )
 }

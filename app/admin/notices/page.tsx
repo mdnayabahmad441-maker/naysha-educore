@@ -1,245 +1,316 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
-import { getSchoolId } from "@/lib/school"
 import { sendNotification } from "@/lib/notifications"
+import { getSchoolId } from "@/lib/school"
+import { supabase } from "@/lib/supabase"
 
-export default function NoticesPage(){
+type NoticeMode = "all" | "class" | "student"
 
-  const [schoolId,setSchoolId] = useState<string | null>(null)
+type SchoolClass = {
+  id: string
+  name: string
+}
 
-  const [title,setTitle] = useState("")
-  const [message,setMessage] = useState("")
+type Student = {
+  id: string
+  name: string
+}
 
-  const [mode,setMode] = useState("all")
-  const [selectedClass,setSelectedClass] = useState("")
-  const [selectedStudent,setSelectedStudent] = useState("")
+type Notice = {
+  id: string
+  title: string
+  message: string
+  class_id: string | null
+  created_at: string
+}
 
-  const [classes,setClasses] = useState<any[]>([])
-  const [students,setStudents] = useState<any[]>([])
-  const [notices,setNotices] = useState<any[]>([])
+type ParentContact = {
+  student_id: string
+  email: string | null
+  phone: string | null
+}
 
-  const [sending,setSending] = useState(false)
+async function fetchNotices(schoolId: string): Promise<Notice[]> {
+  const { data, error } = await supabase
+    .from("notices")
+    .select("id,title,message,class_id,created_at")
+    .eq("school_id", schoolId)
+    .order("created_at", { ascending: false })
 
-  // LOAD SCHOOL
-  useEffect(()=>{
-    getSchoolId().then(setSchoolId)
-  },[])
+  if (error) {
+    throw error
+  }
 
-  // LOAD CLASSES
-  useEffect(()=>{
-    if(!schoolId) return
+  return (data as Notice[] | null) ?? []
+}
 
-    supabase.from("classes")
-      .select("*")
+export default function NoticesPage() {
+  const [schoolId, setSchoolId] = useState<string | null>(null)
+
+  const [title, setTitle] = useState("")
+  const [message, setMessage] = useState("")
+
+  const [mode, setMode] = useState<NoticeMode>("all")
+  const [selectedClass, setSelectedClass] = useState("")
+  const [selectedStudent, setSelectedStudent] = useState("")
+
+  const [classes, setClasses] = useState<SchoolClass[]>([])
+  const [students, setStudents] = useState<Student[]>([])
+  const [notices, setNotices] = useState<Notice[]>([])
+
+  const [sending, setSending] = useState(false)
+
+  useEffect(() => {
+    void getSchoolId().then(setSchoolId)
+  }, [])
+
+  useEffect(() => {
+    if (!schoolId) return
+
+    void supabase
+      .from("classes")
+      .select("id,name")
       .eq("school_id", schoolId)
-      .then(({data})=>setClasses(data || []))
-  },[schoolId])
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Failed to load classes:", error)
+          setClasses([])
+          return
+        }
 
-  // LOAD STUDENTS
-  useEffect(()=>{
-    if(!schoolId) return
+        setClasses((data as SchoolClass[] | null) ?? [])
+      })
+  }, [schoolId])
+
+  useEffect(() => {
+    if (!schoolId) return
 
     let query = supabase
       .from("students")
       .select("id,name")
       .eq("school_id", schoolId)
 
-    if(mode === "class" && selectedClass){
+    if (mode === "class" && selectedClass) {
       query = query.eq("class_id", selectedClass)
     }
 
-    query.then(({data})=>setStudents(data || []))
+    void query.then(({ data, error }) => {
+      if (error) {
+        console.error("Failed to load students:", error)
+        setStudents([])
+        return
+      }
 
-  },[schoolId, selectedClass, mode])
+      setStudents((data as Student[] | null) ?? [])
+    })
+  }, [schoolId, selectedClass, mode])
 
-  // LOAD NOTICES
-  const loadNotices = async ()=>{
-    if(!schoolId) return
+  useEffect(() => {
+    if (mode !== "class") {
+      setSelectedClass("")
+    }
 
-    const { data } = await supabase
-      .from("notices")
-      .select("*")
-      .eq("school_id", schoolId)
-      .order("created_at",{ascending:false})
+    if (mode !== "student") {
+      setSelectedStudent("")
+    }
+  }, [mode])
 
-    setNotices(data || [])
-  }
+  useEffect(() => {
+    if (!schoolId) return
 
-  useEffect(()=>{
-    loadNotices()
-  },[schoolId])
+    void fetchNotices(schoolId)
+      .then(setNotices)
+      .catch((error) => {
+        console.error("Failed to load notices:", error)
+        setNotices([])
+      })
+  }, [schoolId])
 
-  // 🔥 SEND NOTICE
-  const sendNotice = async ()=>{
-
-    if(!title || !message){
+  const sendNotice = async () => {
+    if (!title.trim() || !message.trim()) {
       alert("Enter title and message")
       return
     }
 
-    if(!schoolId){
+    if (!schoolId) {
       alert("School not loaded")
+      return
+    }
+
+    if (mode === "class" && !selectedClass) {
+      alert("Select a class")
+      return
+    }
+
+    if (mode === "student" && !selectedStudent) {
+      alert("Select a student")
       return
     }
 
     setSending(true)
 
-    try{
+    try {
+      let targetStudents: Student[] = []
 
-      // ✅ SAVE NOTICE
-      await supabase.from("notices").insert({
-        id: crypto.randomUUID(),
-        school_id: schoolId,
-        title,
-        message,
-        class_id: mode === "class" ? selectedClass : null
-      })
-
-      // 🎯 TARGET STUDENTS
-      let targetStudents:any[] = []
-
-      if(mode === "all"){
-        const { data } = await supabase
+      if (mode === "all") {
+        const { data, error } = await supabase
           .from("students")
           .select("id,name")
           .eq("school_id", schoolId)
-        targetStudents = data || []
-      }
 
-      else if(mode === "class"){
-        const { data } = await supabase
+        if (error) {
+          throw error
+        }
+
+        targetStudents = (data as Student[] | null) ?? []
+      } else if (mode === "class") {
+        const { data, error } = await supabase
           .from("students")
           .select("id,name")
           .eq("class_id", selectedClass)
           .eq("school_id", schoolId)
-        targetStudents = data || []
+
+        if (error) {
+          throw error
+        }
+
+        targetStudents = (data as Student[] | null) ?? []
+      } else {
+        const student = students.find((item) => item.id === selectedStudent)
+        if (student) {
+          targetStudents = [student]
+        }
       }
 
-      else if(mode === "student"){
-        const student = students.find(s=>s.id === selectedStudent)
-        if(student) targetStudents = [student]
+      if (targetStudents.length === 0) {
+        alert("No students found for the selected target")
+        return
       }
 
-      // 👨‍👩‍👧 GET PARENTS
-      const { data: parents } = await supabase
+      const { error: insertError } = await supabase.from("notices").insert({
+        id: crypto.randomUUID(),
+        school_id: schoolId,
+        title: title.trim(),
+        message: message.trim(),
+        class_id: mode === "class" ? selectedClass : null
+      })
+
+      if (insertError) {
+        throw insertError
+      }
+
+      const { data: parents, error: parentsError } = await supabase
         .from("parents")
         .select("student_id,email,phone")
-        .in("student_id", targetStudents.map(s=>s.id))
+        .in(
+          "student_id",
+          targetStudents.map((student) => student.id)
+        )
 
-      const parentMap:any = {}
-      parents?.forEach((p:any)=>{
-        parentMap[p.student_id] = p
+      if (parentsError) {
+        throw parentsError
+      }
+
+      const parentMap: Record<string, ParentContact> = {}
+      ;(parents as ParentContact[] | null)?.forEach((parent) => {
+        parentMap[parent.student_id] = parent
       })
 
       let successCount = 0
 
-      // 🚀 SEND LOOP
-      for (const s of targetStudents){
+      for (const student of targetStudents) {
+        const parent = parentMap[student.id]
 
-        const parent = parentMap[s.id]
-
-        if(!parent){
-          console.log("No parent for student:", s.id)
+        if (!parent) {
+          console.log("No parent for student:", student.id)
           continue
         }
 
-        // DB log
         await sendNotification({
           school_id: schoolId,
-          student_id: s.id,
-          title,
-          message,
+          student_id: student.id,
+          title: title.trim(),
+          message: message.trim(),
           type: "notice"
         })
 
-        // 📧 EMAIL
-        if(parent.email){
-          try{
-            await fetch("/api/send-email",{
-              method:"POST",
-              headers:{ "Content-Type":"application/json" },
+        if (parent.email) {
+          try {
+            await fetch("/api/send-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 email: parent.email,
-                subject: title,
-                message
+                subject: title.trim(),
+                message: message.trim()
               })
             })
-          }catch(err){
+          } catch {
             console.log("Email failed:", parent.email)
           }
         }
 
-        // 📱 WHATSAPP (NEW SERVER)
-        if(parent.phone){
-          try{
-
+        if (parent.phone) {
+          try {
             console.log("Sending WhatsApp:", parent.phone)
 
-            await fetch("http://127.0.0.1:5000/send",{
-              method:"POST",
-              headers:{ "Content-Type":"application/json" },
+            await fetch("http://127.0.0.1:5000/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 phone: String(parent.phone).trim(),
-                message: `📢 ${title}\n\n${message}`
+                message: `Notice: ${title.trim()}\n\n${message.trim()}`
               })
             })
 
             successCount++
-
-          }catch(err){
+          } catch {
             console.log("WhatsApp failed:", parent.phone)
           }
         }
-
       }
 
-      alert(`Notice sent to ${successCount} parents 🚀`)
+      alert(`Notice sent to ${successCount} parents`)
 
-      // RESET
       setTitle("")
       setMessage("")
       setSelectedClass("")
       setSelectedStudent("")
       setMode("all")
 
-      loadNotices()
-
-    }catch(err){
-      console.error(err)
+      setNotices(await fetchNotices(schoolId))
+    } catch (error) {
+      console.error(error)
       alert("Error sending notice")
-    }finally{
+    } finally {
       setSending(false)
     }
   }
 
-  return(
-
-    <div className="p-6 md:p-10 text-white max-w-6xl mx-auto space-y-6">
-
+  return (
+    <div className="mx-auto max-w-6xl space-y-6 p-6 text-white md:p-10">
       <h1 className="text-2xl font-semibold">Notices</h1>
 
-      <div className="bg-white/10 p-6 rounded-xl space-y-4">
-
+      <div className="space-y-4 rounded-xl bg-white/10 p-6">
         <input
           placeholder="Notice Title"
           value={title}
-          onChange={(e)=>setTitle(e.target.value)}
-          className="w-full p-3 bg-[#0b1220] rounded-xl"
+          onChange={(event) => setTitle(event.target.value)}
+          className="w-full rounded-xl bg-[#0b1220] p-3"
         />
 
         <textarea
           placeholder="Notice Message"
           value={message}
-          onChange={(e)=>setMessage(e.target.value)}
-          className="w-full p-3 bg-[#0b1220] rounded-xl h-32"
+          onChange={(event) => setMessage(event.target.value)}
+          className="h-32 w-full rounded-xl bg-[#0b1220] p-3"
         />
 
         <select
           value={mode}
-          onChange={(e)=>setMode(e.target.value)}
-          className="w-full p-3 bg-[#0b1220] rounded-xl"
+          onChange={(event) => setMode(event.target.value as NoticeMode)}
+          className="w-full rounded-xl bg-[#0b1220] p-3"
         >
           <option value="all">All Students</option>
           <option value="class">Specific Class</option>
@@ -249,12 +320,14 @@ export default function NoticesPage(){
         {mode === "class" && (
           <select
             value={selectedClass}
-            onChange={(e)=>setSelectedClass(e.target.value)}
-            className="w-full p-3 bg-[#0b1220] rounded-xl"
+            onChange={(event) => setSelectedClass(event.target.value)}
+            className="w-full rounded-xl bg-[#0b1220] p-3"
           >
             <option value="">Select Class</option>
-            {classes.map(c=>(
-              <option key={c.id} value={c.id}>{c.name}</option>
+            {classes.map((schoolClass) => (
+              <option key={schoolClass.id} value={schoolClass.id}>
+                {schoolClass.name}
+              </option>
             ))}
           </select>
         )}
@@ -262,12 +335,14 @@ export default function NoticesPage(){
         {mode === "student" && (
           <select
             value={selectedStudent}
-            onChange={(e)=>setSelectedStudent(e.target.value)}
-            className="w-full p-3 bg-[#0b1220] rounded-xl"
+            onChange={(event) => setSelectedStudent(event.target.value)}
+            className="w-full rounded-xl bg-[#0b1220] p-3"
           >
             <option value="">Select Student</option>
-            {students.map(s=>(
-              <option key={s.id} value={s.id}>{s.name}</option>
+            {students.map((student) => (
+              <option key={student.id} value={student.id}>
+                {student.name}
+              </option>
             ))}
           </select>
         )}
@@ -275,35 +350,30 @@ export default function NoticesPage(){
         <button
           onClick={sendNotice}
           disabled={sending}
-          className="px-6 py-3 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20"
+          className="rounded-xl border border-white/10 bg-white/10 px-6 py-3 hover:bg-white/20"
         >
           {sending ? "Sending..." : "Send Notice"}
         </button>
-
       </div>
 
-      {/* LIST */}
-      <div className="bg-white/10 p-6 rounded-xl space-y-4">
-
+      <div className="space-y-4 rounded-xl bg-white/10 p-6">
         <h2 className="text-lg font-semibold">Recent Notices</h2>
 
-        {notices.map(n=>(
-          <div key={n.id} className="bg-white/5 p-4 rounded-xl">
-            <h3 className="font-semibold">{n.title}</h3>
-            <p className="text-sm text-gray-300 mt-1">{n.message}</p>
+        {notices.map((notice) => (
+          <div key={notice.id} className="rounded-xl bg-white/5 p-4">
+            <h3 className="font-semibold">{notice.title}</h3>
+            <p className="mt-1 text-sm text-gray-300">{notice.message}</p>
 
-            <p className="text-xs text-blue-400 mt-2">
-              {n.class_id ? "Class Notice" : "All Students"}
+            <p className="mt-2 text-xs text-blue-400">
+              {notice.class_id ? "Class Notice" : "All Students"}
             </p>
 
-            <p className="text-xs text-gray-500 mt-1">
-              {new Date(n.created_at).toLocaleString()}
+            <p className="mt-1 text-xs text-gray-500">
+              {new Date(notice.created_at).toLocaleString()}
             </p>
           </div>
         ))}
-
       </div>
-
     </div>
   )
 }
