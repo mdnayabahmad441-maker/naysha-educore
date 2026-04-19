@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import FeeReceipt from "@/components/fees/FeeReceipt"
 import { fetchReceiptByPaymentId } from "@/lib/payment-receipts"
 import { getSchoolId } from "@/lib/school"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
+import { createRoot } from "react-dom/client"
 
 type PaymentItem = {
   id: string
@@ -22,36 +24,55 @@ export default function ReceiptHistoryPage() {
   const [schoolId, setSchoolId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  // 🔹 Get school
   useEffect(() => {
-    getSchoolId().then(setSchoolId)
+    void getSchoolId().then(setSchoolId)
   }, [])
 
-  // 🔹 Load payments
   useEffect(() => {
     if (!schoolId) return
+
+    let cancelled = false
 
     const load = async () => {
       setLoading(true)
 
       try {
         const res = await fetch(`/api/payments-history?school_id=${schoolId}`)
-        const data = await res.json()
-        setPayments(data || [])
+
+        if (!res.ok) {
+          throw new Error("Failed to load receipt history")
+        }
+
+        const data = (await res.json()) as PaymentItem[]
+
+        if (!cancelled) {
+          setPayments(data || [])
+        }
       } catch (err) {
         console.error(err)
-        setPayments([])
+
+        if (!cancelled) {
+          setPayments([])
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
 
-    load()
+    void load()
+
+    return () => {
+      cancelled = true
+    }
   }, [schoolId])
 
-  // ✅ FIXED PDF GENERATION
   const generatePDF = async (paymentId: string) => {
     setBusyId(paymentId)
+
+    let container: HTMLDivElement | null = null
+    let root: ReturnType<typeof createRoot> | null = null
 
     try {
       const receiptData = await fetchReceiptByPaymentId(paymentId)
@@ -61,39 +82,39 @@ export default function ReceiptHistoryPage() {
         return
       }
 
-      const container = document.createElement("div")
+      container = document.createElement("div")
       container.style.position = "fixed"
       container.style.top = "-9999px"
       container.style.width = "800px"
       document.body.appendChild(container)
 
-      container.innerHTML = `
-        <div style="padding:20px;font-family:sans-serif">
-          <h2>${receiptData.school.name}</h2>
-          <p><b>Student:</b> ${receiptData.student.name}</p>
-          <p><b>Class:</b> ${receiptData.student.class_name}</p>
-          <p><b>Amount:</b> ₹${receiptData.payment.amount}</p>
-          <p><b>Receipt No:</b> ${receiptData.payment.id}</p>
-        </div>
-      `
+      root = createRoot(container)
+      root.render(
+        <FeeReceipt
+          student={receiptData.student}
+          fee={receiptData.fee}
+          payment={receiptData.payment}
+          school={receiptData.school}
+        />
+      )
 
-      const canvas = await html2canvas(container, { scale: 2 })
+      await new Promise(requestAnimationFrame)
+      await new Promise(requestAnimationFrame)
+
+      const canvas = await html2canvas(container, { scale: 2, useCORS: true })
       const img = canvas.toDataURL("image/png")
-
       const pdf = new jsPDF("p", "mm", "a4")
-
       const width = 190
       const height = (canvas.height * width) / canvas.width
 
       pdf.addImage(img, "PNG", 10, 10, width, height)
-      pdf.save(`receipt-${receiptData.payment.id}.pdf`)
-
-      container.remove()
-
+      pdf.save(`receipt-${receiptData.payment.receipt_number}.pdf`)
     } catch (err) {
       console.error(err)
       alert("Failed to generate receipt")
     } finally {
+      root?.unmount()
+      container?.remove()
       setBusyId(null)
     }
   }
@@ -104,35 +125,39 @@ export default function ReceiptHistoryPage() {
 
       {loading ? (
         <p>Loading...</p>
+      ) : payments.length === 0 ? (
+        <p className="text-gray-400">No receipts found</p>
       ) : (
         <div className="space-y-4">
-          {payments.map((p) => (
+          {payments.map((payment) => (
             <div
-              key={p.id}
+              key={payment.id}
               className="flex items-center justify-between rounded-xl border border-white/10 bg-[#0f172a] p-4"
             >
               <div>
-                <p className="text-lg font-semibold">{p.studentName}</p>
+                <p className="text-lg font-semibold">{payment.studentName}</p>
                 <p className="text-sm text-gray-400">
-                  {p.studentClass || "No class"}
+                  {payment.studentClass || "No class"}
                 </p>
-                <p className="text-green-400 font-medium">
-                  ₹{p.amount}
+                <p className="font-medium text-green-400">
+                  Rs. {payment.amount}
                 </p>
                 <p className="text-sm text-gray-400">
-                  {new Date(p.paymentDate).toLocaleString()}
+                  {payment.paymentDate
+                    ? new Date(payment.paymentDate).toLocaleString()
+                    : "No date"}
                 </p>
-                <p className="text-blue-400 text-sm">
-                  {p.receiptNumber} • {p.feeLabel}
+                <p className="text-sm text-blue-400">
+                  {payment.receiptNumber} - {payment.feeLabel}
                 </p>
               </div>
 
               <button
-                onClick={() => generatePDF(p.id)}
-                disabled={busyId === p.id}
-                className="bg-blue-600 px-3 py-1 rounded"
+                onClick={() => generatePDF(payment.id)}
+                disabled={busyId === payment.id}
+                className="rounded bg-blue-600 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {busyId === p.id ? "Generating..." : "Download"}
+                {busyId === payment.id ? "Generating..." : "Download"}
               </button>
             </div>
           ))}

@@ -2,81 +2,117 @@
 
 import { buildFeeBreakdown } from "@/lib/payment-receipts"
 
-export default function FeeReceipt({ student, fee, payment, school }: any) {
+type FeeReceiptProps = {
+  student?: {
+    name?: string | null
+    student_code?: string | null
+    class_name?: string | null
+    roll_number?: string | number | null
+    parent_name?: string | null
+    parent_phone?: string | null
+    parent_email?: string | null
+  } | null
+  fee?: {
+    total_amount?: number | string | null
+    tuition_fee?: number | string | null
+    transport_fee?: number | string | null
+    hostel_fee?: number | string | null
+  } | null
+  payment?: {
+    id?: string | null
+    receipt_number?: string | null
+    amount?: number | string | null
+    date?: string | null
+    payment_mode?: string | null
+  } | null
+  school?: {
+    name?: string | null
+    address?: string | null
+    phone?: string | null
+  } | null
+}
 
+export default function FeeReceipt({ student, fee, payment, school }: FeeReceiptProps) {
   const print = () => window.print()
-
   const breakdown = buildFeeBreakdown(fee)
-
-  const total = breakdown.reduce((sum: number, i: any) => sum + i.value, 0)
+  const total = breakdown.reduce((sum, item) => sum + item.value, 0)
+  const paidAmount = Number(payment?.amount ?? total)
+  const receiptNumber = payment?.receipt_number || payment?.id || "N/A"
 
   return (
-    <div className="bg-white text-black p-10 max-w-3xl mx-auto rounded-lg">
+    <div className="mx-auto max-w-3xl rounded-lg bg-white p-10 text-black">
+      <div className="mb-6 text-center">
+        <h1 className="text-2xl font-bold">{school?.name || "School"}</h1>
 
-      {/* HEADER */}
-      <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold">
-          {school?.name || "School"}
-        </h1>
-
-        {/* OPTIONAL ADDRESS */}
-        {school?.address && (
-          <p className="text-sm">{school.address}</p>
-        )}
-
-        {school?.phone && (
-          <p className="text-sm">{school.phone}</p>
-        )}
+        {school?.address && <p className="text-sm">{school.address}</p>}
+        {school?.phone && <p className="text-sm">{school.phone}</p>}
       </div>
 
-      {/* TOP INFO */}
-      <div className="flex justify-between text-sm mb-4">
+      <div className="mb-4 flex justify-between gap-6 text-sm">
         <div>
-          <p><b>Student Name:</b> {student?.name || "N/A"}</p>
-          <p><b>Class:</b> {student?.class_name || "N/A"}</p>
-          <p><b>Roll No:</b> {student?.roll_number || "N/A"}</p>
-          <p><b>Parent Name:</b> {student?.parent_name || "N/A"}</p>
+          <p>
+            <b>Student Name:</b> {student?.name || "N/A"}
+          </p>
+          <p>
+            <b>Student ID:</b> {student?.student_code || "N/A"}
+          </p>
+          <p>
+            <b>Class:</b> {student?.class_name || "N/A"}
+          </p>
+          <p>
+            <b>Roll No:</b> {student?.roll_number || "N/A"}
+          </p>
+          <p>
+            <b>Parent Name:</b> {student?.parent_name || "N/A"}
+          </p>
+          <p>
+            <b>Parent Phone:</b> {student?.parent_phone || "N/A"}
+          </p>
         </div>
 
         <div className="text-right">
           <p>
             <b>Date:</b>{" "}
-            {payment?.date
-              ? new Date(payment.date).toLocaleDateString()
-              : "N/A"}
+            {payment?.date ? new Date(payment.date).toLocaleDateString() : "N/A"}
           </p>
-
-          <p><b>Receipt No:</b> {payment?.id || "N/A"}</p>
-          <p><b>Mode:</b> {payment?.payment_mode || "N/A"}</p>
+          <p>
+            <b>Receipt No:</b> {receiptNumber}
+          </p>
+          <p>
+            <b>Mode:</b> {payment?.payment_mode || "N/A"}
+          </p>
         </div>
       </div>
 
-      {/* TABLE */}
-      <table className="w-full border border-black text-sm mb-4">
+      <table className="mb-4 w-full border border-black text-sm">
         <thead>
           <tr className="border-b border-black">
-            <th className="text-left p-2">Fee Head</th>
-            <th className="text-right p-2">Amount (INR)</th>
+            <th className="p-2 text-left">Fee Head</th>
+            <th className="p-2 text-right">Amount (INR)</th>
           </tr>
         </thead>
 
         <tbody>
-          {breakdown.map((item: any) => (
+          {breakdown.map((item) => (
             <tr key={item.label} className="border-b border-black">
               <td className="p-2">{item.label}</td>
-              <td className="p-2 text-right">₹ {item.value}</td>
+              <td className="p-2 text-right">Rs. {item.value}</td>
             </tr>
           ))}
 
           <tr>
             <td className="p-2 font-bold">Grand Total</td>
-            <td className="p-2 text-right font-bold">₹ {total}</td>
+            <td className="p-2 text-right font-bold">Rs. {total}</td>
+          </tr>
+
+          <tr>
+            <td className="p-2 font-bold">Paid Amount</td>
+            <td className="p-2 text-right font-bold">Rs. {paidAmount}</td>
           </tr>
         </tbody>
       </table>
 
-      {/* FOOTER */}
-      <p className="text-sm mb-6">
+      <p className="mb-6 text-sm">
         This is a computer-generated receipt and valid without signature.
       </p>
 
@@ -85,7 +121,7 @@ export default function FeeReceipt({ student, fee, payment, school }: any) {
 
         <button
           onClick={print}
-          className="bg-black text-white px-4 py-2 rounded"
+          className="rounded bg-black px-4 py-2 text-white print:hidden"
         >
           Print / Download
         </button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import FeeReceipt from "@/components/fees/FeeReceipt"
+import { getActiveAcademicYear } from "@/lib/academic"
 import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
 import html2canvas from "html2canvas"
@@ -17,6 +18,7 @@ type SchoolClass = {
 type Student = {
   id: string
   name: string
+  student_code?: string | null
   roll_number: string | null
   class_id: string | null
 }
@@ -88,7 +90,7 @@ async function fetchFees(
 
   const { data: students, error: studentsError } = await supabase
     .from("students")
-    .select("id,name,roll_number,class_id")
+    .select("id,name,student_code,roll_number,class_id")
     .in("id", studentIds)
     .eq("school_id", schoolId)
 
@@ -188,6 +190,80 @@ export default function FeesPage() {
     let root: ReturnType<typeof createRoot> | null = null
 
     try {
+      if (!schoolId) {
+        alert("School not loaded")
+        return
+      }
+
+      const activeYear = await getActiveAcademicYear()
+
+      let enrollmentQuery = supabase
+        .from("student_enrollments")
+        .select("roll_number,class_id")
+        .eq("student_id", fee.student_id)
+        .eq("school_id", schoolId)
+
+      if (activeYear?.id) {
+        enrollmentQuery = enrollmentQuery.eq("academic_year_id", activeYear.id)
+      }
+
+      const [schoolRes, parentRes, enrollmentRes, paymentRes] =
+        await Promise.all([
+          supabase
+            .from("schools")
+            .select("name,address,phone")
+            .eq("id", schoolId)
+            .maybeSingle(),
+
+          supabase
+            .from("parents")
+            .select("name,father_name,mother_name,phone,email")
+            .eq("student_id", fee.student_id)
+            .eq("school_id", schoolId)
+            .limit(1)
+            .maybeSingle(),
+
+          enrollmentQuery.limit(1).maybeSingle(),
+
+          supabase
+            .from("payments")
+            .select("id,receipt_number,amount,date,payment_mode")
+            .eq("fee_id", fee.id)
+            .eq("school_id", schoolId)
+            .order("date", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        ])
+
+      if (schoolRes.error) throw schoolRes.error
+      if (parentRes.error) throw parentRes.error
+      if (enrollmentRes.error) throw enrollmentRes.error
+      if (paymentRes.error) throw paymentRes.error
+
+      const enrollment = enrollmentRes.data
+      const classId = enrollment?.class_id || fee.student.class_id || fee.class_id
+      let className = "N/A"
+
+      if (classId) {
+        const { data: cls, error: classError } = await supabase
+          .from("classes")
+          .select("name")
+          .eq("id", classId)
+          .eq("school_id", schoolId)
+          .maybeSingle()
+
+        if (classError) throw classError
+        className = cls?.name || "N/A"
+      }
+
+      const parent = parentRes.data
+      const parentName =
+        parent?.name ||
+        parent?.father_name ||
+        parent?.mother_name ||
+        "N/A"
+      const payment = paymentRes.data
+
       container = document.createElement("div")
       container.style.position = "fixed"
       container.style.top = "-9999px"
@@ -198,13 +274,23 @@ export default function FeesPage() {
 
       root.render(
         <FeeReceipt
-          student={fee.student}
+          student={{
+            ...fee.student,
+            class_name: className,
+            roll_number: enrollment?.roll_number ?? fee.student.roll_number ?? "N/A",
+            parent_name: parentName,
+            parent_phone: parent?.phone || "N/A",
+            parent_email: parent?.email || "N/A"
+          }}
           fee={fee}
           payment={{
-            amount: fee.paid_amount ?? 0,
-            date: new Date().toISOString(),
-            id: fee.id
+            amount: payment?.amount ?? fee.paid_amount ?? 0,
+            date: payment?.date ?? new Date().toISOString(),
+            id: payment?.id ?? fee.id,
+            receipt_number: payment?.receipt_number ?? fee.id,
+            payment_mode: payment?.payment_mode ?? "cash"
           }}
+          school={schoolRes.data}
         />
       )
 

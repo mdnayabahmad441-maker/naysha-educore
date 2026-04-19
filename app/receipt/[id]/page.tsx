@@ -5,6 +5,8 @@ import FeeReceipt from "@/components/fees/FeeReceipt"
 import { fetchReceiptByPaymentId } from "@/lib/payment-receipts"
 import { useParams } from "next/navigation"
 
+type ReceiptData = Awaited<ReturnType<typeof fetchReceiptByPaymentId>>
+
 export default function ReceiptPage() {
   const params = useParams()
 
@@ -12,7 +14,7 @@ export default function ReceiptPage() {
     ? params.id[0]
     : params?.id
 
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<ReceiptData>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -25,8 +27,6 @@ export default function ReceiptPage() {
 
       try {
         const res = await fetchReceiptByPaymentId(id)
-
-        console.log("RECEIPT DATA:", res) // 🔍 debug
 
         if (!cancelled) {
           setData(res)
@@ -74,7 +74,8 @@ export default function ReceiptPage() {
         payment={{
           amount: data.payment?.amount,
           date: data.payment?.date,
-          id: data.payment?.receipt_number,
+          id: data.payment?.id,
+          receipt_number: data.payment?.receipt_number,
           payment_mode: data.payment?.payment_mode
         }}
         school={data.school}
