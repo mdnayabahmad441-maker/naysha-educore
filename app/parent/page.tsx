@@ -4,8 +4,21 @@ import { useEffect, useState } from "react"
 import { getCurrentParentStudentIds } from "@/lib/role-access"
 import { supabase } from "@/lib/supabase"
 
+type StudentRecord = {
+  id: string
+  name: string
+  class_id: string | null
+}
+
+type NamedRecord = {
+  id: string
+  name: string | null
+}
+
 type ChildSummary = {
-  student: any
+  student: StudentRecord & {
+    class_name: string | null
+  }
   attendance: any[]
   payments: any[]
   results: any[]
@@ -19,51 +32,80 @@ export default function ParentDashboard(){
     const load = async ()=>{
       setLoading(true)
 
-      const studentIds = await getCurrentParentStudentIds()
+      try{
+        const studentIds = await getCurrentParentStudentIds()
 
-      if(studentIds.length === 0){
+        if(studentIds.length === 0){
+          setChildren([])
+          return
+        }
+
+        const { data:students, error:studentsError } = await supabase
+          .from("students")
+          .select("id,name,class_id")
+          .in("id", studentIds)
+
+        if(studentsError){
+          throw studentsError
+        }
+
+        const studentRows = (students as StudentRecord[] | null) || []
+        const classIds = [
+          ...new Set(
+            studentRows
+              .map((student)=>student.class_id)
+              .filter((id): id is string => Boolean(id))
+          )
+        ]
+        const [classesRes, attendanceRes, paymentsRes, resultsRes] =
+          await Promise.all([
+            classIds.length
+              ? supabase.from("classes").select("id,name").in("id", classIds)
+              : Promise.resolve({ data: [] as NamedRecord[], error: null }),
+
+            supabase
+              .from("attendance")
+              .select("*")
+              .in("student_id", studentIds)
+              .order("date",{ascending:false}),
+
+            supabase
+              .from("payments")
+              .select("*")
+              .in("student_id", studentIds)
+              .order("date",{ascending:false}),
+
+            supabase
+              .from("results")
+              .select("*")
+              .in("student_id", studentIds)
+              .order("created_at",{ascending:false})
+          ])
+
+        if(classesRes.error) console.error("Parent classes load error:", classesRes.error)
+
+        const classMap = new Map(
+          ((classesRes.data as NamedRecord[] | null) || []).map((item)=>[
+            item.id,
+            item.name
+          ])
+        )
+
+        setChildren(studentRows.map((student)=>({
+          student: {
+            ...student,
+            class_name: student.class_id ? classMap.get(student.class_id) || null : null
+          },
+          attendance: (attendanceRes.data || []).filter((item)=>item.student_id === student.id),
+          payments: (paymentsRes.data || []).filter((item)=>item.student_id === student.id),
+          results: (resultsRes.data || []).filter((item)=>item.student_id === student.id)
+        })))
+      }catch(error){
+        console.error("Parent dashboard load error:", error)
         setChildren([])
+      }finally{
         setLoading(false)
-        return
       }
-
-      const { data:students } = await supabase
-        .from("students")
-        .select(`
-          *,
-          classes(name),
-          sections(name)
-        `)
-        .in("id", studentIds)
-
-      const [attendanceRes, paymentsRes, resultsRes] = await Promise.all([
-        supabase
-          .from("attendance")
-          .select("*")
-          .in("student_id", studentIds)
-          .order("date",{ascending:false}),
-
-        supabase
-          .from("payments")
-          .select("*")
-          .in("student_id", studentIds)
-          .order("date",{ascending:false}),
-
-        supabase
-          .from("results")
-          .select("*")
-          .in("student_id", studentIds)
-          .order("created_at",{ascending:false})
-      ])
-
-      setChildren((students || []).map((student)=>({
-        student,
-        attendance: (attendanceRes.data || []).filter((item)=>item.student_id === student.id),
-        payments: (paymentsRes.data || []).filter((item)=>item.student_id === student.id),
-        results: (resultsRes.data || []).filter((item)=>item.student_id === student.id)
-      })))
-
-      setLoading(false)
     }
 
     void load()
@@ -94,7 +136,7 @@ export default function ParentDashboard(){
             <div>
               <h2 className="text-2xl font-semibold">{student.name}</h2>
               <p className="text-gray-400 mt-1">
-                {student.classes?.name || "-"} {student.sections?.name ? `- ${student.sections.name}` : ""}
+                {student.class_name || "-"}
               </p>
             </div>
 
