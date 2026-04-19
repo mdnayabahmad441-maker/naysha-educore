@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
+import { getSchoolFromRequest } from "@/lib/schoolFromRequest"
 
 export async function POST(req: Request) {
   try {
@@ -13,10 +14,14 @@ export async function POST(req: Request) {
       )
     }
 
-    // Get school ID from request (assuming it's passed or we get it from context)
-    // For now, we'll assume it's a public form, so we need to handle school identification
-    // Let's get it from the request headers or body
-    const schoolId = body.schoolId || "default-school-id" // This should be handled properly
+    // Get school from request (tenant detection)
+    const school = await getSchoolFromRequest(req)
+    if (!school) {
+      return NextResponse.json(
+        { success: false, error: "School not found" },
+        { status: 400 }
+      )
+    }
 
     const enquiryId = crypto.randomUUID()
 
@@ -25,7 +30,7 @@ export async function POST(req: Request) {
       .from("admission_enquiries")
       .insert({
         id: enquiryId,
-        school_id: schoolId,
+        school_id: school.id,
         student_name: studentName.trim(),
         father_name: fatherName.trim(),
         class_wanted: classWanted.trim(),
@@ -45,13 +50,7 @@ export async function POST(req: Request) {
     }
 
     // Get school name for notifications
-    const { data: school } = await supabase
-      .from("schools")
-      .select("name")
-      .eq("id", schoolId)
-      .single()
-
-    const schoolName = school?.name || "Our School"
+    const schoolName = school.name
 
     // Send welcome message to enquiry person
     const welcomeMessage = `
@@ -110,7 +109,7 @@ ${schoolName} Team`
     const { data: admins } = await supabase
       .from("profiles")
       .select("email")
-      .eq("school_id", schoolId)
+      .eq("school_id", school.id)
       .eq("role", "admin")
 
     if (admins && admins.length > 0) {
@@ -162,12 +161,11 @@ Please review and follow up.
 
 export async function GET(req: Request) {
   try {
-    const url = new URL(req.url)
-    const schoolId = url.searchParams.get("schoolId")
-
-    if (!schoolId) {
+    // Get school from request (tenant detection)
+    const school = await getSchoolFromRequest(req)
+    if (!school) {
       return NextResponse.json(
-        { success: false, error: "School ID required" },
+        { success: false, error: "School not found" },
         { status: 400 }
       )
     }
@@ -175,7 +173,7 @@ export async function GET(req: Request) {
     const { data: enquiries, error } = await supabase
       .from("admission_enquiries")
       .select("*")
-      .eq("school_id", schoolId)
+      .eq("school_id", school.id)
       .order("created_at", { ascending: false })
 
     if (error) {
