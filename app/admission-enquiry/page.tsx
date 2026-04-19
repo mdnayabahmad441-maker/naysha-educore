@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase"
 import { headers } from "next/headers"
 
 export default async function AdmissionEnquiryPage() {
-  const host = headers().get("host") || ""
+  const host = (await headers()).get("host") || ""
   const parts = host.split(".")
   const subdomain = parts[0]
 
