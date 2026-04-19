@@ -18,62 +18,45 @@ export default function PaymentsPage(){
 
   const [loading,setLoading] = useState(false)
 
-  // ================= INIT SCHOOL =================
+  // LOAD SCHOOL
   useEffect(()=>{
-    getSchoolId().then((id)=>{
-      console.log("School ID:", id)
-      setSchoolId(id)
-    })
+    getSchoolId().then(setSchoolId)
   },[])
 
-  // ================= LOAD STUDENTS (FIXED PROPERLY) =================
+  // LOAD STUDENTS
   useEffect(()=>{
     if(!schoolId) return
 
-    const loadStudents = async ()=>{
-
-      const { data, error } = await supabase
+    const load = async ()=>{
+      const { data } = await supabase
         .from("students")
         .select("id,name")
-        .eq("school_id", schoolId) // ✅ FIXED (no cross-school)
-
-      if(error){
-        console.error("Students load error:", error)
-        return
-      }
+        .eq("school_id", schoolId)
 
       setStudents(data || [])
     }
 
-    loadStudents()
-
+    load()
   },[schoolId])
 
-  // ================= LOAD FEES =================
+  // LOAD FEES
   useEffect(()=>{
     if(!studentId || !schoolId) return
 
-    const loadFees = async ()=>{
-
-      const { data, error } = await supabase
+    const load = async ()=>{
+      const { data } = await supabase
         .from("fees")
         .select("*")
         .eq("student_id", studentId)
         .eq("school_id", schoolId)
 
-      if(error){
-        console.error("Fees load error:", error)
-        return
-      }
-
       setFees(data || [])
     }
 
-    loadFees()
-
+    load()
   },[studentId,schoolId])
 
-  // ================= SAVE PAYMENT =================
+  // SAVE PAYMENT
   const save = async ()=>{
 
     if(!studentId || !feeId || !amount){
@@ -83,6 +66,13 @@ export default function PaymentsPage(){
 
     if(!schoolId){
       alert("School not loaded")
+      return
+    }
+
+    const payAmount = Number(amount)
+
+    if(isNaN(payAmount) || payAmount <= 0){
+      alert("Enter valid amount")
       return
     }
 
@@ -98,19 +88,14 @@ export default function PaymentsPage(){
         return
       }
 
-      const payAmount = Number(amount)
+      const totalAmount = Number(fee.total_amount || 0)
+      const currentPaid = Number(fee.paid_amount || 0)
 
-      if(payAmount <= 0){
-        alert("Invalid amount")
-        setLoading(false)
-        return
-      }
-
-      const newPaid = (fee.paid_amount || 0) + payAmount
+      const newPaid = currentPaid + payAmount
 
       const paymentId = crypto.randomUUID()
 
-      // ================= INSERT PAYMENT =================
+      // INSERT PAYMENT
       const { error: paymentError } = await supabase
         .from("payments")
         .insert({
@@ -124,57 +109,28 @@ export default function PaymentsPage(){
         })
 
       if(paymentError){
-        console.error(paymentError)
         alert(paymentError.message)
         setLoading(false)
         return
       }
 
-      // ================= UPDATE FEE =================
+      // UPDATE FEE
       const { error: feeError } = await supabase
         .from("fees")
         .update({
           paid_amount: newPaid,
-          status: newPaid >= fee.total_amount ? "paid" : "partial"
+          status: newPaid >= totalAmount ? "paid" : "partial"
         })
         .eq("id", feeId)
         .eq("school_id", schoolId)
 
       if(feeError){
-        console.error(feeError)
         alert(feeError.message)
         setLoading(false)
         return
       }
 
-      // ================= 🔥 NOTIFICATION WITH RESULT =================
-      let notifyResult:any = {}
-
-      try{
-        const res = await fetch("/api/notify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "payment",
-            refId: paymentId
-          })
-        })
-
-        notifyResult = await res.json()
-
-        console.log("NOTIFY RESULT:", notifyResult)
-
-      }catch(err){
-        console.error("Notification error:", err)
-      }
-
-      // ================= SUCCESS MESSAGE =================
-      alert(`
-Payment successful ✅
-
-Email: ${notifyResult?.emailStatus || "unknown"}
-WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
-`)
+      alert("Payment successful ✅")
 
       // RESET
       setAmount("")
@@ -190,8 +146,8 @@ WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
       setFees(data || [])
 
     }catch(err){
-      console.error("Payment error:", err)
-      alert("Something went wrong")
+      console.error(err)
+      alert("Error processing payment")
     }
 
     setLoading(false)
@@ -207,32 +163,26 @@ WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
 
       <div className="bg-white/10 p-6 rounded-xl flex flex-wrap gap-4">
 
-        {/* STUDENT */}
         <select
           value={studentId}
           onChange={(e)=>{
             setStudentId(e.target.value)
             setFeeId("")
           }}
-          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl"
+          className="bg-[#0b1220] px-4 py-3 rounded-xl"
         >
           <option value="">Select Student</option>
-
           {students.map(s=>(
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
+            <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
 
-        {/* FEES */}
         <select
           value={feeId}
           onChange={(e)=>setFeeId(e.target.value)}
-          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl"
+          className="bg-[#0b1220] px-4 py-3 rounded-xl"
         >
           <option value="">Select Fee</option>
-
           {fees.map(f=>(
             <option key={f.id} value={f.id}>
               ₹{f.total_amount} ({f.status})
@@ -240,19 +190,14 @@ WhatsApp: ${notifyResult?.whatsappStatus || "unknown"}
           ))}
         </select>
 
-        {/* AMOUNT */}
         <input
           value={amount}
           onChange={(e)=>setAmount(e.target.value)}
           placeholder="Enter Amount"
-          className="bg-[#0b1220] border border-white/10 px-4 py-3 rounded-xl"
+          className="bg-[#0b1220] px-4 py-3 rounded-xl"
         />
 
-        <Button
-          color="green"
-          onClick={save}
-          disabled={loading}
-        >
+        <Button color="green" onClick={save} disabled={loading}>
           {loading ? "Processing..." : "Pay"}
         </Button>
 
