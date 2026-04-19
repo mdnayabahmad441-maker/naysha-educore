@@ -1,151 +1,80 @@
 "use client"
 
-import Button from "@/components/ui/Button"
 import { buildFeeBreakdown } from "@/lib/payment-receipts"
 
 export default function FeeReceipt({ student, fee, payment, school }: any) {
-
   const print = () => window.print()
 
-  const s = student || {}
-  const f = fee || {}
-  const p = payment || {}
-  const sc = school || {}
+  const breakdown = buildFeeBreakdown(fee)
 
-  // ✅ CLEAN NUMBERS
-  const total = Number(f.total_amount ?? 0)
-  const currentPayment = Number(p.amount ?? 0)
-  const totalPaid = Number(f.paid_amount ?? currentPayment)
-  const previousPaid = Math.max(0, totalPaid - currentPayment)
-  const balance = Math.max(0, total - totalPaid)
-
-  // ✅ SAFE DATE
-  const date = p.date ? new Date(p.date) : new Date()
-
-  // ✅ CLEAN STUDENT DATA
-  const className = s.class_name ?? "N/A"
-  const rollNumber = s.roll_number ?? "-"
-  const parentName = s.parent_name ?? "N/A"
-  const parentPhone = s.parent_phone ?? "N/A"
-
-  // ✅ FIXED BREAKDOWN (IMPORTANT)
-  const breakdown = buildFeeBreakdown({
-    label: f.label ?? undefined,
-    month: f.month ?? null,
-    total_amount: Number(f.total_amount ?? 0),
-    tuition_fee: Number(f.tuition_fee ?? 0),
-    transport_fee: Number(f.transport_fee ?? 0),
-    hostel_fee: Number(f.hostel_fee ?? 0)
-  })
+  const total = breakdown.reduce((sum: number, i: any) => sum + i.value, 0)
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-10 text-white">
+    <div className="bg-white text-black p-10 max-w-3xl mx-auto rounded-lg">
 
       {/* HEADER */}
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-green-400">
-          {sc?.name ? sc.name : "School"}
+      <div className="text-center mb-6">
+        <h1 className="text-2xl font-bold">
+          {school?.name || "DEEP ENGLISH SCHOOL"}
         </h1>
-
-        {sc?.address && <p className="text-sm opacity-70">{sc.address}</p>}
-        {sc?.phone && <p className="text-sm opacity-70">{sc.phone}</p>}
-
-        <p className="mt-2 text-sm opacity-70">Fee Payment Receipt</p>
+        <p className="text-sm">
+          Excellence in Education • Discipline • Character
+        </p>
       </div>
 
-      {/* STUDENT */}
-      <div className="mb-6 flex justify-between text-sm">
-
-        <div className="space-y-1">
-          <p><span className="text-green-400">Name:</span> {s.name ?? "N/A"}</p>
-          <p><span className="text-green-400">Class:</span> {className}</p>
-          <p><span className="text-green-400">Roll No:</span> {rollNumber}</p>
-          <p><span className="text-green-400">Parent:</span> {parentName}</p>
-          <p><span className="text-green-400">Phone:</span> {parentPhone}</p>
+      {/* TOP INFO */}
+      <div className="flex justify-between text-sm mb-4">
+        <div>
+          <p><b>Student Name:</b> {student?.name || "N/A"}</p>
+          <p><b>Class:</b> {student?.class_name || "N/A"}</p>
+          <p><b>Roll No:</b> {student?.roll_number || "N/A"}</p>
+          <p><b>Father's Name:</b> {student?.parent_name || "N/A"}</p>
         </div>
 
-        <div className="space-y-1 text-right">
-          <p><span className="text-green-400">Date:</span> {date.toLocaleDateString()}</p>
-          <p><span className="text-green-400">Receipt ID:</span> {p.id ?? "N/A"}</p>
-
-          {p.payment_mode && (
-            <p><span className="text-green-400">Mode:</span> {p.payment_mode}</p>
-          )}
+        <div className="text-right">
+          <p><b>Date:</b> {new Date(payment?.date).toLocaleDateString()}</p>
+          <p><b>Receipt No:</b> {payment?.id}</p>
         </div>
-
       </div>
 
-      {/* BREAKDOWN */}
-      <div className="mb-6 overflow-hidden rounded-xl border border-white/10">
-        <table className="w-full text-sm">
-          <thead className="bg-white/5">
-            <tr>
-              <th className="p-3 text-left">Fee Type</th>
-              <th className="p-3 text-right">Amount</th>
+      {/* TABLE */}
+      <table className="w-full border border-black text-sm mb-4">
+        <thead>
+          <tr className="border-b border-black">
+            <th className="text-left p-2">Fee Head</th>
+            <th className="text-right p-2">Amount (INR)</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {breakdown.map((item: any) => (
+            <tr key={item.label} className="border-b border-black">
+              <td className="p-2">{item.label}</td>
+              <td className="p-2 text-right">{item.value}</td>
             </tr>
-          </thead>
+          ))}
 
-          <tbody>
-            {breakdown.map((item:any) => (
-              <tr key={item.label} className="border-t border-white/10">
-                <td className="p-3">{item.label}</td>
-                <td className="p-3 text-right">₹ {item.value}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* SUMMARY */}
-      <div className="overflow-hidden rounded-xl border border-white/10">
-        <table className="w-full text-sm">
-          <tbody>
-
-            <tr className="border-t border-white/10">
-              <td className="p-3 font-semibold">Total Fee</td>
-              <td className="p-3 text-right font-semibold">₹ {total}</td>
-            </tr>
-
-            <tr className="border-t border-white/10">
-              <td className="p-3 text-blue-400">Previously Paid</td>
-              <td className="p-3 text-right text-blue-400">₹ {previousPaid}</td>
-            </tr>
-
-            <tr className="border-t border-white/10">
-              <td className="p-3 text-green-400">This Payment</td>
-              <td className="p-3 text-right text-green-400">₹ {currentPayment}</td>
-            </tr>
-
-            <tr className="border-t border-white/10">
-              <td className="p-3 text-green-300">Total Paid</td>
-              <td className="p-3 text-right text-green-300">₹ {totalPaid}</td>
-            </tr>
-
-            <tr className="border-t border-white/10">
-              <td className="p-3 text-yellow-400">Balance</td>
-              <td className="p-3 text-right text-yellow-400">₹ {balance}</td>
-            </tr>
-
-          </tbody>
-        </table>
-      </div>
+          <tr>
+            <td className="p-2 font-bold">Grand Total</td>
+            <td className="p-2 text-right font-bold">{total}</td>
+          </tr>
+        </tbody>
+      </table>
 
       {/* FOOTER */}
-      <div className="mt-6 flex items-center justify-between">
-        <p className="text-lg font-semibold text-green-400">
-          {balance <= 0 ? "PAID" : "PARTIAL"}
-        </p>
+      <p className="text-sm mb-6">
+        Received with thanks towards institutional dues. This is a computer-generated receipt and valid without signature.
+      </p>
 
-        <p className="text-sm opacity-70">Thank you</p>
+      <div className="flex justify-between">
+        <p className="text-sm">Authorized Accounts Office</p>
+        <button
+          onClick={print}
+          className="bg-black text-white px-4 py-2 rounded"
+        >
+          Print / Download
+        </button>
       </div>
-
-      {/* PRINT */}
-      <div className="mt-6">
-        <Button color="blue" onClick={print}>
-          Download / Print
-        </Button>
-      </div>
-
     </div>
   )
 }
