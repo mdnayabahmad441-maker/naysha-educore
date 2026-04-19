@@ -21,8 +21,9 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
       }
 
       const roleData = await getUserRole()
+      const metadataRole = data.session.user.user_metadata?.role
 
-      if (roleData?.role !== "parent") {
+      if (roleData?.role !== "parent" && metadataRole !== "parent") {
         window.location.href = "/unauthorized"
         return
       }

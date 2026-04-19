@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
+import { supabase } from "@/lib/supabase"
 
 export default function CallbackClient() {
 
@@ -32,6 +33,17 @@ export default function CallbackClient() {
       }
 
       // ✅ fallback (same domain)
+      const { error } = await supabase.auth.setSession({
+        access_token,
+        refresh_token
+      })
+
+      if (error) {
+        console.error("Callback session error:", error)
+        window.location.href = "/login"
+        return
+      }
+
       window.location.href = next
 
     }
