@@ -48,7 +48,6 @@ type PaymentRecord = {
   fee_id: string
   amount: number | null
   receipt_number: string | null
-  payment_date: string | null
   date: string | null
   is_manual: boolean | null
   payment_mode: string | null
@@ -286,9 +285,9 @@ async function fetchFeesForStudent(schoolId: string, studentId: string): Promise
 async function fetchPaymentsForSchool(schoolId: string): Promise<PaymentRow[]> {
   const { data: paymentData, error: paymentError } = await supabase
     .from("payments")
-    .select("id,student_id,fee_id,amount,receipt_number,payment_date,date,is_manual,payment_mode")
+    .select("id,student_id,fee_id,amount,receipt_number,date,is_manual,payment_mode")
     .eq("school_id", schoolId)
-    .order("payment_date", { ascending: false })
+    .order("date", { ascending: false })
     .limit(100)
 
   if (paymentError) {
@@ -380,7 +379,7 @@ async function fetchPaymentsForSchool(schoolId: string): Promise<PaymentRow[]> {
       amount: Number(payment.amount ?? 0),
       totalAmount,
       progressPaid,
-      paymentDate: payment.payment_date || payment.date || new Date().toISOString(),
+      paymentDate: payment.date || new Date().toISOString(),
       status: normalizePaymentStatus(fee?.status),
       isManual: Boolean(payment.is_manual),
       paymentMode: payment.payment_mode || "cash"
@@ -661,7 +660,6 @@ export default function PaymentsPage() {
       const receiptNumber = receiptNumberFromNow()
       const paymentId = crypto.randomUUID()
       const paymentDateIso = selectedDate.toISOString()
-      const insertedAtIso = new Date().toISOString()
       const newPaid = fee.paidAmount + payAmount
 
       const { error: paymentError } = await supabase.from("payments").insert({
@@ -671,8 +669,7 @@ export default function PaymentsPage() {
         amount: payAmount,
         school_id: schoolId,
         receipt_number: receiptNumber,
-        date: insertedAtIso,
-        payment_date: paymentDateIso,
+        date: paymentDateIso,
         is_manual: isManualDate,
         payment_mode: mMode,
         remarks: mRemarks.trim() || null

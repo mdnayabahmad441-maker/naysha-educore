@@ -7,7 +7,6 @@ type PaymentRecord = {
   fee_id: string
   amount: number | null
   receipt_number: string | null
-  payment_date: string | null
   date: string | null
   is_manual: boolean | null
   payment_mode: string | null
@@ -106,7 +105,6 @@ export type ReceiptPayment = {
   id: string
   receipt_number: string
   amount: number
-  payment_date: string
   date: string
   is_manual: boolean
   payment_mode: string | null
@@ -240,9 +238,7 @@ export async function fetchReceiptByPaymentId(
 ): Promise<ReceiptViewData | null> {
   const { data: paymentData, error: paymentError } = await supabase
     .from("payments")
-    .select(
-      "id,student_id,fee_id,amount,receipt_number,payment_date,date,is_manual,payment_mode,remarks,school_id"
-    )
+    .select("id,student_id,fee_id,amount,receipt_number,date,is_manual,payment_mode,remarks,school_id")
     .eq("id", paymentId)
     .single()
 
@@ -307,8 +303,7 @@ export async function fetchReceiptByPaymentId(
       id: payment.id,
       receipt_number: payment.receipt_number || payment.id,
       amount: Number(payment.amount ?? 0),
-      payment_date: payment.payment_date || payment.date || new Date().toISOString(),
-      date: payment.date || payment.payment_date || new Date().toISOString(),
+      date: payment.date || new Date().toISOString(),
       is_manual: Boolean(payment.is_manual),
       payment_mode: payment.payment_mode || "cash",
       remarks: payment.remarks || null
@@ -345,9 +340,9 @@ export async function fetchReceiptHistoryForSchool(
 ): Promise<ReceiptHistoryItem[]> {
   const { data: paymentData, error: paymentError } = await supabase
     .from("payments")
-    .select("id,student_id,fee_id,amount,receipt_number,payment_date,date,is_manual,payment_mode")
+    .select("id,student_id,fee_id,amount,receipt_number,date,is_manual,payment_mode")
     .eq("school_id", schoolId)
-    .order("payment_date", { ascending: false })
+    .order("date", { ascending: false })
 
   if (paymentError) {
     throw paymentError
@@ -431,7 +426,7 @@ export async function fetchReceiptHistoryForSchool(
     return {
       id: payment.id,
       amount: Number(payment.amount ?? 0),
-      paymentDate: payment.payment_date || payment.date || new Date().toISOString(),
+      paymentDate: payment.date || new Date().toISOString(),
       receiptNumber: payment.receipt_number || payment.id,
       isManual: Boolean(payment.is_manual),
       paymentMode: payment.payment_mode || "cash",

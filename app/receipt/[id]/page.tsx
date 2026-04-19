@@ -58,7 +58,7 @@ export default function ReceiptPage() {
       fee={data.fee}
       payment={{
         amount: data.payment.amount,
-        date: data.payment.payment_date,
+        date: data.payment.date,
         id: data.payment.receipt_number,
         payment_mode: data.payment.payment_mode
       }}

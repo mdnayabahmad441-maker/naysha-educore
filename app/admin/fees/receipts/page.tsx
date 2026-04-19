@@ -81,7 +81,7 @@ export default function ReceiptHistoryPage() {
           fee={receiptData.fee}
           payment={{
             amount: receiptData.payment.amount,
-            date: receiptData.payment.payment_date,
+            date: receiptData.payment.date,
             id: receiptData.payment.receipt_number,
             payment_mode: receiptData.payment.payment_mode
           }}
