@@ -1,109 +1,99 @@
 import { NextResponse } from "next/server"
+import qrcode from "qrcode-terminal"
+import { Client, LocalAuth } from "whatsapp-web.js"
 
-// ⚠️ use require (important for these libs)
-const pkg = require("whatsapp-web.js")
-const qrcode = require("qrcode-terminal")
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 
-const { Client, LocalAuth } = pkg
+type WhatsAppClient = InstanceType<typeof Client>
 
-let client: any
+let client: WhatsAppClient | null = null
 let isReady = false
 
-// 🚀 INIT CLIENT ONLY ONCE
-if (!client) {
+function getClient() {
+  if (client) return client
+
   client = new Client({
     authStrategy: new LocalAuth()
   })
 
   client.on("qr", (qr: string) => {
-    console.log("📱 Scan this QR below:")
+    console.log("Scan this WhatsApp QR:")
     qrcode.generate(qr, { small: true })
   })
 
   client.on("ready", () => {
-    console.log("✅ WhatsApp is READY")
+    console.log("WhatsApp is ready")
     isReady = true
   })
 
   client.on("auth_failure", (msg: string) => {
-    console.error("❌ Auth failed:", msg)
-  })
-
-  client.on("disconnected", () => {
-    console.log("⚠️ WhatsApp disconnected")
+    console.error("WhatsApp auth failed:", msg)
     isReady = false
   })
 
-  client.initialize()
+  client.on("disconnected", () => {
+    console.log("WhatsApp disconnected")
+    isReady = false
+  })
+
+  void client.initialize()
+  return client
 }
 
-//////////////////////////////////////////////////
-// ✅ GET (for testing only)
-//////////////////////////////////////////////////
 export async function GET() {
+  getClient()
+
   return NextResponse.json({
     success: true,
-    message: "WhatsApp API running. Check terminal for status."
+    ready: isReady,
+    message: "WhatsApp API running. Check the terminal for QR/status."
   })
 }
 
-//////////////////////////////////////////////////
-// ✅ POST (MAIN SEND FUNCTION)
-//////////////////////////////////////////////////
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-
-    const phone = body?.phone
+    const phone = body?.phone || body?.to
     const message = body?.message
-
-    // 🔍 DEBUG LOG (important)
-    console.log("Incoming:", phone, message)
 
     if (!phone || !message) {
       return NextResponse.json(
-        { error: "Missing phone or message" },
+        { error: "Missing phone/to or message" },
         { status: 400 }
       )
     }
 
+    const activeClient = getClient()
+
     if (!isReady) {
       return NextResponse.json(
         { error: "WhatsApp not ready yet" },
-        { status: 500 }
+        { status: 503 }
       )
     }
 
-    // ✅ CLEAN FORMAT
-    let formatted = phone.toString().trim()
+    let formatted = String(phone).trim()
 
-    // remove + if exists
     if (formatted.startsWith("+")) {
       formatted = formatted.slice(1)
     }
 
-    // add country code if missing
     if (!formatted.startsWith("91")) {
-      formatted = "91" + formatted
+      formatted = `91${formatted}`
     }
 
-    // final format
-    formatted = formatted + "@c.us"
-
-    console.log("Sending to:", formatted)
-
-    const result = await client.sendMessage(formatted, message)
+    const result = await activeClient.sendMessage(`${formatted}@c.us`, message)
 
     return NextResponse.json({
       success: true,
       id: result.id._serialized
     })
-
-  } catch (err: any) {
-    console.error("❌ WhatsApp Error:", err)
+  } catch (err) {
+    console.error("WhatsApp error:", err)
 
     return NextResponse.json(
-      { error: err.message || "Internal error" },
+      { error: err instanceof Error ? err.message : "Internal error" },
       { status: 500 }
     )
   }

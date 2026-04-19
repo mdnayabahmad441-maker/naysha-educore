@@ -110,7 +110,8 @@ export default function VerifyPageClient() {
       // ✅ JWT UPDATE
       await supabase.auth.updateUser({
         data: {
-          school_id: newSchool.id
+          school_id: newSchool.id,
+          role: "admin"
         }
       })
 
@@ -131,11 +132,13 @@ export default function VerifyPageClient() {
     // =========================
     // 🔥 PARENT FLOW
     // =========================
-    const { data: parent } = await supabase
+    const { data: parents } = await supabase
       .from("parents")
       .select("id, student_id")
       .eq("email", email)
-      .maybeSingle()
+      .limit(1)
+
+    const parent = parents?.[0]
 
     if (parent) {
 
@@ -169,7 +172,8 @@ export default function VerifyPageClient() {
 
       await supabase.auth.updateUser({
         data: {
-          school_id: student.school_id
+          school_id: student.school_id,
+          role: "parent"
         }
       })
 
@@ -188,11 +192,11 @@ export default function VerifyPageClient() {
     // =========================
     // 🔥 TEACHER FLOW
     // =========================
-    const { data: teacher } = await supabase
-      .from("teachers")
-      .select("id, school_id")
-      .eq("email", email)
-      .maybeSingle()
+      const { data: teacher } = await supabase
+        .from("teachers")
+        .select("id, school_id")
+        .eq("email", email)
+        .maybeSingle()
 
     if (teacher) {
 
@@ -213,9 +217,15 @@ export default function VerifyPageClient() {
         role: "teacher"
       })
 
+      await supabase
+        .from("teachers")
+        .update({ auth_id: userId })
+        .eq("id", teacher.id)
+
       await supabase.auth.updateUser({
         data: {
-          school_id: teacher.school_id
+          school_id: teacher.school_id,
+          role: "teacher"
         }
       })
 
@@ -254,7 +264,8 @@ export default function VerifyPageClient() {
 
     await supabase.auth.updateUser({
       data: {
-        school_id: school.id
+        school_id: school.id,
+        role: "admin"
       }
     })
 

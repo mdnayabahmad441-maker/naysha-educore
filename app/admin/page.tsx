@@ -29,7 +29,7 @@ const [teachers,setTeachers] = useState(0)
 const [classes,setClasses] = useState(0)
 const [fees,setFees] = useState(0)
 
-const [attendance,setAttendance] = useState(0)
+const [,setAttendance] = useState(0)
 const [classAttendance,setClassAttendance] = useState<any[]>([])
 
 const [recentStudents,setRecentStudents] = useState<any[]>([])
@@ -251,7 +251,7 @@ return(
 
 {/* ATTENDANCE */}
 <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
-<h2 className="text-lg font-semibold">Today's Attendance</h2>
+<h2 className="text-lg font-semibold">Today&apos;s Attendance</h2>
 
 {classAttendance.map((c:any,i:number)=>(
 <div key={i}>

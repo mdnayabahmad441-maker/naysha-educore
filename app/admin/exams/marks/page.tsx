@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { getUserRole } from "@/lib/getUserRole"
+import { getCurrentTeacherClassIds } from "@/lib/role-access"
 
 export default function MarksPage(){
 
@@ -15,6 +16,7 @@ export default function MarksPage(){
 
   const [classes,setClasses] = useState<any[]>([])
   const [selectedClass,setSelectedClass] = useState("")
+  const [allowedClassIds,setAllowedClassIds] = useState<string[]>([])
 
   const [students,setStudents] = useState<any[]>([])
   const [subjects,setSubjects] = useState<any[]>([])
@@ -27,31 +29,59 @@ export default function MarksPage(){
     const init = async ()=>{
       const id = await getSchoolId()
       const roleData = await getUserRole()
+      const teacherClassIds = roleData?.role === "teacher"
+        ? await getCurrentTeacherClassIds()
+        : []
 
       setSchoolId(id)
       setUserRole(roleData?.role || null)
+      setAllowedClassIds(teacherClassIds)
     }
     init()
   },[])
 
   // LOAD EXAMS + CLASSES
   useEffect(()=>{
-    if(!schoolId) return
+    if(!schoolId || userRole === null) return
 
     supabase.from("exams").select("*").eq("school_id", schoolId)
-      .then(({data})=>setExams(data || []))
+      .then(({data})=>{
+        const rows = data || []
+        setExams(
+          userRole === "teacher"
+            ? rows.filter((exam)=>
+                exam.is_all_classes || allowedClassIds.includes(exam.class_id)
+              )
+            : rows
+        )
+      })
 
-    supabase.from("classes").select("*").eq("school_id", schoolId)
-      .then(({data})=>setClasses(data || []))
+    let classQuery = supabase.from("classes").select("*").eq("school_id", schoolId)
 
-  },[schoolId])
+    if(userRole === "teacher"){
+      if(allowedClassIds.length === 0){
+        setClasses([])
+        return
+      }
+
+      classQuery = classQuery.in("id", allowedClassIds)
+    }
+
+    classQuery.then(({data})=>setClasses(data || []))
+
+  },[schoolId, userRole, allowedClassIds])
 
   // ================= LOAD DATA =================
   const loadData = async (exam:any, classId?:string)=>{
 
-    let class_id = exam.class_id || classId
+    const class_id = exam.class_id || classId
 
     if(exam.is_all_classes && !class_id){
+      return
+    }
+
+    if(userRole === "teacher" && !allowedClassIds.includes(class_id)){
+      alert("You can enter marks only for your assigned class")
       return
     }
 
@@ -62,6 +92,7 @@ export default function MarksPage(){
       .from("students")
       .select("*")
       .eq("class_id", class_id)
+      .eq("school_id", schoolId)
 
     setStudents(studentsData || [])
 
@@ -114,6 +145,13 @@ export default function MarksPage(){
   }
 
   const handleClassChange = (classId:string)=>{
+    if(!selectedExam) return
+
+    if(userRole === "teacher" && !allowedClassIds.includes(classId)){
+      alert("You can enter marks only for your assigned class")
+      return
+    }
+
     setSelectedClass(classId)
     loadData(selectedExam, classId)
   }
@@ -146,6 +184,11 @@ export default function MarksPage(){
     }
 
     if(!selectedExam) return
+
+    if(userRole === "teacher" && selectedExam.is_all_classes && !selectedClass){
+      alert("Select your class")
+      return
+    }
 
     const rows:any[] = []
 

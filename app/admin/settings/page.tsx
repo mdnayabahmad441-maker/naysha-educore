@@ -21,8 +21,6 @@ export default function SettingsPage(){
   const [yearName,setYearName] = useState("")
 
   const [loading,setLoading] = useState(true)
-  const [saving,setSaving] = useState(false)
-
   // INIT
   useEffect(()=>{
     getSchoolId().then(id=>{

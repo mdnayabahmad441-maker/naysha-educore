@@ -3,10 +3,35 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { getUserRole } from "@/lib/getUserRole"
+import { useEffect, useState } from "react"
 
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
 
   const pathname = usePathname()
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession()
+
+      if (!data.session) {
+        window.location.href = "/login"
+        return
+      }
+
+      const roleData = await getUserRole()
+
+      if (roleData?.role !== "parent") {
+        window.location.href = "/unauthorized"
+        return
+      }
+
+      setLoading(false)
+    }
+
+    void checkAuth()
+  }, [])
 
   const logout = async () => {
     await supabase.auth.signOut()
@@ -19,6 +44,14 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         ? "bg-white/20 text-white"
         : "text-gray-300 hover:bg-white/10 hover:text-white"
     }`
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#020c1b] text-white">
+        Loading...
+      </div>
+    )
+  }
 
   return (
 

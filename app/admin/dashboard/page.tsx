@@ -260,7 +260,7 @@ export default function DashboardPage() {
         {/* 📊 ATTENDANCE */}
         <Card className="lg:col-span-2 space-y-4">
 
-          <h2 className="text-lg font-semibold">Today's Attendance</h2>
+          <h2 className="text-lg font-semibold">Today&apos;s Attendance</h2>
 
           {classAttendance.length === 0 ? (
             <p className="text-sm text-gray-400">No attendance marked today</p>

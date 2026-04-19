@@ -18,7 +18,7 @@ export default function TeachersPage(){
   const [selectedTeacher,setSelectedTeacher] = useState<any>(null)
   const [editingTeacher,setEditingTeacher] = useState<any>(null)
 
-  const [loading,setLoading] = useState(false)
+  const [,setLoading] = useState(false)
 
   const [form,setForm] = useState({
     name:"",

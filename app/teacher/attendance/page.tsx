@@ -3,5 +3,5 @@
 import AttendancePage from "@/app/admin/attendance/page"
 
 export default function TeacherAttendancePage(){
-  return <AttendancePage />
+  return <AttendancePage restrictToClassTeacher />
 }

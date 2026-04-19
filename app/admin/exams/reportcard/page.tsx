@@ -27,11 +27,7 @@ export default function ReportCardPage(){
   const [downloading,setDownloading] = useState(false)
   const [sending,setSending] = useState(false)
 
-  useEffect(()=>{
-    init()
-  },[])
-
-  const init = async ()=>{
+  async function init(){
     const schoolId = await getSchoolId()
 
     setClasses(await dbGet("classes"))
@@ -47,6 +43,10 @@ export default function ReportCardPage(){
 
     setSchool(data)
   }
+
+  useEffect(()=>{
+    init()
+  },[])
 
   // ==========================
   // GENERATE RESULTS (FIXED)

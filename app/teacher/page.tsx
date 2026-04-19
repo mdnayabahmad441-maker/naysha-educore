@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { getCurrentTeacher } from "@/lib/role-access"
 
 export default function TeacherDashboard(){
 
@@ -12,21 +12,11 @@ export default function TeacherDashboard(){
 
     const load = async()=>{
 
-      const { data } = await supabase.auth.getUser()
-
-      if(!data.user){
-        window.location.href = "/login"
-        return
-      }
-
-      const { data: teacherData } = await supabase
-        .from("teachers")
-        .select("*")
-        .eq("auth_id", data.user.id)
-        .single()
+      const teacherData = await getCurrentTeacher()
 
       if(!teacherData){
         alert("Teacher not found")
+        setLoading(false)
         return
       }
 

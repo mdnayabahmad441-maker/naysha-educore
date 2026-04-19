@@ -1,2 +1,3 @@
-2026/04/17-10:03:42.117 6588 Creating DB C:\naysha-educore\naysha-educore\.wwebjs_auth\session\Default\Sync Data\LevelDB since it was missing.
-2026/04/17-10:03:42.127 6588 Reusing MANIFEST C:\naysha-educore\naysha-educore\.wwebjs_auth\session\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/04/19-19:39:15.990 afe8 Reusing MANIFEST C:\naysha-educore\naysha-educore\.wwebjs_auth\session\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/04/19-19:39:15.991 afe8 Recovering log #3
+2026/04/19-19:39:15.991 afe8 Reusing old log C:\naysha-educore\naysha-educore\.wwebjs_auth\session\Default\Sync Data\LevelDB/000003.log 

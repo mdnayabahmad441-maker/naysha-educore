@@ -66,6 +66,21 @@ export async function POST(req: Request){
       return NextResponse.json({ error: teacherError.message },{ status:400 })
     }
 
+    await supabaseAdmin
+      .from("profiles")
+      .upsert({
+        id: authId,
+        school_id,
+        role: "teacher"
+      })
+
+    await supabaseAdmin.auth.admin.updateUserById(authId, {
+      user_metadata: {
+        school_id,
+        role: "teacher"
+      }
+    })
+
     // =========================
     // ✅ ASSIGN CLASSES
     // =========================

@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic"
 
 import { useEffect, useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { getUserRole } from "@/lib/getUserRole"
@@ -11,7 +11,6 @@ import { useSchool } from "@/context/SchoolContext"
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
 
-  const router = useRouter()
   const pathname = usePathname()
   const school = useSchool()
 
@@ -118,7 +117,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
             📅 Attendance
           </Link>
 
-          <Link href="/teacher/exams/create" className={linkStyle("/teacher/exams")}>
+          <Link href="/teacher/exams" className={linkStyle("/teacher/exams")}>
             📝 Create Exam
           </Link>
 

@@ -4,7 +4,7 @@ export default async function TenantPage({ params }: any) {
 
   const subdomain = params.school
 
-  const { data: school, error } = await supabase
+  const { data: school } = await supabase
     .from("schools")
     .select("*")
     .eq("subdomain", subdomain)

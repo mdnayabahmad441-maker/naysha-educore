@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { getCurrentParentStudentIds } from "@/lib/role-access"
 import { supabase } from "@/lib/supabase"
 
 export default function ParentResults() {
@@ -11,23 +12,13 @@ export default function ParentResults() {
 
     const load = async () => {
 
-      const { data: userData } = await supabase.auth.getUser()
-      const user = userData?.user
-
-      if (!user?.email) return
-
-      const { data: parent } = await supabase
-        .from("parents")
-        .select("*")
-        .eq("email", user.email)
-        .maybeSingle()
-
-      if (!parent) return
+      const studentIds = await getCurrentParentStudentIds()
+      if (studentIds.length === 0) return
 
       const { data } = await supabase
         .from("results")
         .select("*")
-        .eq("student_id", parent.student_id)
+        .in("student_id", studentIds)
         .order("created_at", { ascending: false })
 
       setResults(data || [])

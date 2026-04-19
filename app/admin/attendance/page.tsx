@@ -5,12 +5,18 @@ import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { sendNotification } from "@/lib/notifications"
 import { getActiveAcademicYear } from "@/lib/academic"
+import { getCurrentTeacherClassIds } from "@/lib/role-access"
 
-export default function AttendancePage(){
+type AttendancePageProps = {
+  restrictToClassTeacher?: boolean
+}
+
+export default function AttendancePage({ restrictToClassTeacher = false }: AttendancePageProps){
 
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
   const [classes,setClasses] = useState<any[]>([])
+  const [allowedClassIds,setAllowedClassIds] = useState<string[]>([])
   const [students,setStudents] = useState<any[]>([])
 
   const [selectedClass,setSelectedClass] = useState("")
@@ -38,12 +44,33 @@ export default function AttendancePage(){
   useEffect(()=>{
     if(!schoolId) return
 
-    supabase
-      .from("classes")
-      .select("*")
-      .eq("school_id", schoolId)
-      .then(({data})=>setClasses(data || []))
-  },[schoolId])
+    const load = async ()=>{
+      const teacherClassIds = restrictToClassTeacher
+        ? await getCurrentTeacherClassIds()
+        : []
+
+      setAllowedClassIds(teacherClassIds)
+
+      let query = supabase
+        .from("classes")
+        .select("*")
+        .eq("school_id", schoolId)
+
+      if(restrictToClassTeacher){
+        if(teacherClassIds.length === 0){
+          setClasses([])
+          return
+        }
+
+        query = query.in("id", teacherClassIds)
+      }
+
+      const { data } = await query
+      setClasses(data || [])
+    }
+
+    void load()
+  },[schoolId, restrictToClassTeacher])
 
   // ================= LOAD STUDENTS =================
   useEffect(()=>{
@@ -92,11 +119,13 @@ export default function AttendancePage(){
       // FALLBACK
       if(finalStudents.length === 0){
 
-        const { data } = await supabase
+        const fallbackQuery = supabase
           .from("students")
           .select("id,name")
           .eq("school_id", schoolId)
+          .eq("class_id", selectedClass)
 
+        const { data } = await fallbackQuery
         finalStudents = (data || []).map((s:any)=>({
           id: s.id,
           name: s.name
@@ -166,6 +195,11 @@ export default function AttendancePage(){
 
     if(!schoolId || !selectedClass || !selectedDate){
       alert("Fill all fields")
+      return
+    }
+
+    if(restrictToClassTeacher && !allowedClassIds.includes(selectedClass)){
+      alert("You can mark attendance only for your assigned class")
       return
     }
 
@@ -291,6 +325,12 @@ export default function AttendancePage(){
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+
+          {restrictToClassTeacher && classes.length === 0 && (
+            <p className="text-sm text-yellow-300">
+              No class is assigned to you as class teacher.
+            </p>
+          )}
 
           <input
             type="date"

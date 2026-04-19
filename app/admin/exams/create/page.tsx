@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { dbGet } from "@/lib/db"
 import { getSchoolId } from "@/lib/school"
+import { getUserRole } from "@/lib/getUserRole"
+import { getCurrentTeacherClassIds } from "@/lib/role-access"
 
 export default function CreateExamPage(){
 
@@ -17,12 +19,32 @@ export default function CreateExamPage(){
   const [classes,setClasses] = useState<any[]>([])
   const [subjects,setSubjects] = useState<any[]>([])
   const [filteredSubjects,setFilteredSubjects] = useState<any[]>([])
+  const [role,setRole] = useState<string | null>(null)
+  const [allowedClassIds,setAllowedClassIds] = useState<string[]>([])
 
   const [selectedSubjects,setSelectedSubjects] = useState<string[]>([])
   const [marksConfig,setMarksConfig] = useState<any>({})
 
   const [exams,setExams] = useState<any[]>([])
   const [editingId,setEditingId] = useState<string | null>(null)
+
+  async function load(){
+    const roleData = await getUserRole()
+    const teacherClassIds = roleData?.role === "teacher"
+      ? await getCurrentTeacherClassIds()
+      : []
+    const allClasses = await dbGet("classes")
+
+    setRole(roleData?.role || null)
+    setAllowedClassIds(teacherClassIds)
+    setClasses(
+      roleData?.role === "teacher"
+        ? allClasses.filter((schoolClass:any)=>teacherClassIds.includes(schoolClass.id))
+        : allClasses
+    )
+    setSubjects(await dbGet("subjects"))
+    setExams(await dbGet("exams"))
+  }
 
   // ================= LOAD =================
   useEffect(()=>{
@@ -35,22 +57,30 @@ export default function CreateExamPage(){
     init()
   },[])
 
-  const load = async ()=>{
-    setClasses(await dbGet("classes"))
-    setSubjects(await dbGet("subjects"))
-    setExams(await dbGet("exams"))
-  }
-
   // ================= FILTER =================
   useEffect(()=>{
     if(isAllClasses){
-      setFilteredSubjects(subjects)
+      setFilteredSubjects(
+        role === "teacher"
+          ? subjects.filter((subject)=>allowedClassIds.includes(subject.class_id))
+          : subjects
+      )
     }else{
       setFilteredSubjects(
         subjects.filter(s=>s.class_id === selectedClass)
       )
     }
-  },[selectedClass,isAllClasses,subjects])
+  },[selectedClass,isAllClasses,subjects,role,allowedClassIds])
+
+  useEffect(()=>{
+    if(role !== "teacher") return
+
+    setIsAllClasses(false)
+
+    if(!selectedClass && classes.length === 1){
+      setSelectedClass(classes[0].id)
+    }
+  },[role, classes, selectedClass])
 
   // ================= SELECT =================
   const toggleSubject = (id:string)=>{
@@ -98,6 +128,18 @@ export default function CreateExamPage(){
       return
     }
 
+    if(role === "teacher"){
+      if(isAllClasses){
+        alert("Teachers can create exams only for their assigned class")
+        return
+      }
+
+      if(!allowedClassIds.includes(selectedClass)){
+        alert("You can create exams only for your assigned class")
+        return
+      }
+    }
+
     // ❌ BLOCK PAST CREATION
     if(isPastDate(date) && !editingId){
       alert("❌ Cannot create exam in past date")
@@ -121,8 +163,8 @@ export default function CreateExamPage(){
       .upsert({
         id: examId,
         name: examName,
-        class_id: isAllClasses ? null : selectedClass,
-        is_all_classes: isAllClasses,
+        class_id: role === "teacher" ? selectedClass : (isAllClasses ? null : selectedClass),
+        is_all_classes: role === "teacher" ? false : isAllClasses,
         date,
         is_published: false,
         school_id: schoolId
@@ -165,6 +207,7 @@ export default function CreateExamPage(){
     setSelectedSubjects([])
     setMarksConfig({})
     setEditingId(null)
+    setIsAllClasses(role === "teacher" ? false : isAllClasses)
 
     load()
   }
@@ -181,7 +224,7 @@ export default function CreateExamPage(){
     setEditingId(exam.id)
     setExamName(exam.name)
     setDate(exam.date)
-    setIsAllClasses(exam.is_all_classes)
+    setIsAllClasses(role === "teacher" ? false : exam.is_all_classes)
     setSelectedClass(exam.class_id || "")
 
     const { data } = await supabase
@@ -244,11 +287,13 @@ export default function CreateExamPage(){
         />
 
         <div className="flex gap-3">
-          <button onClick={()=>setIsAllClasses(true)}>All</button>
+          {role !== "teacher" && (
+            <button onClick={()=>setIsAllClasses(true)}>All</button>
+          )}
           <button onClick={()=>setIsAllClasses(false)}>Specific</button>
         </div>
 
-        {!isAllClasses && (
+        {(role === "teacher" || !isAllClasses) && (
           <select
             value={selectedClass}
             onChange={(e)=>setSelectedClass(e.target.value)}
@@ -259,6 +304,12 @@ export default function CreateExamPage(){
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+        )}
+
+        {role === "teacher" && classes.length === 0 && (
+          <p className="text-sm text-yellow-300">
+            No class is assigned to you as class teacher.
+          </p>
         )}
 
         <div className="grid grid-cols-2 gap-3">
