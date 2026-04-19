@@ -42,6 +42,16 @@ month:"long",
 day:"numeric"
 })
 
+type AttendanceRow = {
+status: string
+class_id: string | null
+}
+
+type SchoolClass = {
+id: string
+name: string
+}
+
 useEffect(()=>{
 
 const loadDashboard = async()=>{
@@ -106,35 +116,44 @@ setFees(totalFees)
 /* 🔥 ATTENDANCE */
 const todayISO = new Date().toISOString().split("T")[0]
 
-const { data:att } = await supabase
-.from("attendance")
-.select(`
-  status,
-  class_id,
-  classes(name)
-`)
-.eq("school_id",schoolId)
-.eq("date",todayISO)
+const [{ data:att }, { data:classRows }] = await Promise.all([
+supabase
+  .from("attendance")
+  .select("status,class_id")
+  .eq("school_id",schoolId)
+  .eq("date",todayISO),
+
+supabase
+  .from("classes")
+  .select("id,name")
+  .eq("school_id",schoolId)
+])
+
+const classNameMap = new Map(
+  ((classRows as SchoolClass[] | null) ?? []).map((item)=>[item.id, item.name])
+)
 
 let totalPresent = 0
 let total = 0
 const map:any = {}
 
-att?.forEach((a:any)=>{
+;((att as AttendanceRow[] | null) ?? []).forEach((a)=>{
 
-  if(!map[a.class_id]){
-    map[a.class_id] = {
-      name: a.classes?.name || "Class",
+  const classId = a.class_id || "unknown"
+
+  if(!map[classId]){
+    map[classId] = {
+      name: a.class_id ? classNameMap.get(a.class_id) || "Class" : "Class",
       present: 0,
       total: 0
     }
   }
 
-  map[a.class_id].total++
+  map[classId].total++
   total++
 
   if(a.status === "present"){
-    map[a.class_id].present++
+    map[classId].present++
     totalPresent++
   }
 })

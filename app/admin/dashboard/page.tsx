@@ -37,6 +37,16 @@ export default function DashboardPage() {
 
   const [loading,setLoading] = useState(true)
 
+  type AttendanceRow = {
+    status: string
+    class_id: string | null
+  }
+
+  type SchoolClass = {
+    id: string
+    name: string
+  }
+
   // ✅ DATE
   useEffect(()=>{
     const d = new Date()
@@ -94,29 +104,42 @@ export default function DashboardPage() {
         // ================= ATTENDANCE =================
         const todayISO = new Date().toISOString().split("T")[0]
 
-        const { data: att } = await supabase
-          .from("attendance")
-          .select(`status,class_id,classes(name)`)
-          .eq("school_id", schoolId)
-          .eq("date", todayISO)
+        const [{ data: att }, { data: classRows }] = await Promise.all([
+          supabase
+            .from("attendance")
+            .select("status,class_id")
+            .eq("school_id", schoolId)
+            .eq("date", todayISO),
+
+          supabase
+            .from("classes")
+            .select("id,name")
+            .eq("school_id", schoolId)
+        ])
+
+        const classMapById = new Map(
+          ((classRows as SchoolClass[] | null) ?? []).map((item) => [item.id, item.name])
+        )
 
         const classMap:any = {}
         let totalPresent = 0
         let total = 0
 
-        att?.forEach((a:any)=>{
-          if(!classMap[a.class_id]){
-            classMap[a.class_id] = {
-              name: a.classes?.name || "Class",
+        ;((att as AttendanceRow[] | null) ?? []).forEach((a) => {
+          const classId = a.class_id || "unknown"
+
+          if(!classMap[classId]){
+            classMap[classId] = {
+              name: a.class_id ? classMapById.get(a.class_id) || "Class" : "Class",
               present: 0,
               total: 0
             }
           }
 
-          classMap[a.class_id].total++
+          classMap[classId].total++
 
           if(a.status === "present"){
-            classMap[a.class_id].present++
+            classMap[classId].present++
             totalPresent++
           }
 
