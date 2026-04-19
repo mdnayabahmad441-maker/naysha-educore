@@ -1,206 +1,29 @@
-"use client"
+﻿import AdmissionEnquiryForm from "@/components/AdmissionEnquiryForm"
+import { supabase } from "@/lib/supabase"
 
-import { useEffect, useState } from "react"
-import { useTenantContext } from "@/context/TenantProvider"
+export default async function TenantAdmissionEnquiryPage({ params }: { params: { school: string } }) {
+  const subdomain = params.school
 
-type SchoolClass = {
-  id: string
-  name: string
-}
+  const { data: school } = await supabase
+    .from("schools")
+    .select("id,name")
+    .eq("subdomain", subdomain)
+    .maybeSingle()
 
-export default function AdmissionEnquiryForm() {
-  const school = useTenantContext()
-  const [studentName, setStudentName] = useState("")
-  const [fatherName, setFatherName] = useState("")
-  const [classWanted, setClassWanted] = useState("")
-  const [phone, setPhone] = useState("")
-  const [email, setEmail] = useState("")
-  const [address, setAddress] = useState("")
-
-  const [classes, setClasses] = useState<SchoolClass[]>([])
-  const [loading, setLoading] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-
-  useEffect(() => {
-    if (!school?.id) return
-
-    // Fetch available classes
-    void fetch(`/api/classes`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setClasses(data.classes || [])
-        }
-      })
-      .catch(err => console.error("Failed to load classes:", err))
-  }, [school?.id])
-
-  const submitEnquiry = async () => {
-    if (!studentName.trim() || !fatherName.trim() || !classWanted || !phone.trim() || !email.trim() || !address.trim()) {
-      alert("Please fill all required fields")
-      return
-    }
-
-    if (!school?.id) {
-      alert("School information not available")
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const response = await fetch("/api/admission-enquiry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentName: studentName.trim(),
-          fatherName: fatherName.trim(),
-          classWanted,
-          phone: phone.trim(),
-          email: email.trim(),
-          address: address.trim()
-        })
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setSubmitted(true)
-        // Reset form
-        setStudentName("")
-        setFatherName("")
-        setClassWanted("")
-        setPhone("")
-        setEmail("")
-        setAddress("")
-      } else {
-        alert(data.error || "Failed to submit enquiry")
-      }
-    } catch (error) {
-      console.error("Enquiry submission error:", error)
-      alert("Failed to submit enquiry. Please try again.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (submitted) {
+  if (!school) {
     return (
-      <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-lg text-center">
-        <div className="text-green-600 text-6xl mb-4">✓</div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Enquiry Submitted!</h2>
-        <p className="text-gray-600 mb-6">
-          Thank you for your interest in {school?.name || "our school"}. We have received your admission enquiry and will contact you soon.
-        </p>
-        <button
-          onClick={() => setSubmitted(false)}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Submit Another Enquiry
-        </button>
+      <div className="min-h-screen flex items-center justify-center p-10 bg-slate-950 text-white">
+        <div className="max-w-2xl rounded-3xl border border-white/10 bg-slate-900/90 p-10 text-center">
+          <h1 className="text-3xl font-semibold mb-4">School not found</h1>
+          <p className="text-gray-400">The requested school was not found for this domain.</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-lg">
-      <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Admission Enquiry</h2>
-        <p className="text-gray-600 mt-2">{school?.name}</p>
-      </div>
-
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Student Name *
-          </label>
-          <input
-            type="text"
-            value={studentName}
-            onChange={(e) => setStudentName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter student name"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Father Name *
-          </label>
-          <input
-            type="text"
-            value={fatherName}
-            onChange={(e) => setFatherName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter father name"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Class Interested In *
-          </label>
-          <select
-            value={classWanted}
-            onChange={(e) => setClassWanted(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Select Class</option>
-            {classes.map((cls) => (
-              <option key={cls.id} value={cls.name}>
-                {cls.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Phone Number *
-          </label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter phone number"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email Address *
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter email address"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Address *
-          </label>
-          <textarea
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter full address"
-          />
-        </div>
-
-        <button
-          onClick={submitEnquiry}
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? "Submitting..." : "Submit Enquiry"}
-        </button>
-      </div>
+    <div className="min-h-screen bg-slate-950 py-10 px-4 text-slate-900">
+      <AdmissionEnquiryForm schoolId={school.id} schoolName={school.name} />
     </div>
   )
 }

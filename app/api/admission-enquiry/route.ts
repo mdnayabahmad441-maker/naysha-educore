@@ -161,8 +161,28 @@ Please review and follow up.
 
 export async function GET(req: Request) {
   try {
-    // Get school from request (tenant detection)
-    const school = await getSchoolFromRequest(req)
+    const url = new URL(req.url)
+    const schoolId = url.searchParams.get("schoolId")
+
+    let school = null
+    if (schoolId) {
+      const { data, error } = await supabase
+        .from("schools")
+        .select("id")
+        .eq("id", schoolId)
+        .maybeSingle()
+
+      if (error) {
+        console.error("Fetch school by ID error:", error)
+      }
+      school = data || null
+    }
+
+    if (!school) {
+      // Fallback to tenant detection
+      school = await getSchoolFromRequest(req)
+    }
+
     if (!school) {
       return NextResponse.json(
         { success: false, error: "School not found" },

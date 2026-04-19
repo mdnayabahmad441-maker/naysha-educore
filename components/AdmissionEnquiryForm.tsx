@@ -1,14 +1,18 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getSchoolId } from "@/lib/school"
 
 type SchoolClass = {
   id: string
   name: string
 }
 
-export default function AdmissionEnquiryForm() {
+type AdmissionEnquiryFormProps = {
+  schoolId?: string
+  schoolName?: string
+}
+
+export default function AdmissionEnquiryForm({ schoolId, schoolName }: AdmissionEnquiryFormProps) {
   const [studentName, setStudentName] = useState("")
   const [fatherName, setFatherName] = useState("")
   const [classWanted, setClassWanted] = useState("")
@@ -19,11 +23,6 @@ export default function AdmissionEnquiryForm() {
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [schoolId, setSchoolId] = useState<string | null>(null)
-
-  useEffect(() => {
-    void getSchoolId().then(setSchoolId)
-  }, [])
 
   useEffect(() => {
     if (!schoolId) return
@@ -95,7 +94,7 @@ export default function AdmissionEnquiryForm() {
         <div className="text-green-600 text-6xl mb-4">✓</div>
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Enquiry Submitted!</h2>
         <p className="text-gray-600 mb-6">
-          Thank you for your interest. We have received your admission enquiry and will contact you soon.
+          Thank you for your interest in {schoolName || "our school"}. We have received your admission enquiry and will contact you soon.
         </p>
         <button
           onClick={() => setSubmitted(false)}
@@ -109,7 +108,12 @@ export default function AdmissionEnquiryForm() {
 
   return (
     <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-lg">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Admission Enquiry</h2>
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">Admission Enquiry</h2>
+        {schoolName ? (
+          <p className="text-gray-600 mt-2">{schoolName}</p>
+        ) : null}
+      </div>
 
       <div className="space-y-4">
         <div>
