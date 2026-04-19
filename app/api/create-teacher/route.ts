@@ -23,7 +23,9 @@ export async function POST(req: Request){
       classes
     } = body
 
-    if(!name || !email || !school_id){
+    const normalizedEmail = String(email || "").trim().toLowerCase()
+
+    if(!name || !normalizedEmail || !school_id){
       return NextResponse.json({ error:"Missing fields" },{ status:400 })
     }
 
@@ -32,7 +34,7 @@ export async function POST(req: Request){
     // =========================
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
-        email,
+        email: normalizedEmail,
         email_confirm: true
       })
 
@@ -54,7 +56,7 @@ export async function POST(req: Request){
         id: teacherId,
         auth_id: authId,
         name,
-        email,
+        email: normalizedEmail,
         phone,
         subject,
         qualification,
@@ -100,7 +102,7 @@ export async function POST(req: Request){
     const { data: linkData } =
       await supabaseAdmin.auth.admin.generateLink({
         type: "magiclink",
-        email
+        email: normalizedEmail
       })
 
     const magicLink = linkData?.properties?.action_link
@@ -117,7 +119,7 @@ export async function POST(req: Request){
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
-        to: email,
+        to: normalizedEmail,
         subject: "Your Teacher Account Created",
         message: `
           Hello ${name},<br/><br/>

@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase"
 export default function VerifyPageClient() {
 
   const params = useSearchParams()
-  const email = params.get("email") || ""
+  const email = (params.get("email") || "").trim().toLowerCase()
 
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
@@ -135,7 +135,7 @@ export default function VerifyPageClient() {
     const { data: parents } = await supabase
       .from("parents")
       .select("id, student_id")
-      .eq("email", email)
+      .ilike("email", email)
       .limit(1)
 
     const parent = parents?.[0]
@@ -195,7 +195,7 @@ export default function VerifyPageClient() {
       const { data: teacher } = await supabase
         .from("teachers")
         .select("id, school_id")
-        .eq("email", email)
+        .ilike("email", email)
         .maybeSingle()
 
     if (teacher) {
@@ -247,7 +247,7 @@ export default function VerifyPageClient() {
     const { data: school } = await supabase
       .from("schools")
       .select("id, subdomain")
-      .eq("email", email)
+      .ilike("email", email)
       .maybeSingle()
 
     if (!school?.subdomain) {

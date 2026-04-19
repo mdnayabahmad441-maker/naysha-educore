@@ -2,14 +2,14 @@ import { supabase } from "./supabase"
 
 export async function getCurrentParentStudentIds() {
   const { data: userData } = await supabase.auth.getUser()
-  const email = userData.user?.email
+  const email = userData.user?.email?.trim().toLowerCase()
 
   if (!email) return []
 
   const { data: parents, error } = await supabase
     .from("parents")
     .select("student_id,school_id")
-    .eq("email", email)
+    .ilike("email", email)
 
   if (error) {
     console.error("Parent access error:", error)
@@ -33,12 +33,14 @@ export async function getCurrentTeacher() {
 
   if (teacherByAuth) return teacherByAuth
 
-  if (!user.email) return null
+  const email = user.email?.trim().toLowerCase()
+
+  if (!email) return null
 
   const { data: teacherByEmail } = await supabase
     .from("teachers")
     .select("id,school_id,email,name")
-    .eq("email", user.email)
+    .ilike("email", email)
     .maybeSingle()
 
   if (!teacherByEmail) return null

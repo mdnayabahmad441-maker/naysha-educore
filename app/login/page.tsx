@@ -12,8 +12,9 @@ export default function LoginPage() {
 
   // ✅ FIXED FUNCTION
   const sendOTP = async () => {
+    const normalizedEmail = email.trim().toLowerCase()
 
-    if (!email) {
+    if (!normalizedEmail) {
       alert("Enter your email")
       return
     }
@@ -21,7 +22,7 @@ export default function LoginPage() {
     setLoading(true)
 
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: normalizedEmail,
       options: {
         shouldCreateUser: true
       }
@@ -35,7 +36,7 @@ export default function LoginPage() {
     }
 
     // 🔥 REDIRECT TO VERIFY PAGE
-    router.push(`/verify?email=${email}`)
+    router.push(`/verify?email=${encodeURIComponent(normalizedEmail)}`)
   }
 
   return (
