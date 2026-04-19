@@ -38,28 +38,37 @@ export function buildFeeBreakdown(fee: any) {
 // ================= MAIN =================
 
 export async function fetchReceiptByPaymentId(paymentId: string) {
+  console.log("Fetching receipt:", paymentId)
 
-  const { data: payment } = await supabase
+  // 🔹 PAYMENT
+  const { data: payment, error: paymentError } = await supabase
     .from("payments")
-    .select("id,student_id,fee_id,amount,receipt_number,date,payment_mode,remarks,school_id")
+    .select("*")
     .eq("id", paymentId)
     .single()
 
-  if (!payment) return null
+  if (paymentError || !payment) {
+    console.error("Payment error:", paymentError)
+    return null
+  }
 
+  // 🔹 ACTIVE YEAR (IMPORTANT FOR CLASS)
+  const year = await getActiveAcademicYear()
+
+  // 🔹 PARALLEL FETCH
   const [feeRes, studentRes, parentRes, schoolRes, enrollmentRes] = await Promise.all([
 
     supabase
       .from("fees")
       .select("*")
       .eq("id", payment.fee_id)
-      .single(),
+      .maybeSingle(),
 
     supabase
       .from("students")
       .select("*")
       .eq("id", payment.student_id)
-      .single(),
+      .maybeSingle(),
 
     supabase
       .from("parents")
@@ -71,13 +80,21 @@ export async function fetchReceiptByPaymentId(paymentId: string) {
       .from("schools")
       .select("*")
       .eq("id", payment.school_id)
-      .single(),
+      .maybeSingle(),
 
-    supabase
-      .from("student_enrollments")
-      .select("roll_number,classes(name)")
-      .eq("student_id", payment.student_id)
-      .maybeSingle()
+    // 🔥 FIXED: include academic year
+    year?.id
+      ? supabase
+          .from("student_enrollments")
+          .select("roll_number, classes(name)")
+          .eq("student_id", payment.student_id)
+          .eq("academic_year_id", year.id)
+          .maybeSingle()
+      : supabase
+          .from("student_enrollments")
+          .select("roll_number, classes(name)")
+          .eq("student_id", payment.student_id)
+          .maybeSingle()
   ])
 
   const fee = feeRes.data
@@ -85,6 +102,8 @@ export async function fetchReceiptByPaymentId(paymentId: string) {
   const parent = parentRes.data
   const school = schoolRes.data
   const enrollment = enrollmentRes.data
+
+  console.log("DEBUG:", { payment, student, parent, school, enrollment, fee })
 
   const classRelation = getSingleRelation(enrollment?.classes)
 
@@ -102,35 +121,35 @@ export async function fetchReceiptByPaymentId(paymentId: string) {
     },
 
     fee: {
-      id: fee?.id,
+      id: fee?.id ?? null,
       label: toFeeLabel(fee),
-      month: fee?.month,
-      total_amount: fee?.total_amount,
-      paid_amount: fee?.paid_amount,
-      status: fee?.status,
-      tuition_fee: fee?.tuition_fee,
-      transport_fee: fee?.transport_fee,
-      hostel_fee: fee?.hostel_fee
+      month: fee?.month ?? null,
+      total_amount: Number(fee?.total_amount ?? 0),
+      paid_amount: Number(fee?.paid_amount ?? 0),
+      status: fee?.status ?? null,
+      tuition_fee: Number(fee?.tuition_fee ?? 0),
+      transport_fee: Number(fee?.transport_fee ?? 0),
+      hostel_fee: Number(fee?.hostel_fee ?? 0)
     },
 
     student: {
-      id: student?.id,
-      name: student?.name,
-      class_name: classRelation?.name || null,
-      roll_number: enrollment?.roll_number ?? null,
-      parent_name: parentName,
-      parent_phone: parent?.phone || null,
+      id: student?.id ?? null,
+      name: student?.name || "N/A",
+      class_name: classRelation?.name || "N/A",
+      roll_number: enrollment?.roll_number ?? "N/A",
+      parent_name: parentName || "N/A",
+      parent_phone: parent?.phone || "N/A",
       parents: {
-        name: parentName,
-        phone: parent?.phone || null
+        name: parentName || "N/A",
+        phone: parent?.phone || "N/A"
       }
     },
 
     school: {
-      id: school?.id,
-      name: school?.name,
-      address: school?.address,
-      phone: school?.phone
+      id: school?.id ?? null,
+      name: school?.name || "School",
+      address: school?.address || "",
+      phone: school?.phone || ""
     }
   }
 }
