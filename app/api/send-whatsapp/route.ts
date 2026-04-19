@@ -73,10 +73,14 @@ export async function POST(req: Request) {
       )
     }
 
-    let formatted = String(phone).trim()
+    let formatted = String(phone).trim().replace(/\D/g, "")
 
-    if (formatted.startsWith("+")) {
+    if (formatted.startsWith("0")) {
       formatted = formatted.slice(1)
+    }
+
+    if (formatted.length === 10) {
+      formatted = `91${formatted}`
     }
 
     if (!formatted.startsWith("91")) {

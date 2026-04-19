@@ -16,6 +16,7 @@ export default function Sidebar() {
         <Link href="/admin/teachers">Teachers</Link>
         <Link href="/admin/classes">Classes</Link>
         <Link href="/admin/subjects">Subjects</Link>
+        <Link href="/admin/admission-enquiry">Admission Enquiry</Link>
 
         <h3 className="mt-4 text-sm opacity-70">Attendance</h3>
         <Link href="/admin/attendance">Attendance</Link>

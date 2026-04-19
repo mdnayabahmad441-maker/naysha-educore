@@ -7,7 +7,8 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
 
-    const { email, subject, message, studentName, amount, feeType } = body
+    const email = String(body.email || body.to || "").trim().toLowerCase()
+    const { subject, message, studentName, amount, feeType } = body
 
     if (!email || !message) {
       return NextResponse.json(

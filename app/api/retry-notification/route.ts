@@ -15,8 +15,10 @@ export async function POST(req: Request){
     return NextResponse.json({ error: "Log not found" })
   }
 
+  const baseUrl = new URL(req.url).origin
+
   // 🔁 RECALL NOTIFY API
-  await fetch("http://localhost:3000/api/notify", {
+  await fetch(`${baseUrl}/api/notify`, {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
     body: JSON.stringify({

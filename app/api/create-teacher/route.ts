@@ -119,7 +119,7 @@ export async function POST(req: Request){
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
-        to: normalizedEmail,
+        email: normalizedEmail,
         subject: "Your Teacher Account Created",
         message: `
           Hello ${name},<br/><br/>

@@ -65,6 +65,8 @@ export async function POST(req: Request){
       className = cls?.name || "N/A"
     }
 
+    const baseUrl = new URL(req.url).origin
+
     // ================= STATUS =================
     let emailStatus = "skipped"
     let whatsappStatus = "skipped"
@@ -73,7 +75,7 @@ export async function POST(req: Request){
     if(parent?.email){
 
       try{
-        const res = await fetch("http://localhost:3000/api/send-email",{
+        const res = await fetch(`${baseUrl}/api/send-email`,{
           method:"POST",
           headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({
@@ -106,7 +108,7 @@ Thank you
     if(parent?.phone){
 
       try{
-        const res = await fetch("http://localhost:3000/api/send-whatsapp",{
+        const res = await fetch(`${baseUrl}/api/send-whatsapp`,{
           method:"POST",
           headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({

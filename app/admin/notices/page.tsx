@@ -255,7 +255,7 @@ export default function NoticesPage() {
           try {
             console.log("Sending WhatsApp:", parent.phone)
 
-            await fetch("http://127.0.0.1:5000/send", {
+            await fetch("/api/send-whatsapp", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({

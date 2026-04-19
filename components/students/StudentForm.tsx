@@ -175,6 +175,73 @@ export default function StudentForm({ reload }: StudentFormProps) {
         }
       }
 
+      // ================= WELCOME NOTIFICATIONS =================
+      if (parentEmail || parentPhone) {
+        // Get school name
+        const { data: school } = await supabase
+          .from("schools")
+          .select("name")
+          .eq("id", schoolId)
+          .single()
+
+        const schoolName = school?.name || "Our School"
+
+        const welcomeMessage = `
+Welcome to ${schoolName}!
+
+Dear Parent,
+
+We are delighted to welcome your child ${name.trim()} to our school family.
+
+Thank you for choosing ${schoolName}.
+
+Best regards,
+${schoolName} Team
+        `.trim()
+
+        // Send Email
+        if (parentEmail) {
+          try {
+            await fetch("/api/send-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: parentEmail.trim(),
+                subject: `Welcome to ${schoolName}`,
+                message: welcomeMessage
+              })
+            })
+          } catch (err) {
+            console.error("Welcome email failed:", err)
+          }
+        }
+
+        // Send WhatsApp
+        if (parentPhone) {
+          try {
+            await fetch("/api/send-whatsapp", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                phone: parentPhone.trim(),
+                message: `Welcome to ${schoolName}! 🎉
+
+Dear Parent,
+
+We are delighted to welcome your child ${name.trim()} to our school family.
+
+Thank you for choosing ${schoolName}.
+
+Best regards,
+${schoolName} Team`
+              })
+            })
+          } catch (err) {
+            console.error("Welcome WhatsApp failed:", err)
+          }
+        }
+      }
+
       setName("")
       setEmail("")
       setRoll("")
@@ -191,6 +258,7 @@ export default function StudentForm({ reload }: StudentFormProps) {
       if (reload) {
         await reload()
       }
+
     } catch (error) {
       console.error("Student create error:", error)
       alert("Something went wrong")
