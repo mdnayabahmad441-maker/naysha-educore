@@ -2,58 +2,57 @@
 
 import { useEffect, useState } from "react"
 import FeeReceipt from "@/components/fees/FeeReceipt"
-import {
-  fetchReceiptByPaymentId,
-  fetchReceiptHistoryForSchool,
-  type ReceiptHistoryItem
-} from "@/lib/payment-receipts"
+import { fetchReceiptByPaymentId } from "@/lib/payment-receipts"
 import { getSchoolId } from "@/lib/school"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 import { createRoot } from "react-dom/client"
 
+type PaymentItem = {
+  id: string
+  amount: number
+  paymentDate: string
+  receiptNumber: string
+  studentName: string
+  studentClass: string | null
+  feeLabel: string
+}
+
 export default function ReceiptHistoryPage() {
-  const [payments, setPayments] = useState<ReceiptHistoryItem[]>([])
+  const [payments, setPayments] = useState<PaymentItem[]>([])
   const [loading, setLoading] = useState(true)
   const [schoolId, setSchoolId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
+  // 🔹 Get school
   useEffect(() => {
-    void getSchoolId().then(setSchoolId)
+    getSchoolId().then(setSchoolId)
   }, [])
 
+  // 🔹 Load payments (NEW API)
   useEffect(() => {
     if (!schoolId) return
-
-    let cancelled = false
 
     const load = async () => {
       setLoading(true)
 
       try {
-        const rows = await fetchReceiptHistoryForSchool(schoolId)
-        if (!cancelled) {
-          setPayments(rows)
-        }
-      } catch (error) {
-        console.error(error)
-        if (!cancelled) {
-          setPayments([])
-        }
+        const res = await fetch(`/api/payments-history?school_id=${schoolId}`)
+        const data = await res.json()
+
+        setPayments(data || [])
+      } catch (err) {
+        console.error(err)
+        setPayments([])
       } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
+        setLoading(false)
       }
     }
 
-    void load()
-
-    return () => {
-      cancelled = true
-    }
+    load()
   }, [schoolId])
 
+  // 📄 PDF GENERATE
   const generatePDF = async (paymentId: string) => {
     setBusyId(paymentId)
 
@@ -92,38 +91,30 @@ export default function ReceiptHistoryPage() {
       await new Promise(requestAnimationFrame)
       await new Promise(requestAnimationFrame)
 
-      container.querySelectorAll<HTMLElement>("*").forEach((element) => {
-        element.style.color = "#000"
-        element.style.background = "#fff"
-        element.style.borderColor = "#000"
-        element.style.boxShadow = "none"
-      })
-
       const canvas = await html2canvas(container, {
         scale: 2,
-        useCORS: true,
         backgroundColor: "#ffffff"
       })
 
       const img = canvas.toDataURL("image/png")
       const pdf = new jsPDF("p", "mm", "a4")
+
       const width = 190
       const height = (canvas.height * width) / canvas.width
 
       pdf.addImage(img, "PNG", 10, 10, width, height)
       pdf.save(`receipt-${receiptData.payment.receipt_number}.pdf`)
-    } catch (error) {
-      console.error(error)
+    } catch (err) {
+      console.error(err)
       alert("Failed to generate receipt")
     } finally {
       root?.unmount()
-      if (container?.parentNode) {
-        container.parentNode.removeChild(container)
-      }
+      container?.remove()
       setBusyId(null)
     }
   }
 
+  // 📲 WHATSAPP
   const resendWhatsApp = async (paymentId: string) => {
     setBusyId(paymentId)
 
@@ -131,31 +122,29 @@ export default function ReceiptHistoryPage() {
       const receiptData = await fetchReceiptByPaymentId(paymentId)
 
       if (!receiptData?.student.parent_phone) {
-        alert("No parent phone number found")
+        alert("No parent phone")
         return
       }
 
-      const response = await fetch("/api/send-whatsapp", {
+      await fetch("/api/send-whatsapp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
           phone: receiptData.student.parent_phone,
-          message: `${receiptData.school?.name || "School"}\n\nPayment receipt for ${
-            receiptData.student.name
-          }\nReceipt: ${receiptData.payment.receipt_number}\nAmount: Rs. ${
-            receiptData.payment.amount
-          }\nView receipt: ${window.location.origin}/receipt/${paymentId}`
+          message: `${receiptData.school?.name || "School"}
+
+Receipt for ${receiptData.student.name}
+Amount: Rs. ${receiptData.payment.amount}
+Receipt No: ${receiptData.payment.receipt_number}`
         })
       })
 
-      if (!response.ok) {
-        throw new Error("WhatsApp send failed")
-      }
-
-      alert("Sent again")
-    } catch (error) {
-      console.error(error)
-      alert("Failed to send WhatsApp")
+      alert("Sent successfully")
+    } catch (err) {
+      console.error(err)
+      alert("Failed")
     } finally {
       setBusyId(null)
     }
@@ -166,41 +155,43 @@ export default function ReceiptHistoryPage() {
       <h1 className="mb-6 text-2xl font-bold">Receipt History</h1>
 
       {loading ? (
-        "Loading..."
+        <p>Loading...</p>
       ) : (
         <div className="space-y-4">
-          {payments.map((payment) => (
+          {payments.map((p) => (
             <div
-              key={payment.id}
+              key={p.id}
               className="flex items-center justify-between rounded-xl border border-white/10 bg-[#0f172a] p-4"
             >
               <div>
-                <p className="text-lg font-semibold">{payment.studentName}</p>
+                <p className="text-lg font-semibold">{p.studentName}</p>
                 <p className="text-sm text-gray-400">
-                  {payment.studentClass || "Class not assigned"}
+                  {p.studentClass || "No class"}
                 </p>
-                <p className="font-medium text-green-400">Rs. {payment.amount}</p>
+                <p className="text-green-400 font-medium">
+                  Rs. {p.amount}
+                </p>
                 <p className="text-sm text-gray-400">
-                  {new Date(payment.paymentDate).toLocaleString()}
+                  {new Date(p.paymentDate).toLocaleString()}
                 </p>
-                <p className="text-sm text-blue-400">
-                  {payment.receiptNumber} • {payment.feeLabel}
+                <p className="text-blue-400 text-sm">
+                  {p.receiptNumber} • {p.feeLabel}
                 </p>
               </div>
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => generatePDF(payment.id)}
-                  disabled={busyId === payment.id}
-                  className="rounded bg-blue-600 px-3 py-1 hover:bg-blue-700 disabled:opacity-60"
+                  onClick={() => generatePDF(p.id)}
+                  disabled={busyId === p.id}
+                  className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700"
                 >
                   Download
                 </button>
 
                 <button
-                  onClick={() => resendWhatsApp(payment.id)}
-                  disabled={busyId === payment.id}
-                  className="rounded bg-green-600 px-3 py-1 hover:bg-green-700 disabled:opacity-60"
+                  onClick={() => resendWhatsApp(p.id)}
+                  disabled={busyId === p.id}
+                  className="bg-green-600 px-3 py-1 rounded hover:bg-green-700"
                 >
                   WhatsApp
                 </button>
