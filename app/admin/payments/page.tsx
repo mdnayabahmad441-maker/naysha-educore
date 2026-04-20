@@ -17,7 +17,6 @@ export default function PaymentsPage(){
   const [studentSearch,setStudentSearch] = useState("")
   const [studentId,setStudentId] = useState("")
   const [feeId,setFeeId] = useState("")
-  const [manualFeeType,setManualFeeType] = useState("")
   const [amount,setAmount] = useState("")
 
   const [loading,setLoading] = useState(false)
@@ -34,6 +33,14 @@ export default function PaymentsPage(){
     "Test Series Fee",
     "Miscellaneous Fee"
   ]
+
+  const [manualFeeAmounts, setManualFeeAmounts] = useState<Record<string, string>>(() => {
+    const initialAmounts: Record<string, string> = {}
+    manualFeeTypes.forEach((type) => {
+      initialAmounts[type] = ""
+    })
+    return initialAmounts
+  })
 
   // LOAD SCHOOL
   useEffect(()=>{
@@ -107,34 +114,35 @@ export default function PaymentsPage(){
   })
 
   // SAVE PAYMENT
-  const save = async ()=>{
+  const save = async () => {
+    const manualEntries = Object.entries(manualFeeAmounts).filter(([, amt]) => Number(amt) > 0)
 
-    if(!studentId || !amount || (!feeId && !manualFeeType)){
-      alert("Fill all fields")
+    if (!studentId || (!feeId && manualEntries.length === 0) || (feeId && !amount)) {
+      alert("Fill all required fields")
       return
     }
 
-    if(!schoolId){
+    if (!schoolId) {
       alert("School not loaded")
       return
     }
 
-    const payAmount = Number(amount)
-
-    if(isNaN(payAmount) || payAmount <= 0){
-      alert("Enter valid amount")
+    if (feeId && manualEntries.length > 0) {
+      alert("Please choose either an existing fee or manual fee entries, not both.")
       return
     }
 
     setLoading(true)
 
-    try{
-
-      let paymentFeeId = feeId
-      let totalAmount = 0
-      let paidAmount = payAmount
-
+    try {
       if (feeId) {
+        const payAmount = Number(amount)
+        if (isNaN(payAmount) || payAmount <= 0) {
+          alert("Enter valid amount")
+          setLoading(false)
+          return
+        }
+
         const fee = fees.find((f) => f.id === feeId)
 
         if (!fee) {
@@ -143,60 +151,29 @@ export default function PaymentsPage(){
           return
         }
 
-        totalAmount = Number(fee.total_amount || 0)
+        const totalAmount = Number(fee.total_amount || 0)
         const currentPaid = Number(fee.paid_amount || 0)
-        paidAmount = currentPaid + payAmount
-      }
+        const paidAmount = currentPaid + payAmount
 
-      if (!paymentFeeId && manualFeeType) {
-        const newFeeId = crypto.randomUUID()
-        paymentFeeId = newFeeId
-        totalAmount = payAmount
-
-        const { error: manualFeeError } = await supabase
-          .from("fees")
+        const paymentId = crypto.randomUUID()
+        const { error: paymentError } = await supabase
+          .from("payments")
           .insert({
-            id: newFeeId,
+            id: paymentId,
             student_id: studentId,
+            fee_id: feeId,
+            amount: payAmount,
             school_id: schoolId,
-            class_id: selectedClass || null,
-            month: manualFeeType,
-            total_amount: payAmount,
-            paid_amount: payAmount,
-            status: "paid",
-            tuition_fee: 0,
-            transport_fee: 0,
-            hostel_fee: 0
+            receipt_number: "RCPT-" + Date.now(),
+            date: new Date().toISOString()
           })
 
-        if (manualFeeError) {
-          alert(manualFeeError.message)
+        if (paymentError) {
+          alert(paymentError.message)
           setLoading(false)
           return
         }
-      }
 
-      const paymentId = crypto.randomUUID()
-
-      const { error: paymentError } = await supabase
-        .from("payments")
-        .insert({
-          id: paymentId,
-          student_id: studentId,
-          fee_id: paymentFeeId,
-          amount: payAmount,
-          school_id: schoolId,
-          receipt_number: "RCPT-" + Date.now(),
-          date: new Date().toISOString()
-        })
-
-      if(paymentError){
-        alert(paymentError.message)
-        setLoading(false)
-        return
-      }
-
-      if (feeId) {
         const { error: feeError } = await supabase
           .from("fees")
           .update({
@@ -206,19 +183,74 @@ export default function PaymentsPage(){
           .eq("id", feeId)
           .eq("school_id", schoolId)
 
-        if(feeError){
+        if (feeError) {
           alert(feeError.message)
           setLoading(false)
           return
         }
-      }
 
-      alert("Payment successful ✅")
+        alert("Payment successful ✅")
+      } else {
+        const receiptNumber = "RCPT-" + Date.now()
+
+        for (const [manualType, manualAmountValue] of manualEntries) {
+          const payAmount = Number(manualAmountValue)
+          const newFeeId = crypto.randomUUID()
+
+          const { error: manualFeeError } = await supabase
+            .from("fees")
+            .insert({
+              id: newFeeId,
+              student_id: studentId,
+              school_id: schoolId,
+              class_id: selectedClass || null,
+              month: manualType,
+              total_amount: payAmount,
+              paid_amount: payAmount,
+              status: "paid",
+              tuition_fee: 0,
+              transport_fee: 0,
+              hostel_fee: 0
+            })
+
+          if (manualFeeError) {
+            alert(manualFeeError.message)
+            setLoading(false)
+            return
+          }
+
+          const paymentId = crypto.randomUUID()
+          const { error: paymentError } = await supabase
+            .from("payments")
+            .insert({
+              id: paymentId,
+              student_id: studentId,
+              fee_id: newFeeId,
+              amount: payAmount,
+              school_id: schoolId,
+              receipt_number: receiptNumber,
+              date: new Date().toISOString()
+            })
+
+          if (paymentError) {
+            alert(paymentError.message)
+            setLoading(false)
+            return
+          }
+        }
+
+        alert("Manual payment successful ✅")
+      }
 
       // RESET
       setAmount("")
       setFeeId("")
-      setManualFeeType("")
+      setManualFeeAmounts(
+        manualFeeTypes.reduce((acc, type) => {
+          acc[type] = ""
+          return acc
+        }, {} as Record<string, string>)
+      )
 
       // RELOAD FEES
       const { data } = await supabase
@@ -228,8 +260,7 @@ export default function PaymentsPage(){
         .eq("school_id", schoolId)
 
       setFees(data || [])
-
-    }catch(err){
+    } catch (err) {
       console.error(err)
       alert("Error processing payment")
     }
@@ -296,9 +327,6 @@ export default function PaymentsPage(){
           value={feeId}
           onChange={(e) => {
             setFeeId(e.target.value)
-            if (e.target.value) {
-              setManualFeeType("")
-            }
           }}
           disabled={!studentId}
           className="bg-[#0b1220] px-4 py-3 rounded-xl"
@@ -312,39 +340,63 @@ export default function PaymentsPage(){
           ))}
         </select>
 
-        <div className="flex-1 min-w-55">
-          <select
-            value={manualFeeType}
-            onChange={(e) => {
-              setManualFeeType(e.target.value)
-              if (e.target.value) {
-                setFeeId("")
-              }
-            }}
-            disabled={!studentId}
-            className="bg-[#0b1220] px-4 py-3 rounded-xl w-full"
-          >
-            <option value="">Manual Fee Type</option>
-            {manualFeeTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <input
           value={amount}
           onChange={(e)=>setAmount(e.target.value)}
-          placeholder="Enter Amount"
+          placeholder="Amount for selected fee"
+          disabled={!feeId}
           className="bg-[#0b1220] px-4 py-3 rounded-xl"
           style={{ minWidth: "220px" }}
         />
 
+      </div>
+
+      <div className="bg-white/10 p-6 rounded-xl">
+        <div className="text-lg font-medium mb-4">Manual Fee Amounts</div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left border-separate border-spacing-y-2">
+            <thead>
+              <tr className="text-sm text-slate-300">
+                <th className="pb-3">Fee Head</th>
+                <th className="pb-3">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {manualFeeTypes.map((type) => (
+                <tr key={type} className="bg-[#0b1220] rounded-2xl overflow-hidden">
+                  <td className="px-4 py-3">{type}</td>
+                  <td className="px-4 py-3 w-40">
+                    <div className="flex items-center gap-2">
+                      <span>₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={manualFeeAmounts[type] || ""}
+                        onChange={(e) =>
+                          setManualFeeAmounts((prev) => ({
+                            ...prev,
+                            [type]: e.target.value
+                          }))
+                        }
+                        disabled={!studentId}
+                        className="bg-[#111827] px-3 py-2 rounded-xl w-full"
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-4 text-right text-sm text-slate-300">
+          Total manual bill: ₹{Object.values(manualFeeAmounts).reduce((sum, value) => sum + (Number(value) || 0), 0)}
+        </div>
+      </div>
+
+      <div className="flex justify-end">
         <Button color="green" onClick={save} disabled={loading}>
           {loading ? "Processing..." : "Pay"}
         </Button>
-
       </div>
 
     </div>
