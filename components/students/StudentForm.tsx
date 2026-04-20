@@ -64,14 +64,15 @@ export default function StudentForm({ reload }: StudentFormProps) {
 
   const generateStudentCode = async () => {
     // Use timestamp-based code to avoid race conditions
-    // Format: STYYMMDD-HHMM (unique per minute per school)
+    // Format: STYYMMDDHHMMSS (unique per second)
     const now = new Date()
     const year = String(now.getFullYear()).slice(-2)
     const month = String(now.getMonth() + 1).padStart(2, "0")
     const date = String(now.getDate()).padStart(2, "0")
     const hours = String(now.getHours()).padStart(2, "0")
     const minutes = String(now.getMinutes()).padStart(2, "0")
-    return `ST${year}${month}${date}${hours}${minutes}`
+    const seconds = String(now.getSeconds()).padStart(2, "0")
+    return `ST${year}${month}${date}${hours}${minutes}${seconds}`
   }
 
   const save = async () => {

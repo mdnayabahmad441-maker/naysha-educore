@@ -132,6 +132,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📚 Subjects
           </Link>
 
+          <Link href="/admin/teachers" className={linkStyle("/admin/teachers")} onClick={closeSidebar}>
+            👨‍🏫 Teachers
+          </Link>
+
           <Link href="/admin/admission-enquiry" className={linkStyle("/admin/admission-enquiry")} onClick={closeSidebar}>
             📝 Admission Enquiry
           </Link>
