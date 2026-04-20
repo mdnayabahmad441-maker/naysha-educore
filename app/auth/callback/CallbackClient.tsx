@@ -24,15 +24,20 @@ export default function CallbackClient() {
 
       // 🔥 REDIRECT TO SUBDOMAIN WITH TOKENS
       if (subdomain) {
-        window.location.href =
-          `https://${subdomain}.naysha.online/auth/callback` +
-          `?access_token=${access_token}` +
-          `&refresh_token=${refresh_token}` +
-          `&next=${next}`
-        return
+        const currentHost = window.location.hostname
+        const targetHost = `${subdomain}.naysha.online`
+
+        if (currentHost !== targetHost) {
+          window.location.href =
+            `https://${targetHost}/auth/callback` +
+            `?access_token=${access_token}` +
+            `&refresh_token=${refresh_token}` +
+            `&next=${next}`
+          return
+        }
       }
 
-      // ✅ fallback (same domain)
+      // ✅ fallback (same domain or already on subdomain)
       const { error } = await supabase.auth.setSession({
         access_token,
         refresh_token
