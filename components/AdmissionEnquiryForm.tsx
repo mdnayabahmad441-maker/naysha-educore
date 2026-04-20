@@ -90,15 +90,15 @@ export default function AdmissionEnquiryForm({ schoolId, schoolName }: Admission
 
   if (submitted) {
     return (
-      <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-lg text-center">
-        <div className="text-green-600 text-6xl mb-4">✓</div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Enquiry Submitted!</h2>
-        <p className="text-gray-600 mb-6">
+      <div className="max-w-md mx-auto bg-white p-6 sm:p-8 rounded-lg shadow-lg text-center">
+        <div className="text-green-600 text-4xl sm:text-6xl mb-4">✓</div>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Enquiry Submitted!</h2>
+        <p className="text-gray-600 mb-6 text-sm sm:text-base">
           Thank you for your interest in {schoolName || "our school"}. We have received your admission enquiry and will contact you soon.
         </p>
         <button
           onClick={() => setSubmitted(false)}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="bg-blue-600 text-white px-4 sm:px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
         >
           Submit Another Enquiry
         </button>
@@ -107,11 +107,11 @@ export default function AdmissionEnquiryForm({ schoolId, schoolName }: Admission
   }
 
   return (
-    <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-lg">
+    <div className="max-w-md mx-auto bg-white p-6 sm:p-8 rounded-lg shadow-lg">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Admission Enquiry</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Admission Enquiry</h2>
         {schoolName ? (
-          <p className="text-gray-600 mt-2">{schoolName}</p>
+          <p className="text-gray-600 mt-2 text-sm sm:text-base">{schoolName}</p>
         ) : null}
       </div>
 
@@ -124,7 +124,7 @@ export default function AdmissionEnquiryForm({ schoolId, schoolName }: Admission
             type="text"
             value={studentName}
             onChange={(e) => setStudentName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
             placeholder="Enter student name"
           />
         </div>
@@ -137,7 +137,7 @@ export default function AdmissionEnquiryForm({ schoolId, schoolName }: Admission
             type="text"
             value={fatherName}
             onChange={(e) => setFatherName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
             placeholder="Enter father name"
           />
         </div>
@@ -149,7 +149,7 @@ export default function AdmissionEnquiryForm({ schoolId, schoolName }: Admission
           <select
             value={classWanted}
             onChange={(e) => setClassWanted(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
           >
             <option value="">Select Class</option>
             {classes.map((cls) => (
@@ -168,7 +168,7 @@ export default function AdmissionEnquiryForm({ schoolId, schoolName }: Admission
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
             placeholder="Enter phone number"
           />
         </div>
@@ -181,7 +181,7 @@ export default function AdmissionEnquiryForm({ schoolId, schoolName }: Admission
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
             placeholder="Enter email address"
           />
         </div>
@@ -194,7 +194,7 @@ export default function AdmissionEnquiryForm({ schoolId, schoolName }: Admission
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base resize-vertical"
             placeholder="Enter full address"
           />
         </div>
@@ -202,7 +202,7 @@ export default function AdmissionEnquiryForm({ schoolId, schoolName }: Admission
         <button
           onClick={submitEnquiry}
           disabled={loading}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-base font-medium"
         >
           {loading ? "Submitting..." : "Submit Enquiry"}
         </button>

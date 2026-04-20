@@ -36,7 +36,7 @@ export default async function AdmissionEnquiryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 py-10 px-4 text-slate-900">
+    <div className="min-h-screen bg-slate-950 py-8 sm:py-10 px-4 text-slate-900">
       <AdmissionEnquiryForm
         schoolId={school.id}
         schoolName={school.name}
