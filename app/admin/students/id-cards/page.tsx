@@ -322,14 +322,15 @@ export default function StudentIdCardsPage() {
             ) : selectedCount === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-gray-400">Choose a target and select students to generate cards.</div>
             ) : (
-              <div className="grid gap-4 xl:grid-cols-2">
+              <div className="grid gap-6 justify-items-center xl:grid-cols-2">
                 {selectedStudents.map((student) => (
-                  <StudentCard
-                    key={student.id}
-                    student={student}
-                    studentClass={classMap.get(student.class_id || "") || "N/A"}
-                    template={selectedTemplate}
-                  />
+                  <div key={student.id} className="w-full max-w-105">
+                    <StudentCard
+                      student={student}
+                      studentClass={classMap.get(student.class_id || "") || "N/A"}
+                      template={selectedTemplate}
+                    />
+                  </div>
                 ))}
               </div>
             )}
@@ -341,36 +342,34 @@ export default function StudentIdCardsPage() {
 }
 
 function StudentCard({ student, studentClass, template }: { student: Student; studentClass: string; template: string }) {
-  const colors = {
-    classic: "from-blue-600 to-cyan-500",
-    modern: "from-fuchsia-500 to-violet-500",
-    minimal: "from-emerald-500 to-teal-500"
-  }
-
   if (template === "modern") {
     return (
-      <div className="print-page-break rounded-3xl border border-white/10 bg-[#080e1b] p-6 shadow-lg">
-        <div className="flex items-center gap-4">
-          <div className="h-20 w-20 overflow-hidden rounded-3xl bg-white/5">
-            {student.photo ? (
-              <img src={student.photo} alt={student.name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-white/10 text-xs text-gray-400">Photo</div>
-            )}
-          </div>
-          <div className="flex-1">
-            <div className="text-xs uppercase tracking-[0.2em] text-gray-400">Student ID</div>
-            <div className="text-xl font-semibold">{student.student_code || "N/A"}</div>
-            <div className="text-sm text-gray-400">{studentClass}</div>
-          </div>
+      <div className="print-page-break overflow-hidden rounded-[30px] border border-[#572020] bg-[#3c0606] text-white shadow-[0_20px_40px_rgba(0,0,0,0.35)]">
+        <div className="bg-[#741a1a] px-6 py-6 text-center">
+          <div className="text-sm uppercase tracking-[0.35em] text-yellow-200/80">Identity Card</div>
+          <div className="mt-3 text-2xl font-semibold text-yellow-100">NaySha EduCore</div>
+          <div className="mt-1 text-xs uppercase tracking-[0.25em] text-yellow-200/70">Premium School ID</div>
         </div>
-
-        <div className="mt-6 rounded-3xl border border-white/10 bg-linear-to-r bg-clip-padding p-4 text-white" style={{ backgroundImage: `linear-gradient(90deg, rgba(56,189,248,0.85), rgba(125,211,252,0.85))` }}>
-          <div className="text-xs uppercase tracking-[0.2em]">{student.name}</div>
-          <div className="mt-3 text-sm">Roll No: {student.roll_number ?? "—"}</div>
-          <div className="mt-2 text-sm">Class: {studentClass}</div>
-          <div>School: NaySha EduCore</div>
-          <div>Valid for current academic year</div>
+        <div className="border-t border-yellow-300/20 bg-white/95 px-6 py-6 text-[#111]">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="h-24 w-24 overflow-hidden rounded-3xl bg-[#ffe9b1]">
+              {student.photo ? (
+                <img src={student.photo} alt={student.name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase tracking-[0.2em] text-[#8b5c00]">Photo</div>
+              )}
+            </div>
+            <div className="flex-1 space-y-2">
+              <div className="text-lg font-bold uppercase tracking-[0.06em] text-[#5c1200]">{student.name}</div>
+              <div className="text-sm text-[#6a3a00]">ID: <span className="font-semibold">{student.student_code || "N/A"}</span></div>
+              <div className="text-sm text-[#6a3a00]">Class: <span className="font-semibold">{studentClass}</span></div>
+              <div className="text-sm text-[#6a3a00]">Roll No: <span className="font-semibold">{student.roll_number ?? "—"}</span></div>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 rounded-3xl border border-[#f8d488]/40 bg-[#fdf6e1] p-4 text-sm text-[#6a3a00] shadow-inner shadow-[#0000000d]">
+            <div>School: NaySha EduCore</div>
+            <div>Valid for current academic year</div>
+          </div>
         </div>
       </div>
     )
@@ -378,56 +377,60 @@ function StudentCard({ student, studentClass, template }: { student: Student; st
 
   if (template === "minimal") {
     return (
-      <div className="print-page-break rounded-3xl border border-white/10 bg-[#0b1220] p-6 shadow-lg">
-        <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-gray-400">
-          <span>NaySha EduCore</span>
-          <span>ID Card</span>
+      <div className="print-page-break overflow-hidden rounded-[30px] border border-cyan-500/30 bg-[#064d58] shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
+        <div className="relative overflow-hidden bg-linear-to-br from-[#0f6370] via-[#0a9396] to-[#52c1c2] px-6 py-6 text-center text-white">
+          <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top_center,rgba(255,255,255,0.18),transparent_60%)]" />
+          <div className="relative text-xs uppercase tracking-[0.3em] text-white/80">Style C — Teal Geometric</div>
+          <div className="mt-4 text-2xl font-semibold uppercase tracking-wide">Deep English School</div>
+          <div className="mt-1 text-sm text-white/80">Barsoi, Katihar, Bihar</div>
         </div>
-        <div className="mt-4 flex items-center gap-4">
-          <div className="h-20 w-20 overflow-hidden rounded-3xl bg-white/5">
+        <div className="bg-white px-6 py-6 text-[#102a33]">
+          <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-3xl bg-[#dbeffc] text-xs font-semibold uppercase tracking-[0.2em] text-[#087ca7]">
             {student.photo ? (
-              <img src={student.photo} alt={student.name} className="h-full w-full object-cover" />
+              <img src={student.photo} alt={student.name} className="h-full w-full rounded-3xl object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-white/10 text-xs text-gray-400">Photo</div>
+              <span>PHOTO</span>
             )}
           </div>
-          <div>
-            <div className="text-xl font-semibold">{student.name}</div>
-            <div className="text-sm text-gray-400">{student.student_code || "N/A"}</div>
+          <div className="text-center text-xl font-semibold uppercase tracking-[0.08em] text-[#0f4560]">{student.name}</div>
+          <div className="mt-4 grid gap-2 text-sm text-[#334e56]">
+            <div className="flex items-center justify-between rounded-3xl bg-[#f0fbff] px-4 py-3"> <span>Class</span> <span>{studentClass}</span> </div>
+            <div className="flex items-center justify-between rounded-3xl bg-[#f0fbff] px-4 py-3"> <span>Roll No.</span> <span>{student.roll_number ?? "—"}</span> </div>
+            <div className="flex items-center justify-between rounded-3xl bg-[#f0fbff] px-4 py-3"> <span>School</span> <span>NaySha EduCore</span> </div>
           </div>
-        </div>
-        <div className="mt-6 grid gap-2 text-sm text-gray-300">
-          <div>Class: {studentClass}</div>
-          <div>Roll: {student.roll_number ?? "—"}</div>
-          <div>Type: Student</div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="print-page-break rounded-3xl border border-white/10 bg-[#0b1220] p-6 shadow-lg">
-      <div className={`rounded-3xl bg-linear-to-r ${colors[template as keyof typeof colors] || colors.classic} bg-clip-padding p-4 text-white`}>
-        <div className="flex items-center gap-4">
-          <div className="h-20 w-20 overflow-hidden rounded-3xl bg-white/10">
+    <div className="print-page-break overflow-hidden rounded-[30px] border border-[#164e2c] bg-[#0b3d28] shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
+      <div className="relative overflow-hidden bg-[#146c43] px-6 py-6 text-white">
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-[radial-gradient(circle_at_bottom_center,rgba(255,255,255,0.12),transparent_60%)]" />
+        <div className="text-xs uppercase tracking-[0.25em] text-white/70">Style A — Diagonal Split</div>
+        <div className="mt-3 text-2xl font-bold uppercase tracking-[0.08em]">Deep English School</div>
+        <div className="mt-1 text-sm text-white/80">Barsoi, Katihar, Bihar</div>
+      </div>
+      <div className="bg-white px-6 py-6 text-[#0f3d2e]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+          <div className="flex h-28 w-28 items-center justify-center rounded-[28px] bg-[#def0e3] text-xs font-semibold uppercase tracking-[0.2em] text-[#0f5132]">
             {student.photo ? (
-              <img src={student.photo} alt={student.name} className="h-full w-full object-cover" />
+              <img src={student.photo} alt={student.name} className="h-full w-full rounded-[28px] object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs">Photo</div>
+              <span>PHOTO</span>
             )}
           </div>
-          <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-blue-100/80">ID Card</div>
-            <div className="text-2xl font-semibold">{student.student_code || "N/A"}</div>
+          <div className="flex-1 space-y-2">
+            <div className="text-2xl font-bold uppercase tracking-[0.08em] text-[#0f5132]">{student.name}</div>
+            <div className="text-sm text-[#346b47]">ID: <span className="font-semibold">{student.student_code || "N/A"}</span></div>
+            <div className="text-sm text-[#346b47]">Class: <span className="font-semibold">{studentClass}</span></div>
           </div>
         </div>
-      </div>
-
-      <div className="mt-5 space-y-2 text-sm text-gray-300">
-        <div className="font-semibold text-white">{student.name}</div>
-        <div>Class: {studentClass}</div>
-        <div>Roll: {student.roll_number ?? "—"}</div>
-        <div>Valid: Current year</div>
+        <div className="mt-6 grid gap-3 rounded-3xl border border-[#d8f0e0] bg-[#f2fdf7] p-4 text-sm text-[#1f5f44] shadow-inner shadow-[#0000000d]">
+          <div className="flex justify-between"><span>Roll</span><span>{student.roll_number ?? "—"}</span></div>
+          <div className="flex justify-between"><span>School</span><span>NaySha EduCore</span></div>
+          <div className="flex justify-between"><span>Valid</span><span>Current year</span></div>
+        </div>
       </div>
     </div>
   )
