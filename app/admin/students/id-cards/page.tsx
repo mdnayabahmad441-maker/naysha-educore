@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
+import { useSchool } from "@/context/SchoolContext"
 
 type Student = {
   id: string
@@ -20,32 +21,37 @@ type SchoolClass = {
 
 const templates = [
   {
-    id: "classic",
-    title: "Classic",
-    description: "Clean card with photo, school logo area, and student details."
+    id: "diagonal",
+    title: "Style A — Diagonal Split",
+    description: "Classic green card with a diagonal top and clean school identity layout."
   },
   {
-    id: "modern",
-    title: "Modern",
-    description: "Vertical card with bold accent color and layout for easy scanning."
+    id: "maroon",
+    title: "Style B — Maroon Gold Premium",
+    description: "Bold maroon and gold premium badge with a strong heading and details panel."
   },
   {
-    id: "minimal",
-    title: "Minimal",
-    description: "Simple badge-style card with compact details and clean typography."
+    id: "teal",
+    title: "Style C — Teal Geometric",
+    description: "Modern teal geometric design with crisp data blocks and a clean accent look."
   }
 ]
 
 export default function StudentIdCardsPage() {
+  const school = useSchool()
   const [students, setStudents] = useState<Student[]>([])
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [schoolId, setSchoolId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const schoolName = school?.name || "School"
+  const schoolLocation = school?.address || school?.subdomain || ""
+  const schoolLogo = school?.logo_url || null
+
   const [targetType, setTargetType] = useState<"all" | "class" | "students">("all")
   const [selectedClass, setSelectedClass] = useState("")
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([])
-  const [selectedTemplate, setSelectedTemplate] = useState("classic")
+  const [selectedTemplate, setSelectedTemplate] = useState("diagonal")
   const [search, setSearch] = useState("")
 
   useEffect(() => {
@@ -329,6 +335,9 @@ export default function StudentIdCardsPage() {
                       student={student}
                       studentClass={classMap.get(student.class_id || "") || "N/A"}
                       template={selectedTemplate}
+                      schoolName={schoolName}
+                      schoolLocation={schoolLocation}
+                      schoolLogo={schoolLogo}
                     />
                   </div>
                 ))}
@@ -341,13 +350,22 @@ export default function StudentIdCardsPage() {
   )
 }
 
-function StudentCard({ student, studentClass, template }: { student: Student; studentClass: string; template: string }) {
-  if (template === "modern") {
+function StudentCard({ student, studentClass, template, schoolName, schoolLocation, schoolLogo }: { student: Student; studentClass: string; template: string; schoolName: string; schoolLocation: string; schoolLogo: string | null }) {
+  const logoElement = schoolLogo ? (
+    <img src={schoolLogo} alt={schoolName} className="h-full w-full object-cover rounded-full" />
+  ) : (
+    <div className="flex h-full w-full items-center justify-center rounded-full bg-white/10 text-xs uppercase tracking-[0.2em] text-white/70">Logo</div>
+  )
+
+  if (template === "maroon") {
     return (
       <div className="print-page-break overflow-hidden rounded-[30px] border border-[#572020] bg-[#3c0606] text-white shadow-[0_20px_40px_rgba(0,0,0,0.35)]">
         <div className="bg-[#741a1a] px-6 py-6 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#ffe9b1]">
+            {logoElement}
+          </div>
           <div className="text-sm uppercase tracking-[0.35em] text-yellow-200/80">Identity Card</div>
-          <div className="mt-3 text-2xl font-semibold text-yellow-100">NaySha EduCore</div>
+          <div className="mt-3 text-2xl font-semibold text-yellow-100">{schoolName}</div>
           <div className="mt-1 text-xs uppercase tracking-[0.25em] text-yellow-200/70">Premium School ID</div>
         </div>
         <div className="border-t border-yellow-300/20 bg-white/95 px-6 py-6 text-[#111]">
@@ -367,7 +385,7 @@ function StudentCard({ student, studentClass, template }: { student: Student; st
             </div>
           </div>
           <div className="mt-5 grid gap-3 rounded-3xl border border-[#f8d488]/40 bg-[#fdf6e1] p-4 text-sm text-[#6a3a00] shadow-inner shadow-[#0000000d]">
-            <div>School: NaySha EduCore</div>
+            <div>School: {schoolName}</div>
             <div>Valid for current academic year</div>
           </div>
         </div>
@@ -375,28 +393,28 @@ function StudentCard({ student, studentClass, template }: { student: Student; st
     )
   }
 
-  if (template === "minimal") {
+  if (template === "teal") {
     return (
       <div className="print-page-break overflow-hidden rounded-[30px] border border-cyan-500/30 bg-[#064d58] shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
         <div className="relative overflow-hidden bg-linear-to-br from-[#0f6370] via-[#0a9396] to-[#52c1c2] px-6 py-6 text-center text-white">
           <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top_center,rgba(255,255,255,0.18),transparent_60%)]" />
           <div className="relative text-xs uppercase tracking-[0.3em] text-white/80">Style C — Teal Geometric</div>
-          <div className="mt-4 text-2xl font-semibold uppercase tracking-wide">Deep English School</div>
-          <div className="mt-1 text-sm text-white/80">Barsoi, Katihar, Bihar</div>
+          <div className="mt-4 text-2xl font-semibold uppercase tracking-wide">{schoolName}</div>
+          {schoolLocation ? <div className="mt-1 text-sm text-white/80">{schoolLocation}</div> : null}
         </div>
         <div className="bg-white px-6 py-6 text-[#102a33]">
           <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-3xl bg-[#dbeffc] text-xs font-semibold uppercase tracking-[0.2em] text-[#087ca7]">
-            {student.photo ? (
-              <img src={student.photo} alt={student.name} className="h-full w-full rounded-3xl object-cover" />
+            {schoolLogo ? (
+              <img src={schoolLogo} alt={schoolName} className="h-full w-full rounded-3xl object-cover" />
             ) : (
-              <span>PHOTO</span>
+              <span>LOGO</span>
             )}
           </div>
           <div className="text-center text-xl font-semibold uppercase tracking-[0.08em] text-[#0f4560]">{student.name}</div>
           <div className="mt-4 grid gap-2 text-sm text-[#334e56]">
             <div className="flex items-center justify-between rounded-3xl bg-[#f0fbff] px-4 py-3"> <span>Class</span> <span>{studentClass}</span> </div>
             <div className="flex items-center justify-between rounded-3xl bg-[#f0fbff] px-4 py-3"> <span>Roll No.</span> <span>{student.roll_number ?? "—"}</span> </div>
-            <div className="flex items-center justify-between rounded-3xl bg-[#f0fbff] px-4 py-3"> <span>School</span> <span>NaySha EduCore</span> </div>
+            <div className="flex items-center justify-between rounded-3xl bg-[#f0fbff] px-4 py-3"> <span>School</span> <span>{schoolName}</span> </div>
           </div>
         </div>
       </div>
@@ -407,9 +425,12 @@ function StudentCard({ student, studentClass, template }: { student: Student; st
     <div className="print-page-break overflow-hidden rounded-[30px] border border-[#164e2c] bg-[#0b3d28] shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
       <div className="relative overflow-hidden bg-[#146c43] px-6 py-6 text-white">
         <div className="absolute inset-x-0 bottom-0 h-20 bg-[radial-gradient(circle_at_bottom_center,rgba(255,255,255,0.12),transparent_60%)]" />
+        <div className="absolute right-6 top-6 h-16 w-16 overflow-hidden rounded-full border border-white/20 bg-white/10">
+          {logoElement}
+        </div>
         <div className="text-xs uppercase tracking-[0.25em] text-white/70">Style A — Diagonal Split</div>
-        <div className="mt-3 text-2xl font-bold uppercase tracking-[0.08em]">Deep English School</div>
-        <div className="mt-1 text-sm text-white/80">Barsoi, Katihar, Bihar</div>
+        <div className="mt-3 text-2xl font-bold uppercase tracking-[0.08em]">{schoolName}</div>
+        {schoolLocation ? <div className="mt-1 text-sm text-white/80">{schoolLocation}</div> : null}
       </div>
       <div className="bg-white px-6 py-6 text-[#0f3d2e]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
@@ -428,7 +449,7 @@ function StudentCard({ student, studentClass, template }: { student: Student; st
         </div>
         <div className="mt-6 grid gap-3 rounded-3xl border border-[#d8f0e0] bg-[#f2fdf7] p-4 text-sm text-[#1f5f44] shadow-inner shadow-[#0000000d]">
           <div className="flex justify-between"><span>Roll</span><span>{student.roll_number ?? "—"}</span></div>
-          <div className="flex justify-between"><span>School</span><span>NaySha EduCore</span></div>
+          <div className="flex justify-between"><span>School</span><span>{schoolName}</span></div>
           <div className="flex justify-between"><span>Valid</span><span>Current year</span></div>
         </div>
       </div>

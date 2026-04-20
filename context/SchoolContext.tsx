@@ -7,6 +7,10 @@ type School = {
   id: string
   name: string
   subdomain: string
+  email?: string
+  phone?: string
+  address?: string
+  logo_url?: string
 }
 
 const SchoolContext = createContext<School | null>(null)
@@ -33,17 +37,22 @@ export function SchoolProvider({ children }: any){
             sessionData.session.user.user_metadata?.school_id
 
           if (schoolId) {
+            const { data: schoolData, error: schoolError } = await supabase
+              .from("schools")
+              .select("id,name,subdomain,email,phone,address,logo_url")
+              .eq("id", schoolId)
+              .single()
 
-            const schoolData = {
-              id: schoolId,
-              name: "",
-              subdomain: ""
+            if (schoolError) {
+              console.error("School fetch error:", schoolError)
             }
 
-            globalSchool = schoolData
-            setSchool(schoolData)
-            setLoading(false)
-            return
+            if (schoolData) {
+              globalSchool = schoolData
+              setSchool(schoolData)
+              setLoading(false)
+              return
+            }
           }
         }
 
@@ -57,7 +66,7 @@ export function SchoolProvider({ children }: any){
 
         const { data, error } = await supabase
           .from("schools")
-          .select("id,name,subdomain")
+          .select("id,name,subdomain,email,phone,address,logo_url")
           .eq("subdomain", subdomain)
           .limit(1) // ✅ NO SINGLE
 
