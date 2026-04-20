@@ -142,8 +142,10 @@ export default function StudentIdCardsPage() {
     <div className="space-y-6 text-white">
       <style>{`
         @media print {
+          body { -webkit-print-color-adjust: exact; color-adjust: exact; }
           .no-print { display: none !important; }
-          .print-page-break { page-break-after: always; }
+          .print-page-break { page-break-after: always; break-after: page; page-break-inside: avoid; break-inside: avoid; }
+          .print-page-break:last-child { page-break-after: auto; break-after: auto; }
         }
       `}</style>
 
@@ -188,7 +190,12 @@ export default function StudentIdCardsPage() {
                   type="radio"
                   name="target"
                   checked={targetType === "all"}
-                  onChange={() => setTargetType("all")}
+                  onChange={() => {
+                    setTargetType("all")
+                    setSelectedClass("")
+                    setSelectedStudentIds([])
+                    setSearch("")
+                  }}
                   className="h-4 w-4 accent-blue-500"
                 />
                 <div>
@@ -202,7 +209,11 @@ export default function StudentIdCardsPage() {
                   type="radio"
                   name="target"
                   checked={targetType === "class"}
-                  onChange={() => setTargetType("class")}
+                  onChange={() => {
+                    setTargetType("class")
+                    setSelectedStudentIds([])
+                    setSearch("")
+                  }}
                   className="h-4 w-4 accent-blue-500"
                 />
                 <div>
@@ -231,7 +242,10 @@ export default function StudentIdCardsPage() {
                   type="radio"
                   name="target"
                   checked={targetType === "students"}
-                  onChange={() => setTargetType("students")}
+                  onChange={() => {
+                    setTargetType("students")
+                    setSelectedClass("")
+                  }}
                   className="h-4 w-4 accent-blue-500"
                 />
                 <div>
@@ -347,17 +361,14 @@ function StudentCard({ student, studentClass, template }: { student: Student; st
           <div className="flex-1">
             <div className="text-xs uppercase tracking-[0.2em] text-gray-400">Student ID</div>
             <div className="text-xl font-semibold">{student.student_code || "N/A"}</div>
-            <div className="text-sm text-gray-400">{className}</div>
+            <div className="text-sm text-gray-400">{studentClass}</div>
           </div>
         </div>
 
         <div className="mt-6 rounded-3xl border border-white/10 bg-linear-to-r bg-clip-padding p-4 text-white" style={{ backgroundImage: `linear-gradient(90deg, rgba(56,189,248,0.85), rgba(125,211,252,0.85))` }}>
           <div className="text-xs uppercase tracking-[0.2em]">{student.name}</div>
           <div className="mt-3 text-sm">Roll No: {student.roll_number ?? "—"}</div>
-          <div className="mt-2 text-sm">Class: {className}</div>
-        </div>
-
-        <div className="mt-6 grid gap-2 rounded-3xl bg-white/5 p-4 text-sm text-gray-300">
+          <div className="mt-2 text-sm">Class: {studentClass}</div>
           <div>School: NaySha EduCore</div>
           <div>Valid for current academic year</div>
         </div>
@@ -386,7 +397,7 @@ function StudentCard({ student, studentClass, template }: { student: Student; st
           </div>
         </div>
         <div className="mt-6 grid gap-2 text-sm text-gray-300">
-          <div>Class: {className}</div>
+          <div>Class: {studentClass}</div>
           <div>Roll: {student.roll_number ?? "—"}</div>
           <div>Type: Student</div>
         </div>
@@ -414,7 +425,7 @@ function StudentCard({ student, studentClass, template }: { student: Student; st
 
       <div className="mt-5 space-y-2 text-sm text-gray-300">
         <div className="font-semibold text-white">{student.name}</div>
-        <div>Class: {className}</div>
+        <div>Class: {studentClass}</div>
         <div>Roll: {student.roll_number ?? "—"}</div>
         <div>Valid: Current year</div>
       </div>
