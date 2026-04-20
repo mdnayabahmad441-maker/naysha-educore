@@ -22,51 +22,39 @@ async function fetchStudentsForSchool(schoolId: string): Promise<StudentListRow[
   const year = await getActiveAcademicYear()
   if (!year?.id) return []
 
-  // 🔹 STEP 1: Get enrollments (NO JOINS)
+  // 🔹 SINGLE QUERY: Get enrollments with joined student and class data
   const { data: enrollments, error } = await supabase
     .from("student_enrollments")
-    .select("student_id, roll_number, class_id")
+    .select(
+      `
+      roll_number,
+      students: student_id (id, name, student_code),
+      classes: class_id (name)
+      `
+    )
     .eq("school_id", schoolId)
     .eq("academic_year_id", year.id)
 
-  if (error) throw error
+  if (error) {
+    console.error("Enrollment fetch error:", error)
+    return []
+  }
 
-  // 🔹 STEP 2: Fetch related data safely
-  const rows = await Promise.all(
-    (enrollments || []).map(async (row, index) => {
+  // 🔹 TRANSFORM DATA
+  const rows = (enrollments || []).map((row: any, index: number) => {
+    const student = row.students
+    const cls = row.classes
 
-      // 🔹 STUDENT
-      const { data: student } = await supabase
-        .from("students")
-        .select("id,name,student_code")
-        .eq("id", row.student_id)
-        .maybeSingle()
+    if (!student) return null
 
-      if (!student) return null
-
-      // 🔹 CLASS
-      let className: string | null = null
-
-      if (row.class_id) {
-        const { data: cls } = await supabase
-          .from("classes")
-          .select("name")
-          .eq("id", row.class_id)
-          .maybeSingle()
-
-        className = cls?.name || null
-      }
-
-      return {
-        id: student.id,
-        name: student.name,
-        roll_number: row.roll_number,
-        class_name: className,
-        display_id:
-          student.student_code || `ST${String(index + 1).padStart(2, "0")}`
-      }
-    })
-  )
+    return {
+      id: student.id,
+      name: student.name,
+      roll_number: row.roll_number,
+      class_name: cls?.name || null,
+      display_id: student.student_code || `ST${String(index + 1).padStart(2, "0")}`
+    }
+  })
 
   const cleanRows = rows.filter(Boolean) as StudentListRow[]
 
