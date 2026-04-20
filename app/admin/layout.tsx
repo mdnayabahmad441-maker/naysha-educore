@@ -109,8 +109,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             👨‍🎓 Students
           </Link>
 
-          <Link href="/admin/teachers" className={linkStyle("/admin/teachers")}>
-            👨‍🏫 Teachers
+          <Link href="/admin/students/id-cards" className={linkStyle("/admin/students/id-cards")}> 
+            🪪 ID Cards
           </Link>
 
           <Link href="/admin/classes" className={linkStyle("/admin/classes")}>

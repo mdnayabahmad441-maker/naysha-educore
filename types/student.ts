@@ -4,6 +4,9 @@ export type StudentRecord = {
   name: string
   email: string | null
   photo: string | null
+  aadhar_card: string | null
+  tc_document: string | null
+  certificates: string[] | null
   student_code: string | null
   class_id: string | null
   roll_number: number | null

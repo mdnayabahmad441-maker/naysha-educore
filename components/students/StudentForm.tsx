@@ -23,6 +23,9 @@ export default function StudentForm({ reload }: StudentFormProps) {
   const [email, setEmail] = useState("")
   const [roll, setRoll] = useState("")
   const [photo, setPhoto] = useState<File | null>(null)
+  const [aadharCard, setAadharCard] = useState<File | null>(null)
+  const [tcDocument, setTcDocument] = useState<File | null>(null)
+  const [otherCertificates, setOtherCertificates] = useState<File[]>([])
 
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [selectedClass, setSelectedClass] = useState("")
@@ -102,26 +105,46 @@ export default function StudentForm({ reload }: StudentFormProps) {
         return
       }
 
-      let photoUrl = ""
-
-      if (photo) {
-        const fileName = `${Date.now()}-${photo.name}`
-
+      const uploadStudentFile = async (file: File, prefix: string) => {
+        const fileName = `${prefix}-${Date.now()}-${file.name}`
         const { error } = await supabase.storage
           .from("students")
-          .upload(fileName, photo)
+          .upload(fileName, file)
 
         if (error) {
-          console.error(error)
-          alert("Image upload failed")
-          return
+          throw error
         }
 
-        photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/students/${fileName}`
+        return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/students/${fileName}`
       }
+
+      let photoUrl = ""
+      let aadharCardUrl = ""
+      let tcUrl = ""
+      let certificatesUrls: string[] = []
 
       const studentId = crypto.randomUUID()
       const studentCode = await generateStudentCode(schoolId)
+
+      if (photo) {
+        photoUrl = await uploadStudentFile(photo, `${studentCode || studentId}-photo`)
+      }
+
+      if (aadharCard) {
+        aadharCardUrl = await uploadStudentFile(aadharCard, `${studentCode || studentId}-aadhar`)
+      }
+
+      if (tcDocument) {
+        tcUrl = await uploadStudentFile(tcDocument, `${studentCode || studentId}-tc`)
+      }
+
+      if (otherCertificates.length) {
+        certificatesUrls = await Promise.all(
+          otherCertificates.map((file, index) =>
+            uploadStudentFile(file, `${studentCode || studentId}-certificate-${index + 1}`)
+          )
+        )
+      }
 
       const { error: studentError } = await supabase.from("students").insert({
         id: studentId,
@@ -129,6 +152,9 @@ export default function StudentForm({ reload }: StudentFormProps) {
         name: name.trim(),
         email: email.trim() || null,
         photo: photoUrl || null,
+        aadhar_card: aadharCardUrl || null,
+        tc_document: tcUrl || null,
+        certificates: certificatesUrls.length ? certificatesUrls : null,
         student_code: studentCode,
         class_id: selectedClass,
         roll_number: parsedRoll,
@@ -246,6 +272,9 @@ ${schoolName} Team`
       setEmail("")
       setRoll("")
       setPhoto(null)
+      setAadharCard(null)
+      setTcDocument(null)
+      setOtherCertificates([])
       setSelectedClass("")
       setStudentType("day_scholar")
       setFatherName("")
@@ -294,12 +323,46 @@ ${schoolName} Team`
             className="rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
           />
 
-          <input
-            type="file"
-            accept="image/png,image/jpeg"
-            onChange={(event) => setPhoto(event.target.files?.[0] || null)}
-            className="text-sm text-gray-300"
-          />
+          <label className="block text-sm text-gray-300">
+            Student Photo
+            <input
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={(event) => setPhoto(event.target.files?.[0] || null)}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
+            />
+          </label>
+
+          <label className="block text-sm text-gray-300">
+            Aadhar Card
+            <input
+              type="file"
+              accept="image/png,image/jpeg,application/pdf"
+              onChange={(event) => setAadharCard(event.target.files?.[0] || null)}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
+            />
+          </label>
+
+          <label className="block text-sm text-gray-300">
+            Transfer Certificate (TC)
+            <input
+              type="file"
+              accept="image/png,image/jpeg,application/pdf"
+              onChange={(event) => setTcDocument(event.target.files?.[0] || null)}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
+            />
+          </label>
+
+          <label className="block text-sm text-gray-300">
+            Other Certificates
+            <input
+              type="file"
+              accept="image/png,image/jpeg,application/pdf"
+              multiple
+              onChange={(event) => setOtherCertificates(Array.from(event.target.files || []))}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
+            />
+          </label>
 
           <select
             value={selectedClass}
