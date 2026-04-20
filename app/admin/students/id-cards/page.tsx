@@ -328,9 +328,9 @@ export default function StudentIdCardsPage() {
             ) : selectedCount === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-gray-400">Choose a target and select students to generate cards.</div>
             ) : (
-              <div className="grid gap-6 justify-items-center xl:grid-cols-2">
+              <div className={`grid gap-6 justify-items-start ${selectedStudents.length > 1 ? "xl:grid-cols-2" : ""}`}>
                 {selectedStudents.map((student) => (
-                  <div key={student.id} className="w-full max-w-105">
+                  <div key={student.id} className="w-full">
                     <StudentCard
                       student={student}
                       studentClass={classMap.get(student.class_id || "") || "N/A"}
