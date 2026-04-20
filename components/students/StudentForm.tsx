@@ -101,59 +101,23 @@ export default function StudentForm({ reload }: StudentFormProps) {
 
       if (!activeYear) {
         alert("No active academic year")
+        setLoading(false)
         return
       }
-
-      const uploadStudentFile = async (file: File, prefix: string) => {
-        const fileName = `${prefix}-${Date.now()}-${file.name}`
-        const { error } = await supabase.storage
-          .from("students")
-          .upload(fileName, file)
-
-        if (error) {
-          throw error
-        }
-
-        return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/students/${fileName}`
-      }
-
-      let photoUrl = ""
-      let aadharCardUrl = ""
-      let tcUrl = ""
-      let certificatesUrls: string[] = []
 
       const studentId = crypto.randomUUID()
       const studentCode = await generateStudentCode()
 
-      if (photo) {
-        photoUrl = await uploadStudentFile(photo, `${studentCode || studentId}-photo`)
-      }
-
-      if (aadharCard) {
-        aadharCardUrl = await uploadStudentFile(aadharCard, `${studentCode || studentId}-aadhar`)
-      }
-
-      if (tcDocument) {
-        tcUrl = await uploadStudentFile(tcDocument, `${studentCode || studentId}-tc`)
-      }
-
-      if (otherCertificates.length) {
-        certificatesUrls = await Promise.all(
-          otherCertificates.map((file, index) =>
-            uploadStudentFile(file, `${studentCode || studentId}-certificate-${index + 1}`)
-          )
-        )
-      }
-
+      // ✅ CREATE STUDENT IMMEDIATELY (no files yet)
       const { error: studentError } = await supabase.from("students").insert({
         id: studentId,
         school_id: schoolId,
         name: name.trim(),
         email: email.trim() || null,
-        photo: photoUrl || null,
-        aadhar_card: aadharCardUrl || null,
-        tc_document: tcUrl || null,
-        certificates: certificatesUrls.length ? certificatesUrls : null,
+        photo: null,
+        aadhar_card: null,
+        tc_document: null,
+        certificates: null,
         student_code: studentCode,
         class_id: selectedClass,
         roll_number: parsedRoll,
@@ -162,10 +126,12 @@ export default function StudentForm({ reload }: StudentFormProps) {
 
       if (studentError) {
         console.error("Student insert error:", studentError)
+        setLoading(false)
         alert(studentError.message)
         return
       }
 
+      // ✅ CREATE ENROLLMENT
       const { error: enrollError } = await supabase
         .from("student_enrollments")
         .insert({
@@ -179,10 +145,9 @@ export default function StudentForm({ reload }: StudentFormProps) {
 
       if (enrollError) {
         console.error("Enrollment error:", enrollError)
-        alert(enrollError.message)
-        return
       }
 
+      // ✅ CREATE PARENT RECORD
       if (fatherName || motherName || parentEmail || parentPhone) {
         const { error: parentError } = await supabase.from("parents").insert({
           id: crypto.randomUUID(),
@@ -199,73 +164,7 @@ export default function StudentForm({ reload }: StudentFormProps) {
         }
       }
 
-      // ================= WELCOME NOTIFICATIONS =================
-      if (parentEmail || parentPhone) {
-        // Get school name
-        const { data: school } = await supabase
-          .from("schools")
-          .select("name")
-          .eq("id", schoolId)
-          .single()
-
-        const schoolName = school?.name || "Our School"
-
-        const welcomeMessage = `
-Welcome to ${schoolName}!
-
-Dear Parent,
-
-We are delighted to welcome your child ${name.trim()} to our school family.
-
-Thank you for choosing ${schoolName}.
-
-Best regards,
-${schoolName} Team
-        `.trim()
-
-        // Send Email
-        if (parentEmail) {
-          try {
-            await fetch("/api/send-email", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                email: parentEmail.trim(),
-                subject: `Welcome to ${schoolName}`,
-                message: welcomeMessage
-              })
-            })
-          } catch (err) {
-            console.error("Welcome email failed:", err)
-          }
-        }
-
-        // Send WhatsApp
-        if (parentPhone) {
-          try {
-            await fetch("/api/send-whatsapp", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                phone: parentPhone.trim(),
-                message: `Welcome to ${schoolName}! 🎉
-
-Dear Parent,
-
-We are delighted to welcome your child ${name.trim()} to our school family.
-
-Thank you for choosing ${schoolName}.
-
-Best regards,
-${schoolName} Team`
-              })
-            })
-          } catch (err) {
-            console.error("Welcome WhatsApp failed:", err)
-          }
-        }
-      }
-
+      // ✅ RESET FORM IMMEDIATELY
       setName("")
       setEmail("")
       setRoll("")
@@ -280,7 +179,134 @@ ${schoolName} Team`
       setParentEmail("")
       setParentPhone("")
 
+      setLoading(false)
       alert(`Student created (${studentCode})`)
+
+      // ✅ BACKGROUND TASKS (fire and forget)
+      // File uploads
+      const uploadStudentFile = async (file: File, prefix: string) => {
+        const fileName = `${prefix}-${Date.now()}-${file.name}`
+        const { error } = await supabase.storage
+          .from("students")
+          .upload(fileName, file)
+
+        if (error) {
+          console.error("File upload error:", error)
+          return null
+        }
+
+        return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/students/${fileName}`
+      }
+
+      const uploadFiles = async () => {
+        let photoUrl = null
+        let aadharCardUrl = null
+        let tcUrl = null
+        let certificatesUrls: (string | null)[] = []
+
+        if (photo) {
+          photoUrl = await uploadStudentFile(photo, `${studentCode}-photo`)
+        }
+
+        if (aadharCard) {
+          aadharCardUrl = await uploadStudentFile(aadharCard, `${studentCode}-aadhar`)
+        }
+
+        if (tcDocument) {
+          tcUrl = await uploadStudentFile(tcDocument, `${studentCode}-tc`)
+        }
+
+        if (otherCertificates.length) {
+          certificatesUrls = await Promise.all(
+            otherCertificates.map((file, index) =>
+              uploadStudentFile(file, `${studentCode}-certificate-${index + 1}`)
+            )
+          )
+        }
+
+        // Update student with file URLs
+        if (photoUrl || aadharCardUrl || tcUrl || certificatesUrls.some((u) => u)) {
+          await supabase
+            .from("students")
+            .update({
+              photo: photoUrl,
+              aadhar_card: aadharCardUrl,
+              tc_document: tcUrl,
+              certificates: certificatesUrls.filter((u) => u).length ? certificatesUrls.filter((u) => u) : null
+            })
+            .eq("id", studentId)
+        }
+      }
+
+      // Send notifications
+      const sendNotifications = async () => {
+        if (parentEmail || parentPhone) {
+          const { data: school } = await supabase
+            .from("schools")
+            .select("name")
+            .eq("id", schoolId)
+            .single()
+
+          const schoolName = school?.name || "Our School"
+
+          const welcomeMessage = `
+Welcome to ${schoolName}!
+
+Dear Parent,
+
+We are delighted to welcome your child ${name.trim()} to our school family.
+
+Thank you for choosing ${schoolName}.
+
+Best regards,
+${schoolName} Team
+          `.trim()
+
+          if (parentEmail) {
+            try {
+              await fetch("/api/send-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  email: parentEmail.trim(),
+                  subject: `Welcome to ${schoolName}`,
+                  message: welcomeMessage
+                })
+              })
+            } catch (err) {
+              console.error("Welcome email failed:", err)
+            }
+          }
+
+          if (parentPhone) {
+            try {
+              await fetch("/api/send-whatsapp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  phone: parentPhone.trim(),
+                  message: `Welcome to ${schoolName}! 🎉
+
+Dear Parent,
+
+We are delighted to welcome your child ${name.trim()} to our school family.
+
+Thank you for choosing ${schoolName}.
+
+Best regards,
+${schoolName} Team`
+                })
+              })
+            } catch (err) {
+              console.error("Welcome WhatsApp failed:", err)
+            }
+          }
+        }
+      }
+
+      // Execute background tasks without awaiting
+      void uploadFiles()
+      void sendNotifications()
 
       if (reload) {
         await reload()
@@ -288,9 +314,8 @@ ${schoolName} Team`
 
     } catch (error) {
       console.error("Student create error:", error)
-      alert("Something went wrong")
-    } finally {
       setLoading(false)
+      alert("Something went wrong")
     }
   }
 
