@@ -62,18 +62,16 @@ export default function StudentForm({ reload }: StudentFormProps) {
       })
   }, [schoolId])
 
-  const generateStudentCode = async (currentSchoolId: string) => {
-    const { count, error } = await supabase
-      .from("students")
-      .select("*", { count: "exact", head: true })
-      .eq("school_id", currentSchoolId)
-
-    if (error) {
-      throw error
-    }
-
-    const next = (count || 0) + 1
-    return `ST${String(next).padStart(2, "0")}`
+  const generateStudentCode = async () => {
+    // Use timestamp-based code to avoid race conditions
+    // Format: STYYMMDD-HHMM (unique per minute per school)
+    const now = new Date()
+    const year = String(now.getFullYear()).slice(-2)
+    const month = String(now.getMonth() + 1).padStart(2, "0")
+    const date = String(now.getDate()).padStart(2, "0")
+    const hours = String(now.getHours()).padStart(2, "0")
+    const minutes = String(now.getMinutes()).padStart(2, "0")
+    return `ST${year}${month}${date}${hours}${minutes}`
   }
 
   const save = async () => {
@@ -124,7 +122,7 @@ export default function StudentForm({ reload }: StudentFormProps) {
       let certificatesUrls: string[] = []
 
       const studentId = crypto.randomUUID()
-      const studentCode = await generateStudentCode(schoolId)
+      const studentCode = await generateStudentCode()
 
       if (photo) {
         photoUrl = await uploadStudentFile(photo, `${studentCode || studentId}-photo`)
@@ -189,7 +187,6 @@ export default function StudentForm({ reload }: StudentFormProps) {
           id: crypto.randomUUID(),
           school_id: schoolId,
           student_id: studentId,
-          name: fatherName.trim() || motherName.trim() || null,
           father_name: fatherName.trim() || null,
           mother_name: motherName.trim() || null,
           email: parentEmail.trim() || null,
@@ -427,7 +424,7 @@ ${schoolName} Team`
         <button
           onClick={save}
           disabled={loading}
-          className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3 font-medium"
+          className="rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-8 py-3 font-medium"
         >
           {loading ? "Saving..." : "Save Student"}
         </button>

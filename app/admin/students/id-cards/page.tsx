@@ -149,6 +149,9 @@ export default function StudentIdCardsPage() {
       <style>{`
         @media print {
           body { -webkit-print-color-adjust: exact; color-adjust: exact; }
+          body * { visibility: hidden !important; }
+          .print-area, .print-area * { visibility: visible !important; }
+          .print-area { position: absolute; left: 0; top: 0; width: 100%; }
           .no-print { display: none !important; }
           .print-page-break { page-break-after: always; break-after: page; page-break-inside: avoid; break-inside: avoid; }
           .print-page-break:last-child { page-break-after: auto; break-after: auto; }
@@ -328,9 +331,9 @@ export default function StudentIdCardsPage() {
             ) : selectedCount === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-gray-400">Choose a target and select students to generate cards.</div>
             ) : (
-              <div className={`grid gap-6 justify-items-start ${selectedStudents.length > 1 ? "xl:grid-cols-2" : ""}`}>
+              <div className={`print-area grid gap-6 justify-items-start ${selectedStudents.length > 1 ? "xl:grid-cols-2" : ""}`}>
                 {selectedStudents.map((student) => (
-                  <div key={student.id} className="w-full">
+                  <div key={student.id} className="w-full max-w-full">
                     <StudentCard
                       student={student}
                       studentClass={classMap.get(student.class_id || "") || "N/A"}
