@@ -48,6 +48,19 @@ export default function VerifyPageClient() {
     return school?.subdomain || getCurrentSubdomain()
   }
 
+  const updateUserMetadataIfNeeded = async (userData: any, schoolId: string, role: string) => {
+    const currentMetadata = userData.user.user_metadata || {}
+
+    if (currentMetadata.school_id !== schoolId || currentMetadata.role !== role) {
+      await supabase.auth.updateUser({
+        data: {
+          school_id: schoolId,
+          role: role
+        }
+      })
+    }
+  }
+
   const redirectWithSession = async (subdomain: string, next: string) => {
 
     const { data: sessionData } = await supabase.auth.getSession()
@@ -135,24 +148,12 @@ export default function VerifyPageClient() {
         role: "admin"
       })
 
-      // ✅ JWT UPDATE
-      await supabase.auth.updateUser({
-        data: {
-          school_id: newSchool.id,
-          role: "admin"
-        }
-      })
-
-      const { data: refreshed } = await supabase.auth.refreshSession()
-
-      if (!refreshed.session) {
-        alert("Session refresh failed")
-        return
-      }
+      // ✅ JWT UPDATE (only if needed to avoid invalidating other sessions)
+      await updateUserMetadataIfNeeded(userData, newSchool.id, "admin")
 
       localStorage.removeItem("onboardingData")
 
-      // 🔥 FIXED REDIRECT
+      // 🔥 FIXED REDIRECT (use current session, don't refresh)
       await redirectWithSession(newSchool.subdomain, "/admin")
       return
     }
@@ -202,21 +203,9 @@ export default function VerifyPageClient() {
         role: "parent"
       })
 
-      await supabase.auth.updateUser({
-        data: {
-          school_id: schoolId,
-          role: "parent"
-        }
-      })
+      await updateUserMetadataIfNeeded(userData, schoolId, "parent")
 
-      const { data: refreshed } = await supabase.auth.refreshSession()
-
-      if (!refreshed.session) {
-        alert("Session refresh failed")
-        return
-      }
-
-      // 🔥 FIXED REDIRECT
+      // 🔥 FIXED REDIRECT (use current session, don't refresh)
       await redirectWithSession(subdomain, "/parent")
       return
     }
@@ -251,21 +240,9 @@ export default function VerifyPageClient() {
         .update({ auth_id: userId })
         .eq("id", teacher.id)
 
-      await supabase.auth.updateUser({
-        data: {
-          school_id: teacher.school_id,
-          role: "teacher"
-        }
-      })
+      await updateUserMetadataIfNeeded(userData, teacher.school_id, "teacher")
 
-      const { data: refreshed } = await supabase.auth.refreshSession()
-
-      if (!refreshed.session) {
-        alert("Session refresh failed")
-        return
-      }
-
-      // 🔥 FIXED REDIRECT
+      // 🔥 FIXED REDIRECT (use current session, don't refresh)
       await redirectWithSession(subdomain, "/teacher")
       return
     }
@@ -291,28 +268,16 @@ export default function VerifyPageClient() {
       role: "admin"
     })
 
-    await supabase.auth.updateUser({
-      data: {
-        school_id: school.id,
-        role: "admin"
-      }
-    })
+    await updateUserMetadataIfNeeded(userData, school.id, "admin")
 
-    const { data: refreshed } = await supabase.auth.refreshSession()
-
-    if (!refreshed.session) {
-      alert("Session refresh failed")
-      return
-    }
-
-    // 🔥 FIXED REDIRECT
+    // 🔥 FIXED REDIRECT (use current session, don't refresh)
     await redirectWithSession(school.subdomain, "/admin")
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#020c1b] text-white">
 
-      <div className="bg-gradient-to-br from-blue-700 to-indigo-900 p-8 rounded-xl w-[380px]">
+<div className="bg-linear-to-br from-blue-700 to-indigo-900 p-8 rounded-xl w-95">
 
         <h2 className="text-xl mb-6 text-center">
           Enter OTP
