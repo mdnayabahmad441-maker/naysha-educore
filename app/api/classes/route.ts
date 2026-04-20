@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getSchoolFromRequest } from "@/lib/schoolFromRequest"
 
 export async function GET(req: Request) {
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
       )
     }
 
-    const { data: classes, error } = await supabase
+    const { data: classes, error } = await supabaseAdmin
       .from("classes")
       .select("id, name")
       .eq("school_id", school.id)

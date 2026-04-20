@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getSchoolFromRequest } from "@/lib/schoolFromRequest"
 
 export async function POST(req: Request) {
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const enquiryId = crypto.randomUUID()
 
     // Insert enquiry
-    const { error: insertError } = await supabase
+    const { error: insertError } = await supabaseAdmin
       .from("admission_enquiries")
       .insert({
         id: enquiryId,
@@ -106,7 +106,7 @@ ${schoolName} Team`
 
     // Send notification to admin
     // Get admin email/phone from school settings or profiles
-    const { data: admins } = await supabase
+    const { data: admins } = await supabaseAdmin
       .from("profiles")
       .select("email")
       .eq("school_id", school.id)
@@ -166,7 +166,7 @@ export async function GET(req: Request) {
 
     let school = null
     if (schoolId) {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from("schools")
         .select("id")
         .eq("id", schoolId)
@@ -190,7 +190,7 @@ export async function GET(req: Request) {
       )
     }
 
-    const { data: enquiries, error } = await supabase
+    const { data: enquiries, error } = await supabaseAdmin
       .from("admission_enquiries")
       .select("*")
       .eq("school_id", school.id)
