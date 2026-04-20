@@ -158,12 +158,12 @@ export default function AdmissionEnquiryPage() {
                       <select
                         value={enquiry.status}
                         onChange={(e) => updateStatus(enquiry.id, e.target.value)}
-                        className="bg-white/10 border border-white/20 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="bg-slate-900/90 text-white border border-white/20 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                       >
-                        <option value="new">New</option>
-                        <option value="contacted">Contacted</option>
-                        <option value="admitted">Admitted</option>
-                        <option value="rejected">Rejected</option>
+                        <option className="bg-slate-900 text-white" value="new">New</option>
+                        <option className="bg-slate-900 text-white" value="contacted">Contacted</option>
+                        <option className="bg-slate-900 text-white" value="admitted">Admitted</option>
+                        <option className="bg-slate-900 text-white" value="rejected">Rejected</option>
                       </select>
                     </td>
                   </tr>
