@@ -176,7 +176,7 @@ export default function StudentsPage() {
 
     {/* IMPORT BUTTON */}
     <button
-      onClick={() => router.push("/admin/students/import")}
+      onClick={() => router.push("/admin/import")}
       className="rounded-lg bg-purple-600 px-4 py-2 text-sm hover:bg-purple-700"
     >
       Import Students
