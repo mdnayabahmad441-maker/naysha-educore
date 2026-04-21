@@ -172,13 +172,26 @@ export default function StudentsPage() {
         </div>
 
         {role === "admin" && (
-          <button
-            onClick={() => setShowForm((c) => !c)}
-            className="rounded-lg bg-blue-500 px-4 py-2 text-sm"
-          >
-            {showForm ? "Close" : "+ Add Student"}
-          </button>
-        )}
+  <div className="flex gap-3">
+
+    {/* IMPORT BUTTON */}
+    <button
+      onClick={() => router.push("/admin/students/import")}
+      className="rounded-lg bg-purple-600 px-4 py-2 text-sm hover:bg-purple-700"
+    >
+      Import Students
+    </button>
+
+    {/* EXISTING BUTTON */}
+    <button
+      onClick={() => setShowForm((c) => !c)}
+      className="rounded-lg bg-blue-500 px-4 py-2 text-sm"
+    >
+      {showForm ? "Close" : "+ Add Student"}
+    </button>
+
+  </div>
+)}
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
