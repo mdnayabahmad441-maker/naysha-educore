@@ -355,7 +355,7 @@ export default function TeachersPage(){
       {/* PROFILE */}
       {selectedTeacher && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
-          <div className="bg-[#020c1b] p-6 rounded-xl w-[500px] space-y-4">
+          <div className="bg-[#020c1b] p-6 rounded-xl w-125 space-y-4">
             <h2>{selectedTeacher.name}</h2>
             <p>{selectedTeacher.email}</p>
             <p>{getTeacherSubjects(selectedTeacher.id)}</p>
@@ -373,7 +373,7 @@ export default function TeachersPage(){
       {/* FORM */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
-          <div className="bg-[#020c1b] p-6 rounded-xl w-[600px] space-y-4">
+          <div className="bg-[#020c1b] p-6 rounded-xl w-150 space-y-4">
 
             <h2>{editingTeacher ? "Edit Teacher" : "Add Teacher"}</h2>
 

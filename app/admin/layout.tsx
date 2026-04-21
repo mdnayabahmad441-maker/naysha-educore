@@ -196,6 +196,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">System</p>
 
+          <Link href="/admin/import" className={linkStyle("/admin/import")} onClick={closeSidebar}>
+            📥 Bulk Import
+          </Link>
+
           <Link href="/admin/settings" className={linkStyle("/admin/settings")} onClick={closeSidebar}>
             ⚙️ Settings
           </Link>

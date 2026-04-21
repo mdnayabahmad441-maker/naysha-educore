@@ -135,13 +135,13 @@ export default function ClassesPage(){
 
   return(
 
-    <div className="p-10 text-white max-w-7xl mx-auto space-y-8 bg-gradient-to-br from-[#020617] via-[#020617] to-[#03132a] min-h-screen">
+    <div className="p-10 text-white max-w-7xl mx-auto space-y-8 bg-linear-to-br from-[#020617] via-[#020617] to-[#03132a] min-h-screen">
 
       {/* HEADER */}
       <div className="flex justify-between items-center">
 
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold bg-linear-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
             Classes
           </h1>
           <p className="text-gray-400 text-sm">
@@ -151,7 +151,7 @@ export default function ClassesPage(){
 
         <button
           onClick={()=>setShowForm(true)}
-          className="px-5 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 hover:scale-105 transition"
+          className="px-5 py-2 rounded-lg bg-linear-to-r from-blue-500 to-cyan-500 hover:scale-105 transition"
         >
           + Add Class
         </button>
@@ -173,7 +173,7 @@ export default function ClassesPage(){
             <div
               key={c.id}
               onClick={()=>setSelectedClass(c)}
-              className="group relative p-[1px] rounded-2xl bg-gradient-to-br from-white/10 to-transparent hover:from-cyan-500/40 transition cursor-pointer"
+              className="group relative p-px rounded-2xl bg-linear-to-br from-white/10 to-transparent hover:from-cyan-500/40 transition cursor-pointer"
             >
               <div className="bg-[#020c1b]/90 backdrop-blur rounded-2xl p-6 space-y-4">
 
@@ -199,7 +199,7 @@ export default function ClassesPage(){
 
                 <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
                   <div
-                    className="bg-gradient-to-r from-cyan-400 to-blue-500 h-2 transition-all"
+                    className="bg-linear-to-r from-cyan-400 to-blue-500 h-2 transition-all"
                     style={{ width: `${percent}%` }}
                   />
                 </div>
@@ -219,7 +219,7 @@ export default function ClassesPage(){
       {selectedClass && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur flex items-center justify-center z-50">
 
-          <div className="bg-[#020c1b] border border-white/10 p-6 rounded-2xl w-[420px] space-y-4 shadow-2xl">
+          <div className="bg-[#020c1b] border border-white/10 p-6 rounded-2xl w-105 space-y-4 shadow-2xl">
 
             <h2 className="text-xl font-semibold text-cyan-400">
               {selectedClass.name}
@@ -269,7 +269,7 @@ export default function ClassesPage(){
       {showForm && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur flex items-center justify-center z-50">
 
-          <div className="bg-[#020c1b] border border-white/10 p-6 rounded-2xl w-[420px] space-y-4 shadow-2xl">
+          <div className="bg-[#020c1b] border border-white/10 p-6 rounded-2xl w-105 space-y-4 shadow-2xl">
 
             <h2 className="text-lg font-semibold">
               {editingClass ? "Edit Class" : "Add Class"}
@@ -313,7 +313,7 @@ export default function ClassesPage(){
 
               <button
                 onClick={editingClass ? updateClass : addClass}
-                className="bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-2 rounded-lg"
+                className="bg-linear-to-r from-green-500 to-emerald-500 px-4 py-2 rounded-lg"
               >
                 {editingClass ? "Update" : "Save"}
               </button>
