@@ -18,6 +18,16 @@ type AcademicYear = {
   id: string
 }
 
+type StudentDocumentInsert = {
+  id: string
+  student_id: string
+  document_type: string
+  file_url: string
+}
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024
+const MAX_DOCUMENT_BYTES = 1 * 1024 * 1024
+
 export default function StudentForm({ reload }: StudentFormProps) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -62,9 +72,69 @@ export default function StudentForm({ reload }: StudentFormProps) {
       })
   }, [schoolId])
 
+  const isPhotoFile = (file: File) => file.type.startsWith("image/")
+
+  const validateFileSize = (file: File, label: string) => {
+    const maxBytes = isPhotoFile(file) ? MAX_PHOTO_BYTES : MAX_DOCUMENT_BYTES
+
+    if (file.size <= maxBytes) {
+      return true
+    }
+
+    alert(`${label} must be ${isPhotoFile(file) ? "5 MB" : "1 MB"} or smaller`)
+    return false
+  }
+
+  const handleSingleFileChange = (
+    file: File | null,
+    label: string,
+    setter: (value: File | null) => void
+  ) => {
+    if (!file) {
+      setter(null)
+      return
+    }
+
+    if (!validateFileSize(file, label)) {
+      return
+    }
+
+    setter(file)
+  }
+
+  const handleMultipleFilesChange = (files: FileList | null) => {
+    if (!files) {
+      setOtherCertificates([])
+      return
+    }
+
+    const selectedFiles = Array.from(files)
+    const invalidFile = selectedFiles.find((file) => !validateFileSize(file, file.name))
+
+    if (invalidFile) {
+      return
+    }
+
+    setOtherCertificates(selectedFiles)
+  }
+
+  const resetForm = () => {
+    setName("")
+    setEmail("")
+    setRoll("")
+    setPhoto(null)
+    setAadharCard(null)
+    setTcDocument(null)
+    setOtherCertificates([])
+    setSelectedClass("")
+    setStudentType("day_scholar")
+    setFatherName("")
+    setMotherName("")
+    setParentEmail("")
+    setParentPhone("")
+  }
+
   const generateStudentCode = async () => {
-    // Use timestamp-based code to avoid race conditions
-    // Format: STYYMMDDHHMMSS (unique per second)
     const now = new Date()
     const year = String(now.getFullYear()).slice(-2)
     const month = String(now.getMonth() + 1).padStart(2, "0")
@@ -85,6 +155,13 @@ export default function StudentForm({ reload }: StudentFormProps) {
       alert("School not found")
       return
     }
+
+    if (photo && !validateFileSize(photo, "Student photo")) return
+    if (aadharCard && !validateFileSize(aadharCard, "Aadhar card")) return
+    if (tcDocument && !validateFileSize(tcDocument, "Transfer certificate")) return
+
+    const invalidCertificate = otherCertificates.find((file) => !validateFileSize(file, file.name))
+    if (invalidCertificate) return
 
     const trimmedRoll = roll.trim()
     const parsedRoll = trimmedRoll ? Number(trimmedRoll) : null
@@ -108,7 +185,6 @@ export default function StudentForm({ reload }: StudentFormProps) {
       const studentId = crypto.randomUUID()
       const studentCode = await generateStudentCode()
 
-      // ✅ CREATE STUDENT IMMEDIATELY (no files yet)
       const { error: studentError } = await supabase.from("students").insert({
         id: studentId,
         school_id: schoolId,
@@ -131,7 +207,6 @@ export default function StudentForm({ reload }: StudentFormProps) {
         return
       }
 
-      // ✅ CREATE ENROLLMENT
       const { error: enrollError } = await supabase
         .from("student_enrollments")
         .insert({
@@ -147,7 +222,6 @@ export default function StudentForm({ reload }: StudentFormProps) {
         console.error("Enrollment error:", enrollError)
       }
 
-      // ✅ CREATE PARENT RECORD
       if (fatherName || motherName || parentEmail || parentPhone) {
         const { error: parentError } = await supabase.from("parents").insert({
           id: crypto.randomUUID(),
@@ -164,81 +238,128 @@ export default function StudentForm({ reload }: StudentFormProps) {
         }
       }
 
-      // ✅ RESET FORM IMMEDIATELY
-      setName("")
-      setEmail("")
-      setRoll("")
-      setPhoto(null)
-      setAadharCard(null)
-      setTcDocument(null)
-      setOtherCertificates([])
-      setSelectedClass("")
-      setStudentType("day_scholar")
-      setFatherName("")
-      setMotherName("")
-      setParentEmail("")
-      setParentPhone("")
+      const sanitizeSegment = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, "-")
 
-      setLoading(false)
-      alert(`Student created (${studentCode})`)
-
-      // ✅ BACKGROUND TASKS (fire and forget)
-      // File uploads
       const uploadStudentFile = async (file: File, prefix: string) => {
-        const fileName = `${prefix}-${Date.now()}-${file.name}`
-        const { error } = await supabase.storage
-          .from("students")
-          .upload(fileName, file)
+        const extension = file.name.includes(".")
+          ? file.name.split(".").pop()?.toLowerCase() || "bin"
+          : "bin"
+        const filePath = `${schoolId}/${studentId}/${prefix}-${Date.now()}.${sanitizeSegment(extension)}`
 
-        if (error) {
-          console.error("File upload error:", error)
-          return null
+        const { error: uploadError } = await supabase.storage
+          .from("students")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            contentType: file.type || undefined,
+            upsert: true
+          })
+
+        if (uploadError) {
+          throw uploadError
         }
 
-        return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/students/${fileName}`
+        const { data } = supabase.storage.from("students").getPublicUrl(filePath)
+        return data.publicUrl
       }
 
       const uploadFiles = async () => {
-        let photoUrl = null
-        let aadharCardUrl = null
-        let tcUrl = null
-        let certificatesUrls: (string | null)[] = []
+        let photoUrl: string | null = null
+        let aadharCardUrl: string | null = null
+        let tcUrl: string | null = null
+        let certificatesUrls: string[] = []
+
+        const documentRows: StudentDocumentInsert[] = []
+        const uploadWarnings: string[] = []
+
+        const tryUpload = async (file: File, prefix: string, label: string) => {
+          try {
+            return await uploadStudentFile(file, prefix)
+          } catch (error) {
+            console.error(`${label} upload error:`, error)
+            uploadWarnings.push(`${label} could not be uploaded`)
+            return null
+          }
+        }
 
         if (photo) {
-          photoUrl = await uploadStudentFile(photo, `${studentCode}-photo`)
+          photoUrl = await tryUpload(photo, `${studentCode}-photo`, "Student photo")
         }
 
         if (aadharCard) {
-          aadharCardUrl = await uploadStudentFile(aadharCard, `${studentCode}-aadhar`)
+          aadharCardUrl = await tryUpload(aadharCard, `${studentCode}-aadhar`, "Aadhar card")
+
+          if (aadharCardUrl) {
+            documentRows.push({
+              id: crypto.randomUUID(),
+              student_id: studentId,
+              document_type: "Aadhar Card",
+              file_url: aadharCardUrl
+            })
+          }
         }
 
         if (tcDocument) {
-          tcUrl = await uploadStudentFile(tcDocument, `${studentCode}-tc`)
+          tcUrl = await tryUpload(tcDocument, `${studentCode}-tc`, "Transfer certificate")
+
+          if (tcUrl) {
+            documentRows.push({
+              id: crypto.randomUUID(),
+              student_id: studentId,
+              document_type: "Transfer Certificate",
+              file_url: tcUrl
+            })
+          }
         }
 
         if (otherCertificates.length) {
-          certificatesUrls = await Promise.all(
+          const uploadedCertificates = await Promise.all(
             otherCertificates.map((file, index) =>
-              uploadStudentFile(file, `${studentCode}-certificate-${index + 1}`)
+              tryUpload(file, `${studentCode}-certificate-${index + 1}`, `Certificate ${index + 1}`)
             )
           )
+
+          certificatesUrls = uploadedCertificates.filter((fileUrl): fileUrl is string => Boolean(fileUrl))
+
+          certificatesUrls.forEach((fileUrl, index) => {
+            documentRows.push({
+              id: crypto.randomUUID(),
+              student_id: studentId,
+              document_type: `Certificate ${index + 1}`,
+              file_url: fileUrl
+            })
+          })
         }
 
-        // Update student with file URLs
-        if (photoUrl || aadharCardUrl || tcUrl || certificatesUrls.some((u) => u)) {
-          await supabase
+        if (photoUrl || aadharCardUrl || tcUrl || certificatesUrls.length) {
+          const { error: updateError } = await supabase
             .from("students")
             .update({
               photo: photoUrl,
               aadhar_card: aadharCardUrl,
               tc_document: tcUrl,
-              certificates: certificatesUrls.filter((u) => u).length ? certificatesUrls.filter((u) => u) : null
+              certificates: certificatesUrls.length ? certificatesUrls : null
             })
             .eq("id", studentId)
+
+          if (updateError) {
+            throw updateError
+          }
         }
+
+        if (documentRows.length) {
+          const { error: documentError } = await supabase
+            .from("student_documents")
+            .insert(documentRows)
+
+          if (documentError) {
+            console.error("Document record error:", documentError)
+            uploadWarnings.push("Document links could not be added to the student profile")
+          }
+        }
+
+        return uploadWarnings
       }
 
-      // Send notifications
       const sendNotifications = async () => {
         if (parentEmail || parentPhone) {
           const { data: school } = await supabase
@@ -285,7 +406,7 @@ ${schoolName} Team
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   phone: parentPhone.trim(),
-                  message: `Welcome to ${schoolName}! 🎉
+                  message: `Welcome to ${schoolName}!
 
 Dear Parent,
 
@@ -304,14 +425,20 @@ ${schoolName} Team`
         }
       }
 
-      // Execute background tasks without awaiting
-      void uploadFiles()
-      void sendNotifications()
+      const [uploadWarnings] = await Promise.all([uploadFiles(), sendNotifications()])
+
+      resetForm()
+      setLoading(false)
 
       if (reload) {
         await reload()
       }
 
+      if (uploadWarnings.length) {
+        alert(`Student created (${studentCode}). ${uploadWarnings.join(". ")}`)
+      } else {
+        alert(`Student created (${studentCode})`)
+      }
     } catch (error) {
       console.error("Student create error:", error)
       setLoading(false)
@@ -351,7 +478,9 @@ ${schoolName} Team`
             <input
               type="file"
               accept="image/png,image/jpeg"
-              onChange={(event) => setPhoto(event.target.files?.[0] || null)}
+              onChange={(event) =>
+                handleSingleFileChange(event.target.files?.[0] || null, "Student photo", setPhoto)
+              }
               className="mt-2 w-full rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
             />
           </label>
@@ -361,7 +490,9 @@ ${schoolName} Team`
             <input
               type="file"
               accept="image/png,image/jpeg,application/pdf"
-              onChange={(event) => setAadharCard(event.target.files?.[0] || null)}
+              onChange={(event) =>
+                handleSingleFileChange(event.target.files?.[0] || null, "Aadhar card", setAadharCard)
+              }
               className="mt-2 w-full rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
             />
           </label>
@@ -371,7 +502,9 @@ ${schoolName} Team`
             <input
               type="file"
               accept="image/png,image/jpeg,application/pdf"
-              onChange={(event) => setTcDocument(event.target.files?.[0] || null)}
+              onChange={(event) =>
+                handleSingleFileChange(event.target.files?.[0] || null, "Transfer certificate", setTcDocument)
+              }
               className="mt-2 w-full rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
             />
           </label>
@@ -382,7 +515,7 @@ ${schoolName} Team`
               type="file"
               accept="image/png,image/jpeg,application/pdf"
               multiple
-              onChange={(event) => setOtherCertificates(Array.from(event.target.files || []))}
+              onChange={(event) => handleMultipleFilesChange(event.target.files)}
               className="mt-2 w-full rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-white"
             />
           </label>
