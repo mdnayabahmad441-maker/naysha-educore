@@ -7,6 +7,8 @@ import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
 import { useParams, useRouter } from "next/navigation"
 
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024
+
 type EditFormState = {
   name: string
   email: string
@@ -25,11 +27,14 @@ type SchoolClass = {
 }
 
 type StudentRecord = {
+  id: string
   name: string
   email: string | null
   roll_number: number | null
   class_id: string | null
   student_type?: string | null
+  photo?: string | null
+  student_code?: string | null
 }
 
 type ParentRecord = {
@@ -66,10 +71,34 @@ export default function EditStudentPage() {
 
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<EditFormState>(EMPTY_FORM)
+  const [currentPhoto, setCurrentPhoto] = useState<string | null>(null)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
 
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [parentId, setParentId] = useState<string | null>(null)
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null)
+
+  const validatePhoto = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload an image file")
+      return false
+    }
+
+    if (file.size > MAX_PHOTO_BYTES) {
+      alert("Student photo must be 5 MB or smaller")
+      return false
+    }
+
+    return true
+  }
+
+  const getPhotoPath = (schoolId: string, studentId: string, file: File) => {
+    const extension = file.name.includes(".")
+      ? file.name.split(".").pop()?.toLowerCase() || "jpg"
+      : "jpg"
+    const safeExtension = extension.replace(/[^a-zA-Z0-9]/g, "") || "jpg"
+    return `${schoolId}/${studentId}/profile-photo-${Date.now()}.${safeExtension}`
+  }
 
   useEffect(() => {
     const check = async () => {
@@ -114,7 +143,7 @@ export default function EditStudentPage() {
         const [studentRes, parentRes, classRes, enrollmentRes] = await Promise.all([
           supabase
             .from("students")
-            .select("name,email,roll_number,class_id,student_type")
+            .select("id,name,email,roll_number,class_id,student_type,photo,student_code")
             .eq("id", id)
             .single(),
 
@@ -144,6 +173,7 @@ export default function EditStudentPage() {
           setClasses((classRes.data as SchoolClass[] | null) ?? [])
           setParentId(parent?.id ?? null)
           setEnrollmentId(enrollment?.id ?? null)
+          setCurrentPhoto(student.photo || null)
           setForm({
             name: student.name || "",
             email: student.email || "",
@@ -200,6 +230,10 @@ export default function EditStudentPage() {
       return
     }
 
+    if (photoFile && !validatePhoto(photoFile)) {
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -218,11 +252,32 @@ export default function EditStudentPage() {
         return
       }
 
+      let photoUrl = currentPhoto
+
+      if (photoFile) {
+        const filePath = getPhotoPath(schoolId, id, photoFile)
+        const { error: uploadError } = await supabase.storage
+          .from("students")
+          .upload(filePath, photoFile, {
+            cacheControl: "3600",
+            contentType: photoFile.type || undefined,
+            upsert: true
+          })
+
+        if (uploadError) {
+          throw uploadError
+        }
+
+        const { data } = supabase.storage.from("students").getPublicUrl(filePath)
+        photoUrl = data.publicUrl
+      }
+
       const { error: studentError } = await supabase
         .from("students")
         .update({
           name: form.name.trim(),
           email: form.email.trim() || null,
+          photo: photoUrl,
           class_id: form.class_id,
           roll_number: parsedRoll,
           student_type: form.student_type
@@ -306,6 +361,8 @@ export default function EditStudentPage() {
         setParentId(data?.id ?? null)
       }
 
+      setCurrentPhoto(photoUrl)
+      setPhotoFile(null)
       alert("Updated successfully")
       router.push(`/admin/students/${id}`)
     } catch (error) {
@@ -330,6 +387,46 @@ export default function EditStudentPage() {
       <h1 className="text-2xl font-semibold">Edit Student</h1>
 
       <div className="space-y-4 rounded-xl border border-white/10 bg-white/10 p-6">
+        <div className="flex flex-col items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-4 text-center">
+          {currentPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={currentPhoto}
+              alt="Student profile"
+              className="h-28 w-28 rounded-full border border-white/20 object-cover"
+            />
+          ) : (
+            <div className="flex h-28 w-28 items-center justify-center rounded-full bg-white/10 text-lg">
+              Student
+            </div>
+          )}
+
+          <div className="w-full max-w-sm">
+            <label className="mb-2 block text-sm text-gray-300">Student Photo</label>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => {
+                const file = event.target.files?.[0] || null
+                if (!file) {
+                  setPhotoFile(null)
+                  return
+                }
+
+                if (!validatePhoto(file)) {
+                  event.currentTarget.value = ""
+                  return
+                }
+
+                setPhotoFile(file)
+                setCurrentPhoto(URL.createObjectURL(file))
+              }}
+              className="w-full rounded bg-[#0b1220] p-3"
+            />
+            <p className="mt-2 text-xs text-gray-400">Upload a photo up to 5 MB.</p>
+          </div>
+        </div>
+
         <input
           value={form.name}
           onChange={(event) => updateField("name", event.target.value)}

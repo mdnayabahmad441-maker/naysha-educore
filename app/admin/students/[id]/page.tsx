@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { getActiveAcademicYear } from "@/lib/academic"
 import { getUserRole } from "@/lib/getUserRole"
 import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
 import { useParams, useRouter } from "next/navigation"
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 
 type StudentTab = "profile" | "attendance" | "payments" | "documents" | "reportcards"
 
@@ -76,6 +78,8 @@ export default function StudentProfile() {
   const [reports, setReports] = useState<ReportRecord[]>([])
 
   const [loading, setLoading] = useState(true)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     const checkRole = async () => {
@@ -218,21 +222,119 @@ export default function StudentProfile() {
   const className = enrollment?.classes?.name || "-"
   const rollNumber = enrollment?.roll_number || "-"
 
+  const uploadPhoto = async (file: File) => {
+    if (!id) return
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload an image file")
+      return
+    }
+
+    if (file.size > MAX_PHOTO_BYTES) {
+      alert("Student photo must be 5 MB or smaller")
+      return
+    }
+
+    try {
+      setUploadingPhoto(true)
+      const schoolId = await getSchoolId()
+
+      if (!schoolId) {
+        throw new Error("School not found")
+      }
+
+      const extension = file.name.includes(".")
+        ? file.name.split(".").pop()?.toLowerCase() || "jpg"
+        : "jpg"
+      const safeExtension = extension.replace(/[^a-zA-Z0-9]/g, "") || "jpg"
+      const filePath = `${schoolId}/${id}/profile-photo-${Date.now()}.${safeExtension}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("students")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          contentType: file.type || undefined,
+          upsert: true
+        })
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      const { data } = supabase.storage.from("students").getPublicUrl(filePath)
+      const photoUrl = data.publicUrl
+
+      const { error: updateError } = await supabase
+        .from("students")
+        .update({ photo: photoUrl })
+        .eq("id", id)
+        .eq("school_id", schoolId)
+
+      if (updateError) {
+        throw updateError
+      }
+
+      setStudent((current) => (current ? { ...current, photo: photoUrl } : current))
+      alert("Photo updated successfully")
+    } catch (error) {
+      console.error("Photo upload error:", error)
+      alert(error instanceof Error ? error.message : "Failed to upload photo")
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6 text-white md:p-10">
       <div className="flex flex-col items-center gap-6 rounded-xl border border-white/10 bg-white/10 p-6 md:flex-row">
-        {student.photo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={student.photo}
-            alt={`${student.name} profile`}
-            className="h-28 w-28 rounded-full border border-white/20 object-cover"
+        <div className="flex flex-col items-center gap-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingPhoto}
+            className="group relative h-28 w-28 overflow-hidden rounded-full border border-white/20 bg-white/10 text-2xl transition hover:border-blue-400 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {student.photo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={student.photo}
+                alt={`${student.name} profile`}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                Student
+              </div>
+            )}
+
+            <span className="absolute inset-0 flex items-center justify-center bg-black/50 px-3 text-center text-xs opacity-0 transition group-hover:opacity-100">
+              {uploadingPhoto ? "Uploading..." : "Click to upload"}
+            </span>
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) {
+                void uploadPhoto(file)
+              }
+              event.currentTarget.value = ""
+            }}
           />
-        ) : (
-          <div className="flex h-28 w-28 items-center justify-center rounded-full bg-white/10 text-2xl">
-            Student
-          </div>
-        )}
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-sm text-blue-300 hover:text-blue-200"
+            disabled={uploadingPhoto}
+          >
+            {student.photo ? "Change photo" : "Upload photo"}
+          </button>
+        </div>
 
         <div>
           <h1 className="text-2xl font-semibold">{student.name}</h1>
