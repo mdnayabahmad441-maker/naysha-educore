@@ -92,14 +92,6 @@ export default function EditStudentPage() {
     return true
   }
 
-  const getPhotoPath = (schoolId: string, studentId: string, file: File) => {
-    const extension = file.name.includes(".")
-      ? file.name.split(".").pop()?.toLowerCase() || "jpg"
-      : "jpg"
-    const safeExtension = extension.replace(/[^a-zA-Z0-9]/g, "") || "jpg"
-    return `${schoolId}/${studentId}/profile-photo-${Date.now()}.${safeExtension}`
-  }
-
   useEffect(() => {
     const check = async () => {
       const role = await getUserRole()
@@ -255,21 +247,23 @@ export default function EditStudentPage() {
       let photoUrl = currentPhoto
 
       if (photoFile) {
-        const filePath = getPhotoPath(schoolId, id, photoFile)
-        const { error: uploadError } = await supabase.storage
-          .from("students")
-          .upload(filePath, photoFile, {
-            cacheControl: "3600",
-            contentType: photoFile.type || undefined,
-            upsert: true
-          })
+        const body = new FormData()
+        body.append("studentId", id)
+        body.append("schoolId", schoolId)
+        body.append("file", photoFile)
 
-        if (uploadError) {
-          throw uploadError
+        const response = await fetch("/api/students/upload-photo", {
+          method: "POST",
+          body
+        })
+
+        const result = await response.json()
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || "Failed to upload photo")
         }
 
-        const { data } = supabase.storage.from("students").getPublicUrl(filePath)
-        photoUrl = data.publicUrl
+        photoUrl = result.photoUrl as string
       }
 
       const { error: studentError } = await supabase

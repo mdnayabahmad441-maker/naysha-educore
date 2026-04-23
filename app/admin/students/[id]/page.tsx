@@ -242,37 +242,23 @@ export default function StudentProfile() {
       if (!schoolId) {
         throw new Error("School not found")
       }
+      const body = new FormData()
+      body.append("studentId", id)
+      body.append("schoolId", schoolId)
+      body.append("file", file)
 
-      const extension = file.name.includes(".")
-        ? file.name.split(".").pop()?.toLowerCase() || "jpg"
-        : "jpg"
-      const safeExtension = extension.replace(/[^a-zA-Z0-9]/g, "") || "jpg"
-      const filePath = `${schoolId}/${id}/profile-photo-${Date.now()}.${safeExtension}`
+      const response = await fetch("/api/students/upload-photo", {
+        method: "POST",
+        body
+      })
 
-      const { error: uploadError } = await supabase.storage
-        .from("students")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          contentType: file.type || undefined,
-          upsert: true
-        })
+      const result = await response.json()
 
-      if (uploadError) {
-        throw uploadError
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to upload photo")
       }
 
-      const { data } = supabase.storage.from("students").getPublicUrl(filePath)
-      const photoUrl = data.publicUrl
-
-      const { error: updateError } = await supabase
-        .from("students")
-        .update({ photo: photoUrl })
-        .eq("id", id)
-        .eq("school_id", schoolId)
-
-      if (updateError) {
-        throw updateError
-      }
+      const photoUrl = result.photoUrl as string
 
       setStudent((current) => (current ? { ...current, photo: photoUrl } : current))
       alert("Photo updated successfully")
