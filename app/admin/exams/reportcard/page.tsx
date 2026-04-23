@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { dbGet } from "@/lib/db"
 import { getSchoolId } from "@/lib/school"
+import { getSettings } from "@/lib/settings"
 import ReportCard from "@/components/exams/ReportCard"
 
 import jsPDF from "jspdf"
@@ -18,6 +19,7 @@ export default function ReportCardPage(){
   const [subjects,setSubjects] = useState<any[]>([])
   const [exams,setExams] = useState<any[]>([])
   const [school,setSchool] = useState<any>(null)
+  const [reportCardTemplateUrl, setReportCardTemplateUrl] = useState("")
 
   const [selectedClass,setSelectedClass] = useState("")
   const [selectedExam,setSelectedExam] = useState("")
@@ -30,18 +32,25 @@ export default function ReportCardPage(){
   async function init(){
     const schoolId = await getSchoolId()
 
-    setClasses(await dbGet("classes"))
-    setStudents(await dbGet("students"))
-    setSubjects(await dbGet("subjects"))
-    setExams(await dbGet("exams"))
+    const [loadedClasses, loadedStudents, loadedSubjects, loadedExams, schoolRes, templateSetting] = await Promise.all([
+      dbGet("classes"),
+      dbGet("students"),
+      dbGet("subjects"),
+      dbGet("exams"),
+      supabase
+        .from("schools")
+        .select("*")
+        .eq("id", schoolId)
+        .single(),
+      getSettings("report_card_template")
+    ])
 
-    const { data } = await supabase
-      .from("schools")
-      .select("*")
-      .eq("id", schoolId)
-      .single()
-
-    setSchool(data)
+    setClasses(loadedClasses)
+    setStudents(loadedStudents)
+    setSubjects(loadedSubjects)
+    setExams(loadedExams)
+    setSchool(schoolRes.data || null)
+    setReportCardTemplateUrl(typeof templateSetting === "string" ? templateSetting : "")
   }
 
   useEffect(()=>{
@@ -207,14 +216,11 @@ export default function ReportCardPage(){
 
     const clone = element.cloneNode(true) as HTMLElement
 
-    clone.style.background = "#fff"
-    clone.style.color = "#000"
-
-    clone.querySelectorAll("*").forEach((el:any)=>{
-      el.style.color = "#000"
-      el.style.backgroundColor = "#fff"
-      el.style.borderColor = "#000"
-    })
+    clone.style.position = "fixed"
+    clone.style.left = "0"
+    clone.style.top = "0"
+    clone.style.width = `${element.offsetWidth}px`
+    clone.style.zIndex = "-1"
 
     document.body.appendChild(clone)
 
@@ -350,6 +356,12 @@ export default function ReportCardPage(){
 
       </div>
 
+      <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-gray-300">
+        {reportCardTemplateUrl
+          ? "Uploaded school report card template is active for generation."
+          : "No report card template uploaded yet. Upload one from Settings to brand the generated reports."}
+      </div>
+
       <div className="space-y-10">
         {reports.map((r,i)=>(
           <div key={i} className="report-card">
@@ -359,6 +371,7 @@ export default function ReportCardPage(){
               school={school}
               exam={examObj}
               classData={classObj}
+              templateUrl={reportCardTemplateUrl || null}
             />
           </div>
         ))}

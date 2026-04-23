@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { useSchool } from "@/context/SchoolContext"
+import { getSettings } from "@/lib/settings"
 
 type Student = {
   id: string
@@ -19,30 +20,13 @@ type SchoolClass = {
   name: string
 }
 
-const templates = [
-  {
-    id: "diagonal",
-    title: "Style A — Diagonal Split",
-    description: "Classic green card with a diagonal top and clean school identity layout."
-  },
-  {
-    id: "maroon",
-    title: "Style B — Maroon Gold Premium",
-    description: "Bold maroon and gold premium badge with a strong heading and details panel."
-  },
-  {
-    id: "teal",
-    title: "Style C — Teal Geometric",
-    description: "Modern teal geometric design with crisp data blocks and a clean accent look."
-  }
-]
-
 export default function StudentIdCardsPage() {
   const school = useSchool()
   const [students, setStudents] = useState<Student[]>([])
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [schoolId, setSchoolId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [idCardTemplateUrl, setIdCardTemplateUrl] = useState("")
 
   const schoolName = school?.name || "School"
   const schoolLocation = school?.address || school?.subdomain || ""
@@ -51,7 +35,6 @@ export default function StudentIdCardsPage() {
   const [targetType, setTargetType] = useState<"all" | "class" | "students">("all")
   const [selectedClass, setSelectedClass] = useState("")
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([])
-  const [selectedTemplate, setSelectedTemplate] = useState("diagonal")
   const [search, setSearch] = useState("")
 
   useEffect(() => {
@@ -63,14 +46,16 @@ export default function StudentIdCardsPage() {
 
     setLoading(true)
     const load = async () => {
-      const [{ data: classData, error: classError }, { data: studentData, error: studentError }] = await Promise.all([
-        supabase.from("classes").select("id,name").eq("school_id", schoolId),
-        supabase
-          .from("students")
-          .select("id,name,student_code,class_id,roll_number,photo")
-          .eq("school_id", schoolId)
-          .order("name", { ascending: true })
-      ])
+      const [{ data: classData, error: classError }, { data: studentData, error: studentError }, templateUrl] =
+        await Promise.all([
+          supabase.from("classes").select("id,name").eq("school_id", schoolId),
+          supabase
+            .from("students")
+            .select("id,name,student_code,class_id,roll_number,photo")
+            .eq("school_id", schoolId)
+            .order("name", { ascending: true }),
+          getSettings("id_card_template")
+        ])
 
       if (classError) {
         console.error("Class fetch error:", classError)
@@ -85,64 +70,48 @@ export default function StudentIdCardsPage() {
         setStudents((studentData as Student[] | null) ?? [])
       }
 
+      setIdCardTemplateUrl(typeof templateUrl === "string" ? templateUrl : "")
       setLoading(false)
     }
 
     void load()
   }, [schoolId])
 
-  const classMap = useMemo(
-    () => new Map(classes.map((cls) => [cls.id, cls.name])),
-    [classes]
-  )
+  const classMap = useMemo(() => new Map(classes.map((cls) => [cls.id, cls.name])), [classes])
 
   const filteredSelectionStudents = useMemo(() => {
     const searchTerm = search.toLowerCase()
 
     return students.filter((student) => {
-      if (targetType === "class" && selectedClass) {
-        if (student.class_id !== selectedClass) return false
+      if (targetType === "class" && selectedClass && student.class_id !== selectedClass) {
+        return false
       }
 
-      if (searchTerm) {
-        return (
-          student.name.toLowerCase().includes(searchTerm) ||
-          (student.student_code || "").toLowerCase().includes(searchTerm) ||
-          (classMap.get(student.class_id || "") || "").toLowerCase().includes(searchTerm)
-        )
+      if (!searchTerm) {
+        return true
       }
 
-      return true
+      return (
+        student.name.toLowerCase().includes(searchTerm) ||
+        (student.student_code || "").toLowerCase().includes(searchTerm) ||
+        (classMap.get(student.class_id || "") || "").toLowerCase().includes(searchTerm)
+      )
     })
   }, [students, targetType, selectedClass, search, classMap])
 
   const selectedStudents = useMemo(() => {
-    if (targetType === "all") {
-      return filteredSelectionStudents
-    }
-
-    if (targetType === "class") {
-      return selectedClass
-        ? filteredSelectionStudents
-        : []
-    }
-
+    if (targetType === "all") return filteredSelectionStudents
+    if (targetType === "class") return selectedClass ? filteredSelectionStudents : []
     return students.filter((student) => selectedStudentIds.includes(student.id))
   }, [targetType, selectedClass, selectedStudentIds, filteredSelectionStudents, students])
 
   const toggleStudentSelection = (studentId: string) => {
     setSelectedStudentIds((prev) =>
-      prev.includes(studentId)
-        ? prev.filter((id) => id !== studentId)
-        : [...prev, studentId]
+      prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId]
     )
   }
 
   const selectedCount = selectedStudents.length
-
-  const printCards = () => {
-    window.print()
-  }
 
   return (
     <div className="space-y-6 text-white">
@@ -161,8 +130,8 @@ export default function StudentIdCardsPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Student ID Card Generator</h1>
-          <p className="text-sm text-gray-400 mt-2 max-w-2xl">
-            Create printable ID cards for the whole school, a class, or specific students. Choose one of three card models and print directly from the browser.
+          <p className="mt-2 max-w-2xl text-sm text-gray-400">
+            Generate cards using your school&apos;s uploaded ID card template from Settings.
           </p>
         </div>
 
@@ -180,7 +149,7 @@ export default function StudentIdCardsPage() {
           </button>
 
           <button
-            onClick={printCards}
+            onClick={() => window.print()}
             className="no-print rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
             disabled={selectedCount === 0}
           >
@@ -273,10 +242,15 @@ export default function StudentIdCardsPage() {
                   />
                   <div className="max-h-72 overflow-y-auto rounded-3xl border border-white/10 bg-[#0b1220]/80 p-3">
                     {filteredSelectionStudents.map((student) => (
-                      <label key={student.id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm">
+                      <label
+                        key={student.id}
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm"
+                      >
                         <div>
                           <div className="font-medium">{student.name}</div>
-                          <div className="text-gray-400">{student.student_code || "No ID"} • {classMap.get(student.class_id || "") || "No class"}</div>
+                          <div className="text-gray-400">
+                            {student.student_code || "No ID"} • {classMap.get(student.class_id || "") || "No class"}
+                          </div>
                         </div>
                         <input
                           type="checkbox"
@@ -295,41 +269,32 @@ export default function StudentIdCardsPage() {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Choose card model</h2>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {templates.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => setSelectedTemplate(template.id)}
-                  className={`rounded-3xl border px-4 py-4 text-left transition-all ${selectedTemplate === template.id ? "border-blue-500 bg-blue-500/10" : "border-white/10 bg-white/5 hover:border-white/20"}`}
-                >
-                  <div className="font-semibold">{template.title}</div>
-                  <p className="text-sm text-gray-400 mt-2">{template.description}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="rounded-3xl border border-white/10 bg-[#0b1220] p-4 text-sm text-gray-300">
-            <div className="font-semibold">Cards selected</div>
-            <div className="mt-2">{selectedCount} student{selectedCount === 1 ? "" : "s"}</div>
-            <div className="mt-3 text-xs text-gray-400">Use the Print button to produce a paged print layout.</div>
+            <div className="font-semibold">Template status</div>
+            <div className="mt-2">
+              {idCardTemplateUrl
+                ? "Your uploaded school ID card template will be used."
+                : "No custom ID card template uploaded yet. A default layout will be used until you upload one in Settings."}
+            </div>
+            <div className="mt-3 text-xs text-gray-400">Cards selected: {selectedCount}</div>
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-lg font-semibold">Print preview</h2>
-            <p className="text-sm text-gray-400 mt-2">Preview of the selected template and students. Only selected cards will print.</p>
+            <p className="mt-2 text-sm text-gray-400">
+              Preview of the cards using your school template. Only selected cards will print.
+            </p>
           </div>
 
           <div className="grid gap-4">
             {loading ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-gray-400">Loading students…</div>
             ) : selectedCount === 0 ? (
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-gray-400">Choose a target and select students to generate cards.</div>
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-gray-400">
+                Choose a target and select students to generate cards.
+              </div>
             ) : (
               <div className={`print-area grid gap-6 justify-items-start ${selectedStudents.length > 1 ? "xl:grid-cols-2" : ""}`}>
                 {selectedStudents.map((student) => (
@@ -337,10 +302,10 @@ export default function StudentIdCardsPage() {
                     <StudentCard
                       student={student}
                       studentClass={classMap.get(student.class_id || "") || "N/A"}
-                      template={selectedTemplate}
                       schoolName={schoolName}
                       schoolLocation={schoolLocation}
                       schoolLogo={schoolLogo}
+                      templateUrl={idCardTemplateUrl || null}
                     />
                   </div>
                 ))}
@@ -353,107 +318,72 @@ export default function StudentIdCardsPage() {
   )
 }
 
-function StudentCard({ student, studentClass, template, schoolName, schoolLocation, schoolLogo }: { student: Student; studentClass: string; template: string; schoolName: string; schoolLocation: string; schoolLogo: string | null }) {
-  const logoElement = schoolLogo ? (
-    <img src={schoolLogo} alt={schoolName} className="h-full w-full object-cover rounded-full" />
-  ) : (
-    <div className="flex h-full w-full items-center justify-center rounded-full bg-white/10 text-xs uppercase tracking-[0.2em] text-white/70">Logo</div>
-  )
-
-  if (template === "maroon") {
-    return (
-      <div className="print-page-break overflow-hidden rounded-[30px] border border-[#572020] bg-[#3c0606] text-white shadow-[0_20px_40px_rgba(0,0,0,0.35)]">
-        <div className="bg-[#741a1a] px-6 py-6 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#ffe9b1]">
-            {logoElement}
-          </div>
-          <div className="text-sm uppercase tracking-[0.35em] text-yellow-200/80">Identity Card</div>
-          <div className="mt-3 text-2xl font-semibold text-yellow-100">{schoolName}</div>
-          <div className="mt-1 text-xs uppercase tracking-[0.25em] text-yellow-200/70">Premium School ID</div>
-        </div>
-        <div className="border-t border-yellow-300/20 bg-white/95 px-6 py-6 text-[#111]">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="h-24 w-24 overflow-hidden rounded-3xl bg-[#ffe9b1]">
-              {student.photo ? (
-                <img src={student.photo} alt={student.name} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase tracking-[0.2em] text-[#8b5c00]">Photo</div>
-              )}
-            </div>
-            <div className="flex-1 space-y-2">
-              <div className="text-lg font-bold uppercase tracking-[0.06em] text-[#5c1200]">{student.name}</div>
-              <div className="text-sm text-[#6a3a00]">ID: <span className="font-semibold">{student.student_code || "N/A"}</span></div>
-              <div className="text-sm text-[#6a3a00]">Class: <span className="font-semibold">{studentClass}</span></div>
-              <div className="text-sm text-[#6a3a00]">Roll No: <span className="font-semibold">{student.roll_number ?? "—"}</span></div>
-            </div>
-          </div>
-          <div className="mt-5 grid gap-3 rounded-3xl border border-[#f8d488]/40 bg-[#fdf6e1] p-4 text-sm text-[#6a3a00] shadow-inner shadow-[#0000000d]">
-            <div>School: {schoolName}</div>
-            <div>Valid for current academic year</div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (template === "teal") {
-    return (
-      <div className="print-page-break overflow-hidden rounded-[30px] border border-cyan-500/30 bg-[#064d58] shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
-        <div className="relative overflow-hidden bg-linear-to-br from-[#0f6370] via-[#0a9396] to-[#52c1c2] px-6 py-6 text-center text-white">
-          <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top_center,rgba(255,255,255,0.18),transparent_60%)]" />
-          <div className="relative text-xs uppercase tracking-[0.3em] text-white/80">Style C — Teal Geometric</div>
-          <div className="mt-4 text-2xl font-semibold uppercase tracking-wide">{schoolName}</div>
-          {schoolLocation ? <div className="mt-1 text-sm text-white/80">{schoolLocation}</div> : null}
-        </div>
-        <div className="bg-white px-6 py-6 text-[#102a33]">
-          <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-3xl bg-[#dbeffc] text-xs font-semibold uppercase tracking-[0.2em] text-[#087ca7]">
-            {schoolLogo ? (
-              <img src={schoolLogo} alt={schoolName} className="h-full w-full rounded-3xl object-cover" />
-            ) : (
-              <span>LOGO</span>
-            )}
-          </div>
-          <div className="text-center text-xl font-semibold uppercase tracking-[0.08em] text-[#0f4560]">{student.name}</div>
-          <div className="mt-4 grid gap-2 text-sm text-[#334e56]">
-            <div className="flex items-center justify-between rounded-3xl bg-[#f0fbff] px-4 py-3"> <span>Class</span> <span>{studentClass}</span> </div>
-            <div className="flex items-center justify-between rounded-3xl bg-[#f0fbff] px-4 py-3"> <span>Roll No.</span> <span>{student.roll_number ?? "—"}</span> </div>
-            <div className="flex items-center justify-between rounded-3xl bg-[#f0fbff] px-4 py-3"> <span>School</span> <span>{schoolName}</span> </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
+function StudentCard({
+  student,
+  studentClass,
+  schoolName,
+  schoolLocation,
+  schoolLogo,
+  templateUrl
+}: {
+  student: Student
+  studentClass: string
+  schoolName: string
+  schoolLocation: string
+  schoolLogo: string | null
+  templateUrl: string | null
+}) {
   return (
-    <div className="print-page-break overflow-hidden rounded-[30px] border border-[#164e2c] bg-[#0b3d28] shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
-      <div className="relative overflow-hidden bg-[#146c43] px-6 py-6 text-white">
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-[radial-gradient(circle_at_bottom_center,rgba(255,255,255,0.12),transparent_60%)]" />
-        <div className="absolute right-6 top-6 h-16 w-16 overflow-hidden rounded-full border border-white/20 bg-white/10">
-          {logoElement}
-        </div>
-        <div className="text-xs uppercase tracking-[0.25em] text-white/70">Style A — Diagonal Split</div>
-        <div className="mt-3 text-2xl font-bold uppercase tracking-[0.08em]">{schoolName}</div>
-        {schoolLocation ? <div className="mt-1 text-sm text-white/80">{schoolLocation}</div> : null}
-      </div>
-      <div className="bg-white px-6 py-6 text-[#0f3d2e]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-          <div className="flex h-28 w-28 items-center justify-center rounded-[28px] bg-[#def0e3] text-xs font-semibold uppercase tracking-[0.2em] text-[#0f5132]">
-            {student.photo ? (
-              <img src={student.photo} alt={student.name} className="h-full w-full rounded-[28px] object-cover" />
+    <div className="print-page-break relative mx-auto h-[340px] w-[540px] overflow-hidden rounded-[32px] border border-white/10 bg-[#0f172a] text-white shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
+      {templateUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={templateUrl} alt="ID card template" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,#0f4c81_0%,#10243f_45%,#0f172a_100%)]" />
+      )}
+
+      <div className="absolute inset-0 bg-black/25" />
+
+      <div className="relative flex h-full flex-col justify-between p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="max-w-[70%]">
+            <div className="text-xs uppercase tracking-[0.35em] text-white/80">Student Identity Card</div>
+            <div className="mt-2 text-2xl font-bold leading-tight">{schoolName}</div>
+            {schoolLocation ? <div className="mt-1 text-sm text-white/85">{schoolLocation}</div> : null}
+          </div>
+
+          <div className="h-16 w-16 overflow-hidden rounded-full border border-white/30 bg-white/10">
+            {schoolLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={schoolLogo} alt={schoolName} className="h-full w-full object-cover" />
             ) : (
-              <span>PHOTO</span>
+              <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[0.2em] text-white/70">
+                Logo
+              </div>
             )}
           </div>
-          <div className="flex-1 space-y-2">
-            <div className="text-2xl font-bold uppercase tracking-[0.08em] text-[#0f5132]">{student.name}</div>
-            <div className="text-sm text-[#346b47]">ID: <span className="font-semibold">{student.student_code || "N/A"}</span></div>
-            <div className="text-sm text-[#346b47]">Class: <span className="font-semibold">{studentClass}</span></div>
-          </div>
         </div>
-        <div className="mt-6 grid gap-3 rounded-3xl border border-[#d8f0e0] bg-[#f2fdf7] p-4 text-sm text-[#1f5f44] shadow-inner shadow-[#0000000d]">
-          <div className="flex justify-between"><span>Roll</span><span>{student.roll_number ?? "—"}</span></div>
-          <div className="flex justify-between"><span>School</span><span>{schoolName}</span></div>
-          <div className="flex justify-between"><span>Valid</span><span>Current year</span></div>
+
+        <div className="flex items-end gap-5">
+          <div className="h-32 w-28 overflow-hidden rounded-[24px] border border-white/30 bg-white/10">
+            {student.photo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={student.photo} alt={student.name} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase tracking-[0.25em] text-white/70">
+                Photo
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 rounded-[24px] border border-white/20 bg-black/25 p-4 backdrop-blur-[2px]">
+            <div className="text-2xl font-bold uppercase tracking-[0.04em]">{student.name}</div>
+            <div className="mt-3 grid gap-2 text-sm text-white/90">
+              <div>ID: <span className="font-semibold">{student.student_code || "N/A"}</span></div>
+              <div>Class: <span className="font-semibold">{studentClass}</span></div>
+              <div>Roll No: <span className="font-semibold">{student.roll_number ?? "—"}</span></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
