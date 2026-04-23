@@ -334,7 +334,7 @@ function StudentCard({
   templateUrl: string | null
 }) {
   return (
-    <div className="print-page-break relative mx-auto h-[340px] w-[540px] overflow-hidden rounded-[32px] border border-white/10 bg-[#0f172a] text-white shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
+    <div className="print-page-break relative mx-auto h-[540px] w-[340px] overflow-hidden rounded-[32px] border border-white/10 bg-[#0f172a] text-white shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
       {templateUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={templateUrl} alt="ID card template" className="absolute inset-0 h-full w-full object-cover" />
@@ -346,9 +346,9 @@ function StudentCard({
 
       <div className="relative flex h-full flex-col justify-between p-6">
         <div className="flex items-start justify-between gap-4">
-          <div className="max-w-[70%]">
+          <div className="max-w-[72%]">
             <div className="text-xs uppercase tracking-[0.35em] text-white/80">Student Identity Card</div>
-            <div className="mt-2 text-2xl font-bold leading-tight">{schoolName}</div>
+            <div className="mt-2 text-xl font-bold leading-tight">{schoolName}</div>
             {schoolLocation ? <div className="mt-1 text-sm text-white/85">{schoolLocation}</div> : null}
           </div>
 
@@ -364,8 +364,8 @@ function StudentCard({
           </div>
         </div>
 
-        <div className="flex items-end gap-5">
-          <div className="h-32 w-28 overflow-hidden rounded-[24px] border border-white/30 bg-white/10">
+        <div className="flex flex-1 flex-col items-center justify-center gap-5 py-5">
+          <div className="h-44 w-36 overflow-hidden rounded-[24px] border border-white/30 bg-white/10">
             {student.photo ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={student.photo} alt={student.name} className="h-full w-full object-cover" />
@@ -376,9 +376,9 @@ function StudentCard({
             )}
           </div>
 
-          <div className="flex-1 rounded-[24px] border border-white/20 bg-black/25 p-4 backdrop-blur-[2px]">
+          <div className="w-full rounded-[24px] border border-white/20 bg-black/25 p-4 text-center backdrop-blur-[2px]">
             <div className="text-2xl font-bold uppercase tracking-[0.04em]">{student.name}</div>
-            <div className="mt-3 grid gap-2 text-sm text-white/90">
+            <div className="mt-4 grid gap-2 text-sm text-white/90">
               <div>ID: <span className="font-semibold">{student.student_code || "N/A"}</span></div>
               <div>Class: <span className="font-semibold">{studentClass}</span></div>
               <div>Roll No: <span className="font-semibold">{student.roll_number ?? "—"}</span></div>
