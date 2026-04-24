@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { getActiveAcademicYear } from "@/lib/academic"
 import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
+import { apiFetch } from "@/lib/api-client"
 
 type StudentFormProps = {
   reload?: () => void | Promise<void>
@@ -385,7 +386,7 @@ ${schoolName} Team
 
           if (parentEmail) {
             try {
-              await fetch("/api/send-email", {
+              await apiFetch("/api/send-email", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -401,7 +402,7 @@ ${schoolName} Team
 
           if (parentPhone) {
             try {
-              await fetch("/api/send-whatsapp", {
+              await apiFetch("/api/send-whatsapp", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

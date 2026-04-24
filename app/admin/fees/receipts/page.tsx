@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import FeeReceipt from "@/components/fees/FeeReceipt"
 import { fetchReceiptByPaymentId } from "@/lib/payment-receipts"
 import { getSchoolId } from "@/lib/school"
+import { apiFetch } from "@/lib/api-client"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 import { createRoot } from "react-dom/client"
@@ -37,7 +38,7 @@ export default function ReceiptHistoryPage() {
       setLoading(true)
 
       try {
-        const res = await fetch(`/api/payments-history?school_id=${schoolId}`)
+        const res = await apiFetch("/api/payments-history")
 
         if (!res.ok) {
           throw new Error("Failed to load receipt history")

@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { getSchoolId } from "@/lib/school"
 import Button from "@/components/ui/Button"
+import { apiFetch } from "@/lib/api-client"
 
 type ImportData = {
   type: "students" | "teachers" | "classes"
@@ -118,23 +118,16 @@ export default function ImportPage() {
       return
     }
 
-    const schoolId = await getSchoolId()
-    if (!schoolId) {
-      alert("School not found")
-      return
-    }
-
     setLoading(true)
     setStatus("Importing data...")
 
     try {
-      const response = await fetch("/api/bulk-import", {
+      const response = await apiFetch("/api/bulk-import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: importData.type,
-          data: importData.preview,
-          schoolId
+          data: importData.preview
         })
       })
 

@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 
 export default function OnboardingPage() {
@@ -33,17 +32,22 @@ export default function OnboardingPage() {
       })
     )
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: normalizedEmail,
-      options: {
-        shouldCreateUser: true,
+    const response = await fetch("/api/auth/request-otp", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        email: normalizedEmail,
+        shouldCreateUser: true,
+      }),
     })
 
     setLoading(false)
 
-    if (error) {
-      alert(error.message)
+    if (!response.ok) {
+      const data = await response.json()
+      alert(data.error || "Failed to send OTP")
       return
     }
 

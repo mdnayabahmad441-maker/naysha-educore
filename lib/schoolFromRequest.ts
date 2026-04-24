@@ -1,4 +1,4 @@
-import { supabase } from "./supabase"
+import { supabaseAdmin } from "./supabase-admin"
 
 export async function getSchoolFromRequest(req: Request) {
   try {
@@ -19,7 +19,7 @@ export async function getSchoolFromRequest(req: Request) {
       return null
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("schools")
       .select("*")
       .eq("subdomain", subdomain)

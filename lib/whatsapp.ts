@@ -1,7 +1,9 @@
+import { apiFetch } from "./api-client"
+
 export async function sendWhatsApp(phone:string, message:string){
 
   try{
-    await fetch("/api/send-whatsapp",{
+    await apiFetch("/api/send-whatsapp",{
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({

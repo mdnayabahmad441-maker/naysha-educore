@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { getSchoolId } from "@/lib/school"
+import { apiFetch } from "@/lib/api-client"
 
 type AdmissionEnquiry = {
   id: string
@@ -29,7 +30,7 @@ export default function AdmissionEnquiryPage() {
 
     setLoading(true)
     try {
-      const response = await fetch(`/api/admission-enquiry?schoolId=${schoolId}`)
+      const response = await apiFetch("/api/admission-enquiry")
       const data = await response.json()
 
       if (data.success) {

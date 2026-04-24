@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getSchoolFromRequest } from "@/lib/schoolFromRequest"
+import { getBaseUrl, getInternalApiHeaders } from "@/lib/internal-api"
+import { requireAdminProfile } from "@/lib/api-auth"
 
 export async function POST(req: Request) {
   try {
@@ -14,7 +16,6 @@ export async function POST(req: Request) {
       )
     }
 
-    // Get school from request (tenant detection)
     const school = await getSchoolFromRequest(req)
     if (!school) {
       return NextResponse.json(
@@ -25,7 +26,6 @@ export async function POST(req: Request) {
 
     const enquiryId = crypto.randomUUID()
 
-    // Insert enquiry
     const { error: insertError } = await supabaseAdmin
       .from("admission_enquiries")
       .insert({
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
         email: email.trim().toLowerCase(),
         address: address.trim(),
         status: "new",
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       })
 
     if (insertError) {
@@ -49,10 +49,10 @@ export async function POST(req: Request) {
       )
     }
 
-    // Get school name for notifications
     const schoolName = school.name
+    const baseUrl = getBaseUrl(req)
+    const internalHeaders = getInternalApiHeaders()
 
-    // Send welcome message to enquiry person
     const welcomeMessage = `
 Thank you for your interest in ${schoolName}!
 
@@ -66,49 +66,36 @@ Best regards,
 ${schoolName} Admissions Team
     `.trim()
 
-    // Send email
     try {
-      await fetch("/api/send-email", {
+      await fetch(`${baseUrl}/api/send-email`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: internalHeaders,
         body: JSON.stringify({
           email: email.trim(),
           subject: `Admission Enquiry Received - ${schoolName}`,
-          message: welcomeMessage
-        })
+          message: welcomeMessage,
+        }),
       })
     } catch (err) {
       console.error("Welcome email failed:", err)
     }
 
-    // Send WhatsApp
     try {
-      await fetch("/api/send-whatsapp", {
+      await fetch(`${baseUrl}/api/send-whatsapp`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: internalHeaders,
         body: JSON.stringify({
           phone: phone.trim(),
-          message: `Thank you for your admission enquiry at ${schoolName}! 📚
-
-Dear ${fatherName},
-
-We received your enquiry for ${studentName} in ${classWanted}.
-
-Our team will contact you soon.
-
-Best regards,
-${schoolName} Team`
-        })
+          message: `Thank you for your admission enquiry at ${schoolName}! \n\nDear ${fatherName},\n\nWe received your enquiry for ${studentName} in ${classWanted}.\n\nOur team will contact you soon.\n\nBest regards,\n${schoolName} Team`,
+        }),
       })
     } catch (err) {
       console.error("Welcome WhatsApp failed:", err)
     }
 
-    // Send notification to admin
-    // Get admin email/phone from school settings or profiles
     const { data: admins } = await supabaseAdmin
       .from("profiles")
-      .select("email")
+      .select("id")
       .eq("school_id", school.id)
       .eq("role", "admin")
 
@@ -125,21 +112,29 @@ Email: ${email}
 Please review and follow up.
       `.trim()
 
-      for (const admin of admins) {
-        if (admin.email) {
-          try {
-            await fetch("/api/send-email", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                email: admin.email,
-                subject: `New Admission Enquiry - ${studentName}`,
-                message: adminMessage
-              })
-            })
-          } catch (err) {
-            console.error("Admin notification email failed:", err)
-          }
+      const { data: adminUsers } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 500,
+      })
+
+      const adminEmails = adminUsers.users
+        .filter((user) => admins.some((admin) => admin.id === user.id))
+        .map((user) => user.email)
+        .filter((value): value is string => Boolean(value))
+
+      for (const adminEmail of adminEmails) {
+        try {
+          await fetch(`${baseUrl}/api/send-email`, {
+            method: "POST",
+            headers: internalHeaders,
+            body: JSON.stringify({
+              email: adminEmail,
+              subject: `New Admission Enquiry - ${studentName}`,
+              message: adminMessage,
+            }),
+          })
+        } catch (err) {
+          console.error("Admin notification email failed:", err)
         }
       }
     }
@@ -147,9 +142,8 @@ Please review and follow up.
     return NextResponse.json({
       success: true,
       enquiryId,
-      message: "Enquiry submitted successfully"
+      message: "Enquiry submitted successfully",
     })
-
   } catch (err: any) {
     console.error("Admission enquiry error:", err)
     return NextResponse.json(
@@ -160,40 +154,26 @@ Please review and follow up.
 }
 
 export async function GET(req: Request) {
+  const authResult = await requireAdminProfile(req)
+
+  if ("response" in authResult) {
+    return authResult.response
+  }
+
+  const schoolId = authResult.profile.schoolId
+
+  if (!schoolId) {
+    return NextResponse.json(
+      { success: false, error: "School not found" },
+      { status: 400 }
+    )
+  }
+
   try {
-    const url = new URL(req.url)
-    const schoolId = url.searchParams.get("schoolId")
-
-    let school = null
-    if (schoolId) {
-      const { data, error } = await supabaseAdmin
-        .from("schools")
-        .select("id")
-        .eq("id", schoolId)
-        .maybeSingle()
-
-      if (error) {
-        console.error("Fetch school by ID error:", error)
-      }
-      school = data || null
-    }
-
-    if (!school) {
-      // Fallback to tenant detection
-      school = await getSchoolFromRequest(req)
-    }
-
-    if (!school) {
-      return NextResponse.json(
-        { success: false, error: "School not found" },
-        { status: 400 }
-      )
-    }
-
     const { data: enquiries, error } = await supabaseAdmin
       .from("admission_enquiries")
       .select("*")
-      .eq("school_id", school.id)
+      .eq("school_id", schoolId)
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -206,9 +186,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       success: true,
-      enquiries: enquiries || []
+      enquiries: enquiries || [],
     })
-
   } catch (err: any) {
     console.error("Fetch enquiries error:", err)
     return NextResponse.json(

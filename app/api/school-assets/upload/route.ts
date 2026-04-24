@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { ensureSameSchool, requireAdminProfile } from "@/lib/api-auth"
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024
 const MAX_TEMPLATE_BYTES = 10 * 1024 * 1024
@@ -23,6 +24,12 @@ const configMap = {
 } as const
 
 export async function POST(req: Request) {
+  const authResult = await requireAdminProfile(req)
+
+  if ("response" in authResult) {
+    return authResult.response
+  }
+
   try {
     const formData = await req.formData()
     const schoolId = formData.get("schoolId")
@@ -38,6 +45,11 @@ export async function POST(req: Request) {
         { success: false, error: "schoolId, assetType and file are required" },
         { status: 400 }
       )
+    }
+
+    const schoolMismatch = ensureSameSchool(authResult.profile, schoolId)
+    if (schoolMismatch) {
+      return schoolMismatch
     }
 
     const config = configMap[assetType as keyof typeof configMap]

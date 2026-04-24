@@ -5,6 +5,7 @@ import { getActiveAcademicYear } from "@/lib/academic"
 import { getUserRole } from "@/lib/getUserRole"
 import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
+import { apiFetch } from "@/lib/api-client"
 import { useParams, useRouter } from "next/navigation"
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024
@@ -252,7 +253,7 @@ export default function EditStudentPage() {
         body.append("schoolId", schoolId)
         body.append("file", photoFile)
 
-        const response = await fetch("/api/students/upload-photo", {
+        const response = await apiFetch("/api/students/upload-photo", {
           method: "POST",
           body
         })

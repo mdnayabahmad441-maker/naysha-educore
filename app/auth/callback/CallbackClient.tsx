@@ -3,44 +3,52 @@
 import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { sanitizeNextPath, sanitizeSubdomain } from "@/lib/security"
+
+function readTokenParams() {
+  const hash = window.location.hash.startsWith("#")
+    ? new URLSearchParams(window.location.hash.slice(1))
+    : null
+
+  return {
+    accessToken: hash?.get("access_token") || null,
+    refreshToken: hash?.get("refresh_token") || null,
+    next: sanitizeNextPath(hash?.get("next")),
+  }
+}
 
 export default function CallbackClient() {
-
   const params = useSearchParams()
 
   useEffect(() => {
-
     const run = async () => {
+      const { accessToken, refreshToken, next } = readTokenParams()
+      const subdomain = sanitizeSubdomain(params.get("subdomain"))
 
-      const access_token = params.get("access_token")
-      const refresh_token = params.get("refresh_token")
-      const subdomain = params.get("subdomain") // 🔥 ADD THIS
-      const next = params.get("next") || "/admin"
-
-      if (!access_token || !refresh_token) {
+      if (!accessToken || !refreshToken) {
         window.location.href = "/login"
         return
       }
 
-      // 🔥 REDIRECT TO SUBDOMAIN WITH TOKENS
       if (subdomain) {
         const currentHost = window.location.hostname
         const targetHost = `${subdomain}.naysha.online`
 
         if (currentHost !== targetHost) {
-          window.location.href =
-            `https://${targetHost}/auth/callback` +
-            `?access_token=${access_token}` +
-            `&refresh_token=${refresh_token}` +
-            `&next=${next}`
+          const payload = new URLSearchParams({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            next,
+          })
+
+          window.location.href = `https://${targetHost}/auth/callback#${payload.toString()}`
           return
         }
       }
 
-      // ✅ fallback (same domain or already on subdomain)
       const { error } = await supabase.auth.setSession({
-        access_token,
-        refresh_token
+        access_token: accessToken,
+        refresh_token: refreshToken,
       })
 
       if (error) {
@@ -49,17 +57,12 @@ export default function CallbackClient() {
         return
       }
 
+      window.history.replaceState({}, document.title, "/auth/callback")
       window.location.href = next
-
     }
 
-    run()
+    void run()
+  }, [params])
 
-  }, [])
-
-  return (
-    <div className="text-white p-10">
-      Logging you in...
-    </div>
-  )
+  return <div className="p-10 text-white">Logging you in...</div>
 }

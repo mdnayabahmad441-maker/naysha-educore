@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { sendNotification } from "@/lib/notifications"
 import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
+import { apiFetch } from "@/lib/api-client"
 
 type NoticeMode = "all" | "class" | "student"
 
@@ -237,7 +238,7 @@ export default function NoticesPage() {
 
         if (parent.email) {
           try {
-            await fetch("/api/send-email", {
+            await apiFetch("/api/send-email", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -255,7 +256,7 @@ export default function NoticesPage() {
           try {
             console.log("Sending WhatsApp:", parent.phone)
 
-            await fetch("/api/send-whatsapp", {
+            await apiFetch("/api/send-whatsapp", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({

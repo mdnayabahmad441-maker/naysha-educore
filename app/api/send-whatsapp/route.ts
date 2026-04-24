@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import qrcode from "qrcode-terminal"
 import { Client, LocalAuth } from "whatsapp-web.js"
+import { isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -41,7 +42,14 @@ function getClient() {
   return client
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  if (!isInternalRequest(req)) {
+    const authResult = await requireAdminProfile(req)
+    if ("response" in authResult) {
+      return authResult.response
+    }
+  }
+
   getClient()
 
   return NextResponse.json({
@@ -53,6 +61,13 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    if (!isInternalRequest(req)) {
+      const authResult = await requireAdminProfile(req)
+      if ("response" in authResult) {
+        return authResult.response
+      }
+    }
+
     const body = await req.json()
     const phone = body?.phone || body?.to
     const message = body?.message

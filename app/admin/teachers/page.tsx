@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button"
 import { getTeachers } from "@/services/teachers.service"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
+import { apiFetch } from "@/lib/api-client"
 
 export default function TeachersPage(){
 
@@ -129,12 +130,11 @@ export default function TeachersPage(){
       return
     }
 
-    const schoolId = await getSchoolId()
-    setLoading(true)
+      setLoading(true)
 
     try{
 
-      const res = await fetch("/api/create-teacher",{
+      const res = await apiFetch("/api/create-teacher",{
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({
@@ -142,8 +142,7 @@ export default function TeachersPage(){
           email: form.email,
           phone: form.phone,
           qualification: form.qualification,
-          experience_years: Number(form.experience_years),
-          school_id: schoolId
+          experience_years: Number(form.experience_years)
         })
       })
 
@@ -154,6 +153,7 @@ export default function TeachersPage(){
         return
       }
 
+      const schoolId = await getSchoolId()
       const teacherId = data.teacher?.id
 
       // classes

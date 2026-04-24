@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server"
 import { Resend } from "resend"
+import { isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(req: Request) {
   try {
+    if (!isInternalRequest(req)) {
+      const authResult = await requireAdminProfile(req)
+      if ("response" in authResult) {
+        return authResult.response
+      }
+    }
+
     const body = await req.json()
 
     const email = String(body.email || body.to || "").trim().toLowerCase()

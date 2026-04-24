@@ -22,10 +22,13 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [setupEmail, setSetupEmail] = useState("")
+  const [resetEmail, setResetEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [setupLoading, setSetupLoading] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
 
   const setupDone = searchParams.get("setup") === "done"
+  const resetSent = searchParams.get("reset") === "sent"
 
   const loginWithPassword = async () => {
     const normalizedIdentifier = identifier.trim().toLowerCase()
@@ -91,21 +94,58 @@ export default function LoginPage() {
 
     setSetupLoading(true)
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: normalizedEmail,
-      options: {
-        shouldCreateUser: false,
+    const response = await fetch("/api/auth/request-otp", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        email: normalizedEmail,
+        shouldCreateUser: false,
+      }),
     })
 
     setSetupLoading(false)
 
-    if (error) {
-      alert(error.message)
+    if (!response.ok) {
+      const data = await response.json()
+      alert(data.error || "Failed to send OTP")
       return
     }
 
     window.location.href = `/verify?email=${encodeURIComponent(normalizedEmail)}&mode=setup`
+  }
+
+  const requestPasswordReset = async () => {
+    const normalizedEmail = resetEmail.trim().toLowerCase()
+
+    if (!normalizedEmail) {
+      alert("Enter your account email")
+      return
+    }
+
+    setResetLoading(true)
+
+    const response = await fetch("/api/auth/request-password-reset", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: normalizedEmail,
+      }),
+    })
+
+    setResetLoading(false)
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      alert(data.error || "Failed to send password reset email")
+      return
+    }
+
+    window.location.href = "/login?reset=sent"
   }
 
   return (
@@ -183,6 +223,12 @@ export default function LoginPage() {
                 {setupDone ? (
                   <div className="mb-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
                     Account setup completed. You can now sign in with your email or username and password.
+                  </div>
+                ) : null}
+
+                {resetSent ? (
+                  <div className="mb-5 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+                    Password reset email sent. Please check your inbox.
                   </div>
                 ) : null}
 
@@ -264,6 +310,33 @@ export default function LoginPage() {
                       className="w-full rounded-2xl border border-amber-200/20 bg-[linear-gradient(135deg,#f59e0b,#d97706)] px-4 py-4 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {setupLoading ? "Sending OTP..." : "Set Username / Password"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-4">
+                  <p className="text-sm font-semibold text-white">
+                    Forgot password?
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    Request a reset link with rate limits enabled to reduce password reset abuse.
+                  </p>
+
+                  <div className="mt-4 space-y-3">
+                    <input
+                      value={resetEmail}
+                      onChange={(event) => setResetEmail(event.target.value)}
+                      placeholder="Enter account email"
+                      className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-4 text-white placeholder:text-slate-500"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={requestPasswordReset}
+                      disabled={resetLoading}
+                      className="w-full rounded-2xl border border-cyan-200/20 bg-[linear-gradient(135deg,#0891b2,#2563eb)] px-4 py-4 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {resetLoading ? "Sending Reset..." : "Send Password Reset"}
                     </button>
                   </div>
                 </div>

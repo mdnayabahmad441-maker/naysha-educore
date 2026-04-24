@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { supabaseAdmin } from "@/lib/supabase-admin"
+import { getBaseUrl, getInternalApiHeaders } from "@/lib/internal-api"
+import { requireAdminProfile } from "@/lib/api-auth"
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export async function POST(req: Request) {
+  const authResult = await requireAdminProfile(req)
 
-export async function POST(req: Request){
+  if ("response" in authResult) {
+    return authResult.response
+  }
 
-  try{
-
+  try {
     const body = await req.json()
 
     const {
@@ -19,37 +20,31 @@ export async function POST(req: Request){
       subject,
       qualification,
       experience_years,
-      school_id,
-      classes
+      classes,
     } = body
 
+    const schoolId = authResult.profile.schoolId
     const normalizedEmail = String(email || "").trim().toLowerCase()
 
-    if(!name || !normalizedEmail || !school_id){
-      return NextResponse.json({ error:"Missing fields" },{ status:400 })
+    if (!name || !normalizedEmail || !schoolId) {
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 })
     }
 
-    // =========================
-    // ✅ CREATE AUTH USER
-    // =========================
-    const { data: authData, error: authError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email: normalizedEmail,
-        email_confirm: true
-      })
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: normalizedEmail,
+      email_confirm: true,
+    })
 
-    if(authError || !authData?.user){
-      return NextResponse.json({
-        error: authError?.message || "Auth user not created"
-      },{ status:400 })
+    if (authError || !authData?.user) {
+      return NextResponse.json(
+        { error: authError?.message || "Auth user not created" },
+        { status: 400 }
+      )
     }
 
     const authId = authData.user.id
     const teacherId = crypto.randomUUID()
 
-    // =========================
-    // ✅ INSERT TEACHER
-    // =========================
     const { error: teacherError } = await supabaseAdmin
       .from("teachers")
       .insert({
@@ -61,111 +56,79 @@ export async function POST(req: Request){
         subject,
         qualification,
         experience_years,
-        school_id
+        school_id: schoolId,
       })
 
-    if(teacherError){
-      return NextResponse.json({ error: teacherError.message },{ status:400 })
+    if (teacherError) {
+      return NextResponse.json({ error: teacherError.message }, { status: 400 })
     }
 
-    await supabaseAdmin
-      .from("profiles")
-      .upsert({
-        id: authId,
-        school_id,
-        role: "teacher"
-      })
+    await supabaseAdmin.from("profiles").upsert({
+      id: authId,
+      school_id: schoolId,
+      role: "teacher",
+    })
 
     await supabaseAdmin.auth.admin.updateUserById(authId, {
       user_metadata: {
-        school_id,
-        role: "teacher"
-      }
+        school_id: schoolId,
+        role: "teacher",
+      },
     })
 
-    // =========================
-    // ✅ ASSIGN CLASSES
-    // =========================
-    if(classes?.length){
-      const rows = classes.map((c:string)=>({
+    if (classes?.length) {
+      const rows = classes.map((classId: string) => ({
         teacher_id: teacherId,
-        class_id: c,
-        school_id
+        class_id: classId,
+        school_id: schoolId,
       }))
 
       await supabaseAdmin.from("teacher_classes").insert(rows)
     }
 
-    // =========================
-    // 🔥 MAGIC LINK
-    // =========================
-    const { data: linkData } =
-      await supabaseAdmin.auth.admin.generateLink({
-        type: "magiclink",
-        email: normalizedEmail
-      })
+    const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
+      email: normalizedEmail,
+    })
 
     const magicLink = linkData?.properties?.action_link
+    const baseUrl = getBaseUrl(req)
+    const internalHeaders = getInternalApiHeaders()
 
-    // =========================
-    // ✅ SaaS SAFE BASE URL
-    // =========================
-    const baseUrl = new URL(req.url).origin
-
-    // =========================
-    // 📧 EMAIL
-    // =========================
-    await fetch(`${baseUrl}/api/send-email`,{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
+    await fetch(`${baseUrl}/api/send-email`, {
+      method: "POST",
+      headers: internalHeaders,
       body: JSON.stringify({
         email: normalizedEmail,
         subject: "Your Teacher Account Created",
-        message: `
-          Hello ${name},<br/><br/>
-          Your teacher account has been created.<br/><br/>
-          👉 Login:<br/>
-          <a href="${magicLink}">Click here</a>
-        `
-      })
+        message: `Hello ${name},<br/><br/>Your teacher account has been created.<br/><br/>Login:<br/><a href="${magicLink}">Click here</a>`,
+      }),
     })
 
-    // =========================
-    // 📱 WHATSAPP
-    // =========================
-    if(phone){
-      await fetch(`${baseUrl}/api/send-whatsapp`,{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
+    if (phone) {
+      await fetch(`${baseUrl}/api/send-whatsapp`, {
+        method: "POST",
+        headers: internalHeaders,
         body: JSON.stringify({
           to: phone,
-          message: `👨‍🏫 Teacher Account Created
-
-Hello ${name},
-
-Login here:
-${magicLink}`
-        })
+          message: `Teacher Account Created\n\nHello ${name},\n\nLogin here:\n${magicLink}`,
+        }),
       })
     }
 
-    // =========================
-    // 🔔 ADMIN NOTIFICATION
-    // =========================
     await supabaseAdmin.from("notifications").insert({
       id: crypto.randomUUID(),
-      school_id,
+      school_id: schoolId,
       title: "New Teacher Added",
       message: `${name} has been added as a teacher`,
-      type: "system"
+      type: "system",
     })
 
     return NextResponse.json({
-      success:true,
-      teacher: { id: teacherId }
+      success: true,
+      teacher: { id: teacherId },
     })
-
-  }catch(err:any){
-    return NextResponse.json({ error: err.message },{ status:500 })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

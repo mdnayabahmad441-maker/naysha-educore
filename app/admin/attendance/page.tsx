@@ -6,6 +6,7 @@ import { getSchoolId } from "@/lib/school"
 import { sendNotification } from "@/lib/notifications"
 import { getActiveAcademicYear } from "@/lib/academic"
 import { getCurrentTeacherClassIds } from "@/lib/role-access"
+import { apiFetch } from "@/lib/api-client"
 
 type AttendancePageProps = {
   restrictToClassTeacher?: boolean
@@ -264,7 +265,7 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
         // ✅ WHATSAPP FIXED
         if(status === "absent" && parent?.phone){
           try{
-            await fetch("/api/send-whatsapp",{
+            await apiFetch("/api/send-whatsapp",{
               method:"POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -280,7 +281,7 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
         // ✅ EMAIL FIXED
         if(parent?.email){
           try{
-            await fetch("/api/send-email",{
+            await apiFetch("/api/send-email",{
               method:"POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({

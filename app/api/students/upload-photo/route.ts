@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { ensureSameSchool, requireAdminProfile } from "@/lib/api-auth"
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 
 export async function POST(req: Request) {
+  const authResult = await requireAdminProfile(req)
+
+  if ("response" in authResult) {
+    return authResult.response
+  }
+
   try {
     const formData = await req.formData()
     const studentId = formData.get("studentId")
@@ -19,6 +26,11 @@ export async function POST(req: Request) {
         { success: false, error: "studentId, schoolId and file are required" },
         { status: 400 }
       )
+    }
+
+    const schoolMismatch = ensureSameSchool(authResult.profile, schoolId)
+    if (schoolMismatch) {
+      return schoolMismatch
     }
 
     if (!file.type.startsWith("image/")) {

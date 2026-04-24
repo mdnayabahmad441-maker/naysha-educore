@@ -1,6 +1,7 @@
 "use client"
 
 import { supabase } from "@/lib/supabase"
+import { sanitizeNextPath, sanitizeSubdomain } from "@/lib/security"
 
 type AuthDestination = {
   next: "/admin" | "/teacher" | "/parent"
@@ -199,9 +200,17 @@ export async function redirectWithSession(destination: AuthDestination) {
     throw new Error("Session missing")
   }
 
-  window.location.href =
-    `/auth/callback?access_token=${accessToken}` +
-    `&refresh_token=${refreshToken}` +
-    `&subdomain=${destination.subdomain}` +
-    `&next=${destination.next}`
+  const next = sanitizeNextPath(destination.next)
+  const subdomain = sanitizeSubdomain(destination.subdomain)
+  const payload = new URLSearchParams({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    next,
+  })
+
+  const callbackUrl = subdomain
+    ? `/auth/callback?subdomain=${encodeURIComponent(subdomain)}#${payload.toString()}`
+    : `/auth/callback#${payload.toString()}`
+
+  window.location.href = callbackUrl
 }

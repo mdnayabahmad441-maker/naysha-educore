@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { getSettings, updateSettings } from "@/lib/settings"
+import { apiFetch } from "@/lib/api-client"
 
 type UploadKind = "logo" | "id-card-template" | "report-card-template"
 
@@ -118,7 +119,7 @@ export default function SettingsPage() {
       body.append("assetType", assetType)
       body.append("file", file)
 
-      const response = await fetch("/api/school-assets/upload", {
+      const response = await apiFetch("/api/school-assets/upload", {
         method: "POST",
         body
       })

@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server"
 export function proxy(request: NextRequest) {
   const url = request.nextUrl
   const host = request.headers.get("host") || ""
+  const response = NextResponse.next()
 
   if (
     url.pathname.startsWith("/api") ||
@@ -13,7 +14,11 @@ export function proxy(request: NextRequest) {
     url.pathname.startsWith("/_next") ||
     url.pathname.startsWith("/favicon")
   ) {
-    return NextResponse.next()
+    response.headers.set("X-Frame-Options", "DENY")
+    response.headers.set("X-Content-Type-Options", "nosniff")
+    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    return response
   }
 
   const subdomain = host.split(".")[0]
@@ -29,11 +34,18 @@ export function proxy(request: NextRequest) {
     headers.set("x-tenant", subdomain)
   }
 
-  return NextResponse.next({
+  const tenantResponse = NextResponse.next({
     request: {
       headers
     }
   })
+
+  tenantResponse.headers.set("X-Frame-Options", "DENY")
+  tenantResponse.headers.set("X-Content-Type-Options", "nosniff")
+  tenantResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
+  tenantResponse.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+
+  return tenantResponse
 }
 
 export const config = {

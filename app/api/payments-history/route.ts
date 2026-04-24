@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { requireAdminProfile } from "@/lib/api-auth"
 
 type PaymentRow = {
   id: string
@@ -34,14 +35,16 @@ type ClassRow = {
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const schoolId = searchParams.get("school_id")
+  const authResult = await requireAdminProfile(request)
+
+  if ("response" in authResult) {
+    return authResult.response
+  }
+
+  const schoolId = authResult.profile.schoolId
 
   if (!schoolId) {
-    return NextResponse.json(
-      { error: "school_id is required" },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: "School not found" }, { status: 400 })
   }
 
   const { data: payments, error: paymentsError } = await supabaseAdmin
@@ -51,10 +54,7 @@ export async function GET(request: Request) {
     .order("date", { ascending: false })
 
   if (paymentsError) {
-    return NextResponse.json(
-      { error: paymentsError.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: paymentsError.message }, { status: 500 })
   }
 
   const paymentRows = (payments as PaymentRow[] | null) ?? []
@@ -96,28 +96,19 @@ export async function GET(request: Request) {
       .eq("school_id", schoolId)
       .in("id", feeIds),
 
-    enrollmentQuery
+    enrollmentQuery,
   ])
 
   if (studentsRes.error) {
-    return NextResponse.json(
-      { error: studentsRes.error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: studentsRes.error.message }, { status: 500 })
   }
 
   if (feesRes.error) {
-    return NextResponse.json(
-      { error: feesRes.error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: feesRes.error.message }, { status: 500 })
   }
 
   if (enrollmentsRes.error) {
-    return NextResponse.json(
-      { error: enrollmentsRes.error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: enrollmentsRes.error.message }, { status: 500 })
   }
 
   const students = new Map<string, StudentRow>()
@@ -131,11 +122,9 @@ export async function GET(request: Request) {
   })
 
   const enrollments = new Map<string, EnrollmentRow>()
-  ;((enrollmentsRes.data as EnrollmentRow[] | null) ?? []).forEach(
-    (enrollment) => {
-      enrollments.set(enrollment.student_id, enrollment)
-    }
-  )
+  ;((enrollmentsRes.data as EnrollmentRow[] | null) ?? []).forEach((enrollment) => {
+    enrollments.set(enrollment.student_id, enrollment)
+  })
 
   const classIds = [
     ...new Set(
@@ -148,7 +137,7 @@ export async function GET(request: Request) {
           return enrollment?.class_id || student?.class_id || fee?.class_id || null
         })
         .filter((classId): classId is string => Boolean(classId))
-    )
+    ),
   ]
 
   const classMap = new Map<string, ClassRow>()
@@ -161,10 +150,7 @@ export async function GET(request: Request) {
       .in("id", classIds)
 
     if (classesError) {
-      return NextResponse.json(
-        { error: classesError.message },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: classesError.message }, { status: 500 })
     }
 
     ;((classes as ClassRow[] | null) ?? []).forEach((schoolClass) => {
@@ -185,7 +171,7 @@ export async function GET(request: Request) {
       receiptNumber: payment.receipt_number || payment.id,
       studentName: student?.name || "Unknown Student",
       studentClass: classId ? classMap.get(classId)?.name || null : null,
-      feeLabel: fee?.month || "Fee"
+      feeLabel: fee?.month || "Fee",
     }
   })
 

@@ -6,6 +6,7 @@ import { dbGet } from "@/lib/db"
 import { getSchoolId } from "@/lib/school"
 import { getSettings } from "@/lib/settings"
 import ReportCard from "@/components/exams/ReportCard"
+import { apiFetch } from "@/lib/api-client"
 
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
@@ -297,7 +298,7 @@ export default function ReportCardPage(){
         : "+91" + student.phone
 
       try{
-        const res = await fetch("/api/send-whatsapp",{
+        const res = await apiFetch("/api/send-whatsapp",{
           method:"POST",
           headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({

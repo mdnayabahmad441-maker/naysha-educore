@@ -1,21 +1,23 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { supabaseAdmin } from "@/lib/supabase-admin"
+import { requireAdminProfile } from "@/lib/api-auth"
 
 type ImportRequest = {
   type: "students" | "teachers" | "classes"
   data: string[][]
-  schoolId: string
 }
 
 export async function POST(req: Request) {
+  const authResult = await requireAdminProfile(req)
+
+  if ("response" in authResult) {
+    return authResult.response
+  }
+
   try {
     const body: ImportRequest = await req.json()
-    const { type, data, schoolId } = body
+    const { type, data } = body
+    const schoolId = authResult.profile.schoolId
 
     if (!type || !data || !schoolId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -38,47 +40,34 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: imported > 0,
       imported,
-      errors: errors.slice(0, 5) // Return first 5 errors
+      errors: errors.slice(0, 5),
     })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
 
-async function importStudents(
-  rows: string[][],
-  headers: string[],
-  schoolId: string,
-  errors: string[]
-): Promise<number> {
+async function importStudents(rows: string[][], headers: string[], schoolId: string, errors: string[]) {
   let imported = 0
 
   for (let i = 0; i < rows.length; i++) {
     try {
       const row = rows[i]
-      const record: any = {}
+      const record: Record<string, any> = {}
 
       headers.forEach((header, index) => {
         const value = row[index]?.trim() || ""
         const lowerHeader = header.toLowerCase().replace(/\s+/g, "_")
 
         if (lowerHeader === "name") record.name = value
-        if (lowerHeader === "roll_number" || lowerHeader === "roll number") {
-          record.roll_number = parseInt(value) || null
-        }
+        if (lowerHeader === "roll_number" || lowerHeader === "roll number") record.roll_number = parseInt(value) || null
         if (lowerHeader === "class") record.class_name = value
         if (lowerHeader === "email") record.email = value
         if (lowerHeader === "phone") record.phone = value
-        if (lowerHeader === "father_name" || lowerHeader === "father name") {
-          record.father_name = value
-        }
-        if (lowerHeader === "mother_name" || lowerHeader === "mother name") {
-          record.mother_name = value
-        }
+        if (lowerHeader === "father_name" || lowerHeader === "father name") record.father_name = value
+        if (lowerHeader === "mother_name" || lowerHeader === "mother name") record.mother_name = value
         if (lowerHeader === "address") record.address = value
-        if (lowerHeader === "dob" || lowerHeader === "date_of_birth") {
-          record.date_of_birth = value
-        }
+        if (lowerHeader === "dob" || lowerHeader === "date_of_birth") record.date_of_birth = value
       })
 
       if (!record.name) {
@@ -86,7 +75,6 @@ async function importStudents(
         continue
       }
 
-      // Get class ID from name
       let classId = null
       if (record.class_name) {
         const { data: cls } = await supabaseAdmin
@@ -100,7 +88,7 @@ async function importStudents(
       }
 
       const studentId = crypto.randomUUID()
-      const studentCode = `ST${Date.now()}${Math.random().toString(36).substring(7)}`
+      const studentCode = `ST${Date.now()}${Math.random().toString(36).slice(2, 8)}`
 
       const { error } = await supabaseAdmin.from("students").insert({
         id: studentId,
@@ -113,7 +101,7 @@ async function importStudents(
         address: record.address || null,
         date_of_birth: record.date_of_birth || null,
         student_code: studentCode,
-        class_id: classId
+        class_id: classId,
       })
 
       if (error) {
@@ -121,7 +109,6 @@ async function importStudents(
       } else {
         imported++
 
-        // If class and roll number provided, create enrollment
         if (classId && record.roll_number) {
           const { data: year } = await supabaseAdmin
             .from("academic_years")
@@ -137,7 +124,7 @@ async function importStudents(
               class_id: classId,
               school_id: schoolId,
               academic_year_id: year.id,
-              roll_number: record.roll_number
+              roll_number: record.roll_number,
             })
           }
         }
@@ -150,18 +137,13 @@ async function importStudents(
   return imported
 }
 
-async function importTeachers(
-  rows: string[][],
-  headers: string[],
-  schoolId: string,
-  errors: string[]
-): Promise<number> {
+async function importTeachers(rows: string[][], headers: string[], schoolId: string, errors: string[]) {
   let imported = 0
 
   for (let i = 0; i < rows.length; i++) {
     try {
       const row = rows[i]
-      const record: any = {}
+      const record: Record<string, any> = {}
 
       headers.forEach((header, index) => {
         const value = row[index]?.trim() || ""
@@ -172,9 +154,7 @@ async function importTeachers(
         if (lowerHeader === "phone") record.phone = value
         if (lowerHeader === "subject") record.subject = value
         if (lowerHeader === "qualification") record.qualification = value
-        if (lowerHeader === "experience_years" || lowerHeader === "experience years") {
-          record.experience_years = parseInt(value) || 0
-        }
+        if (lowerHeader === "experience_years" || lowerHeader === "experience years") record.experience_years = parseInt(value) || 0
       })
 
       if (!record.name || !record.email) {
@@ -184,34 +164,26 @@ async function importTeachers(
 
       const normalizedEmail = record.email.toLowerCase().trim()
 
-      // Create auth user first
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: normalizedEmail,
-        email_confirm: true
+        email_confirm: true,
       })
 
-      if (authError) {
-        // User might already exist, try to fetch
-        const { data: existingAuth } = await supabaseAdmin.auth.admin.getUserById(normalizedEmail)
-        if (!existingAuth?.user?.id) {
-          errors.push(`Row ${i + 1}: ${authError.message}`)
-          continue
-        }
-        record.auth_id = existingAuth.user.id
-      } else {
-        record.auth_id = authData?.user?.id
+      if (authError || !authData?.user?.id) {
+        errors.push(`Row ${i + 1}: ${authError?.message || "Auth user not created"}`)
+        continue
       }
 
       const { error } = await supabaseAdmin.from("teachers").insert({
         id: crypto.randomUUID(),
-        auth_id: record.auth_id,
+        auth_id: authData.user.id,
         school_id: schoolId,
         name: record.name,
         email: normalizedEmail,
         phone: record.phone || null,
         subject: record.subject || null,
         qualification: record.qualification || null,
-        experience_years: record.experience_years || 0
+        experience_years: record.experience_years || 0,
       })
 
       if (error) {
@@ -227,18 +199,13 @@ async function importTeachers(
   return imported
 }
 
-async function importClasses(
-  rows: string[][],
-  headers: string[],
-  schoolId: string,
-  errors: string[]
-): Promise<number> {
+async function importClasses(rows: string[][], headers: string[], schoolId: string, errors: string[]) {
   let imported = 0
 
   for (let i = 0; i < rows.length; i++) {
     try {
       const row = rows[i]
-      const record: any = {}
+      const record: Record<string, any> = {}
 
       headers.forEach((header, index) => {
         const value = row[index]?.trim() || ""
@@ -246,9 +213,7 @@ async function importClasses(
 
         if (lowerHeader === "name") record.name = value
         if (lowerHeader === "capacity") record.capacity = parseInt(value) || 40
-        if (lowerHeader === "teacher_name" || lowerHeader === "teacher name") {
-          record.teacher_name = value
-        }
+        if (lowerHeader === "teacher_name" || lowerHeader === "teacher name") record.teacher_name = value
       })
 
       if (!record.name) {
@@ -274,7 +239,7 @@ async function importClasses(
         school_id: schoolId,
         name: record.name,
         capacity: record.capacity,
-        class_teacher_id: teacherId || null
+        class_teacher_id: teacherId || null,
       })
 
       if (error) {

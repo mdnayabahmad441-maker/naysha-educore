@@ -1,4 +1,5 @@
 import { supabase } from "./supabase"
+import { apiFetch } from "./api-client"
 
 export async function sendNotification({
   school_id,
@@ -59,7 +60,7 @@ export async function sendNotification({
     // =========================
     // 3. CALL WHATSAPP API
     // =========================
-    const res = await fetch("/api/send-whatsapp", {
+    const res = await apiFetch("/api/send-whatsapp", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
