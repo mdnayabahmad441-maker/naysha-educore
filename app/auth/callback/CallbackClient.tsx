@@ -6,6 +6,27 @@ import { supabase } from "@/lib/supabase"
 import { waitForSession } from "@/lib/auth-session"
 import { sanitizeNextPath, sanitizeSubdomain } from "@/lib/security"
 
+function resolveTenantOrigin(subdomain: string) {
+  const { protocol, hostname, port } = window.location
+  const hostWithPort = port ? `${hostname}:${port}` : hostname
+
+  if (
+    hostname.includes("localhost") ||
+    /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)
+  ) {
+    return `${protocol}//${hostWithPort}`
+  }
+
+  const hostParts = hostname.split(".")
+
+  if (hostParts.length <= 2) {
+    return `${protocol}//${subdomain}.${hostWithPort}`
+  }
+
+  const [, ...rest] = hostParts
+  return `${protocol}//${subdomain}.${rest.join(".")}${port ? `:${port}` : ""}`
+}
+
 function readTokenParams() {
   const hash = window.location.hash.startsWith("#")
     ? new URLSearchParams(window.location.hash.slice(1))
@@ -32,17 +53,17 @@ export default function CallbackClient() {
       }
 
       if (subdomain) {
-        const currentHost = window.location.hostname
-        const targetHost = `${subdomain}.naysha.online`
+        const currentOrigin = window.location.origin
+        const targetOrigin = resolveTenantOrigin(subdomain)
 
-        if (currentHost !== targetHost) {
+        if (currentOrigin !== targetOrigin) {
           const payload = new URLSearchParams({
             access_token: accessToken,
             refresh_token: refreshToken,
             next,
           })
 
-          window.location.href = `https://${targetHost}/auth/callback#${payload.toString()}`
+          window.location.href = `${targetOrigin}/auth/callback#${payload.toString()}`
           return
         }
       }
