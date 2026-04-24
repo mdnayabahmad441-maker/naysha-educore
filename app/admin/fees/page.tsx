@@ -267,8 +267,12 @@ export default function FeesPage() {
 
       container = document.createElement("div")
       container.style.position = "fixed"
-      container.style.top = "-9999px"
+      container.style.top = "0"
+      container.style.left = "-10000px"
       container.style.width = "800px"
+      container.style.padding = "24px"
+      container.style.background = "#ffffff"
+      container.style.overflow = "visible"
       document.body.appendChild(container)
 
       root = createRoot(container)
@@ -297,13 +301,7 @@ export default function FeesPage() {
 
       await new Promise(requestAnimationFrame)
       await new Promise(requestAnimationFrame)
-
-      container.querySelectorAll<HTMLElement>("*").forEach((element) => {
-        element.style.color = "#000"
-        element.style.background = "#fff"
-        element.style.borderColor = "#000"
-        element.style.boxShadow = "none"
-      })
+      await new Promise((resolve) => setTimeout(resolve, 120))
 
       const canvas = await html2canvas(container, {
         scale: 2,

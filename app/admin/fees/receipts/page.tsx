@@ -84,8 +84,12 @@ export default function ReceiptHistoryPage() {
 
       container = document.createElement("div")
       container.style.position = "fixed"
-      container.style.top = "-9999px"
+      container.style.top = "0"
+      container.style.left = "-10000px"
       container.style.width = "800px"
+      container.style.padding = "24px"
+      container.style.background = "#ffffff"
+      container.style.overflow = "visible"
       document.body.appendChild(container)
 
       root = createRoot(container)
@@ -100,6 +104,7 @@ export default function ReceiptHistoryPage() {
 
       await new Promise(requestAnimationFrame)
       await new Promise(requestAnimationFrame)
+      await new Promise((resolve) => setTimeout(resolve, 120))
 
       const canvas = await html2canvas(container, { scale: 2, useCORS: true })
       const img = canvas.toDataURL("image/png")

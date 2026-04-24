@@ -21,7 +21,9 @@ export default function LoginPage() {
 
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
+  const [setupEmail, setSetupEmail] = useState("")
   const [loading, setLoading] = useState(false)
+  const [setupLoading, setSetupLoading] = useState(false)
 
   const setupDone = searchParams.get("setup") === "done"
 
@@ -77,6 +79,33 @@ export default function LoginPage() {
       setLoading(false)
       alert(authError instanceof Error ? authError.message : "Unable to continue login")
     }
+  }
+
+  const startExistingAccountSetup = async () => {
+    const normalizedEmail = setupEmail.trim().toLowerCase()
+
+    if (!normalizedEmail) {
+      alert("Enter your existing school email")
+      return
+    }
+
+    setSetupLoading(true)
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: {
+        shouldCreateUser: false,
+      },
+    })
+
+    setSetupLoading(false)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    window.location.href = `/verify?email=${encodeURIComponent(normalizedEmail)}&mode=setup`
   }
 
   return (
@@ -208,6 +237,34 @@ export default function LoginPage() {
                     >
                       Create School Account
                     </a>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4">
+                  <p className="text-sm font-semibold text-white">
+                    Existing school account?
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    If your school was created before the new ERP login system, verify your existing
+                    email once and then create your username and password.
+                  </p>
+
+                  <div className="mt-4 space-y-3">
+                    <input
+                      value={setupEmail}
+                      onChange={(event) => setSetupEmail(event.target.value)}
+                      placeholder="Enter existing school email"
+                      className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-4 text-white placeholder:text-slate-500"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={startExistingAccountSetup}
+                      disabled={setupLoading}
+                      className="w-full rounded-2xl border border-amber-200/20 bg-[linear-gradient(135deg,#f59e0b,#d97706)] px-4 py-4 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {setupLoading ? "Sending OTP..." : "Set Username / Password"}
+                    </button>
                   </div>
                 </div>
               </div>
