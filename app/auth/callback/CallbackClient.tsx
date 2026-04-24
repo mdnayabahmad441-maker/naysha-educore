@@ -3,29 +3,9 @@
 import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { canShareSessionAcrossSubdomains, resolveTenantOrigin } from "@/lib/auth-storage"
 import { waitForSession } from "@/lib/auth-session"
 import { sanitizeNextPath, sanitizeSubdomain } from "@/lib/security"
-
-function resolveTenantOrigin(subdomain: string) {
-  const { protocol, hostname, port } = window.location
-  const hostWithPort = port ? `${hostname}:${port}` : hostname
-
-  if (
-    hostname.includes("localhost") ||
-    /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)
-  ) {
-    return `${protocol}//${hostWithPort}`
-  }
-
-  const hostParts = hostname.split(".")
-
-  if (hostParts.length <= 2) {
-    return `${protocol}//${subdomain}.${hostWithPort}`
-  }
-
-  const [, ...rest] = hostParts
-  return `${protocol}//${subdomain}.${rest.join(".")}${port ? `:${port}` : ""}`
-}
 
 function readTokenParams() {
   const hash = window.location.hash.startsWith("#")
@@ -48,11 +28,18 @@ export default function CallbackClient() {
       const subdomain = sanitizeSubdomain(params.get("subdomain"))
 
       if (!accessToken || !refreshToken) {
+        const existingSession = await waitForSession(3, 150)
+
+        if (existingSession) {
+          window.location.href = next
+          return
+        }
+
         window.location.href = "/login"
         return
       }
 
-      if (subdomain) {
+      if (subdomain && !canShareSessionAcrossSubdomains()) {
         const currentOrigin = window.location.origin
         const targetOrigin = resolveTenantOrigin(subdomain)
 

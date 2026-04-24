@@ -1,6 +1,7 @@
 "use client"
 
 import { supabase } from "@/lib/supabase"
+import { canShareSessionAcrossSubdomains, resolveTenantOrigin } from "@/lib/auth-storage"
 import { sanitizeNextPath, sanitizeSubdomain } from "@/lib/security"
 
 type AuthDestination = {
@@ -191,8 +192,16 @@ export async function resolveAuthDestination(user: any, email: string): Promise<
 }
 
 export async function redirectWithSession(destination: AuthDestination) {
-  const { data: sessionData } = await supabase.auth.getSession()
+  const next = sanitizeNextPath(destination.next)
+  const subdomain = sanitizeSubdomain(destination.subdomain)
 
+  if (subdomain && canShareSessionAcrossSubdomains()) {
+    const tenantOrigin = resolveTenantOrigin(subdomain)
+    window.location.href = `${tenantOrigin}${next}`
+    return
+  }
+
+  const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData.session?.access_token
   const refreshToken = sessionData.session?.refresh_token
 
@@ -200,8 +209,6 @@ export async function redirectWithSession(destination: AuthDestination) {
     throw new Error("Session missing")
   }
 
-  const next = sanitizeNextPath(destination.next)
-  const subdomain = sanitizeSubdomain(destination.subdomain)
   const payload = new URLSearchParams({
     access_token: accessToken,
     refresh_token: refreshToken,
