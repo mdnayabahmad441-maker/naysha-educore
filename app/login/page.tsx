@@ -19,6 +19,7 @@ const bodyFont = Manrope({
 export default function LoginPage() {
   const searchParams = useSearchParams()
 
+  const [helperMode, setHelperMode] = useState<"none" | "setup" | "reset">("none")
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [setupEmail, setSetupEmail] = useState("")
@@ -167,7 +168,7 @@ export default function LoginPage() {
         </header>
 
         <main className="grid flex-1 items-center gap-8 py-8 xl:grid-cols-[1.15fr_0.85fr]">
-          <section className="grid gap-6">
+          <section className="hidden gap-6 xl:grid">
             <div className="max-w-3xl">
               <p className="mb-5 inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.26em] text-cyan-200">
                 ERP Login Workspace
@@ -207,19 +208,30 @@ export default function LoginPage() {
 
           <section className="mx-auto w-full max-w-md">
             <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(8,15,30,0.92),rgba(7,12,22,0.86))] shadow-[0_26px_80px_rgba(2,8,23,0.42)] backdrop-blur">
-              <div className="border-b border-white/10 px-7 py-6">
-                <p className="text-sm font-medium uppercase tracking-[0.24em] text-cyan-200/80">
-                  Access Portal
-                </p>
-                <h3 className={`${headingFont.className} mt-3 text-3xl font-semibold text-white`}>
-                  Sign In
-                </h3>
-                <p className="mt-3 text-sm leading-6 text-slate-300">
-                  Use your email or username with password to enter the ERP securely.
-                </p>
+              <div className="border-b border-white/10 px-5 py-5 sm:px-7 sm:py-6">
+                <div className="xl:hidden">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-cyan-200/80">
+                    School ERP Platform
+                  </p>
+                  <h1 className={`${headingFont.className} mt-2 text-2xl font-bold text-white`}>
+                    NaySha EduCore
+                  </h1>
+                </div>
+
+                <div className="mt-4 rounded-[24px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_36%),linear-gradient(135deg,rgba(8,15,30,0.9),rgba(7,12,22,0.82))] px-4 py-4 shadow-[0_18px_50px_rgba(2,8,23,0.3)]">
+                  <p className="text-sm font-medium uppercase tracking-[0.24em] text-cyan-200/80">
+                    Access Portal
+                  </p>
+                  <h3 className={`${headingFont.className} mt-3 text-2xl font-semibold text-white sm:text-3xl`}>
+                    Sign In
+                  </h3>
+                  <p className="mt-3 text-sm leading-6 text-slate-300">
+                    Use your email or username with password to enter the ERP securely.
+                  </p>
+                </div>
               </div>
 
-              <div className="px-7 py-7">
+              <div className="px-5 py-5 sm:px-7 sm:py-7">
                 {setupDone ? (
                   <div className="mb-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
                     Account setup completed. You can now sign in with your email or username and password.
@@ -232,7 +244,18 @@ export default function LoginPage() {
                   </div>
                 ) : null}
 
-                <div className="space-y-4">
+                <div className="space-y-4 rounded-[26px] border border-white/10 bg-white/5 p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Login
+                      </p>
+                      <p className="mt-1 text-sm text-slate-300">
+                        Phone-friendly sign in with the main action visible first.
+                      </p>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="mb-2 block text-sm font-medium text-slate-200">
                       Email or username
@@ -241,7 +264,7 @@ export default function LoginPage() {
                       value={identifier}
                       onChange={(event) => setIdentifier(event.target.value)}
                       placeholder="Enter email or username"
-                      className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-4 text-white placeholder:text-slate-500"
+                      className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-3.5 text-white placeholder:text-slate-500"
                     />
                   </div>
 
@@ -254,7 +277,7 @@ export default function LoginPage() {
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       placeholder="Enter password"
-                      className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-4 text-white placeholder:text-slate-500"
+                      className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-3.5 text-white placeholder:text-slate-500"
                     />
                   </div>
 
@@ -262,82 +285,113 @@ export default function LoginPage() {
                     type="button"
                     onClick={loginWithPassword}
                     disabled={loading}
-                    className="w-full rounded-2xl bg-[linear-gradient(135deg,#0ea5e9,#2563eb)] px-4 py-4 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="w-full rounded-2xl bg-[linear-gradient(135deg,#0ea5e9,#2563eb)] px-4 py-4 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(14,116,144,0.28)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {loading ? "Signing In..." : "Sign In To ERP"}
                   </button>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setHelperMode(helperMode === "setup" ? "none" : "setup")}
+                      className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                        helperMode === "setup"
+                          ? "border-amber-300/30 bg-amber-300/15 text-amber-100"
+                          : "border-white/10 bg-white/6 text-slate-200 hover:bg-white/10"
+                      }`}
+                    >
+                      Existing School
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHelperMode(helperMode === "reset" ? "none" : "reset")}
+                      className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                        helperMode === "reset"
+                          ? "border-cyan-300/30 bg-cyan-300/15 text-cyan-100"
+                          : "border-white/10 bg-white/6 text-slate-200 hover:bg-white/10"
+                      }`}
+                    >
+                      Reset Password
+                    </button>
+                  </div>
                 </div>
 
-                <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+                {helperMode === "setup" ? (
+                  <div className="mt-4 rounded-[26px] border border-amber-300/20 bg-amber-300/10 p-4 sm:p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">
+                          Existing school account
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-slate-300">
+                          Verify your existing school email once, then create your username and password.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      <input
+                        value={setupEmail}
+                        onChange={(event) => setSetupEmail(event.target.value)}
+                        placeholder="Enter existing school email"
+                        className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-3.5 text-white placeholder:text-slate-500"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={startExistingAccountSetup}
+                        disabled={setupLoading}
+                        className="w-full rounded-2xl border border-amber-200/20 bg-[linear-gradient(135deg,#f59e0b,#d97706)] px-4 py-3.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {setupLoading ? "Sending OTP..." : "Set Username / Password"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {helperMode === "reset" ? (
+                  <div className="mt-4 rounded-[26px] border border-cyan-300/20 bg-cyan-300/10 p-4 sm:p-5">
+                    <p className="text-sm font-semibold text-white">
+                      Forgot password
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      Request a reset link with rate limits enabled to reduce password reset abuse.
+                    </p>
+
+                    <div className="mt-4 space-y-3">
+                      <input
+                        value={resetEmail}
+                        onChange={(event) => setResetEmail(event.target.value)}
+                        placeholder="Enter account email"
+                        className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-3.5 text-white placeholder:text-slate-500"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={requestPasswordReset}
+                        disabled={resetLoading}
+                        className="w-full rounded-2xl border border-cyan-200/20 bg-[linear-gradient(135deg,#0891b2,#2563eb)] px-4 py-3.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {resetLoading ? "Sending Reset..." : "Send Password Reset"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-4 rounded-[24px] border border-white/10 bg-white/5 p-4">
                   <p className="text-sm font-semibold text-white">
                     First-time account creation
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    New school admins should create the account with email OTP first. After verification,
-                    the system will ask for a username and password so future logins feel like a real ERP.
+                    New school admins should start with email verification and then create permanent ERP credentials.
                   </p>
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                  <div className="mt-4">
                     <a
                       href="/onboarding"
-                      className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-center text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
+                      className="block rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-center text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
                     >
                       Create School Account
                     </a>
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4">
-                  <p className="text-sm font-semibold text-white">
-                    Existing school account?
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
-                    If your school was created before the new ERP login system, verify your existing
-                    email once and then create your username and password.
-                  </p>
-
-                  <div className="mt-4 space-y-3">
-                    <input
-                      value={setupEmail}
-                      onChange={(event) => setSetupEmail(event.target.value)}
-                      placeholder="Enter existing school email"
-                      className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-4 text-white placeholder:text-slate-500"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={startExistingAccountSetup}
-                      disabled={setupLoading}
-                      className="w-full rounded-2xl border border-amber-200/20 bg-[linear-gradient(135deg,#f59e0b,#d97706)] px-4 py-4 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {setupLoading ? "Sending OTP..." : "Set Username / Password"}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-4">
-                  <p className="text-sm font-semibold text-white">
-                    Forgot password?
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Request a reset link with rate limits enabled to reduce password reset abuse.
-                  </p>
-
-                  <div className="mt-4 space-y-3">
-                    <input
-                      value={resetEmail}
-                      onChange={(event) => setResetEmail(event.target.value)}
-                      placeholder="Enter account email"
-                      className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-4 text-white placeholder:text-slate-500"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={requestPasswordReset}
-                      disabled={resetLoading}
-                      className="w-full rounded-2xl border border-cyan-200/20 bg-[linear-gradient(135deg,#0891b2,#2563eb)] px-4 py-4 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {resetLoading ? "Sending Reset..." : "Send Password Reset"}
-                    </button>
                   </div>
                 </div>
               </div>
