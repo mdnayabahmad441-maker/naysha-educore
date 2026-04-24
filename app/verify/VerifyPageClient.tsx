@@ -1,101 +1,39 @@
 "use client"
 
 import { useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { redirectWithSession, resolveAuthDestination } from "@/lib/auth-flow"
 
 export default function VerifyPageClient() {
-
   const params = useSearchParams()
+  const router = useRouter()
   const email = (params.get("email") || "").trim().toLowerCase()
+  const mode = params.get("mode") || "login"
 
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
 
   if (!email) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#020c1b] text-white">
-        Email missing. Please login again.
+      <div className="flex min-h-screen items-center justify-center bg-[#07111f] text-white">
+        Email missing. Please start again from the login page.
       </div>
     )
   }
 
-  const getCurrentSubdomain = () => {
-    if (typeof window === "undefined") return null
-
-    const host = window.location.hostname
-    const subdomain = host.split(".")[0]
-
-    if (
-      host.includes("localhost") ||
-      subdomain === "www" ||
-      subdomain === "erp" ||
-      subdomain === "naysha"
-    ) {
-      return null
-    }
-
-    return subdomain
-  }
-
-  const findSchoolSubdomain = async (schoolId: string) => {
-    const { data: school } = await supabase
-      .from("schools")
-      .select("subdomain")
-      .eq("id", schoolId)
-      .maybeSingle()
-
-    return school?.subdomain || getCurrentSubdomain()
-  }
-
-  const updateUserMetadataIfNeeded = async (userData: any, schoolId: string, role: string) => {
-    const currentMetadata = userData.user.user_metadata || {}
-
-    if (currentMetadata.school_id !== schoolId || currentMetadata.role !== role) {
-      await supabase.auth.updateUser({
-        data: {
-          school_id: schoolId,
-          role: role
-        }
-      })
-    }
-  }
-
-  const redirectWithSession = async (subdomain: string, next: string) => {
-
-    const { data: sessionData } = await supabase.auth.getSession()
-
-    const access_token = sessionData.session?.access_token
-    const refresh_token = sessionData.session?.refresh_token
-
-    if (!access_token || !refresh_token) {
-      alert("Session missing")
-      return
-    }
-
-    // 🔥 SEND TOKENS TO CALLBACK
-    window.location.href =
-      `/auth/callback?` +
-      `access_token=${access_token}` +
-      `&refresh_token=${refresh_token}` +
-      `&subdomain=${subdomain}` +
-      `&next=${next}`
-  }
-
   const verify = async () => {
-
-    if (!otp) {
+    if (!otp.trim()) {
       alert("Enter OTP")
       return
     }
 
     setLoading(true)
 
-    // 🔐 VERIFY OTP
     const { error } = await supabase.auth.verifyOtp({
       email,
-      token: otp,
-      type: "email"
+      token: otp.trim(),
+      type: "email",
     })
 
     if (error) {
@@ -104,201 +42,103 @@ export default function VerifyPageClient() {
       return
     }
 
-    // 🔥 GET USER
     const { data: userData } = await supabase.auth.getUser()
 
-    if (!userData?.user) {
+    if (!userData.user) {
       setLoading(false)
       alert("User not found")
       return
     }
 
-    const userId = userData.user.id
+    try {
+      const destination = await resolveAuthDestination(userData.user, email)
 
-    // =========================
-    // 🔥 ONBOARDING FLOW
-    // =========================
-    const stored = localStorage.getItem("onboardingData")
-
-    if (stored) {
-
-      const data = JSON.parse(stored)
-
-      const { data: newSchool, error: dbError } = await supabase
-        .from("schools")
-        .insert({
-          name: data.schoolName,
-          subdomain: data.subdomain.toLowerCase().trim(),
-          email: data.email,
-          phone: data.phone
-        })
-        .select()
-        .single()
-
-      if (dbError || !newSchool) {
-        setLoading(false)
-        alert(dbError?.message || "School creation failed")
+      if (mode === "setup") {
+        sessionStorage.setItem("postAuthRedirect", JSON.stringify(destination))
+        router.push("/setup")
         return
       }
 
-      // ✅ PROFILE
-      await supabase.from("profiles").upsert({
-        id: userId,
-        school_id: newSchool.id,
-        role: "admin"
-      })
-
-      // ✅ JWT UPDATE (only if needed to avoid invalidating other sessions)
-      await updateUserMetadataIfNeeded(userData, newSchool.id, "admin")
-
-      localStorage.removeItem("onboardingData")
-
-      // 🔥 FIXED REDIRECT (use current session, don't refresh)
-      await redirectWithSession(newSchool.subdomain, "/admin")
-      return
-    }
-
-    // =========================
-    // 🔥 PARENT FLOW
-    // =========================
-    const { data: parents } = await supabase
-      .from("parents")
-      .select("id, student_id, school_id")
-      .ilike("email", `%${email}%`)
-      .limit(1)
-
-    const parent = parents?.[0]
-
-    if (parent) {
-
-      let schoolId = parent.school_id
-
-      if (!schoolId) {
-        const { data: student } = await supabase
-          .from("students")
-          .select("school_id")
-          .eq("id", parent.student_id)
-          .maybeSingle()
-
-        schoolId = student?.school_id
-      }
-
-      if (!schoolId) {
-        setLoading(false)
-        alert("Parent linked school not found")
-        return
-      }
-
-      const subdomain = await findSchoolSubdomain(schoolId)
-
-      if (!subdomain) {
-        setLoading(false)
-        alert("School not found")
-        return
-      }
-
-      await supabase.from("profiles").upsert({
-        id: userId,
-        school_id: schoolId,
-        role: "parent"
-      })
-
-      await updateUserMetadataIfNeeded(userData, schoolId, "parent")
-
-      // 🔥 FIXED REDIRECT (use current session, don't refresh)
-      await redirectWithSession(subdomain, "/parent")
-      return
-    }
-
-    // =========================
-    // 🔥 TEACHER FLOW
-    // =========================
-      const { data: teacher } = await supabase
-        .from("teachers")
-        .select("id, school_id")
-        .ilike("email", email)
-        .maybeSingle()
-
-    if (teacher) {
-
-      const subdomain = await findSchoolSubdomain(teacher.school_id)
-
-      if (!subdomain) {
-        setLoading(false)
-        alert("School not found")
-        return
-      }
-
-      await supabase.from("profiles").upsert({
-        id: userId,
-        school_id: teacher.school_id,
-        role: "teacher"
-      })
-
-      await supabase
-        .from("teachers")
-        .update({ auth_id: userId })
-        .eq("id", teacher.id)
-
-      await updateUserMetadataIfNeeded(userData, teacher.school_id, "teacher")
-
-      // 🔥 FIXED REDIRECT (use current session, don't refresh)
-      await redirectWithSession(subdomain, "/teacher")
-      return
-    }
-
-    // =========================
-    // 🔥 ADMIN LOGIN FLOW
-    // =========================
-    const { data: school } = await supabase
-      .from("schools")
-      .select("id, subdomain")
-      .ilike("email", email)
-      .maybeSingle()
-
-    if (!school?.subdomain) {
+      await redirectWithSession(destination)
+    } catch (authError) {
+      alert(authError instanceof Error ? authError.message : "Verification failed")
       setLoading(false)
-      alert("No parent, teacher, or admin account found for this email")
-      return
     }
-
-    await supabase.from("profiles").upsert({
-      id: userId,
-      school_id: school.id,
-      role: "admin"
-    })
-
-    await updateUserMetadataIfNeeded(userData, school.id, "admin")
-
-    // 🔥 FIXED REDIRECT (use current session, don't refresh)
-    await redirectWithSession(school.subdomain, "/admin")
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#020c1b] text-white">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.16),_transparent_38%),linear-gradient(160deg,#07111f_0%,#0b182b_58%,#08101d_100%)] px-6 py-10 text-white">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-5xl items-center justify-center">
+        <div className="grid w-full overflow-hidden rounded-[28px] border border-white/10 bg-white/6 shadow-[0_24px_80px_rgba(2,8,23,0.55)] backdrop-blur xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="hidden border-r border-white/10 bg-[linear-gradient(180deg,rgba(14,116,144,0.16),rgba(8,15,30,0.08))] p-10 xl:flex xl:flex-col xl:justify-between">
+            <div>
+              <p className="mb-4 inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200">
+                Account Verification
+              </p>
+              <h1 className="max-w-md text-4xl font-semibold leading-tight text-white">
+                Secure the ERP account before you enter the workspace.
+              </h1>
+              <p className="mt-5 max-w-xl text-sm leading-7 text-slate-300">
+                We sent a one-time passcode to <span className="font-medium text-white">{email}</span>.
+                Verify the email first, then we will finish your school access setup.
+              </p>
+            </div>
 
-<div className="bg-linear-to-br from-blue-700 to-indigo-900 p-8 rounded-xl w-95">
+            <div className="grid gap-4 text-sm text-slate-200">
+              {[
+                "Email verification protects student and finance data.",
+                "New accounts set their username and password after OTP verification.",
+                "Existing users are redirected straight into their school dashboard.",
+              ].map((item) => (
+                <div key={item} className="rounded-2xl border border-white/10 bg-slate-950/20 px-4 py-4">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </section>
 
-        <h2 className="text-xl mb-6 text-center">
-          Enter OTP
-        </h2>
+          <section className="p-6 sm:p-8 lg:p-10">
+            <div className="mx-auto max-w-md">
+              <div className="mb-8">
+                <p className="text-sm font-medium uppercase tracking-[0.24em] text-cyan-200/80">
+                  NaySha EduCore
+                </p>
+                <h2 className="mt-3 text-3xl font-semibold text-white">
+                  Verify Email OTP
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-slate-300">
+                  Enter the OTP from your inbox to continue into the ERP.
+                </p>
+              </div>
 
-        <input
-          placeholder="OTP Code"
-          value={otp}
-          onChange={(e)=>setOtp(e.target.value)}
-          className="w-full p-3 mb-4 rounded bg-gray-200 text-black"
-        />
+              <div className="rounded-3xl border border-white/10 bg-slate-950/30 p-6">
+                <label className="mb-3 block text-sm font-medium text-slate-200">
+                  One-time passcode
+                </label>
+                <input
+                  placeholder="Enter 6-digit OTP"
+                  value={otp}
+                  onChange={(event) => setOtp(event.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-4 text-lg tracking-[0.3em] text-white placeholder:text-slate-500"
+                />
 
-        <button
-          onClick={verify}
-          className="w-full bg-green-500 p-3 rounded"
-        >
-          {loading ? "Verifying..." : "Verify"}
-        </button>
+                <button
+                  type="button"
+                  onClick={verify}
+                  disabled={loading}
+                  className="mt-5 w-full rounded-2xl bg-[linear-gradient(135deg,#0ea5e9,#2563eb)] px-4 py-4 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {loading ? "Verifying..." : "Verify And Continue"}
+                </button>
+              </div>
 
+              <p className="mt-5 text-sm text-slate-400">
+                Need a different email? <a href="/login" className="text-cyan-300 hover:text-cyan-200">Return to sign in</a>
+              </p>
+            </div>
+          </section>
+        </div>
       </div>
-
     </div>
   )
 }
