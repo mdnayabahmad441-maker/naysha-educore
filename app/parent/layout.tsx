@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { waitForSession } from "@/lib/auth-session"
 import { getUserRole } from "@/lib/getUserRole"
 import { useEffect, useState } from "react"
 
@@ -14,15 +15,15 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession()
+      const session = await waitForSession()
 
-      if (!data.session) {
+      if (!session) {
         window.location.href = "/login"
         return
       }
 
       const roleData = await getUserRole()
-      const metadataRole = data.session.user.user_metadata?.role
+      const metadataRole = session.user.user_metadata?.role
 
       if (roleData?.role !== "parent" && metadataRole !== "parent") {
         window.location.href = "/unauthorized"

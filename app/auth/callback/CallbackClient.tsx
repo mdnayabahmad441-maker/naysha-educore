@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { waitForSession } from "@/lib/auth-session"
 import { sanitizeNextPath, sanitizeSubdomain } from "@/lib/security"
 
 function readTokenParams() {
@@ -53,6 +54,13 @@ export default function CallbackClient() {
 
       if (error) {
         console.error("Callback session error:", error)
+        window.location.href = "/login"
+        return
+      }
+
+      const confirmedSession = await waitForSession()
+
+      if (!confirmedSession) {
         window.location.href = "/login"
         return
       }

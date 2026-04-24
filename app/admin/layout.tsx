@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { waitForUser } from "@/lib/auth-session"
 import { useSchool } from "@/context/SchoolContext"
 import { getUserRole } from "@/lib/getUserRole"
 
@@ -18,14 +19,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
-
-    let retryCount = 0
-
     const checkAuth = async () => {
+      const user = await waitForUser()
 
-      const { data: userData } = await supabase.auth.getUser()
-
-      if (!userData?.user) {
+      if (!user) {
         window.location.href = "/login"
         return
       }
@@ -33,14 +30,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       const roleData = await getUserRole()
 
       if (!roleData) {
-        if (retryCount < 5) {
-          retryCount++
-          setTimeout(checkAuth, 400)
-          return
-        } else {
-          window.location.href = "/login"
-          return
-        }
+        window.location.href = "/login"
+        return
       }
 
       if (roleData.role !== "admin") {

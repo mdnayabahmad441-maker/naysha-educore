@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { waitForSession } from "@/lib/auth-session"
 import { getUserRole } from "@/lib/getUserRole"
 import { useSchool } from "@/context/SchoolContext"
 
@@ -20,10 +21,9 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
   useEffect(() => {
 
     const checkAuth = async () => {
+      const session = await waitForSession()
 
-      const { data } = await supabase.auth.getSession()
-
-      if (!data.session) {
+      if (!session) {
         window.location.href = "/login"
         return
       }
