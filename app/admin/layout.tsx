@@ -88,7 +88,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className={`fixed inset-0 z-30 bg-black/60 transition-opacity duration-200 md:hidden ${sidebarOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`} onClick={closeSidebar} />
 
       {/* 🔥 SIDEBAR */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-full max-w-[320px] transform border-r border-white/10 bg-(--bg-card) p-6 transition-transform duration-200 md:static md:translate-x-0 md:w-64 md:max-w-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`fixed inset-y-0 left-0 z-40 flex w-full max-w-[320px] flex-col overflow-hidden border-r border-white/10 bg-(--bg-card) p-6 transition-transform duration-200 md:static md:translate-x-0 md:w-64 md:max-w-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
 
         <div className="flex items-center justify-between gap-4 md:block">
           <h1 className="text-xl font-bold mb-6 bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
@@ -99,7 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </div>
 
-        <nav className="flex flex-col gap-2 text-sm">
+        <nav className="mt-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 text-sm pb-6">
 
           <Link href="/admin" className={linkStyle("/admin")} onClick={closeSidebar}>
             📊 Dashboard
@@ -197,7 +197,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         </nav>
 
-        <div className="mt-8 border-t border-white/10 pt-5 md:hidden">
+        <div className="mt-6 border-t border-white/10 pt-5 md:hidden">
           <button
             type="button"
             onClick={logout}

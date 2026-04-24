@@ -86,7 +86,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
       )}
 
       <aside
-        className={`fixed z-50 flex h-full w-64 flex-col border-r border-white/10 bg-[#0b1a33] p-6 transition-transform duration-300 md:static ${
+        className={`fixed inset-y-0 z-50 flex w-64 flex-col overflow-hidden border-r border-white/10 bg-[#0b1a33] p-6 transition-transform duration-300 md:static ${
           open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
@@ -103,7 +103,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
           </button>
         </div>
 
-        <nav className="mt-8 flex flex-col gap-2 text-sm">
+        <nav className="mt-8 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 pb-6 text-sm">
           <Link href="/teacher" className={linkStyle("/teacher")} onClick={() => setOpen(false)}>
             Dashboard
           </Link>
@@ -129,7 +129,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
           </Link>
         </nav>
 
-        <div className="mt-8 border-t border-white/10 pt-5 md:hidden">
+        <div className="mt-6 border-t border-white/10 pt-5 md:hidden">
           <button
             type="button"
             onClick={logout}

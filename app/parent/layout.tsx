@@ -64,7 +64,7 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-40 w-full max-w-[320px] transform border-r border-white/10 bg-[#0b1a33] p-6 transition-transform duration-300 md:static md:translate-x-0 md:w-64 ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
+      <aside className={`fixed inset-y-0 left-0 z-40 flex w-full max-w-[320px] flex-col overflow-hidden border-r border-white/10 bg-[#0b1a33] p-6 transition-transform duration-300 md:static md:translate-x-0 md:w-64 ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
         <div className="flex items-center justify-between gap-4 md:block">
           <h1 className="mb-6 bg-linear-to-r from-slate-100 to-cyan-200 bg-clip-text text-xl font-bold text-transparent md:mb-8">
             Parent Panel
@@ -78,7 +78,7 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
           </button>
         </div>
 
-        <nav className="flex flex-col gap-2 text-sm">
+        <nav className="mt-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 pb-6 text-sm">
           <Link href="/parent" className={linkStyle("/parent")} onClick={() => setSidebarOpen(false)}>
             Dashboard
           </Link>
@@ -96,7 +96,7 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
           </Link>
         </nav>
 
-        <div className="mt-8 border-t border-white/10 pt-5 md:hidden">
+        <div className="mt-6 border-t border-white/10 pt-5 md:hidden">
           <button
             type="button"
             onClick={logout}
