@@ -308,18 +308,22 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
   }
 
   return(
-    <div className="p-6 md:p-10 text-white max-w-6xl mx-auto space-y-8">
+    <div className="mx-auto max-w-6xl space-y-8 p-4 pb-28 text-white md:p-10 md:pb-10">
 
-      <h1 className="text-3xl font-bold">Attendance</h1>
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold md:text-3xl">Attendance</h1>
+        <p className="text-sm text-slate-400">
+          Select class, mark students quickly, and save from mobile without scrolling back.
+        </p>
+      </div>
 
-      <div className="bg-white/10 p-6 rounded-xl space-y-6">
+      <div className="space-y-6 rounded-[28px] bg-white/10 p-4 shadow-[0_20px_60px_rgba(2,8,23,0.22)] md:p-6">
 
-        <div className="flex flex-wrap gap-4">
-
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <select
             value={selectedClass}
             onChange={(e)=>setSelectedClass(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220]"
+            className="w-full rounded-2xl bg-[#0b1220] px-4 py-3"
           >
             <option value="">Select Class</option>
             {classes.map(c=>(
@@ -327,34 +331,33 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
             ))}
           </select>
 
-          {restrictToClassTeacher && classes.length === 0 && (
-            <p className="text-sm text-yellow-300">
-              No class is assigned to you as class teacher.
-            </p>
-          )}
-
           <input
             type="date"
             value={selectedDate}
             onChange={(e)=>setSelectedDate(e.target.value)}
-            className="px-4 py-3 rounded-xl bg-[#0b1220]"
+            className="w-full rounded-2xl bg-[#0b1220] px-4 py-3 md:w-auto"
           />
-
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        {restrictToClassTeacher && classes.length === 0 && (
+          <p className="rounded-2xl border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-sm text-yellow-200">
+            No class is assigned to you as class teacher.
+          </p>
+        )}
 
-          <div className="bg-white/5 p-4 rounded-xl text-center">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+
+          <div className="rounded-2xl bg-white/5 p-4 text-center">
             <p className="text-green-400 text-2xl font-bold">{presentCount}</p>
             <p className="text-sm text-gray-400">Present</p>
           </div>
 
-          <div className="bg-white/5 p-4 rounded-xl text-center">
+          <div className="rounded-2xl bg-white/5 p-4 text-center">
             <p className="text-red-400 text-2xl font-bold">{absentCount}</p>
             <p className="text-sm text-gray-400">Absent</p>
           </div>
 
-          <div className="bg-white/5 p-4 rounded-xl text-center">
+          <div className="rounded-2xl bg-white/5 p-4 text-center">
             <p className="text-blue-400 text-2xl font-bold">{percentage}%</p>
             <p className="text-sm text-gray-400">Attendance Rate</p>
           </div>
@@ -368,26 +371,33 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
             const current = attendance[s.id] || "present"
 
             return(
-              <div key={s.id} className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
+              <div key={s.id} className="rounded-2xl bg-white/5 p-4">
 
-                <span>{s.name}</span>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-medium text-white">{s.name}</p>
+                    <p className="text-xs text-slate-400">
+                      Current: {current === "present" ? "Present" : "Absent"}
+                    </p>
+                  </div>
 
-                <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:flex">
 
-                  <button
-                    onClick={()=>setStatus(s.id,"present")}
-                    className={`px-4 py-2 rounded ${current === "present" ? "bg-green-500" : "bg-white/10"}`}
-                  >
-                    Present
-                  </button>
+                    <button
+                      onClick={()=>setStatus(s.id,"present")}
+                      className={`rounded-xl px-4 py-2.5 text-sm font-medium ${current === "present" ? "bg-green-500 text-white" : "bg-white/10 text-white"}`}
+                    >
+                      Present
+                    </button>
 
-                  <button
-                    onClick={()=>setStatus(s.id,"absent")}
-                    className={`px-4 py-2 rounded ${current === "absent" ? "bg-red-500" : "bg-white/10"}`}
-                  >
-                    Absent
-                  </button>
+                    <button
+                      onClick={()=>setStatus(s.id,"absent")}
+                      className={`rounded-xl px-4 py-2.5 text-sm font-medium ${current === "absent" ? "bg-red-500 text-white" : "bg-white/10 text-white"}`}
+                    >
+                      Absent
+                    </button>
 
+                  </div>
                 </div>
 
               </div>
@@ -396,13 +406,15 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
 
         </div>
 
-        <button
-          onClick={saveAttendance}
-          disabled={loading}
-          className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700"
-        >
-          {loading ? "Saving..." : "Save Attendance"}
-        </button>
+        <div className="sticky bottom-20 z-20 -mx-1 rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,15,30,0.96),rgba(11,26,51,0.9))] p-3 shadow-[0_24px_70px_rgba(2,8,23,0.38)] md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+          <button
+            onClick={saveAttendance}
+            disabled={loading}
+            className="w-full rounded-2xl bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-700"
+          >
+            {loading ? "Saving..." : "Save Attendance"}
+          </button>
+        </div>
 
       </div>
 

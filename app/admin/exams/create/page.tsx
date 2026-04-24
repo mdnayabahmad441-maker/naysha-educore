@@ -266,38 +266,53 @@ export default function CreateExamPage(){
 
   return(
 
-    <div className="p-6 text-white space-y-6">
+    <div className="space-y-6 p-4 pb-28 text-white md:p-6 md:pb-6">
 
-      <h1 className="text-2xl">Create Exam</h1>
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold">Create Exam</h1>
+        <p className="text-sm text-slate-400">
+          Build class exams with simpler mobile controls and subject cards.
+        </p>
+      </div>
 
-      <div className="bg-white/5 p-6 rounded-xl space-y-4">
+      <div className="space-y-4 rounded-[28px] bg-white/5 p-4 shadow-[0_20px_60px_rgba(2,8,23,0.22)] md:p-6">
 
         <input
           value={examName}
           onChange={(e)=>setExamName(e.target.value)}
           placeholder="Exam Name"
-          className="w-full p-3 bg-[#0b1220] rounded"
+          className="w-full rounded-2xl bg-[#0b1220] p-3"
         />
 
         <input
           type="date"
           value={date}
           onChange={(e)=>setDate(e.target.value)}
-          className="w-full p-3 bg-[#0b1220] rounded"
+          className="w-full rounded-2xl bg-[#0b1220] p-3"
         />
 
-        <div className="flex gap-3">
+        <div className="grid grid-cols-2 gap-3 rounded-2xl bg-[#0b1220] p-2">
           {role !== "teacher" && (
-            <button onClick={()=>setIsAllClasses(true)}>All</button>
+            <button
+              onClick={()=>setIsAllClasses(true)}
+              className={`rounded-xl px-4 py-2 text-sm font-medium ${isAllClasses ? "bg-white/15 text-white" : "text-slate-400"}`}
+            >
+              All
+            </button>
           )}
-          <button onClick={()=>setIsAllClasses(false)}>Specific</button>
+          <button
+            onClick={()=>setIsAllClasses(false)}
+            className={`rounded-xl px-4 py-2 text-sm font-medium ${!isAllClasses ? "bg-white/15 text-white" : "text-slate-400"}`}
+          >
+            Specific
+          </button>
         </div>
 
         {(role === "teacher" || !isAllClasses) && (
           <select
             value={selectedClass}
             onChange={(e)=>setSelectedClass(e.target.value)}
-            className="p-3 bg-[#0b1220] rounded"
+            className="w-full rounded-2xl bg-[#0b1220] p-3"
           >
             <option value="">Select Class</option>
             {classes.map(c=>(
@@ -312,7 +327,7 @@ export default function CreateExamPage(){
           </p>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 
           {filteredSubjects.map(s=>{
 
@@ -322,7 +337,7 @@ export default function CreateExamPage(){
               <div
                 key={s.id}
                 onClick={()=>toggleSubject(s.id)}
-                className={`p-3 cursor-pointer rounded ${
+                className={`cursor-pointer rounded-2xl p-4 ${
                   selected ? "bg-white/20" : "bg-white/5"
                 }`}
               >
@@ -336,7 +351,7 @@ export default function CreateExamPage(){
                       value={marksConfig[s.id]?.total || ""}
                       onClick={(e)=>e.stopPropagation()}
                       onChange={(e)=>updateMarks(s.id,e.target.value)}
-                      className="mt-2 w-full p-2 bg-[#0b1220]"
+                      className="mt-3 w-full rounded-xl bg-[#0b1220] p-2.5"
                     />
 
                     <p
@@ -354,16 +369,18 @@ export default function CreateExamPage(){
 
         </div>
 
-        <button onClick={saveExam} className="w-full p-3 bg-white/10 rounded">
-          {editingId ? "Update Exam" : "Save Exam"}
-        </button>
+        <div className="sticky bottom-20 z-20 -mx-1 rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,15,30,0.96),rgba(11,26,51,0.9))] p-3 shadow-[0_24px_70px_rgba(2,8,23,0.38)] md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+          <button onClick={saveExam} className="w-full rounded-2xl bg-white/10 p-3 font-semibold">
+            {editingId ? "Update Exam" : "Save Exam"}
+          </button>
+        </div>
 
       </div>
 
-      <div className="bg-white/5 p-6 rounded-xl">
+      <div className="rounded-[28px] bg-white/5 p-4 md:p-6">
 
         {exams.map(e=>(
-          <div key={e.id} className="flex justify-between border-b py-2">
+          <div key={e.id} className="flex flex-col gap-3 border-b border-white/10 py-3 sm:flex-row sm:items-center sm:justify-between">
 
             <div>
               <p>{e.name}</p>

@@ -161,9 +161,9 @@ export default function StudentsPage() {
   })
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-6 text-white md:p-10">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 text-white md:p-10">
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Students</h1>
           <p className="text-sm text-gray-400">
@@ -172,7 +172,7 @@ export default function StudentsPage() {
         </div>
 
         {role === "admin" && (
-  <div className="flex gap-3">
+  <div className="flex flex-col gap-3 sm:flex-row">
 
     {/* IMPORT BUTTON */}
     <button
@@ -229,7 +229,47 @@ export default function StudentsPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0b1220]">
+      <div className="space-y-3 md:hidden">
+        {loading ? (
+          <div className="rounded-[24px] border border-white/10 bg-[#0b1220] p-6 text-center text-gray-400">
+            Loading...
+          </div>
+        ) : filteredStudents.length === 0 ? (
+          <div className="rounded-[24px] border border-white/10 bg-[#0b1220] p-6 text-center text-gray-400">
+            No students found.
+          </div>
+        ) : (
+          filteredStudents.map((s) => (
+            <div key={s.id} className="rounded-[24px] border border-white/10 bg-[#0b1220] p-4 shadow-[0_18px_48px_rgba(2,8,23,0.24)]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-500">{s.display_id}</p>
+                  <h3 className="mt-2 text-lg font-semibold text-white">{s.name}</h3>
+                </div>
+                <button
+                  onClick={() => handleView(s.id)}
+                  className="rounded-xl bg-white/10 px-3 py-2 text-xs hover:bg-white/20"
+                >
+                  View
+                </button>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-2xl bg-white/5 px-3 py-3">
+                  <p className="text-xs text-slate-400">Class</p>
+                  <p className="mt-1 font-medium text-white">{s.class_name || "-"}</p>
+                </div>
+                <div className="rounded-2xl bg-white/5 px-3 py-3">
+                  <p className="text-xs text-slate-400">Roll</p>
+                  <p className="mt-1 font-medium text-white">{s.roll_number || "-"}</p>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-xl border border-white/10 bg-[#0b1220] md:block">
         <table className="w-full text-sm">
           <thead className="border-b border-white/10 text-gray-400">
             <tr>

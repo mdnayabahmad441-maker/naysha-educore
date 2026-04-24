@@ -298,9 +298,14 @@ export default function MarksPage(){
 
   // UI
   return(
-    <div className="p-6 text-white space-y-6">
+    <div className="space-y-6 p-4 pb-28 text-white md:p-6 md:pb-6">
 
-      <h1 className="text-2xl">Marks Entry</h1>
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold">Marks Entry</h1>
+        <p className="text-sm text-slate-400">
+          Select exam and class, then enter marks with a mobile-friendly card view.
+        </p>
+      </div>
 
       {isPublished && (
         <div className="text-green-400">
@@ -308,20 +313,83 @@ export default function MarksPage(){
         </div>
       )}
 
-      <select onChange={(e)=>handleExamChange(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+      <select onChange={(e)=>handleExamChange(e.target.value)} className="w-full rounded-2xl bg-[#0b1220] p-3">
         <option>Select Exam</option>
         {exams.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
       </select>
 
       {selectedExam?.is_all_classes && (
-        <select onChange={(e)=>handleClassChange(e.target.value)} className="p-3 bg-[#0b1220] rounded">
+        <select onChange={(e)=>handleClassChange(e.target.value)} className="w-full rounded-2xl bg-[#0b1220] p-3">
           <option>Select Class</option>
           {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       )}
 
       {students.length > 0 && subjects.length > 0 && (
-        <div className="overflow-auto">
+        <>
+        <div className="space-y-4 md:hidden">
+          {students.map((st) => {
+            let total = 0
+            let max = 0
+
+            return (
+              <div key={st.id} className="rounded-[24px] border border-white/10 bg-[#0b1220] p-4 shadow-[0_18px_48px_rgba(2,8,23,0.24)]">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-white">{st.name}</h3>
+                    <p className="text-xs text-slate-400">Student marks</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {subjects.map((sub) => {
+                    const key = `${st.id}_${sub.id}`
+                    const val = marks[key] ?? ""
+                    const num = Number(val) || 0
+
+                    total += num
+                    max += sub.total_marks
+
+                    return (
+                      <div key={sub.id} className="rounded-2xl bg-white/5 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="font-medium text-white">{sub.name}</p>
+                            <p className="text-xs text-slate-400">Out of {sub.total_marks}</p>
+                          </div>
+                          <input
+                            type="number"
+                            value={val}
+                            disabled={isPublished}
+                            onChange={(e)=>updateMarks(st.id, sub.id, e.target.value)}
+                            className="w-24 rounded-xl bg-[#111b2e] p-2 text-right disabled:opacity-50"
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
+                  <div className="rounded-2xl bg-white/5 px-3 py-3">
+                    <p className="text-xs text-slate-400">Total</p>
+                    <p className="mt-1 font-semibold text-white">{total}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/5 px-3 py-3">
+                    <p className="text-xs text-slate-400">Percent</p>
+                    <p className="mt-1 font-semibold text-white">{max ? ((total/max)*100).toFixed(1) : 0}%</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/5 px-3 py-3">
+                    <p className="text-xs text-slate-400">Grade</p>
+                    <p className="mt-1 font-semibold text-white">{getGrade(max ? (total/max)*100 : 0)}</p>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="hidden overflow-auto md:block">
           <table className="min-w-full border text-sm">
 
             <thead>
@@ -379,14 +447,15 @@ export default function MarksPage(){
 
           </table>
         </div>
+        </>
       )}
 
       {students.length > 0 && (
-        <div className="flex gap-4">
+        <div className="sticky bottom-20 z-20 flex gap-3 rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,15,30,0.96),rgba(11,26,51,0.9))] p-3 shadow-[0_24px_70px_rgba(2,8,23,0.38)] md:static md:border-0 md:bg-transparent md:p-0 md:shadow-none">
           <button
             onClick={saveMarks}
             disabled={isPublished}
-            className="px-6 py-3 bg-white/10 rounded disabled:opacity-50"
+            className="flex-1 rounded-2xl bg-white/10 px-6 py-3 font-semibold disabled:opacity-50"
           >
             Save
           </button>
@@ -395,7 +464,7 @@ export default function MarksPage(){
             <button
               onClick={publishResult}
               disabled={isPublished}
-              className="px-6 py-3 bg-white/10 rounded disabled:opacity-50"
+              className="flex-1 rounded-2xl bg-white/10 px-6 py-3 font-semibold disabled:opacity-50"
             >
               Publish
             </button>
