@@ -34,6 +34,7 @@ export default function CreateExamPage(){
       ? await getCurrentTeacherClassIds()
       : []
     const allClasses = await dbGet("classes")
+    const allExams = await dbGet("exams")
 
     setRole(roleData?.role || null)
     setAllowedClassIds(teacherClassIds)
@@ -43,7 +44,12 @@ export default function CreateExamPage(){
         : allClasses
     )
     setSubjects(await dbGet("subjects"))
-    setExams(await dbGet("exams"))
+    setExams(
+      (roleData?.role === "teacher"
+        ? allExams.filter((exam:any)=>teacherClassIds.includes(exam.class_id))
+        : allExams
+      ).sort((a:any, b:any) => String(b.date || "").localeCompare(String(a.date || "")))
+    )
   }
 
   // ================= LOAD =================

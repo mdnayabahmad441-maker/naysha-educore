@@ -197,8 +197,8 @@ export default function DocumentCanvas({
     const y = ((event.clientY - rect.top) / rect.height) * 100
 
     onFieldChange(field.id, {
-      x: snap(clamp(x - field.w / 2, 0, 100 - field.w), snapToGrid),
-      y: snap(clamp(y - field.h / 2, 0, 100 - field.h), snapToGrid)
+      x: snap(clamp(x, 0, 100 - field.w), snapToGrid),
+      y: snap(clamp(y, 0, 100 - field.h), snapToGrid)
     })
   }
 

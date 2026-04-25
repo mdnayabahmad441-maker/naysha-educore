@@ -1,7 +1,7 @@
 "use client"
 
 import { supabase } from "@/lib/supabase"
-import { canShareSessionAcrossSubdomains, resolveTenantOrigin } from "@/lib/auth-storage"
+import { resolveTenantOrigin } from "@/lib/auth-storage"
 import { sanitizeNextPath, sanitizeSubdomain } from "@/lib/security"
 
 type AuthDestination = {
@@ -195,12 +195,6 @@ export async function redirectWithSession(destination: AuthDestination) {
   const next = sanitizeNextPath(destination.next)
   const subdomain = sanitizeSubdomain(destination.subdomain)
 
-  if (subdomain && canShareSessionAcrossSubdomains()) {
-    const tenantOrigin = resolveTenantOrigin(subdomain)
-    window.location.href = `${tenantOrigin}${next}`
-    return
-  }
-
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData.session?.access_token
   const refreshToken = sessionData.session?.refresh_token
@@ -215,9 +209,11 @@ export async function redirectWithSession(destination: AuthDestination) {
     next,
   })
 
-  const callbackUrl = subdomain
-    ? `/auth/callback?subdomain=${encodeURIComponent(subdomain)}#${payload.toString()}`
-    : `/auth/callback#${payload.toString()}`
+  if (subdomain) {
+    const tenantOrigin = resolveTenantOrigin(subdomain)
+    window.location.href = `${tenantOrigin}/auth/callback#${payload.toString()}`
+    return
+  }
 
-  window.location.href = callbackUrl
+  window.location.href = `/auth/callback#${payload.toString()}`
 }

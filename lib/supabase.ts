@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
-import { authCookieStorage } from "./auth-storage"
+import { authCookieStorage, getAuthStorageKey } from "./auth-storage"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -14,7 +14,7 @@ export const supabase = createClient(
       detectSessionInUrl: true,
       flowType: 'pkce',
       storage: typeof window !== 'undefined' ? authCookieStorage : undefined,
-      storageKey: 'naysha-auth-token'
+      storageKey: typeof window !== "undefined" ? getAuthStorageKey() : "naysha-auth-token"
     }
   }
 )

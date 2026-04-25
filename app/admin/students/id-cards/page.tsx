@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { useSchool } from "@/context/SchoolContext"
@@ -27,12 +26,10 @@ type SchoolClass = {
 
 export default function StudentIdCardsPage() {
   const school = useSchool()
-  const router = useRouter()
   const [students, setStudents] = useState<Student[]>([])
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [schoolId, setSchoolId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [idCardTemplateUrl, setIdCardTemplateUrl] = useState("")
   const [idCardLayout, setIdCardLayout] = useState(() => normalizeDocumentLayout("id_card", null))
 
   const schoolName = school?.name || "School"
@@ -53,7 +50,7 @@ export default function StudentIdCardsPage() {
 
     setLoading(true)
     const load = async () => {
-      const [{ data: classData, error: classError }, { data: studentData, error: studentError }, templateUrl, layoutSetting] =
+      const [{ data: classData, error: classError }, { data: studentData, error: studentError }, layoutSetting] =
         await Promise.all([
           supabase.from("classes").select("id,name").eq("school_id", schoolId),
           supabase
@@ -61,7 +58,6 @@ export default function StudentIdCardsPage() {
             .select("id,name,student_code,class_id,roll_number,photo")
             .eq("school_id", schoolId)
             .order("name", { ascending: true }),
-          getSettings("id_card_template"),
           getSettings("id_card_layout")
         ])
 
@@ -112,7 +108,6 @@ export default function StudentIdCardsPage() {
         )
       }
 
-      setIdCardTemplateUrl(typeof templateUrl === "string" ? templateUrl : "")
       setIdCardLayout(normalizeDocumentLayout("id_card", layoutSetting))
       setLoading(false)
     }
@@ -174,18 +169,11 @@ export default function StudentIdCardsPage() {
         <div>
           <h1 className="text-3xl font-bold">Student ID Card Generator</h1>
           <p className="mt-2 max-w-2xl text-sm text-gray-400">
-            Generate cards using your school&apos;s uploaded ID card template from Settings.
+            Generate cards using the system-generated ID card design and your saved layout mapping.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => router.push("/admin/documents?document=id_card&mode=place")}
-            className="no-print rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/15"
-          >
-            Edit ID Card Layout
-          </button>
-
           <button
             onClick={() => {
               setTargetType("all")
@@ -320,18 +308,10 @@ export default function StudentIdCardsPage() {
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-[#0b1220] p-4 text-sm text-gray-300">
-            <div className="font-semibold">Template status</div>
+            <div className="font-semibold">Design status</div>
             <div className="mt-2">
-              {idCardTemplateUrl
-                ? "Your uploaded school ID card template will be used."
-                : "No custom ID card template uploaded yet. A default layout will be used until you upload one in Settings."}
+              System-generated ID card design is active. The separate documents page has been removed, so this screen now uses the saved system layout directly.
             </div>
-            <button
-              onClick={() => router.push("/admin/documents?document=id_card&mode=place")}
-              className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/15"
-            >
-              Open Exact Layout Editor
-            </button>
             <div className="mt-3 text-xs text-gray-400">Cards selected: {selectedCount}</div>
           </div>
         </div>
@@ -362,7 +342,6 @@ export default function StudentIdCardsPage() {
                       schoolName={schoolName}
                       schoolLocation={schoolLocation}
                       schoolLogo={schoolLogo}
-                      templateUrl={idCardTemplateUrl || null}
                     />
                   </div>
                 ))}
@@ -381,8 +360,7 @@ function StudentCard({
   studentClass,
   schoolName,
   schoolLocation,
-  schoolLogo,
-  templateUrl
+  schoolLogo
 }: {
   layout: DocumentLayout
   student: Student
@@ -390,7 +368,6 @@ function StudentCard({
   schoolName: string
   schoolLocation: string
   schoolLogo: string | null
-  templateUrl: string | null
 }) {
   const values = {
     schoolName,
@@ -406,7 +383,6 @@ function StudentCard({
   return (
     <DocumentCanvas
       layout={layout}
-      backgroundUrl={templateUrl || null}
       values={values}
       photoUrl={student.photo || schoolLogo || null}
       className="print-page-break mx-auto w-[340px]"

@@ -142,7 +142,16 @@ export default function TeachersPage(){
           email: form.email,
           phone: form.phone,
           qualification: form.qualification,
-          experience_years: Number(form.experience_years)
+          experience_years: Number(form.experience_years || 0),
+          classes: form.selectedClasses,
+          subjects: form.selectedSubjects.map((subjectId) => {
+            const subject = subjects.find((item) => item.id === subjectId)
+
+            return {
+              subject_id: subjectId,
+              class_id: subject?.class_id || null
+            }
+          })
         })
       })
 
@@ -151,34 +160,6 @@ export default function TeachersPage(){
       if(!res.ok){
         alert(data.error)
         return
-      }
-
-      const schoolId = await getSchoolId()
-      const teacherId = data.teacher?.id
-
-      // classes
-      if(form.selectedClasses.length){
-        const rows = form.selectedClasses.map(c=>({
-          teacher_id: teacherId,
-          class_id: c,
-          school_id: schoolId
-        }))
-        await supabase.from("teacher_classes").insert(rows)
-      }
-
-      // subjects
-      if(form.selectedSubjects.length){
-        const rows = form.selectedSubjects.map(s=>{
-          const subject = subjects.find(sub=>sub.id === s)
-
-          return {
-            teacher_id: teacherId,
-            subject_id: s,
-            class_id: subject?.class_id,
-            school_id: schoolId
-          }
-        })
-        await supabase.from("teacher_subjects").insert(rows)
       }
 
       alert("✅ Teacher created")

@@ -17,10 +17,10 @@ export async function POST(req: Request) {
       name,
       email,
       phone,
-      subject,
       qualification,
       experience_years,
       classes,
+      subjects,
     } = body
 
     const schoolId = authResult.profile.schoolId
@@ -53,7 +53,6 @@ export async function POST(req: Request) {
         name,
         email: normalizedEmail,
         phone,
-        subject,
         qualification,
         experience_years,
         school_id: schoolId,
@@ -83,17 +82,31 @@ export async function POST(req: Request) {
         school_id: schoolId,
       }))
 
-      await supabaseAdmin.from("teacher_classes").insert(rows)
+      const { error: teacherClassesError } = await supabaseAdmin.from("teacher_classes").insert(rows)
+
+      if (teacherClassesError) {
+        return NextResponse.json({ error: teacherClassesError.message }, { status: 400 })
+      }
     }
 
-    const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email: normalizedEmail,
-    })
+    if (subjects?.length) {
+      const rows = subjects.map((item: { subject_id: string; class_id: string | null }) => ({
+        teacher_id: teacherId,
+        subject_id: item.subject_id,
+        class_id: item.class_id,
+        school_id: schoolId,
+      }))
 
-    const magicLink = linkData?.properties?.action_link
+      const { error: teacherSubjectsError } = await supabaseAdmin.from("teacher_subjects").insert(rows)
+
+      if (teacherSubjectsError) {
+        return NextResponse.json({ error: teacherSubjectsError.message }, { status: 400 })
+      }
+    }
+
     const baseUrl = getBaseUrl(req)
     const internalHeaders = getInternalApiHeaders()
+    const loginUrl = `${baseUrl}/login`
 
     await fetch(`${baseUrl}/api/send-email`, {
       method: "POST",
@@ -101,7 +114,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         email: normalizedEmail,
         subject: "Your Teacher Account Created",
-        message: `Hello ${name},<br/><br/>Your teacher account has been created.<br/><br/>Login:<br/><a href="${magicLink}">Click here</a>`,
+        message: `Hello ${name},<br/><br/>Your teacher account has been created.<br/><br/>Open the login page and enter your email.<br/>If this is your first login, choose the account setup option to create your password.<br/><br/><a href="${loginUrl}">Open Login</a>`,
       }),
     })
 
@@ -111,7 +124,7 @@ export async function POST(req: Request) {
         headers: internalHeaders,
         body: JSON.stringify({
           to: phone,
-          message: `Teacher Account Created\n\nHello ${name},\n\nLogin here:\n${magicLink}`,
+          message: `Teacher Account Created\n\nHello ${name},\n\nYour teacher account is ready.\nOpen login here:\n${loginUrl}\n\nUse your email first. If this is your first login, set your password from the login screen.`,
         }),
       })
     }

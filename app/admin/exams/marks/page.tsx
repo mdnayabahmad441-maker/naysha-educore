@@ -131,6 +131,7 @@ export default function MarksPage(){
       .from("marks")
       .select("*")
       .eq("exam_id", exam.id)
+      .eq("school_id", schoolId)
 
     const map:any = {}
 
@@ -226,7 +227,9 @@ export default function MarksPage(){
       return
     }
 
-    const { error } = await supabase.from("marks").upsert(rows)
+    const { error } = await supabase.from("marks").upsert(rows, {
+      onConflict: "school_id,exam_id,student_id,subject_id"
+    })
 
     if(error){
       alert(error.message)
@@ -250,6 +253,7 @@ export default function MarksPage(){
       .from("marks")
       .select("*")
       .eq("exam_id", selectedExam.id)
+      .eq("school_id", schoolId)
 
     if(!data || data.length === 0){
       alert("No marks")
@@ -296,7 +300,9 @@ export default function MarksPage(){
       rank: i+1
     }))
 
-    await supabase.from("results").upsert(results)
+    await supabase.from("results").upsert(results, {
+      onConflict: "school_id,exam_id,student_id"
+    })
 
     await supabase
       .from("exams")

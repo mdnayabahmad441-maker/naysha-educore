@@ -6,18 +6,17 @@ import { getSchoolId } from "@/lib/school"
 import { getSettings, updateSettings } from "@/lib/settings"
 import { apiFetch } from "@/lib/api-client"
 
-type UploadKind = "logo" | "id-card-template" | "report-card-template" | "certificate-template"
+type UploadKind = "logo" | "report-card-template" | "certificate-template"
 
 type TemplateInfo = {
-  kind: "id_card" | "report_card" | "certificate"
+  kind: "report_card" | "certificate"
   layoutKey: string
   label: string
 }
 
-const templateInfoMap: Partial<Record<UploadKind, TemplateInfo>> = {
-  "id-card-template":      { kind: "id_card",     layoutKey: "id_card_layout",     label: "ID Card" },
-  "report-card-template":  { kind: "report_card",  layoutKey: "report_card_layout",  label: "Report Card" },
-  "certificate-template":  { kind: "certificate",  layoutKey: "certificate_layout",  label: "Certificate" }
+const templateInfoMap: Record<Exclude<UploadKind, "logo">, TemplateInfo> = {
+  "report-card-template": { kind: "report_card", layoutKey: "report_card_layout", label: "Report Card" },
+  "certificate-template": { kind: "certificate", layoutKey: "certificate_layout", label: "Certificate" },
 }
 
 async function getImageDimensions(file: File) {
@@ -28,7 +27,7 @@ async function getImageDimensions(file: File) {
     image.onload = () => {
       resolve({
         width: image.naturalWidth,
-        height: image.naturalHeight
+        height: image.naturalHeight,
       })
       URL.revokeObjectURL(objectUrl)
     }
@@ -43,106 +42,77 @@ async function getImageDimensions(file: File) {
 }
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState("school")
+  const [tab, setTab] = useState<"school" | "exam" | "fees" | "academic">("school")
   const [schoolId, setSchoolId] = useState<string | null>(null)
 
   const [school, setSchool] = useState<any>({})
   const [exam, setExam] = useState<any>({})
   const [fees, setFees] = useState<any>({})
-
   const [classes, setClasses] = useState<any[]>([])
   const [classFees, setClassFees] = useState<any>({})
-
   const [years, setYears] = useState<any[]>([])
   const [yearName, setYearName] = useState("")
-
-  const [idCardTemplateUrl, setIdCardTemplateUrl] = useState("")
   const [reportCardTemplateUrl, setReportCardTemplateUrl] = useState("")
   const [certificateTemplateUrl, setCertificateTemplateUrl] = useState("")
   const [aiInstructions, setAiInstructions] = useState("")
   const [uploadingAsset, setUploadingAsset] = useState<UploadKind | null>(null)
   const [analyzingLayout, setAnalyzingLayout] = useState<UploadKind | null>(null)
-
+  const [deletingAsset, setDeletingAsset] = useState<UploadKind | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getSchoolId().then((id) => {
-      setSchoolId(id)
-    })
+    void getSchoolId().then(setSchoolId)
   }, [])
 
   useEffect(() => {
     if (!schoolId) return
 
     const load = async () => {
-      const { data } = await supabase
-        .from("schools")
-        .select("*")
-        .eq("id", schoolId)
-        .single()
+      setLoading(true)
 
-      setSchool(data || {})
+      const [{ data: schoolData }, examSettings, feeSettings, reportTemplate, certificateTemplate, aiText, { data: cls }, { data: classFeeData }, { data: yrs }] =
+        await Promise.all([
+          supabase.from("schools").select("*").eq("id", schoolId).single(),
+          getSettings("exam"),
+          getSettings("fees"),
+          getSettings("report_card_template"),
+          getSettings("certificate_template"),
+          getSettings("ai_system_instructions"),
+          supabase.from("classes").select("*").eq("school_id", schoolId),
+          supabase.from("class_fee_settings").select("*").eq("school_id", schoolId),
+          supabase.from("academic_years").select("*").eq("school_id", schoolId).order("created_at", { ascending: false }),
+        ])
 
-      const examSettings = await getSettings("exam")
+      setSchool(schoolData || {})
       setExam(examSettings || { passing: 33, grading: "percentage" })
-
-      const feeSettings = await getSettings("fees")
       setFees(
         feeSettings || {
           late_fee: 0,
           prefix: "INV",
           tuition_fee: 0,
           transport_fee: 0,
-          hostel_fee: 0
+          hostel_fee: 0,
         }
       )
-
-      const [loadedIdCardTemplate, loadedReportCardTemplate, loadedCertificateTemplate, loadedAiInstructions] = await Promise.all([
-        getSettings("id_card_template"),
-        getSettings("report_card_template"),
-        getSettings("certificate_template"),
-        getSettings("ai_system_instructions")
-      ])
-
-      setIdCardTemplateUrl(typeof loadedIdCardTemplate === "string" ? loadedIdCardTemplate : "")
-      setReportCardTemplateUrl(typeof loadedReportCardTemplate === "string" ? loadedReportCardTemplate : "")
-      setCertificateTemplateUrl(typeof loadedCertificateTemplate === "string" ? loadedCertificateTemplate : "")
-      setAiInstructions(typeof loadedAiInstructions === "string" ? loadedAiInstructions : "")
-
-      const { data: cls } = await supabase
-        .from("classes")
-        .select("*")
-        .eq("school_id", schoolId)
-
+      setReportCardTemplateUrl(typeof reportTemplate === "string" ? reportTemplate : "")
+      setCertificateTemplateUrl(typeof certificateTemplate === "string" ? certificateTemplate : "")
+      setAiInstructions(typeof aiText === "string" ? aiText : "")
       setClasses(cls || [])
+      setYears(yrs || [])
 
-      const { data: classFeeData } = await supabase
-        .from("class_fee_settings")
-        .select("*")
-        .eq("school_id", schoolId)
+      const feeMap: any = {}
 
-      const map: any = {}
+      ;(cls || []).forEach((schoolClass: any) => {
+        const existing = (classFeeData || []).find((item: any) => item.class_id === schoolClass.id)
 
-      cls?.forEach((c: any) => {
-        const existing = classFeeData?.find((f: any) => f.class_id === c.id)
-
-        map[c.id] = {
+        feeMap[schoolClass.id] = {
           tuition: existing?.tuition_fee || 0,
           transport: existing?.transport_fee || 0,
-          hostel: existing?.hostel_fee || 0
+          hostel: existing?.hostel_fee || 0,
         }
       })
 
-      setClassFees(map)
-
-      const { data: yrs } = await supabase
-        .from("academic_years")
-        .select("*")
-        .eq("school_id", schoolId)
-        .order("created_at", { ascending: false })
-
-      setYears(yrs || [])
-
+      setClassFees(feeMap)
       setLoading(false)
     }
 
@@ -161,29 +131,31 @@ export default function SettingsPage() {
       body.append("assetType", assetType)
       body.append("file", file)
 
-      const response = await apiFetch("/api/school-assets/upload", { method: "POST", body })
+      const response = await apiFetch("/api/school-assets/upload", {
+        method: "POST",
+        body,
+      })
       const result = await response.json()
 
       if (!response.ok || !result.success) {
         throw new Error(result.error || "Upload failed")
       }
 
-      // Update URL state
       if (assetType === "logo") {
         setSchool((current: any) => ({ ...current, logo_url: result.url }))
         alert("Logo uploaded successfully")
         return
       }
-      if (assetType === "id-card-template") setIdCardTemplateUrl(result.url)
-      if (assetType === "report-card-template") setReportCardTemplateUrl(result.url)
-      if (assetType === "certificate-template") setCertificateTemplateUrl(result.url)
 
-      // Auto AI layout detection for all templates
-      const info = templateInfoMap[assetType]
-      if (!info || !result.url) {
-        alert("Template uploaded successfully")
-        return
+      if (assetType === "report-card-template") {
+        setReportCardTemplateUrl(result.url)
       }
+
+      if (assetType === "certificate-template") {
+        setCertificateTemplateUrl(result.url)
+      }
+
+      const info = templateInfoMap[assetType]
 
       setUploadingAsset(null)
       setAnalyzingLayout(assetType)
@@ -197,21 +169,21 @@ export default function SettingsPage() {
             imageUrl: result.url,
             schoolId,
             sourceWidth: imageSize?.width,
-            sourceHeight: imageSize?.height
-          })
+            sourceHeight: imageSize?.height,
+          }),
         })
 
         const layoutResult = await layoutResponse.json()
 
         if (layoutResponse.ok && layoutResult?.layout) {
           await updateSettings(info.layoutKey, layoutResult.layout)
-          alert(`${info.label} template uploaded — AI has auto-detected and saved the field layout. Open Document Studio to fine-tune if needed.`)
+          alert(`${info.label} template uploaded and its layout was auto-detected by AI.`)
         } else {
-          alert(`${info.label} template uploaded. AI layout detection failed: ${layoutResult?.error || "unknown error"}. You can retry in Document Studio.`)
+          alert(`${info.label} template uploaded. AI layout detection failed.`)
         }
-      } catch (aiError) {
-        console.error("AI layout error:", aiError)
-        alert(`${info.label} template uploaded. AI layout detection failed — you can retry in Document Studio.`)
+      } catch (error) {
+        console.error("AI layout error:", error)
+        alert(`${info.label} template uploaded. AI layout detection failed.`)
       } finally {
         setAnalyzingLayout(null)
       }
@@ -223,6 +195,63 @@ export default function SettingsPage() {
     }
   }
 
+  const deleteAsset = async (assetType: UploadKind) => {
+    if (!schoolId) return
+
+    const currentUrl =
+      assetType === "logo" ? school.logo_url || "" :
+      assetType === "report-card-template" ? reportCardTemplateUrl :
+      certificateTemplateUrl
+
+    if (!currentUrl) {
+      alert("Nothing uploaded yet")
+      return
+    }
+
+    if (!confirm("Delete this uploaded asset?")) {
+      return
+    }
+
+    try {
+      setDeletingAsset(assetType)
+
+      const response = await apiFetch("/api/school-assets/upload", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          schoolId,
+          assetType,
+          currentUrl,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Delete failed")
+      }
+
+      if (assetType === "logo") {
+        setSchool((current: any) => ({ ...current, logo_url: null }))
+      }
+
+      if (assetType === "report-card-template") {
+        setReportCardTemplateUrl("")
+      }
+
+      if (assetType === "certificate-template") {
+        setCertificateTemplateUrl("")
+      }
+
+      alert("Deleted successfully")
+    } catch (error) {
+      console.error(error)
+      alert(error instanceof Error ? error.message : "Delete failed")
+    } finally {
+      setDeletingAsset(null)
+    }
+  }
+
   const saveSchool = async () => {
     const { error } = await supabase
       .from("schools")
@@ -230,51 +259,37 @@ export default function SettingsPage() {
         name: school.name || null,
         email: school.email || null,
         phone: school.phone || null,
-        address: school.address || null
+        address: school.address || null,
       })
       .eq("id", schoolId)
 
     if (error) {
       console.error(error)
       alert(error.message)
-    } else {
-      alert("Saved")
+      return
     }
+
+    alert("Saved")
   }
 
   const saveExam = async () => {
-    try {
-      await updateSettings("exam", exam)
-      alert("Saved")
-    } catch (e) {
-      console.error(e)
-      alert("Save failed")
-    }
+    await updateSettings("exam", exam)
+    alert("Saved")
   }
 
   const saveFees = async () => {
-    try {
-      await updateSettings("fees", fees)
-      alert("Saved")
-    } catch (e) {
-      console.error(e)
-      alert("Save failed")
-    }
+    await updateSettings("fees", fees)
+    alert("Saved")
   }
 
   const saveAiInstructions = async () => {
-    try {
-      await updateSettings("ai_system_instructions", aiInstructions)
-      alert("AI instructions saved")
-    } catch (error) {
-      console.error(error)
-      alert("Failed to save AI instructions")
-    }
+    await updateSettings("ai_system_instructions", aiInstructions)
+    alert("AI instructions saved")
   }
 
   const saveClassFees = async () => {
     for (const classId in classFees) {
-      const f = classFees[classId]
+      const value = classFees[classId]
 
       const { error } = await supabase
         .from("class_fee_settings")
@@ -282,12 +297,12 @@ export default function SettingsPage() {
           {
             class_id: classId,
             school_id: schoolId,
-            tuition_fee: Number(f.tuition || 0),
-            transport_fee: Number(f.transport || 0),
-            hostel_fee: Number(f.hostel || 0)
+            tuition_fee: Number(value.tuition || 0),
+            transport_fee: Number(value.transport || 0),
+            hostel_fee: Number(value.hostel || 0),
           },
           {
-            onConflict: "class_id,school_id"
+            onConflict: "class_id,school_id",
           }
         )
 
@@ -302,22 +317,21 @@ export default function SettingsPage() {
   }
 
   const reloadYears = async () => {
-    const { data } = await supabase
-      .from("academic_years")
-      .select("*")
-      .eq("school_id", schoolId)
-
+    const { data } = await supabase.from("academic_years").select("*").eq("school_id", schoolId)
     setYears(data || [])
   }
 
   const addYear = async () => {
-    if (!yearName) return alert("Enter year")
+    if (!yearName) {
+      alert("Enter year")
+      return
+    }
 
     const { error } = await supabase.from("academic_years").insert({
       id: crypto.randomUUID(),
       name: yearName,
       school_id: schoolId,
-      is_active: false
+      is_active: false,
     })
 
     if (error) {
@@ -341,7 +355,9 @@ export default function SettingsPage() {
     void reloadYears()
   }
 
-  if (loading) return <div className="p-10 text-white">Loading...</div>
+  if (loading) {
+    return <div className="p-10 text-white">Loading...</div>
+  }
 
   return (
     <div className="flex min-h-screen text-white">
@@ -362,99 +378,70 @@ export default function SettingsPage() {
 
       <div className="flex-1 p-10">
         {tab === "school" && (
-          <div className="max-w-3xl space-y-8">
+          <div className="max-w-5xl space-y-8">
             <div className="space-y-4">
-              <input
-                className="input"
-                placeholder="Name"
-                value={school.name || ""}
-                onChange={(e) => setSchool({ ...school, name: e.target.value })}
-              />
-
-              <input
-                className="input"
-                placeholder="Email"
-                value={school.email || ""}
-                onChange={(e) => setSchool({ ...school, email: e.target.value })}
-              />
-
-              <input
-                className="input"
-                placeholder="Phone"
-                value={school.phone || ""}
-                onChange={(e) => setSchool({ ...school, phone: e.target.value })}
-              />
-
-              <input
-                className="input"
-                placeholder="Address"
-                value={school.address || ""}
-                onChange={(e) => setSchool({ ...school, address: e.target.value })}
-              />
-
-              <button onClick={saveSchool} className="btn bg-blue-600">
-                Save
-              </button>
+              <input className="input" placeholder="Name" value={school.name || ""} onChange={(e) => setSchool({ ...school, name: e.target.value })} />
+              <input className="input" placeholder="Email" value={school.email || ""} onChange={(e) => setSchool({ ...school, email: e.target.value })} />
+              <input className="input" placeholder="Phone" value={school.phone || ""} onChange={(e) => setSchool({ ...school, phone: e.target.value })} />
+              <input className="input" placeholder="Address" value={school.address || ""} onChange={(e) => setSchool({ ...school, address: e.target.value })} />
+              <button onClick={saveSchool} className="btn bg-blue-600">Save</button>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-4">
               <AssetUploader
                 title="School Logo"
-                helpText="Uploads to the school-logos bucket and updates the school profile."
+                helpText="Upload or remove the school logo used across admin pages and printouts."
                 previewUrl={school.logo_url || ""}
-                status={uploadingAsset === "logo" ? "uploading" : "idle"}
-                disabled={uploadingAsset !== null || analyzingLayout !== null}
+                status={uploadingAsset === "logo" ? "uploading" : deletingAsset === "logo" ? "deleting" : "idle"}
+                disabled={uploadingAsset !== null || analyzingLayout !== null || deletingAsset !== null}
                 onFileSelect={(file) => void uploadAsset("logo", file)}
+                onDelete={() => void deleteAsset("logo")}
               />
 
-              <AssetUploader
-                title="ID Card Template"
-                helpText="Upload your ID card background. AI will auto-detect field positions instantly."
-                previewUrl={idCardTemplateUrl}
-                status={
-                  uploadingAsset === "id-card-template" ? "uploading" :
-                  analyzingLayout === "id-card-template" ? "analyzing" : "idle"
-                }
-                disabled={uploadingAsset !== null || analyzingLayout !== null}
-                onFileSelect={(file) => void uploadAsset("id-card-template", file)}
-              />
+              <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div>
+                  <h3 className="text-lg font-semibold">ID Card Design</h3>
+                  <p className="mt-1 text-sm text-gray-400">
+                    ID cards use the built-in system design for now. No separate documents page is active.
+                  </p>
+                </div>
+                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-cyan-400/30 bg-cyan-500/5 text-sm text-cyan-200">
+                  System-generated design active
+                </div>
+                <p className="text-xs text-slate-400">
+                  Logo changes still apply to generated cards automatically.
+                </p>
+              </div>
 
               <AssetUploader
                 title="Report Card Template"
-                helpText="Upload your report card background. AI will auto-detect field positions instantly."
+                helpText="Upload or delete the report card background used for generated report cards."
                 previewUrl={reportCardTemplateUrl}
                 status={
                   uploadingAsset === "report-card-template" ? "uploading" :
-                  analyzingLayout === "report-card-template" ? "analyzing" : "idle"
+                  analyzingLayout === "report-card-template" ? "analyzing" :
+                  deletingAsset === "report-card-template" ? "deleting" :
+                  "idle"
                 }
-                disabled={uploadingAsset !== null || analyzingLayout !== null}
+                disabled={uploadingAsset !== null || analyzingLayout !== null || deletingAsset !== null}
                 onFileSelect={(file) => void uploadAsset("report-card-template", file)}
+                onDelete={() => void deleteAsset("report-card-template")}
               />
 
               <AssetUploader
                 title="Certificate Template"
-                helpText="Upload your certificate/TC background. AI will auto-detect field positions instantly."
+                helpText="Upload or delete the certificate or transfer certificate background."
                 previewUrl={certificateTemplateUrl}
                 status={
                   uploadingAsset === "certificate-template" ? "uploading" :
-                  analyzingLayout === "certificate-template" ? "analyzing" : "idle"
+                  analyzingLayout === "certificate-template" ? "analyzing" :
+                  deletingAsset === "certificate-template" ? "deleting" :
+                  "idle"
                 }
-                disabled={uploadingAsset !== null || analyzingLayout !== null}
+                disabled={uploadingAsset !== null || analyzingLayout !== null || deletingAsset !== null}
                 onFileSelect={(file) => void uploadAsset("certificate-template", file)}
+                onDelete={() => void deleteAsset("certificate-template")}
               />
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <h3 className="text-lg font-semibold">Document Studio</h3>
-              <p className="mt-2 text-sm text-gray-400">
-                Design your ID card, report card, and certificate layouts with school-specific field positions.
-              </p>
-              <a
-                href="/admin/documents"
-                className="mt-4 inline-flex rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-              >
-                Open Document Studio
-              </a>
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
@@ -487,92 +474,48 @@ Never invent data that is not provided.`}
 
         {tab === "exam" && (
           <div className="max-w-lg space-y-4">
-            <input
-              className="input"
-              placeholder="Passing %"
-              value={exam.passing || ""}
-              onChange={(e) => setExam({ ...exam, passing: e.target.value })}
-            />
-
-            <select
-              className="input"
-              value={exam.grading || "percentage"}
-              onChange={(e) => setExam({ ...exam, grading: e.target.value })}
-            >
+            <input className="input" placeholder="Passing %" value={exam.passing || ""} onChange={(e) => setExam({ ...exam, passing: e.target.value })} />
+            <select className="input" value={exam.grading || "percentage"} onChange={(e) => setExam({ ...exam, grading: e.target.value })}>
               <option value="percentage">Percentage</option>
               <option value="grade">Grade</option>
             </select>
-
-            <button onClick={saveExam} className="btn bg-blue-600">
-              Save
-            </button>
+            <button onClick={saveExam} className="btn bg-blue-600">Save</button>
           </div>
         )}
 
         {tab === "fees" && (
           <div className="space-y-6">
             <div className="max-w-lg space-y-3">
-              <input
-                className="input"
-                placeholder="Prefix"
-                value={fees.prefix || ""}
-                onChange={(e) => setFees({ ...fees, prefix: e.target.value })}
-              />
-              <input
-                className="input"
-                placeholder="Late Fee"
-                value={fees.late_fee || ""}
-                onChange={(e) => setFees({ ...fees, late_fee: e.target.value })}
-              />
-              <button onClick={saveFees} className="btn bg-blue-600">
-                Save
-              </button>
+              <input className="input" placeholder="Prefix" value={fees.prefix || ""} onChange={(e) => setFees({ ...fees, prefix: e.target.value })} />
+              <input className="input" placeholder="Late Fee" value={fees.late_fee || ""} onChange={(e) => setFees({ ...fees, late_fee: e.target.value })} />
+              <button onClick={saveFees} className="btn bg-blue-600">Save</button>
             </div>
 
             <div className="space-y-4">
               <h3 className="text-lg">Class Fees</h3>
-
-              {classes.map((c) => (
-                <div key={c.id} className="grid grid-cols-3 gap-2">
+              {classes.map((schoolClass) => (
+                <div key={schoolClass.id} className="grid grid-cols-3 gap-2">
                   <input
                     className="input"
-                    value={classFees[c.id]?.tuition || ""}
-                    onChange={(e) =>
-                      setClassFees({
-                        ...classFees,
-                        [c.id]: { ...classFees[c.id], tuition: e.target.value }
-                      })
-                    }
-                    placeholder={`${c.name} Tuition`}
+                    value={classFees[schoolClass.id]?.tuition || ""}
+                    onChange={(e) => setClassFees({ ...classFees, [schoolClass.id]: { ...classFees[schoolClass.id], tuition: e.target.value } })}
+                    placeholder={`${schoolClass.name} Tuition`}
                   />
                   <input
                     className="input"
-                    value={classFees[c.id]?.transport || ""}
-                    onChange={(e) =>
-                      setClassFees({
-                        ...classFees,
-                        [c.id]: { ...classFees[c.id], transport: e.target.value }
-                      })
-                    }
+                    value={classFees[schoolClass.id]?.transport || ""}
+                    onChange={(e) => setClassFees({ ...classFees, [schoolClass.id]: { ...classFees[schoolClass.id], transport: e.target.value } })}
                     placeholder="Transport"
                   />
                   <input
                     className="input"
-                    value={classFees[c.id]?.hostel || ""}
-                    onChange={(e) =>
-                      setClassFees({
-                        ...classFees,
-                        [c.id]: { ...classFees[c.id], hostel: e.target.value }
-                      })
-                    }
+                    value={classFees[schoolClass.id]?.hostel || ""}
+                    onChange={(e) => setClassFees({ ...classFees, [schoolClass.id]: { ...classFees[schoolClass.id], hostel: e.target.value } })}
                     placeholder="Hostel"
                   />
                 </div>
               ))}
-
-              <button onClick={saveClassFees} className="btn bg-green-600">
-                Save Class Fees
-              </button>
+              <button onClick={saveClassFees} className="btn bg-green-600">Save Class Fees</button>
             </div>
           </div>
         )}
@@ -582,28 +525,20 @@ Never invent data that is not provided.`}
             <h2 className="text-xl font-semibold">Academic Year</h2>
 
             <div className="flex gap-3">
-              <input
-                placeholder="2024-2025"
-                value={yearName}
-                onChange={(e) => setYearName(e.target.value)}
-                className="input"
-              />
-
-              <button onClick={addYear} className="btn bg-green-600">
-                Add
-              </button>
+              <input placeholder="2024-2025" value={yearName} onChange={(e) => setYearName(e.target.value)} className="input" />
+              <button onClick={addYear} className="btn bg-green-600">Add</button>
             </div>
 
-            {years.map((y) => (
-              <div key={y.id} className="flex justify-between rounded-xl bg-white/5 p-4">
+            {years.map((year) => (
+              <div key={year.id} className="flex justify-between rounded-xl bg-white/5 p-4">
                 <div>
-                  <p>{y.name}</p>
-                  {y.is_active && <span className="text-sm text-green-400">Active</span>}
+                  <p>{year.name}</p>
+                  {year.is_active && <span className="text-sm text-green-400">Active</span>}
                 </div>
 
                 <div className="flex gap-3">
-                  {!y.is_active && <button onClick={() => setActiveYear(y.id)}>Active</button>}
-                  <button onClick={() => deleteYear(y.id)}>Delete</button>
+                  {!year.is_active && <button onClick={() => void setActiveYear(year.id)}>Active</button>}
+                  <button onClick={() => void deleteYear(year.id)}>Delete</button>
                 </div>
               </div>
             ))}
@@ -633,48 +568,50 @@ function AssetUploader({
   previewUrl,
   status,
   disabled,
-  onFileSelect
+  onFileSelect,
+  onDelete,
 }: {
   title: string
   helpText: string
   previewUrl: string
-  status: "idle" | "uploading" | "analyzing"
+  status: "idle" | "uploading" | "analyzing" | "deleting"
   disabled: boolean
   onFileSelect: (file: File | null) => void
+  onDelete: () => void
 }) {
   const statusLabel =
     status === "uploading" ? "Uploading..." :
     status === "analyzing" ? "AI analyzing template..." :
-    previewUrl ? "Replace template" : "Choose image"
+    status === "deleting" ? "Deleting..." :
+    previewUrl ? "Replace image" :
+    "Choose image"
 
-  const isActive = status !== "idle"
+  const isBusy = status !== "idle"
 
   return (
-    <div className={`space-y-3 rounded-2xl border p-4 transition ${isActive ? "border-cyan-400/30 bg-cyan-500/5" : "border-white/10 bg-white/5"}`}>
+    <div className={`space-y-3 rounded-2xl border p-4 transition ${isBusy ? "border-cyan-400/30 bg-cyan-500/5" : "border-white/10 bg-white/5"}`}>
       <div>
         <h3 className="text-lg font-semibold">{title}</h3>
         <p className="mt-1 text-sm text-gray-400">{helpText}</p>
       </div>
 
-      {isActive ? (
+      {isBusy ? (
         <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-cyan-400/30 text-sm text-cyan-300">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-          <span>{status === "analyzing" ? "AI is reading your template..." : "Uploading..."}</span>
+          <span>
+            {status === "analyzing" ? "AI is reading your template..." : status === "deleting" ? "Removing uploaded file..." : "Uploading..."}
+          </span>
         </div>
       ) : previewUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={previewUrl}
-          alt={title}
-          className="h-40 w-full rounded-xl border border-white/10 object-cover"
-        />
+        <img src={previewUrl} alt={title} className="h-40 w-full rounded-xl border border-white/10 object-cover" />
       ) : (
         <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-white/10 text-sm text-gray-500">
-          No template uploaded yet
+          No image uploaded yet
         </div>
       )}
 
-      <label className={`block ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+      <label className={`block ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
         <span className="mb-2 block text-sm text-gray-300">{statusLabel}</span>
         <input
           type="file"
@@ -689,7 +626,13 @@ function AssetUploader({
       </label>
 
       {previewUrl && status === "idle" && (
-        <p className="text-xs text-emerald-400">Template active — AI layout auto-generated</p>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="w-full rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-500/15"
+        >
+          Delete Uploaded Asset
+        </button>
       )}
     </div>
   )

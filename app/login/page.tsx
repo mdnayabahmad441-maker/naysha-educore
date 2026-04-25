@@ -16,57 +16,75 @@ const bodyFont = Manrope({
   weight: ["400", "500", "600", "700"],
 })
 
+type ResolvedAccount = {
+  email: string
+  role: "admin" | "teacher" | "parent"
+  loginMethod: "password" | "otp"
+}
+
 export default function LoginPage() {
   const searchParams = useSearchParams()
 
   const [helperMode, setHelperMode] = useState<"none" | "setup" | "reset">("none")
-  const [identifier, setIdentifier] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [setupEmail, setSetupEmail] = useState("")
   const [resetEmail, setResetEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [setupLoading, setSetupLoading] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
+  const [resolvedAccount, setResolvedAccount] = useState<ResolvedAccount | null>(null)
 
   const setupDone = searchParams.get("setup") === "done"
   const resetSent = searchParams.get("reset") === "sent"
 
-  const loginWithPassword = async () => {
-    const normalizedIdentifier = identifier.trim().toLowerCase()
+  const identifyAccount = async () => {
+    const normalizedEmail = email.trim().toLowerCase()
 
-    if (!normalizedIdentifier || !password) {
-      alert("Enter username/email and password")
+    if (!normalizedEmail) {
+      alert("Enter your email")
       return
     }
 
     setLoading(true)
 
-    let email = normalizedIdentifier
+    const response = await fetch("/api/auth/resolve-identifier", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        identifier: normalizedEmail,
+      }),
+    })
 
-    if (!normalizedIdentifier.includes("@")) {
-      const response = await fetch("/api/auth/resolve-identifier", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          identifier: normalizedIdentifier,
-        }),
-      })
+    const data = await response.json()
+    setLoading(false)
 
-      const data = await response.json()
-
-      if (!response.ok || !data.email) {
-        setLoading(false)
-        alert("Username not found")
-        return
-      }
-
-      email = data.email
+    if (!response.ok || !data?.email || !data?.role || !data?.loginMethod) {
+      alert(data?.error || "Account not found")
+      return
     }
 
+    setResolvedAccount(data)
+    setPassword("")
+  }
+
+  const backToEmailStep = () => {
+    setResolvedAccount(null)
+    setPassword("")
+  }
+
+  const loginWithPassword = async () => {
+    if (!resolvedAccount?.email || !password) {
+      alert("Enter your password")
+      return
+    }
+
+    setLoading(true)
+
     const { data: loginData, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: resolvedAccount.email,
       password,
     })
 
@@ -77,12 +95,39 @@ export default function LoginPage() {
     }
 
     try {
-      const destination = await resolveAuthDestination(loginData.user, loginData.user.email || email)
+      const destination = await resolveAuthDestination(loginData.user, resolvedAccount.email)
       await redirectWithSession(destination)
     } catch (authError) {
       setLoading(false)
       alert(authError instanceof Error ? authError.message : "Unable to continue login")
     }
+  }
+
+  const sendParentOtp = async () => {
+    if (!resolvedAccount?.email) return
+
+    setLoading(true)
+
+    const response = await fetch("/api/auth/request-otp", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: resolvedAccount.email,
+        purpose: "parent-login",
+      }),
+    })
+
+    setLoading(false)
+
+    if (!response.ok) {
+      const data = await response.json()
+      alert(data.error || "Failed to send OTP")
+      return
+    }
+
+    window.location.href = `/verify?email=${encodeURIComponent(resolvedAccount.email)}&mode=login`
   }
 
   const startExistingAccountSetup = async () => {
@@ -102,7 +147,7 @@ export default function LoginPage() {
       },
       body: JSON.stringify({
         email: normalizedEmail,
-        shouldCreateUser: false,
+        purpose: "account-setup",
       }),
     })
 
@@ -149,6 +194,12 @@ export default function LoginPage() {
     window.location.href = "/login?reset=sent"
   }
 
+  const roleLabel =
+    resolvedAccount?.role === "admin" ? "Admin" :
+    resolvedAccount?.role === "teacher" ? "Teacher" :
+    resolvedAccount?.role === "parent" ? "Parent" :
+    null
+
   return (
     <div className={`${bodyFont.className} min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_28%),radial-gradient(circle_at_right,_rgba(34,197,94,0.10),_transparent_26%),linear-gradient(145deg,#040b16_0%,#091120_46%,#050a13_100%)] text-white`}>
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-6 lg:px-10">
@@ -163,7 +214,7 @@ export default function LoginPage() {
           </div>
 
           <div className="hidden rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 md:block">
-            Secure access for Admin, Teacher and Parent panels
+            Email-first access for Admin, Teacher and Parent panels
           </div>
         </header>
 
@@ -174,22 +225,22 @@ export default function LoginPage() {
                 ERP Login Workspace
               </p>
               <h2 className={`${headingFont.className} text-4xl font-bold leading-tight text-white md:text-6xl`}>
-                A real school ERP login, built for daily operations.
+                One login entry, then the ERP chooses the right path.
               </h2>
               <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300">
-                Sign in with your email or username and password. New school accounts are created
-                through email OTP verification first, then you set your own credentials once.
+                Enter your email first. Admins and teachers continue with password login,
+                while parents stay on OTP verification for simpler family access.
               </p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {[
-                { title: "Operations Dashboard", text: "Admissions, fees, exams and attendance under one secured workspace." },
-                { title: "Role-Based Routing", text: "Admin, teacher and parent access lands in the right panel automatically." },
-                { title: "Verified Account Setup", text: "Email OTP is used only to activate accounts and keep onboarding secure." },
-                { title: "Username Support", text: "Teams can sign in with school-friendly usernames instead of remembering long emails." },
-                { title: "Audit-Friendly Access", text: "Credential-based sign-in feels closer to a production ERP than repeated OTP prompts." },
-                { title: "Multi-School Ready", text: "Each user is redirected into the correct school domain after authentication." },
+                { title: "Email First", text: "The system checks the account type before asking for the next login step." },
+                { title: "Staff Password Login", text: "Admins and teachers use password-based sign-in after email detection." },
+                { title: "Parent OTP Login", text: "Parents get a one-time passcode flow that works well on phones." },
+                { title: "Role-Based Routing", text: "Each user lands directly in the correct school panel after authentication." },
+                { title: "First-Time Setup", text: "Existing school accounts can create credentials through email verification once." },
+                { title: "Multi-School Ready", text: "After login, users are redirected into the correct tenant workspace automatically." },
               ].map((item) => (
                 <article
                   key={item.title}
@@ -226,7 +277,7 @@ export default function LoginPage() {
                     Sign In
                   </h3>
                   <p className="mt-3 text-sm leading-6 text-slate-300">
-                    Use your email or username with password to enter the ERP securely.
+                    Start with your email. We will switch to password or OTP based on your role.
                   </p>
                 </div>
               </div>
@@ -234,7 +285,7 @@ export default function LoginPage() {
               <div className="px-5 py-5 sm:px-7 sm:py-7">
                 {setupDone ? (
                   <div className="mb-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-                    Account setup completed. You can now sign in with your email or username and password.
+                    Account setup completed. You can now sign in with your email and password.
                   </div>
                 ) : null}
 
@@ -245,50 +296,102 @@ export default function LoginPage() {
                 ) : null}
 
                 <div className="space-y-4 rounded-[26px] border border-white/10 bg-white/5 p-4 sm:p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                        Login
-                      </p>
-                      <p className="mt-1 text-sm text-slate-300">
-                        Phone-friendly sign in with the main action visible first.
-                      </p>
-                    </div>
-                  </div>
-
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-200">
-                      Email or username
-                    </label>
-                    <input
-                      value={identifier}
-                      onChange={(event) => setIdentifier(event.target.value)}
-                      placeholder="Enter email or username"
-                      className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-3.5 text-white placeholder:text-slate-500"
-                    />
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      Login
+                    </p>
+                    <p className="mt-1 text-sm text-slate-300">
+                      Identify the account first, then continue with the right sign-in method.
+                    </p>
                   </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-200">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      placeholder="Enter password"
-                      className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-3.5 text-white placeholder:text-slate-500"
-                    />
-                  </div>
+                  {!resolvedAccount ? (
+                    <>
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-slate-200">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(event) => setEmail(event.target.value)}
+                          placeholder="Enter your email"
+                          className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-3.5 text-white placeholder:text-slate-500"
+                        />
+                      </div>
 
-                  <button
-                    type="button"
-                    onClick={loginWithPassword}
-                    disabled={loading}
-                    className="w-full rounded-2xl bg-[linear-gradient(135deg,#0ea5e9,#2563eb)] px-4 py-4 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(14,116,144,0.28)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {loading ? "Signing In..." : "Sign In To ERP"}
-                  </button>
+                      <button
+                        type="button"
+                        onClick={identifyAccount}
+                        disabled={loading}
+                        className="w-full rounded-2xl bg-[linear-gradient(135deg,#0ea5e9,#2563eb)] px-4 py-4 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(14,116,144,0.28)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {loading ? "Checking Account..." : "Continue"}
+                      </button>
+                    </>
+                  ) : resolvedAccount.loginMethod === "password" ? (
+                    <>
+                      <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                        {roleLabel} account found for <span className="font-semibold">{resolvedAccount.email}</span>.
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-slate-200">
+                          Password
+                        </label>
+                        <input
+                          type="password"
+                          value={password}
+                          onChange={(event) => setPassword(event.target.value)}
+                          placeholder="Enter password"
+                          className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-3.5 text-white placeholder:text-slate-500"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={backToEmailStep}
+                          className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10"
+                        >
+                          Change Email
+                        </button>
+                        <button
+                          type="button"
+                          onClick={loginWithPassword}
+                          disabled={loading}
+                          className="rounded-2xl bg-[linear-gradient(135deg,#0ea5e9,#2563eb)] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          {loading ? "Signing In..." : "Login"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+                        Parent account found for <span className="font-semibold">{resolvedAccount.email}</span>.
+                        Continue with OTP login.
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={backToEmailStep}
+                          className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10"
+                        >
+                          Change Email
+                        </button>
+                        <button
+                          type="button"
+                          onClick={sendParentOtp}
+                          disabled={loading}
+                          className="rounded-2xl bg-[linear-gradient(135deg,#f59e0b,#d97706)] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          {loading ? "Sending OTP..." : "Send OTP"}
+                        </button>
+                      </div>
+                    </>
+                  )}
 
                   <div className="grid grid-cols-2 gap-3 pt-2">
                     <button
@@ -300,7 +403,7 @@ export default function LoginPage() {
                           : "border-white/10 bg-white/6 text-slate-200 hover:bg-white/10"
                       }`}
                     >
-                      Existing School
+                      First-Time Setup
                     </button>
                     <button
                       type="button"
@@ -318,19 +421,18 @@ export default function LoginPage() {
 
                 {helperMode === "setup" ? (
                   <div className="mt-4 rounded-[26px] border border-amber-300/20 bg-amber-300/10 p-4 sm:p-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-white">
-                          Existing school account
-                        </p>
-                        <p className="mt-2 text-sm leading-6 text-slate-300">
-                          Verify your existing school email once, then create your username and password.
-                        </p>
-                      </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        Set password for an existing school account
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">
+                        Use your school email. We will verify it with OTP first, then let you create your password.
+                      </p>
                     </div>
 
                     <div className="mt-4 space-y-3">
                       <input
+                        type="email"
                         value={setupEmail}
                         onChange={(event) => setSetupEmail(event.target.value)}
                         placeholder="Enter existing school email"
@@ -343,7 +445,7 @@ export default function LoginPage() {
                         disabled={setupLoading}
                         className="w-full rounded-2xl border border-amber-200/20 bg-[linear-gradient(135deg,#f59e0b,#d97706)] px-4 py-3.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
                       >
-                        {setupLoading ? "Sending OTP..." : "Set Username / Password"}
+                        {setupLoading ? "Sending OTP..." : "Verify Email And Set Password"}
                       </button>
                     </div>
                   </div>
@@ -355,11 +457,12 @@ export default function LoginPage() {
                       Forgot password
                     </p>
                     <p className="mt-2 text-sm leading-6 text-slate-300">
-                      Request a reset link with rate limits enabled to reduce password reset abuse.
+                      Request a reset link for admin and teacher accounts.
                     </p>
 
                     <div className="mt-4 space-y-3">
                       <input
+                        type="email"
                         value={resetEmail}
                         onChange={(event) => setResetEmail(event.target.value)}
                         placeholder="Enter account email"
@@ -380,10 +483,10 @@ export default function LoginPage() {
 
                 <div className="mt-4 rounded-[24px] border border-white/10 bg-white/5 p-4">
                   <p className="text-sm font-semibold text-white">
-                    First-time account creation
+                    First-time school onboarding
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    New school admins should start with email verification and then create permanent ERP credentials.
+                    New school admins should start here before using the login flow.
                   </p>
                   <div className="mt-4">
                     <a

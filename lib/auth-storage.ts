@@ -3,6 +3,11 @@ type CookieOptions = {
   maxAge?: number
 }
 
+function getCurrentHostname() {
+  if (typeof window === "undefined") return null
+  return window.location.hostname.toLowerCase()
+}
+
 function parseCookies() {
   return document.cookie.split(";").reduce<Record<string, string>>((acc, entry) => {
     const [rawName, ...rawValue] = entry.trim().split("=")
@@ -58,6 +63,17 @@ function removeCookie(name: string, domain?: string) {
 
 export function canShareSessionAcrossSubdomains() {
   return Boolean(resolveCookieDomain())
+}
+
+export function getAuthStorageKey() {
+  const hostname = getCurrentHostname()
+
+  if (!hostname) return "naysha-auth-token"
+
+  const subdomain = hostname.split(".")[0]
+  const safeSubdomain = (subdomain || "root").replace(/[^a-z0-9_-]/gi, "_")
+
+  return `naysha-auth-token-${safeSubdomain}`
 }
 
 export function resolveTenantOrigin(subdomain: string) {

@@ -9,24 +9,80 @@ const configMap = {
   logo: {
     bucket: "school-logos",
     folder: "logos",
-    settingsKey: null
+    settingsKey: null,
   },
   "id-card-template": {
     bucket: "school-logos",
     folder: "id-card-templates",
-    settingsKey: "id_card_template"
+    settingsKey: "id_card_template",
   },
   "report-card-template": {
     bucket: "school-logos",
     folder: "report-card-templates",
-    settingsKey: "report_card_template"
+    settingsKey: "report_card_template",
   },
   "certificate-template": {
     bucket: "school-logos",
     folder: "certificate-templates",
-    settingsKey: "certificate_template"
-  }
+    settingsKey: "certificate_template",
+  },
 } as const
+
+function getConfig(assetType: string) {
+  return configMap[assetType as keyof typeof configMap] || null
+}
+
+function extractStoragePath(publicUrl: string, bucket: string) {
+  try {
+    const pathname = new URL(publicUrl).pathname
+    const marker = `/storage/v1/object/public/${bucket}/`
+    const index = pathname.indexOf(marker)
+
+    if (index === -1) return null
+
+    return decodeURIComponent(pathname.slice(index + marker.length))
+  } catch {
+    return null
+  }
+}
+
+async function clearAssetReference(schoolId: string, assetType: keyof typeof configMap) {
+  const config = getConfig(assetType)
+
+  if (!config) {
+    return NextResponse.json(
+      { success: false, error: "Invalid asset type" },
+      { status: 400 }
+    )
+  }
+
+  if (assetType === "logo") {
+    const { error } = await supabaseAdmin
+      .from("schools")
+      .update({ logo_url: null })
+      .eq("id", schoolId)
+
+    if (error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+
+    return null
+  }
+
+  if (config.settingsKey) {
+    const { error } = await supabaseAdmin
+      .from("settings")
+      .delete()
+      .eq("school_id", schoolId)
+      .eq("key", config.settingsKey)
+
+    if (error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+  }
+
+  return null
+}
 
 export async function POST(req: Request) {
   const authResult = await requireAdminProfile(req)
@@ -57,7 +113,7 @@ export async function POST(req: Request) {
       return schoolMismatch
     }
 
-    const config = configMap[assetType as keyof typeof configMap]
+    const config = getConfig(assetType)
 
     if (!config) {
       return NextResponse.json(
@@ -80,7 +136,7 @@ export async function POST(req: Request) {
           success: false,
           error: assetType === "logo"
             ? "School logo must be 5 MB or smaller"
-            : "Template image must be 10 MB or smaller"
+            : "Template image must be 10 MB or smaller",
         },
         { status: 400 }
       )
@@ -97,7 +153,7 @@ export async function POST(req: Request) {
       .upload(filePath, file, {
         cacheControl: "3600",
         contentType: file.type || undefined,
-        upsert: true
+        upsert: true,
       })
 
     if (uploadError) {
@@ -131,10 +187,10 @@ export async function POST(req: Request) {
           {
             school_id: schoolId,
             key: config.settingsKey,
-            value: publicUrl
+            value: publicUrl,
           },
           {
-            onConflict: "school_id,key"
+            onConflict: "school_id,key",
           }
         )
 
@@ -149,12 +205,74 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      url: publicUrl
+      url: publicUrl,
     })
   } catch (err: any) {
     console.error("School asset API error:", err)
     return NextResponse.json(
       { success: false, error: err.message || "Failed to upload asset" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(req: Request) {
+  const authResult = await requireAdminProfile(req)
+
+  if ("response" in authResult) {
+    return authResult.response
+  }
+
+  try {
+    const body = await req.json()
+    const schoolId = typeof body?.schoolId === "string" ? body.schoolId : null
+    const assetType = typeof body?.assetType === "string" ? body.assetType : null
+    const currentUrl = typeof body?.currentUrl === "string" ? body.currentUrl : ""
+
+    if (!schoolId || !assetType) {
+      return NextResponse.json(
+        { success: false, error: "schoolId and assetType are required" },
+        { status: 400 }
+      )
+    }
+
+    const schoolMismatch = ensureSameSchool(authResult.profile, schoolId)
+    if (schoolMismatch) {
+      return schoolMismatch
+    }
+
+    const config = getConfig(assetType)
+
+    if (!config) {
+      return NextResponse.json(
+        { success: false, error: "Invalid asset type" },
+        { status: 400 }
+      )
+    }
+
+    const storagePath = currentUrl ? extractStoragePath(currentUrl, config.bucket) : null
+
+    if (storagePath) {
+      const { error: removeError } = await supabaseAdmin.storage
+        .from(config.bucket)
+        .remove([storagePath])
+
+      if (removeError) {
+        console.error("School asset delete error:", removeError)
+      }
+    }
+
+    const clearResponse = await clearAssetReference(schoolId, assetType as keyof typeof configMap)
+
+    if (clearResponse) {
+      return clearResponse
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    console.error("School asset delete API error:", err)
+    return NextResponse.json(
+      { success: false, error: err.message || "Failed to delete asset" },
       { status: 500 }
     )
   }

@@ -58,16 +58,26 @@ export async function getCurrentTeacherClassIds() {
 
   if (!teacher) return []
 
-  const { data: classes, error } = await supabase
-    .from("classes")
-    .select("id")
-    .eq("school_id", teacher.school_id)
-    .eq("class_teacher_id", teacher.id)
+  const [{ data: teacherClassRows, error: teacherClassError }, { data: directClassRows, error: directClassError }] =
+    await Promise.all([
+      supabase
+        .from("teacher_classes")
+        .select("class_id")
+        .eq("school_id", teacher.school_id)
+        .eq("teacher_id", teacher.id),
+      supabase
+        .from("classes")
+        .select("id")
+        .eq("school_id", teacher.school_id)
+        .eq("class_teacher_id", teacher.id),
+    ])
 
-  if (error) {
-    console.error("Teacher class access error:", error)
-    return []
+  if (teacherClassError || directClassError) {
+    console.error("Teacher class access error:", teacherClassError || directClassError)
   }
 
-  return (classes || []).map((schoolClass) => schoolClass.id)
+  return [...new Set([
+    ...(teacherClassRows || []).map((row) => row.class_id),
+    ...(directClassRows || []).map((schoolClass) => schoolClass.id),
+  ])]
 }
