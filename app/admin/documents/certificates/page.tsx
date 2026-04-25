@@ -70,16 +70,39 @@ export default function CertificatesPage() {
         supabase.from("classes").select("id,name").eq("school_id", schoolId).order("name"),
         supabase
           .from("students")
-          .select("id,name,student_code,class_id,roll_number,parents(father_name)")
+          .select("id,name,student_code,class_id,roll_number")
           .eq("school_id", schoolId)
           .order("name"),
         getSettings("certificate_template"),
         getSettings("certificate_layout")
       ])
 
-      const studentList = ((studentData as any[]) ?? []).map((s: any) => ({
-        ...s,
-        father_name: s.parents?.[0]?.father_name ?? null
+      const studentRows = ((studentData as Student[]) ?? [])
+      const studentIds = studentRows.map((student) => student.id)
+
+      let parentMap = new Map<string, { father_name: string | null }>()
+
+      if (studentIds.length > 0) {
+        const { data: parentData, error: parentError } = await supabase
+          .from("parents")
+          .select("student_id,father_name")
+          .in("student_id", studentIds)
+
+        if (parentError) {
+          console.error("Certificate parent load error:", parentError)
+        } else {
+          parentMap = new Map(
+            ((parentData as Array<{ student_id: string; father_name: string | null }>) ?? []).map((parent) => [
+              parent.student_id,
+              { father_name: parent.father_name }
+            ])
+          )
+        }
+      }
+
+      const studentList = studentRows.map((student) => ({
+        ...student,
+        father_name: parentMap.get(student.id)?.father_name ?? null
       }))
 
       setClasses((classData as SchoolClass[] | null) ?? [])

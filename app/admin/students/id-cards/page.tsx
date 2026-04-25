@@ -56,7 +56,7 @@ export default function StudentIdCardsPage() {
           supabase.from("classes").select("id,name").eq("school_id", schoolId),
           supabase
             .from("students")
-            .select("id,name,student_code,class_id,roll_number,photo,parents(father_name,phone)")
+            .select("id,name,student_code,class_id,roll_number,photo")
             .eq("school_id", schoolId)
             .order("name", { ascending: true }),
           getSettings("id_card_template"),
@@ -73,11 +73,39 @@ export default function StudentIdCardsPage() {
         console.error("Student fetch error:", studentError)
         setStudents([])
       } else {
+        const studentRows = ((studentData as Student[]) ?? [])
+        const studentIds = studentRows.map((student) => student.id)
+
+        let parentMap = new Map<string, { father_name: string | null; phone: string | null }>()
+
+        if (studentIds.length > 0) {
+          const { data: parentData, error: parentError } = await supabase
+            .from("parents")
+            .select("student_id,father_name,phone")
+            .in("student_id", studentIds)
+
+          if (parentError) {
+            console.error("Parent fetch error:", parentError)
+          } else {
+            parentMap = new Map(
+              ((parentData as Array<{ student_id: string; father_name: string | null; phone: string | null }>) ?? []).map(
+                (parent) => [
+                  parent.student_id,
+                  {
+                    father_name: parent.father_name,
+                    phone: parent.phone
+                  }
+                ]
+              )
+            )
+          }
+        }
+
         setStudents(
-          ((studentData as any[]) ?? []).map((s: any) => ({
-            ...s,
-            father_name: s.parents?.[0]?.father_name ?? null,
-            phone: s.parents?.[0]?.phone ?? null
+          studentRows.map((student) => ({
+            ...student,
+            father_name: parentMap.get(student.id)?.father_name ?? null,
+            phone: parentMap.get(student.id)?.phone ?? null
           }))
         )
       }

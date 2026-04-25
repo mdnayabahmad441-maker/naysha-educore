@@ -89,7 +89,7 @@ export default function DocumentStudioPage() {
       ] = await Promise.all([
         supabase
           .from("students")
-          .select("id,name,student_code,class_id,roll_number,photo,parents(father_name,phone)")
+          .select("id,name,student_code,class_id,roll_number,photo")
           .eq("school_id", schoolId)
           .order("name", { ascending: true }),
         supabase.from("classes").select("id,name").eq("school_id", schoolId).order("name", { ascending: true }),
@@ -104,10 +104,38 @@ export default function DocumentStudioPage() {
       if (studentError) {
         console.error("Document studio student load error:", studentError)
       } else {
-        const loadedStudents = ((studentData as any[]) ?? []).map((s: any) => ({
-          ...s,
-          father_name: s.parents?.[0]?.father_name ?? null,
-          phone: s.parents?.[0]?.phone ?? null
+        const studentRows = ((studentData as StudentRecord[]) ?? [])
+        const studentIds = studentRows.map((student) => student.id)
+
+        let parentMap = new Map<string, { father_name: string | null; phone: string | null }>()
+
+        if (studentIds.length > 0) {
+          const { data: parentData, error: parentError } = await supabase
+            .from("parents")
+            .select("student_id,father_name,phone")
+            .in("student_id", studentIds)
+
+          if (parentError) {
+            console.error("Document studio parent load error:", parentError)
+          } else {
+            parentMap = new Map(
+              ((parentData as Array<{ student_id: string; father_name: string | null; phone: string | null }>) ?? []).map(
+                (parent) => [
+                  parent.student_id,
+                  {
+                    father_name: parent.father_name,
+                    phone: parent.phone
+                  }
+                ]
+              )
+            )
+          }
+        }
+
+        const loadedStudents = studentRows.map((student) => ({
+          ...student,
+          father_name: parentMap.get(student.id)?.father_name ?? null,
+          phone: parentMap.get(student.id)?.phone ?? null
         }))
         setStudents(loadedStudents)
         setPreviewStudentId((current) => current || loadedStudents[0]?.id || "")
