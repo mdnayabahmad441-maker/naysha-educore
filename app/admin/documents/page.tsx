@@ -242,15 +242,15 @@ export default function DocumentStudioPage() {
   }
 
   const saveLayout = async () => {
+    setSaving(true)
     try {
-      setSaving(true)
       await updateSettings(DOCUMENT_SETTINGS_KEYS[activeDocument].layout, layouts[activeDocument])
+      setSaving(false)
       alert(`${documentLabels[activeDocument]} layout saved`)
     } catch (error) {
       console.error(error)
-      alert("Failed to save layout")
-    } finally {
       setSaving(false)
+      alert("Failed to save layout")
     }
   }
 
@@ -376,7 +376,7 @@ export default function DocumentStudioPage() {
                 className={`w-full rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
                   activeDocument === kind
                     ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg"
-                    : "border border-white/10 bg-[#0f172a] text-gray-300 hover:bg-white/10"
+                    : "border border-white/20 bg-white/[0.07] text-gray-200 hover:bg-white/[0.14]"
                 }`}
               >
                 {documentLabels[kind]}
@@ -391,11 +391,18 @@ export default function DocumentStudioPage() {
               onChange={(event) => setPreviewStudentId(event.target.value)}
               className="mt-3 w-full rounded-xl border border-white/10 bg-[#07101d] px-3 py-3 text-sm text-white"
             >
-              {students.map((student) => (
-                <option key={student.id} value={student.id}>
-                  {student.name}
-                </option>
-              ))}
+              {students.length === 0 ? (
+                <option value="">No students found — add students first</option>
+              ) : (
+                <>
+                  {!previewStudentId && <option value="">Select a student</option>}
+                  {students.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {student.name}
+                    </option>
+                  ))}
+                </>
+              )}
             </select>
 
             {activeDocument === "certificate" && (
