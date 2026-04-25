@@ -67,7 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading) {
     return (
-      <div className="p-6 text-white bg-(--bg-main) min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-(--bg-main) p-6 text-white">
         Loading...
       </div>
     )
@@ -82,13 +82,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
 
-    <div className="flex min-h-screen flex-col bg-(--bg-main) text-white md:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden bg-(--bg-main) text-white md:flex-row">
 
       {/* MOBILE SIDEBAR OVERLAY */}
       <div className={`fixed inset-0 z-30 bg-black/60 transition-opacity duration-200 md:hidden ${sidebarOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`} onClick={closeSidebar} />
 
       {/* 🔥 SIDEBAR */}
-      <aside className={`fixed inset-y-0 left-0 z-40 flex w-full max-w-[320px] flex-col overflow-hidden border-r border-white/10 bg-(--bg-card) p-6 transition-transform duration-200 md:static md:translate-x-0 md:w-64 md:max-w-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`fixed inset-y-0 left-0 z-40 flex h-full w-full max-w-[320px] flex-col overflow-hidden border-r border-white/10 bg-(--bg-card) p-6 transition-transform duration-200 md:static md:translate-x-0 md:w-64 md:max-w-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
 
         <div className="flex items-center justify-between gap-4 md:block">
           <h1 className="text-xl font-bold mb-6 bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
@@ -222,7 +222,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* MAIN */}
-      <div className="flex-1 flex flex-col md:ml-64">
+      <div className="flex min-h-0 flex-1 flex-col md:ml-64">
 
         <header className="border-b border-white/10 bg-(--bg-card) px-4 py-4 md:px-8">
           <div className="md:hidden">
@@ -273,7 +273,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
-        <main className="flex-1 p-4 bg-(--bg-main) md:p-10">
+        <main className="flex-1 overflow-y-auto bg-(--bg-main) p-4 md:p-10">
           {children}
         </main>
 
