@@ -76,6 +76,7 @@ const defaultLayouts: Record<DocumentKind, DocumentLayout> = {
       { id: "marksTable", label: "Marks Table", type: "table", x: 8, y: 39, w: 84, h: 35, borderRadius: 14, borderColor: "#cbd5e1" },
       { id: "obtainedMarks", label: "Obtained Marks", type: "text", x: 8, y: 78, w: 22, h: 3.2, fontSize: 12, fontWeight: 700, color: "#111827" },
       { id: "totalMarks", label: "Total Marks", type: "text", x: 8, y: 82.5, w: 22, h: 3.2, fontSize: 12, fontWeight: 700, color: "#111827" },
+      { id: "remark", label: "Teacher Remark", type: "text", x: 34, y: 77.8, w: 58, h: 8.8, fontSize: 11, fontWeight: 600, color: "#1f2937" },
       { id: "classTeacherSign", label: "Class Teacher", type: "text", x: 8, y: 92, w: 18, h: 2.5, fontSize: 11, fontWeight: 600, color: "#334155" },
       { id: "principalSign", label: "Principal", type: "text", x: 74, y: 92, w: 18, h: 2.5, fontSize: 11, fontWeight: 600, color: "#334155", align: "right" }
     ]
@@ -116,16 +117,22 @@ export function normalizeDocumentLayout(kind: DocumentKind, value: unknown): Doc
     return fallback
   }
 
+  const candidateMap = new Map(
+    fields
+      .filter((field) => typeof field === "object" && field !== null)
+      .map((field) => {
+        const candidateField = field as unknown as Record<string, unknown>
+        return [String(candidateField.id || ""), candidateField]
+      })
+  )
+
   return {
     width: typeof candidate.width === "number" && candidate.width > 0 ? candidate.width : fallback.width,
     height: typeof candidate.height === "number" && candidate.height > 0 ? candidate.height : fallback.height,
-    fields: fields.map((field, index) => {
-      const defaultField = fallback.fields[index] || fallback.fields[0]
-      return {
-        ...defaultField,
-        ...(typeof field === "object" && field ? field : {})
-      } as DocumentField
-    })
+    fields: fallback.fields.map((defaultField) => ({
+      ...defaultField,
+      ...(candidateMap.get(defaultField.id) || {})
+    }))
   }
 }
 

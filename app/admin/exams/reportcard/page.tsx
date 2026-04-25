@@ -31,6 +31,7 @@ export default function ReportCardPage(){
   const [loading,setLoading] = useState(false)
   const [downloading,setDownloading] = useState(false)
   const [sending,setSending] = useState(false)
+  const [generatingRemarks,setGeneratingRemarks] = useState(false)
 
   async function init(){
     const schoolId = await getSchoolId()
@@ -199,7 +200,8 @@ export default function ReportCardPage(){
             obtainedMarks,
             percentage,
             finalResult,
-            grade
+            grade,
+            remark: ""
           }
         })
       }
@@ -323,6 +325,77 @@ export default function ReportCardPage(){
     setSending(false)
   }
 
+  const generateAiRemarks = async ()=>{
+    if(reports.length === 0){
+      alert("Generate report cards first")
+      return
+    }
+
+    setGeneratingRemarks(true)
+
+    try{
+      const schoolId = await getSchoolId()
+      const examName = exams.find((item)=>item.id === selectedExam)?.name || "Exam"
+      const className = classes.find((item)=>item.id === selectedClass)?.name || "Class"
+
+      const nextReports = []
+
+      for (const entry of reports) {
+        const strengths = entry.report.rows
+          .filter((row:any)=>row.status === "PASS" && row.obtained >= row.total * 0.75)
+          .map((row:any)=>row.name)
+          .join(", ")
+
+        const concerns = entry.report.rows
+          .filter((row:any)=>row.status === "FAIL" || row.obtained < row.total * 0.5)
+          .map((row:any)=>row.name)
+          .join(", ")
+
+        try{
+          const response = await apiFetch("/api/ai/text",{
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({
+              task: "report_card_remark",
+              schoolId,
+              schoolName: school?.name || "School",
+              studentName: entry.student.name,
+              className,
+              examName,
+              percentage: entry.report.percentage.toFixed(2),
+              grade: entry.report.grade,
+              result: entry.report.finalResult,
+              strengths,
+              concerns
+            })
+          })
+
+          const result = await response.json()
+
+          nextReports.push({
+            ...entry,
+            report: {
+              ...entry.report,
+              remark: response.ok && result?.data?.remark
+                ? result.data.remark
+                : entry.report.remark || "Consistent effort shown throughout the term."
+            }
+          })
+        }catch{
+          nextReports.push(entry)
+        }
+      }
+
+      setReports(nextReports)
+      alert("AI remarks generated for the selected report cards.")
+    }catch(err){
+      console.error(err)
+      alert("Failed to generate AI remarks")
+    }
+
+    setGeneratingRemarks(false)
+  }
+
   const classObj = classes.find(c=>c.id === selectedClass)
   const examObj = exams.find(e=>e.id === selectedExam)
 
@@ -357,6 +430,10 @@ export default function ReportCardPage(){
 
         <button onClick={sendWhatsApp} className="bg-purple-600 px-4 py-2 rounded">
           {sending ? "Sending..." : "Send WhatsApp"}
+        </button>
+
+        <button onClick={generateAiRemarks} className="bg-amber-600 px-4 py-2 rounded">
+          {generatingRemarks ? "Generating Remarks..." : "Generate AI Remarks"}
         </button>
 
       </div>

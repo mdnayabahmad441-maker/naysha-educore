@@ -5,6 +5,7 @@ import { sendNotification } from "@/lib/notifications"
 import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
 import { apiFetch } from "@/lib/api-client"
+import { useSchool } from "@/context/SchoolContext"
 
 type NoticeMode = "all" | "class" | "student"
 
@@ -47,10 +48,12 @@ async function fetchNotices(schoolId: string): Promise<Notice[]> {
 }
 
 export default function NoticesPage() {
+  const school = useSchool()
   const [schoolId, setSchoolId] = useState<string | null>(null)
 
   const [title, setTitle] = useState("")
   const [message, setMessage] = useState("")
+  const [aiPrompt, setAiPrompt] = useState("")
 
   const [mode, setMode] = useState<NoticeMode>("all")
   const [selectedClass, setSelectedClass] = useState("")
@@ -61,6 +64,7 @@ export default function NoticesPage() {
   const [notices, setNotices] = useState<Notice[]>([])
 
   const [sending, setSending] = useState(false)
+  const [drafting, setDrafting] = useState(false)
 
   useEffect(() => {
     void getSchoolId().then(setSchoolId)
@@ -289,11 +293,79 @@ export default function NoticesPage() {
     }
   }
 
+  const generateNoticeDraft = async () => {
+    if (!schoolId) {
+      alert("School not loaded")
+      return
+    }
+
+    if (!aiPrompt.trim() && !title.trim()) {
+      alert("Enter a notice topic first")
+      return
+    }
+
+    try {
+      setDrafting(true)
+
+      const audience =
+        mode === "all"
+          ? "All students and parents"
+          : mode === "class"
+          ? `Class ${classes.find((item) => item.id === selectedClass)?.name || "selected class"}`
+          : `Student ${students.find((item) => item.id === selectedStudent)?.name || "selected student"}`
+
+      const response = await apiFetch("/api/ai/text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task: "notice_draft",
+          schoolId,
+          schoolName: school?.name || "School",
+          audience,
+          topic: aiPrompt.trim() || title.trim(),
+          details: message.trim()
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result?.data) {
+        throw new Error(result?.error || "Failed to draft notice")
+      }
+
+      setTitle(result.data.title)
+      setMessage(result.data.message)
+    } catch (error) {
+      console.error(error)
+      alert(error instanceof Error ? error.message : "Failed to draft notice")
+    } finally {
+      setDrafting(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6 text-white md:p-10">
       <h1 className="text-2xl font-semibold">Notices</h1>
 
       <div className="space-y-4 rounded-xl bg-white/10 p-6">
+        <div className="rounded-xl border border-cyan-400/15 bg-cyan-500/5 p-4">
+          <div className="flex flex-col gap-3 md:flex-row">
+            <input
+              placeholder="AI topic, for example: Fee reminder for April or Holiday notice for Eid"
+              value={aiPrompt}
+              onChange={(event) => setAiPrompt(event.target.value)}
+              className="flex-1 rounded-xl bg-[#0b1220] p-3"
+            />
+            <button
+              onClick={generateNoticeDraft}
+              disabled={drafting}
+              className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20"
+            >
+              {drafting ? "Drafting..." : "AI Draft Notice"}
+            </button>
+          </div>
+        </div>
+
         <input
           placeholder="Notice Title"
           value={title}

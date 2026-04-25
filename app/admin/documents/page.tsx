@@ -5,6 +5,7 @@ import DocumentCanvas from "@/components/documents/DocumentCanvas"
 import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
 import { getSettings, updateSettings } from "@/lib/settings"
+import { apiFetch } from "@/lib/api-client"
 import {
   DOCUMENT_SETTINGS_KEYS,
   getCertificateBodyText,
@@ -45,6 +46,8 @@ export default function DocumentStudioPage() {
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [generatingLayout, setGeneratingLayout] = useState(false)
+  const [generatingCertificateText, setGeneratingCertificateText] = useState(false)
 
   const [activeDocument, setActiveDocument] = useState<DocumentKind>("id_card")
   const [layouts, setLayouts] = useState<Record<DocumentKind, DocumentLayout>>({
@@ -62,6 +65,7 @@ export default function DocumentStudioPage() {
   const [certificateType, setCertificateType] = useState<"bonafide" | "tc">("bonafide")
   const [certificateReason, setCertificateReason] = useState("")
   const [certificateIssueDate, setCertificateIssueDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [aiCertificateDraft, setAiCertificateDraft] = useState<{ title: string; body: string } | null>(null)
 
   useEffect(() => {
     void getSchoolId().then(setSchoolId)
@@ -198,8 +202,8 @@ export default function DocumentStudioPage() {
       certificate: {
         schoolName: school?.name || "School Name",
         schoolAddress: school?.address || school?.subdomain || "School Address",
-        certificateTitle: certificateType === "tc" ? "Transfer Certificate" : "Bonafide Certificate",
-        certificateBody,
+        certificateTitle: aiCertificateDraft?.title || (certificateType === "tc" ? "Transfer Certificate" : "Bonafide Certificate"),
+        certificateBody: aiCertificateDraft?.body || certificateBody,
         studentName: previewStudent?.name || "Student Name",
         fatherName: `S/O ${previewStudent?.father_name || "Parent Name"}`,
         className: `Class: ${className}`,
@@ -208,7 +212,7 @@ export default function DocumentStudioPage() {
         principalSign: "Principal"
       }
     }
-  }, [certificateBody, certificateIssueDate, certificateType, classMap, previewStudent, school])
+  }, [aiCertificateDraft, certificateBody, certificateIssueDate, certificateType, classMap, previewStudent, school])
 
   const activeLayout = layouts[activeDocument]
   const activeTemplateUrl = templateUrls[activeDocument]
@@ -220,6 +224,10 @@ export default function DocumentStudioPage() {
       setSelectedFieldId(activeLayout.fields[0]?.id || null)
     }
   }, [activeLayout, selectedFieldId])
+
+  useEffect(() => {
+    setAiCertificateDraft(null)
+  }, [certificateType, certificateReason, certificateIssueDate, previewStudentId])
 
   const updateField = (fieldId: string, patch: Partial<DocumentField>) => {
     setLayouts((current) => ({
@@ -251,6 +259,95 @@ export default function DocumentStudioPage() {
       ...current,
       [activeDocument]: getDefaultDocumentLayout(activeDocument)
     }))
+  }
+
+  const generateCertificateText = async () => {
+    if (!schoolId || activeDocument !== "certificate" || !previewStudent) {
+      return
+    }
+
+    try {
+      setGeneratingCertificateText(true)
+
+      const response = await apiFetch("/api/ai/text", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          task: "certificate_text",
+          schoolId,
+          schoolName: school?.name || "School",
+          certificateType,
+          studentName: previewStudent.name,
+          fatherName: previewStudent.father_name || "Parent",
+          className: classMap.get(previewStudent.class_id || "") || "Class",
+          studentCode: previewStudent.student_code || "N/A",
+          issueDate: certificateIssueDate,
+          reason: certificateReason
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result?.data) {
+        throw new Error(result?.error || "Failed to generate certificate text")
+      }
+
+      setAiCertificateDraft({
+        title: result.data.title,
+        body: result.data.body
+      })
+
+      alert("AI generated certificate text. It is now shown in the certificate body preview.")
+    } catch (error) {
+      console.error(error)
+      alert(error instanceof Error ? error.message : "Failed to generate certificate text")
+    } finally {
+      setGeneratingCertificateText(false)
+    }
+  }
+
+  const generateAiLayout = async () => {
+    const imageUrl = templateUrls[activeDocument]
+
+    if (!imageUrl) {
+      alert("Upload a template image first in Settings")
+      return
+    }
+
+    try {
+      setGeneratingLayout(true)
+
+      const response = await apiFetch("/api/ai/document-layout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          kind: activeDocument,
+          imageUrl
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result?.layout) {
+        throw new Error(result?.error || "AI layout generation failed")
+      }
+
+      setLayouts((current) => ({
+        ...current,
+        [activeDocument]: normalizeDocumentLayout(activeDocument, result.layout)
+      }))
+
+      alert("AI generated a first draft layout. Review it and save when it looks right.")
+    } catch (error) {
+      console.error(error)
+      alert(error instanceof Error ? error.message : "Failed to generate AI layout")
+    } finally {
+      setGeneratingLayout(false)
+    }
   }
 
   if (loading) {
@@ -359,6 +456,13 @@ export default function DocumentStudioPage() {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
+              onClick={generateAiLayout}
+              className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/15"
+            >
+              {generatingLayout ? "Generating AI Layout..." : "Generate AI Layout"}
+            </button>
+            <button
+              type="button"
               onClick={saveLayout}
               className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
             >
@@ -371,6 +475,15 @@ export default function DocumentStudioPage() {
             >
               Reset to Default
             </button>
+            {activeDocument === "certificate" && (
+              <button
+                type="button"
+                onClick={generateCertificateText}
+                className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-5 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-500/15"
+              >
+                {generatingCertificateText ? "Generating Certificate Text..." : "Generate Certificate Text"}
+              </button>
+            )}
             {activeDocument === "certificate" && (
               <button
                 type="button"

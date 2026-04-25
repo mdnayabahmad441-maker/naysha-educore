@@ -199,6 +199,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📄 Document Studio
           </Link>
 
+          <Link href="/admin/ai-assistant" className={linkStyle("/admin/ai-assistant")} onClick={closeSidebar}>
+            🤖 AI Assistant
+          </Link>
+
         </nav>
 
         <div className="mt-6 border-t border-white/10 pt-5 md:hidden">

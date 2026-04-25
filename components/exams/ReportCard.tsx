@@ -38,6 +38,7 @@ export default function ReportCard({
     result: report.finalResult,
     totalMarks: `Total Marks: ${report.totalMarks}`,
     obtainedMarks: `Obtained Marks: ${report.obtainedMarks}`,
+    remark: report.remark || "Teacher Remark: Consistent effort shown throughout the term.",
     classTeacherSign: "Class Teacher",
     principalSign: "Principal"
   }
