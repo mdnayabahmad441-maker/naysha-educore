@@ -93,32 +93,25 @@ export default function NoticesPage() {
     if (!schoolId) return
 
     const load = async () => {
-      const year = await getActiveAcademicYear()
-      let enrollQuery = supabase
-        .from("student_enrollments")
-        .select("student_id, students:student_id(id, name)")
-        .eq("school_id", schoolId)
-
-      if(year) enrollQuery = enrollQuery.eq("academic_year_id", year.id)
-
-      if(mode === "class" && selectedClass) {
-        enrollQuery = enrollQuery.eq("class_id", selectedClass)
+      if (mode === "class" && selectedClass) {
+        const year = await getActiveAcademicYear()
+        let enrollQuery = supabase
+          .from("student_enrollments")
+          .select("student_id, students:student_id(id, name)")
+          .eq("class_id", selectedClass)
+          .eq("school_id", schoolId)
+        if(year) enrollQuery = enrollQuery.eq("academic_year_id", year.id)
+        const { data, error } = await enrollQuery
+        if(error) { console.error("Failed to load students:", error); setStudents([]); return }
+        setStudents((data || []).map((e: any) => ({ id: e.student_id, name: e.students?.name ?? "Unknown" })))
+      } else {
+        const { data, error } = await supabase
+          .from("students")
+          .select("id,name")
+          .eq("school_id", schoolId)
+        if(error) { console.error("Failed to load students:", error); setStudents([]); return }
+        setStudents((data as Student[] | null) ?? [])
       }
-
-      const { data, error } = await enrollQuery
-
-      if(error) {
-        console.error("Failed to load students:", error)
-        setStudents([])
-        return
-      }
-
-      setStudents(
-        (data || []).map((e: any) => ({
-          id: e.student_id,
-          name: e.students?.name ?? "Unknown"
-        }))
-      )
     }
 
     void load()
@@ -171,18 +164,15 @@ export default function NoticesPage() {
     try {
       let targetStudents: Student[] = []
 
-      const year = await getActiveAcademicYear()
-
       if (mode === "all") {
-        let enrollQuery = supabase
-          .from("student_enrollments")
-          .select("student_id, students:student_id(id, name)")
+        const { data, error } = await supabase
+          .from("students")
+          .select("id,name")
           .eq("school_id", schoolId)
-        if(year) enrollQuery = enrollQuery.eq("academic_year_id", year.id)
-        const { data, error } = await enrollQuery
         if(error) throw error
-        targetStudents = (data || []).map((e: any) => ({ id: e.student_id, name: e.students?.name ?? "Unknown" }))
+        targetStudents = (data as Student[] | null) ?? []
       } else if (mode === "class") {
+        const year = await getActiveAcademicYear()
         let enrollQuery = supabase
           .from("student_enrollments")
           .select("student_id, students:student_id(id, name)")

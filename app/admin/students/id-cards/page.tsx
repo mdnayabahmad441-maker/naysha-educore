@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { useSchool } from "@/context/SchoolContext"
 import { getSettings } from "@/lib/settings"
-import { getActiveAcademicYear } from "@/lib/academic"
 import DocumentCanvas from "@/components/documents/DocumentCanvas"
 import { normalizeDocumentLayout, type DocumentLayout } from "@/lib/document-layouts"
 
@@ -52,17 +51,14 @@ export default function StudentIdCardsPage() {
 
     setLoading(true)
     const load = async () => {
-      const year = await getActiveAcademicYear()
-      let enrollQuery = supabase
-        .from("student_enrollments")
-        .select("student_id, class_id, roll_number, students:student_id(id, name, student_code, photo, father_name, phone)")
-        .eq("school_id", schoolId)
-      if(year) enrollQuery = enrollQuery.eq("academic_year_id", year.id)
-
-      const [{ data: classData, error: classError }, { data: enrollData, error: studentError }, templateUrl, layoutSetting] =
+      const [{ data: classData, error: classError }, { data: studentData, error: studentError }, templateUrl, layoutSetting] =
         await Promise.all([
           supabase.from("classes").select("id,name").eq("school_id", schoolId),
-          enrollQuery,
+          supabase
+            .from("students")
+            .select("id,name,student_code,class_id,roll_number,photo,father_name,phone")
+            .eq("school_id", schoolId)
+            .order("name", { ascending: true }),
           getSettings("id_card_template"),
           getSettings("id_card_layout")
         ])
@@ -77,18 +73,7 @@ export default function StudentIdCardsPage() {
         console.error("Student fetch error:", studentError)
         setStudents([])
       } else {
-        setStudents(
-          (enrollData || []).map((e: any) => ({
-            id: e.student_id,
-            name: e.students?.name ?? "Unknown",
-            student_code: e.students?.student_code ?? null,
-            class_id: e.class_id,
-            roll_number: e.roll_number,
-            photo: e.students?.photo ?? null,
-            father_name: e.students?.father_name ?? null,
-            phone: e.students?.phone ?? null
-          }))
-        )
+        setStudents((studentData as Student[] | null) ?? [])
       }
 
       setIdCardTemplateUrl(typeof templateUrl === "string" ? templateUrl : "")

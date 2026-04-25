@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 import DocumentCanvas from "@/components/documents/DocumentCanvas"
 import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
-import { getActiveAcademicYear } from "@/lib/academic"
 import { getSettings, updateSettings } from "@/lib/settings"
 import { apiFetch } from "@/lib/api-client"
 import {
@@ -78,15 +77,8 @@ export default function DocumentStudioPage() {
     const load = async () => {
       setLoading(true)
 
-      const year = await getActiveAcademicYear()
-      let enrollQuery = supabase
-        .from("student_enrollments")
-        .select("student_id, class_id, roll_number, students:student_id(id, name, father_name, student_code, photo, phone)")
-        .eq("school_id", schoolId)
-      if(year) enrollQuery = enrollQuery.eq("academic_year_id", year.id)
-
       const [
-        { data: enrollData, error: studentError },
+        { data: studentData, error: studentError },
         { data: classData, error: classError },
         idCardTemplate,
         reportCardTemplate,
@@ -95,7 +87,11 @@ export default function DocumentStudioPage() {
         reportCardLayout,
         certificateLayout
       ] = await Promise.all([
-        enrollQuery,
+        supabase
+          .from("students")
+          .select("id,name,father_name,student_code,class_id,roll_number,photo,phone")
+          .eq("school_id", schoolId)
+          .order("name", { ascending: true }),
         supabase.from("classes").select("id,name").eq("school_id", schoolId).order("name", { ascending: true }),
         getSettings(DOCUMENT_SETTINGS_KEYS.id_card.template),
         getSettings(DOCUMENT_SETTINGS_KEYS.report_card.template),
@@ -108,16 +104,7 @@ export default function DocumentStudioPage() {
       if (studentError) {
         console.error("Document studio student load error:", studentError)
       } else {
-        const loadedStudents = (enrollData || []).map((e: any) => ({
-          id: e.student_id,
-          name: e.students?.name ?? "Unknown",
-          father_name: e.students?.father_name ?? null,
-          student_code: e.students?.student_code ?? null,
-          class_id: e.class_id,
-          roll_number: e.roll_number,
-          photo: e.students?.photo ?? null,
-          phone: e.students?.phone ?? null
-        }))
+        const loadedStudents = (studentData as StudentRecord[] | null) ?? []
         setStudents(loadedStudents)
         setPreviewStudentId((current) => current || loadedStudents[0]?.id || "")
       }
