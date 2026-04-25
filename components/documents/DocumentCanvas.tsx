@@ -16,6 +16,7 @@ type Props = {
   backgroundUrl?: string | null
   values: Record<string, string>
   photoUrl?: string | null
+  logoUrl?: string | null
   rows?: ReportRow[]
   editable?: boolean
   selectedFieldId?: string | null
@@ -59,6 +60,7 @@ export default function DocumentCanvas({
   backgroundUrl,
   values,
   photoUrl,
+  logoUrl,
   rows = [],
   editable = false,
   selectedFieldId,
@@ -288,7 +290,7 @@ export default function DocumentCanvas({
                   background
                 }}
               >
-                <FieldRenderer field={field} value={values[field.id] || ""} photoUrl={photoUrl} rows={rows} />
+                <FieldRenderer field={field} value={values[field.id] || ""} photoUrl={photoUrl} logoUrl={logoUrl} rows={rows} />
 
                 {isSelected && editable ? (
                   <>
@@ -337,22 +339,30 @@ function FieldRenderer({
   field,
   value,
   photoUrl,
+  logoUrl,
   rows
 }: {
   field: DocumentField
   value: string
   photoUrl?: string | null
+  logoUrl?: string | null
   rows: ReportRow[]
 }) {
   if (field.type === "photo") {
+    const activeImage = field.id === "schoolLogo" ? logoUrl : photoUrl
+
     return (
       <div className="flex h-full w-full items-center justify-center overflow-hidden bg-white/70" style={{ borderRadius: "inherit" }}>
-        {photoUrl ? (
+        {activeImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={photoUrl} alt="Student" className="h-full w-full object-cover" />
+          <img
+            src={activeImage}
+            alt={field.id === "schoolLogo" ? "School logo" : "Student"}
+            className={`h-full w-full ${field.id === "schoolLogo" ? "object-contain p-1.5" : "object-cover"}`}
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-slate-200 text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-slate-500">
-            Photo
+            {field.id === "schoolLogo" ? "Logo" : "Photo"}
           </div>
         )}
       </div>

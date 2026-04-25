@@ -384,7 +384,8 @@ function StudentCard({
     <DocumentCanvas
       layout={layout}
       values={values}
-      photoUrl={student.photo || schoolLogo || null}
+      photoUrl={student.photo || null}
+      logoUrl={schoolLogo}
       className="print-page-break mx-auto w-[340px]"
     />
   )

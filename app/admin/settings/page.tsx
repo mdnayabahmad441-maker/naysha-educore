@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { getSettings, updateSettings } from "@/lib/settings"
 import { apiFetch } from "@/lib/api-client"
+import { ID_CARD_PRESETS } from "@/lib/document-layouts"
 
 type UploadKind = "logo" | "report-card-template" | "certificate-template"
 
@@ -55,6 +56,7 @@ export default function SettingsPage() {
   const [reportCardTemplateUrl, setReportCardTemplateUrl] = useState("")
   const [certificateTemplateUrl, setCertificateTemplateUrl] = useState("")
   const [aiInstructions, setAiInstructions] = useState("")
+  const [selectedIdCardPreset, setSelectedIdCardPreset] = useState(ID_CARD_PRESETS[0].id)
   const [uploadingAsset, setUploadingAsset] = useState<UploadKind | null>(null)
   const [analyzingLayout, setAnalyzingLayout] = useState<UploadKind | null>(null)
   const [deletingAsset, setDeletingAsset] = useState<UploadKind | null>(null)
@@ -70,7 +72,7 @@ export default function SettingsPage() {
     const load = async () => {
       setLoading(true)
 
-      const [{ data: schoolData }, examSettings, feeSettings, reportTemplate, certificateTemplate, aiText, { data: cls }, { data: classFeeData }, { data: yrs }] =
+      const [{ data: schoolData }, examSettings, feeSettings, reportTemplate, certificateTemplate, aiText, idCardLayout, { data: cls }, { data: classFeeData }, { data: yrs }] =
         await Promise.all([
           supabase.from("schools").select("*").eq("id", schoolId).single(),
           getSettings("exam"),
@@ -78,6 +80,7 @@ export default function SettingsPage() {
           getSettings("report_card_template"),
           getSettings("certificate_template"),
           getSettings("ai_system_instructions"),
+          getSettings("id_card_layout"),
           supabase.from("classes").select("*").eq("school_id", schoolId),
           supabase.from("class_fee_settings").select("*").eq("school_id", schoolId),
           supabase.from("academic_years").select("*").eq("school_id", schoolId).order("created_at", { ascending: false }),
@@ -97,6 +100,8 @@ export default function SettingsPage() {
       setReportCardTemplateUrl(typeof reportTemplate === "string" ? reportTemplate : "")
       setCertificateTemplateUrl(typeof certificateTemplate === "string" ? certificateTemplate : "")
       setAiInstructions(typeof aiText === "string" ? aiText : "")
+      const matchedPreset = ID_CARD_PRESETS.find((preset) => JSON.stringify(preset.layout) === JSON.stringify(idCardLayout))
+      setSelectedIdCardPreset(matchedPreset?.id || ID_CARD_PRESETS[0].id)
       setClasses(cls || [])
       setYears(yrs || [])
 
@@ -287,6 +292,17 @@ export default function SettingsPage() {
     alert("AI instructions saved")
   }
 
+  const applyIdCardPreset = async (presetId: string) => {
+    const preset = ID_CARD_PRESETS.find((item) => item.id === presetId)
+
+    if (!preset) return
+
+    await updateSettings("id_card_layout", preset.layout)
+    await updateSettings("id_card_preset", preset.id)
+    setSelectedIdCardPreset(preset.id)
+    alert(`${preset.name} applied to student ID cards`)
+  }
+
   const saveClassFees = async () => {
     for (const classId in classFees) {
       const value = classFees[classId]
@@ -402,14 +418,35 @@ export default function SettingsPage() {
                 <div>
                   <h3 className="text-lg font-semibold">ID Card Design</h3>
                   <p className="mt-1 text-sm text-gray-400">
-                    ID cards use the built-in system design for now. No separate documents page is active.
+                    Pick from ready-made ID card templates. Each template uses the student photo, student details, and school logo automatically.
                   </p>
                 </div>
-                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-cyan-400/30 bg-cyan-500/5 text-sm text-cyan-200">
-                  System-generated design active
+                <div className="grid gap-3">
+                  {ID_CARD_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => void applyIdCardPreset(preset.id)}
+                      className={`rounded-2xl border p-3 text-left transition ${
+                        selectedIdCardPreset === preset.id
+                          ? "border-cyan-400/40 bg-cyan-500/10"
+                          : "border-white/10 bg-[#0b1220] hover:bg-white/10"
+                      }`}
+                    >
+                      <div
+                        className="mb-3 h-16 rounded-xl"
+                        style={{ background: preset.accent }}
+                      />
+                      <div className="text-sm font-semibold text-white">{preset.name}</div>
+                      <div className="mt-1 text-xs text-slate-400">{preset.description}</div>
+                      {selectedIdCardPreset === preset.id && (
+                        <div className="mt-2 text-xs font-semibold text-cyan-200">Active template</div>
+                      )}
+                    </button>
+                  ))}
                 </div>
                 <p className="text-xs text-slate-400">
-                  Logo changes still apply to generated cards automatically.
+                  Available presets: {ID_CARD_PRESETS.length}. Logo changes from school settings apply automatically.
                 </p>
               </div>
 
