@@ -296,6 +296,7 @@ export default function FeesPage() {
             payment_mode: payment?.payment_mode ?? "cash"
           }}
           school={schoolRes.data}
+          showActions={false}
         />
       )
 

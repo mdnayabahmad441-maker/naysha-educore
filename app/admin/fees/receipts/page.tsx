@@ -100,6 +100,7 @@ export default function ReceiptHistoryPage() {
           fee={receiptData.fee}
           payment={receiptData.payment}
           school={receiptData.school}
+          showActions={false}
         />
       )
 
