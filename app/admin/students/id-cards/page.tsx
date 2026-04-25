@@ -56,7 +56,7 @@ export default function StudentIdCardsPage() {
           supabase.from("classes").select("id,name").eq("school_id", schoolId),
           supabase
             .from("students")
-            .select("id,name,student_code,class_id,roll_number,photo,father_name,phone")
+            .select("id,name,student_code,class_id,roll_number,photo,parents(father_name,phone)")
             .eq("school_id", schoolId)
             .order("name", { ascending: true }),
           getSettings("id_card_template"),
@@ -73,7 +73,13 @@ export default function StudentIdCardsPage() {
         console.error("Student fetch error:", studentError)
         setStudents([])
       } else {
-        setStudents((studentData as Student[] | null) ?? [])
+        setStudents(
+          ((studentData as any[]) ?? []).map((s: any) => ({
+            ...s,
+            father_name: s.parents?.[0]?.father_name ?? null,
+            phone: s.parents?.[0]?.phone ?? null
+          }))
+        )
       }
 
       setIdCardTemplateUrl(typeof templateUrl === "string" ? templateUrl : "")

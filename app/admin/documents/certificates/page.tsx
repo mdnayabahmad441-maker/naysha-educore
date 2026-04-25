@@ -70,19 +70,24 @@ export default function CertificatesPage() {
         supabase.from("classes").select("id,name").eq("school_id", schoolId).order("name"),
         supabase
           .from("students")
-          .select("id,name,father_name,student_code,class_id,roll_number")
+          .select("id,name,student_code,class_id,roll_number,parents(father_name)")
           .eq("school_id", schoolId)
           .order("name"),
         getSettings("certificate_template"),
         getSettings("certificate_layout")
       ])
 
+      const studentList = ((studentData as any[]) ?? []).map((s: any) => ({
+        ...s,
+        father_name: s.parents?.[0]?.father_name ?? null
+      }))
+
       setClasses((classData as SchoolClass[] | null) ?? [])
-      setStudents((studentData as Student[] | null) ?? [])
+      setStudents(studentList)
       setTemplateUrl(typeof templateSetting === "string" ? templateSetting : "")
       setLayout(normalizeDocumentLayout("certificate", layoutSetting))
 
-      const firstStudent = (studentData as Student[] | null)?.[0]
+      const firstStudent = studentList[0]
       if (firstStudent) setSelectedStudentId(firstStudent.id)
 
       setLoading(false)

@@ -89,7 +89,7 @@ export default function DocumentStudioPage() {
       ] = await Promise.all([
         supabase
           .from("students")
-          .select("id,name,father_name,student_code,class_id,roll_number,photo,phone")
+          .select("id,name,student_code,class_id,roll_number,photo,parents(father_name,phone)")
           .eq("school_id", schoolId)
           .order("name", { ascending: true }),
         supabase.from("classes").select("id,name").eq("school_id", schoolId).order("name", { ascending: true }),
@@ -104,7 +104,11 @@ export default function DocumentStudioPage() {
       if (studentError) {
         console.error("Document studio student load error:", studentError)
       } else {
-        const loadedStudents = (studentData as StudentRecord[] | null) ?? []
+        const loadedStudents = ((studentData as any[]) ?? []).map((s: any) => ({
+          ...s,
+          father_name: s.parents?.[0]?.father_name ?? null,
+          phone: s.parents?.[0]?.phone ?? null
+        }))
         setStudents(loadedStudents)
         setPreviewStudentId((current) => current || loadedStudents[0]?.id || "")
       }
