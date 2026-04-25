@@ -25,6 +25,7 @@ export default function AdmissionEnquiryPage() {
   const [replyDrafts, setReplyDrafts] = useState<Record<string, { subject: string; message: string }>>({})
   const [draftingId, setDraftingId] = useState<string | null>(null)
   const [sendingReply, setSendingReply] = useState<Record<string, "email" | "whatsapp" | null>>({})
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
 
   useEffect(() => {
     void getSchoolId().then(setSchoolId)
@@ -56,15 +57,41 @@ export default function AdmissionEnquiryPage() {
 
 
   const updateStatus = async (enquiryId: string, newStatus: string) => {
-    // This would typically call an API to update the status
-    // For now, we'll just update the local state
-    setEnquiries(prev =>
-      prev.map(enquiry =>
+    const previousEnquiries = enquiries
+
+    setUpdatingStatusId(enquiryId)
+    setEnquiries((prev) =>
+      prev.map((enquiry) =>
         enquiry.id === enquiryId
           ? { ...enquiry, status: newStatus }
           : enquiry
       )
     )
+
+    try {
+      const response = await apiFetch("/api/admission-enquiry", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          enquiryId,
+          status: newStatus,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Failed to update status")
+      }
+    } catch (error) {
+      console.error(error)
+      setEnquiries(previousEnquiries)
+      alert(error instanceof Error ? error.message : "Failed to update status")
+    } finally {
+      setUpdatingStatusId(null)
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -268,6 +295,7 @@ export default function AdmissionEnquiryPage() {
                         <select
                           value={enquiry.status}
                           onChange={(e) => updateStatus(enquiry.id, e.target.value)}
+                          disabled={updatingStatusId === enquiry.id}
                           className="bg-slate-900/90 text-white border border-white/20 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                         >
                           <option className="bg-slate-900 text-white" value="new">New</option>
@@ -277,6 +305,7 @@ export default function AdmissionEnquiryPage() {
                         </select>
                         <button
                           onClick={() => generateReply(enquiry)}
+                          disabled={draftingId === enquiry.id}
                           className="rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/20"
                         >
                           {draftingId === enquiry.id ? "Drafting..." : "AI Reply"}

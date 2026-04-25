@@ -159,6 +159,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             📑 Report Cards
           </Link>
 
+          <Link href="/admin/documents/certificates" className={linkStyle("/admin/documents/certificates")} onClick={closeSidebar}>
+            🏅 Certificates / TC
+          </Link>
+
           <p className="text-gray-500 text-xs mt-6 mb-2 uppercase">Finance</p>
 
           <Link href="/admin/fees" className={linkStyle("/admin/fees")} onClick={closeSidebar}>

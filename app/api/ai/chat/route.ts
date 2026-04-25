@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { ensureSameSchool, requireAdminProfile } from "@/lib/api-auth"
-import { createOpenAIResponse, extractOpenAIText } from "@/lib/openai"
+import { createClaudeMessage, extractClaudeText } from "@/lib/claude"
 
 export async function POST(req: Request) {
   const authResult = await requireAdminProfile(req)
@@ -24,35 +24,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "At least one message is required" }, { status: 400 })
     }
 
-    const transcript = messages
-      .map((message: any) => `${message.role === "assistant" ? "Assistant" : "User"}: ${String(message.content || "")}`)
-      .join("\n")
+    // Claude requires messages to start with "user" and alternate roles.
+    // Strip any leading assistant messages (the UI's initial greeting).
+    const normalized = messages
+      .filter((m: any) => m.role === "user" || m.role === "assistant")
+      .map((m: any) => ({ role: m.role as "user" | "assistant", content: String(m.content || "") }))
 
-    const response = await createOpenAIResponse({
-      input: [
-        {
-          role: "system",
-          content: [
-            {
-              type: "input_text",
-              text:
-                `You are an ERP admin assistant for ${schoolName}. Help school admins with notices, admissions, fees, attendance, exams, parents, teachers, and document workflows. Be concise, practical, and operational.`
-            }
-          ]
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: transcript
-            }
-          ]
-        }
-      ]
+    while (normalized.length > 0 && normalized[0].role === "assistant") {
+      normalized.shift()
+    }
+
+    if (!normalized.length) {
+      return NextResponse.json({ error: "No user message found" }, { status: 400 })
+    }
+
+    const response = await createClaudeMessage({
+      system: `You are an ERP admin assistant for ${schoolName}. Help school admins with notices, admissions, fees, attendance, exams, parents, teachers, and document workflows. Be concise, practical, and operational.`,
+      messages: normalized
     })
 
-    const text = extractOpenAIText(response)
+    const text = extractClaudeText(response)
 
     return NextResponse.json({
       success: true,

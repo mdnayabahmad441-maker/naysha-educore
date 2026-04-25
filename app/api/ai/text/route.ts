@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server"
 import { ensureSameSchool, requireAdminProfile } from "@/lib/api-auth"
-import { createOpenAIResponse, extractOpenAIText } from "@/lib/openai"
+import { createClaudeMessage, extractClaudeToolInput } from "@/lib/claude"
+import type Anthropic from "@anthropic-ai/sdk"
 
 type AiTask = "certificate_text" | "notice_draft" | "enquiry_reply" | "report_card_remark"
 
-const taskSchemaMap = {
+const taskToolMap: Record<AiTask, Anthropic.Tool> = {
   certificate_text: {
     name: "certificate_text",
-    schema: {
-      type: "object",
-      additionalProperties: false,
+    description: "Generate a formal school certificate draft",
+    input_schema: {
+      type: "object" as const,
       properties: {
         title: { type: "string" },
         body: { type: "string" }
@@ -19,9 +20,9 @@ const taskSchemaMap = {
   },
   notice_draft: {
     name: "notice_draft",
-    schema: {
-      type: "object",
-      additionalProperties: false,
+    description: "Generate a school notice with title and message",
+    input_schema: {
+      type: "object" as const,
       properties: {
         title: { type: "string" },
         message: { type: "string" }
@@ -31,9 +32,9 @@ const taskSchemaMap = {
   },
   enquiry_reply: {
     name: "enquiry_reply",
-    schema: {
-      type: "object",
-      additionalProperties: false,
+    description: "Generate a professional admission enquiry reply",
+    input_schema: {
+      type: "object" as const,
       properties: {
         subject: { type: "string" },
         message: { type: "string" }
@@ -43,16 +44,16 @@ const taskSchemaMap = {
   },
   report_card_remark: {
     name: "report_card_remark",
-    schema: {
-      type: "object",
-      additionalProperties: false,
+    description: "Generate a short school-style report card remark",
+    input_schema: {
+      type: "object" as const,
       properties: {
         remark: { type: "string" }
       },
       required: ["remark"]
     }
   }
-} as const
+}
 
 function buildPrompt(task: AiTask, input: Record<string, unknown>) {
   if (task === "certificate_text") {
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
     const task = body?.task as AiTask
     const schoolId = String(body?.schoolId || "")
 
-    if (!task || !(task in taskSchemaMap)) {
+    if (!task || !(task in taskToolMap)) {
       return NextResponse.json({ error: "Valid AI task is required" }, { status: 400 })
     }
 
@@ -129,47 +130,22 @@ export async function POST(req: Request) {
       return schoolMismatch
     }
 
-    const schema = taskSchemaMap[task]
-    const response = await createOpenAIResponse({
-      input: [
-        {
-          role: "system",
-          content: [
-            {
-              type: "input_text",
-              text:
-                "You write polished school ERP content. Return only valid JSON matching the requested schema. Keep wording practical and ready for real admin use."
-            }
-          ]
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: buildPrompt(task, body)
-            }
-          ]
-        }
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: schema.name,
-          schema: schema.schema
-        }
-      }
+    const tool = taskToolMap[task]
+
+    const response = await createClaudeMessage({
+      system: "You write polished school ERP content. Use the provided tool to return structured output. Keep wording practical and ready for real admin use.",
+      messages: [{ role: "user", content: buildPrompt(task, body) }],
+      tools: [tool],
+      toolChoice: { type: "tool", name: tool.name }
     })
 
-    const text = extractOpenAIText(response)
-    if (!text) {
-      return NextResponse.json({ error: "OpenAI returned no text" }, { status: 502 })
+    const result = extractClaudeToolInput(response)
+
+    if (!result) {
+      return NextResponse.json({ error: "Claude returned no structured output" }, { status: 502 })
     }
 
-    return NextResponse.json({
-      success: true,
-      data: JSON.parse(text)
-    })
+    return NextResponse.json({ success: true, data: result })
   } catch (error) {
     console.error("AI text route error:", error)
     return NextResponse.json(

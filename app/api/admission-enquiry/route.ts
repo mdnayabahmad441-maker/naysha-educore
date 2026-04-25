@@ -196,3 +196,68 @@ export async function GET(req: Request) {
     )
   }
 }
+
+export async function PATCH(req: Request) {
+  const authResult = await requireAdminProfile(req)
+
+  if ("response" in authResult) {
+    return authResult.response
+  }
+
+  const schoolId = authResult.profile.schoolId
+
+  if (!schoolId) {
+    return NextResponse.json(
+      { success: false, error: "School not found" },
+      { status: 400 }
+    )
+  }
+
+  try {
+    const body = await req.json()
+    const enquiryId = String(body?.enquiryId || "").trim()
+    const status = String(body?.status || "").trim().toLowerCase()
+    const allowedStatuses = new Set(["new", "contacted", "admitted", "rejected"])
+
+    if (!enquiryId || !allowedStatuses.has(status)) {
+      return NextResponse.json(
+        { success: false, error: "Valid enquiryId and status are required" },
+        { status: 400 }
+      )
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("admission_enquiries")
+      .update({ status })
+      .eq("id", enquiryId)
+      .eq("school_id", schoolId)
+      .select("id, status")
+      .maybeSingle()
+
+    if (error) {
+      console.error("Update enquiry status error:", error)
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      )
+    }
+
+    if (!data) {
+      return NextResponse.json(
+        { success: false, error: "Enquiry not found" },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      enquiry: data,
+    })
+  } catch (err: any) {
+    console.error("Update enquiry status error:", err)
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    )
+  }
+}

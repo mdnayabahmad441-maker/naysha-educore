@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
-import { createOpenAIResponse, extractOpenAIText, getOpenAIConfig } from "@/lib/openai"
+import { createClaudeMessage, extractClaudeToolInput, getClaudeConfig } from "@/lib/claude"
 import { getDefaultDocumentLayout, normalizeDocumentLayout, type DocumentKind } from "@/lib/document-layouts"
+import type Anthropic from "@anthropic-ai/sdk"
 
-const layoutSchema = {
+const layoutTool: Anthropic.Tool = {
   name: "document_layout",
-  schema: {
-    type: "object",
-    additionalProperties: false,
+  description: "Return the detected field layout for a school document image",
+  input_schema: {
+    type: "object" as const,
     properties: {
       width: { type: "number" },
       height: { type: "number" },
@@ -14,7 +15,6 @@ const layoutSchema = {
         type: "array",
         items: {
           type: "object",
-          additionalProperties: false,
           properties: {
             id: { type: "string" },
             label: { type: "string" },
@@ -40,7 +40,7 @@ const layoutSchema = {
     },
     required: ["width", "height", "fields"]
   }
-} as const
+}
 
 const fieldGuides: Record<DocumentKind, string> = {
   id_card:
@@ -52,12 +52,12 @@ const fieldGuides: Record<DocumentKind, string> = {
 }
 
 export async function GET() {
-  const config = getOpenAIConfig()
+  const config = getClaudeConfig()
 
   return NextResponse.json({
     configured: config.configured,
     model: config.model,
-    missing: config.configured ? [] : ["OPENAI_API_KEY"]
+    missing: config.configured ? [] : ["ANTHROPIC_API_KEY"]
   })
 }
 
@@ -76,60 +76,42 @@ export async function POST(req: Request) {
     }
 
     const defaultLayout = getDefaultDocumentLayout(kind)
-    const response = await createOpenAIResponse({
-      input: [
-        {
-          role: "system",
-          content: [
-            {
-              type: "input_text",
-              text:
-                "You are a document layout extractor for a school ERP. Analyze the uploaded school document design and return only a layout JSON matching the schema. All x, y, w, h values are percentages of the full page. Keep field ids unchanged from the starter layout whenever possible."
-            }
-          ]
-        },
+
+    const response = await createClaudeMessage({
+      system:
+        "You are a document layout extractor for a school ERP. Analyze the uploaded school document design and use the provided tool to return the detected field positions. All x, y, w, h values are percentages of the full page. Keep field ids unchanged from the starter layout whenever possible.",
+      messages: [
         {
           role: "user",
           content: [
             {
-              type: "input_text",
+              type: "text",
               text: `${fieldGuides[kind]}\n\nUse this starter layout as the available field set:\n${JSON.stringify(defaultLayout.fields, null, 2)}\n\nReturn the same fields with improved placement based on the uploaded template image. Preserve width=${defaultLayout.width} and height=${defaultLayout.height}.`
             },
             {
-              type: "input_image",
-              image_url: imageUrl
+              type: "image",
+              source: { type: "url", url: imageUrl }
             }
           ]
         }
       ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: layoutSchema.name,
-          schema: layoutSchema.schema
-        }
-      }
+      tools: [layoutTool],
+      toolChoice: { type: "tool", name: "document_layout" }
     })
 
-    const text = extractOpenAIText(response)
+    const parsed = extractClaudeToolInput(response)
 
-    if (!text) {
-      return NextResponse.json({ error: "OpenAI returned no layout text" }, { status: 502 })
+    if (!parsed) {
+      return NextResponse.json({ error: "Claude returned no layout" }, { status: 502 })
     }
 
-    const parsed = JSON.parse(text)
     const layout = normalizeDocumentLayout(kind, parsed)
 
-    return NextResponse.json({
-      success: true,
-      layout
-    })
+    return NextResponse.json({ success: true, layout })
   } catch (error) {
     console.error("AI document layout error:", error)
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to generate AI layout"
-      },
+      { error: error instanceof Error ? error.message : "Failed to generate AI layout" },
       { status: 500 }
     )
   }
