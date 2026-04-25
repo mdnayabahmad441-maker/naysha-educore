@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
+import { getActiveAcademicYear } from "@/lib/academic"
 
 export default function ResultPage(){
 
@@ -70,18 +71,23 @@ export default function ResultPage(){
 
       const class_id = exam.class_id
 
-      // ✅ STUDENTS
-      const { data:studentsData, error:stErr } = await supabase
-        .from("students")
-        .select("*")
+      // STUDENTS via enrollments
+      const year = await getActiveAcademicYear()
+      let enrollQuery = supabase
+        .from("student_enrollments")
+        .select("student_id, students:student_id(id, name)")
         .eq("class_id", class_id)
         .eq("school_id", schoolId)
 
-      if(stErr){
-        console.error(stErr)
-      }
+      if(year) enrollQuery = enrollQuery.eq("academic_year_id", year.id)
 
-      setStudents(studentsData || [])
+      const { data: enrollments } = await enrollQuery
+      const studentsData = (enrollments || []).map((e: any) => ({
+        id: e.student_id,
+        name: e.students?.name ?? "Unknown"
+      }))
+
+      setStudents(studentsData)
 
       // ✅ SUBJECTS
       const { data:subjectData } = await supabase

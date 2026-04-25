@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { getUserRole } from "@/lib/getUserRole"
 import { getCurrentTeacherClassIds } from "@/lib/role-access"
+import { getActiveAcademicYear } from "@/lib/academic"
 
 export default function MarksPage(){
 
@@ -87,14 +88,25 @@ export default function MarksPage(){
 
     setIsPublished(exam.is_published === true)
 
-    // STUDENTS
-    const { data:studentsData } = await supabase
-      .from("students")
-      .select("*")
+    // STUDENTS via enrollments (academic-year aware)
+    const year = await getActiveAcademicYear()
+    let enrollQuery = supabase
+      .from("student_enrollments")
+      .select("student_id, roll_number, students:student_id(id, name, student_code)")
       .eq("class_id", class_id)
       .eq("school_id", schoolId)
 
-    setStudents(studentsData || [])
+    if (year) enrollQuery = enrollQuery.eq("academic_year_id", year.id)
+
+    const { data: enrollments } = await enrollQuery
+    const studentsData = (enrollments || []).map((e: any) => ({
+      id: e.student_id,
+      name: e.students?.name ?? "Unknown",
+      student_code: e.students?.student_code ?? null,
+      roll_number: e.roll_number
+    }))
+
+    setStudents(studentsData)
 
     // SUBJECTS
     const { data:subData } = await supabase

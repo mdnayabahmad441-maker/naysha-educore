@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { useSchool } from "@/context/SchoolContext"
 import { getSettings } from "@/lib/settings"
+import { getActiveAcademicYear } from "@/lib/academic"
 import { apiFetch } from "@/lib/api-client"
 import DocumentCanvas from "@/components/documents/DocumentCanvas"
 import {
@@ -61,28 +62,40 @@ export default function CertificatesPage() {
       const schoolId = await getSchoolId()
       if (!schoolId) return
 
+      const year = await getActiveAcademicYear()
+      let enrollQuery = supabase
+        .from("student_enrollments")
+        .select("student_id, class_id, roll_number, students:student_id(id, name, father_name, student_code)")
+        .eq("school_id", schoolId)
+      if(year) enrollQuery = enrollQuery.eq("academic_year_id", year.id)
+
       const [
         { data: classData },
-        { data: studentData },
+        { data: enrollData },
         templateSetting,
         layoutSetting
       ] = await Promise.all([
         supabase.from("classes").select("id,name").eq("school_id", schoolId).order("name"),
-        supabase
-          .from("students")
-          .select("id,name,father_name,student_code,class_id,roll_number")
-          .eq("school_id", schoolId)
-          .order("name"),
+        enrollQuery,
         getSettings("certificate_template"),
         getSettings("certificate_layout")
       ])
 
+      const studentList = (enrollData || []).map((e: any) => ({
+        id: e.student_id,
+        name: e.students?.name ?? "Unknown",
+        father_name: e.students?.father_name ?? null,
+        student_code: e.students?.student_code ?? null,
+        class_id: e.class_id,
+        roll_number: e.roll_number
+      }))
+
       setClasses((classData as SchoolClass[] | null) ?? [])
-      setStudents((studentData as Student[] | null) ?? [])
+      setStudents(studentList)
       setTemplateUrl(typeof templateSetting === "string" ? templateSetting : "")
       setLayout(normalizeDocumentLayout("certificate", layoutSetting))
 
-      const firstStudent = (studentData as Student[] | null)?.[0]
+      const firstStudent = studentList[0]
       if (firstStudent) setSelectedStudentId(firstStudent.id)
 
       setLoading(false)

@@ -86,13 +86,7 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
 
         let query = supabase
           .from("student_enrollments")
-          .select(`
-            student_id,
-            students (
-              id,
-              name
-            )
-          `)
+          .select("student_id, students:student_id(id, name)")
           .eq("class_id", selectedClass)
           .eq("school_id", schoolId)
 
@@ -115,22 +109,6 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
 
       }catch(err){
         console.error("Enrollment failed:", err)
-      }
-
-      // FALLBACK
-      if(finalStudents.length === 0){
-
-        const fallbackQuery = supabase
-          .from("students")
-          .select("id,name")
-          .eq("school_id", schoolId)
-          .eq("class_id", selectedClass)
-
-        const { data } = await fallbackQuery
-        finalStudents = (data || []).map((s:any)=>({
-          id: s.id,
-          name: s.name
-        }))
       }
 
       setStudents(finalStudents)

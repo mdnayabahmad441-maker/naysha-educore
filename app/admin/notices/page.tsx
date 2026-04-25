@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { sendNotification } from "@/lib/notifications"
 import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
+import { getActiveAcademicYear } from "@/lib/academic"
 import { apiFetch } from "@/lib/api-client"
 import { useSchool } from "@/context/SchoolContext"
 
@@ -91,24 +92,36 @@ export default function NoticesPage() {
   useEffect(() => {
     if (!schoolId) return
 
-    let query = supabase
-      .from("students")
-      .select("id,name")
-      .eq("school_id", schoolId)
+    const load = async () => {
+      const year = await getActiveAcademicYear()
+      let enrollQuery = supabase
+        .from("student_enrollments")
+        .select("student_id, students:student_id(id, name)")
+        .eq("school_id", schoolId)
 
-    if (mode === "class" && selectedClass) {
-      query = query.eq("class_id", selectedClass)
-    }
+      if(year) enrollQuery = enrollQuery.eq("academic_year_id", year.id)
 
-    void query.then(({ data, error }) => {
-      if (error) {
+      if(mode === "class" && selectedClass) {
+        enrollQuery = enrollQuery.eq("class_id", selectedClass)
+      }
+
+      const { data, error } = await enrollQuery
+
+      if(error) {
         console.error("Failed to load students:", error)
         setStudents([])
         return
       }
 
-      setStudents((data as Student[] | null) ?? [])
-    })
+      setStudents(
+        (data || []).map((e: any) => ({
+          id: e.student_id,
+          name: e.students?.name ?? "Unknown"
+        }))
+      )
+    }
+
+    void load()
   }, [schoolId, selectedClass, mode])
 
   useEffect(() => {
@@ -158,29 +171,27 @@ export default function NoticesPage() {
     try {
       let targetStudents: Student[] = []
 
+      const year = await getActiveAcademicYear()
+
       if (mode === "all") {
-        const { data, error } = await supabase
-          .from("students")
-          .select("id,name")
+        let enrollQuery = supabase
+          .from("student_enrollments")
+          .select("student_id, students:student_id(id, name)")
           .eq("school_id", schoolId)
-
-        if (error) {
-          throw error
-        }
-
-        targetStudents = (data as Student[] | null) ?? []
+        if(year) enrollQuery = enrollQuery.eq("academic_year_id", year.id)
+        const { data, error } = await enrollQuery
+        if(error) throw error
+        targetStudents = (data || []).map((e: any) => ({ id: e.student_id, name: e.students?.name ?? "Unknown" }))
       } else if (mode === "class") {
-        const { data, error } = await supabase
-          .from("students")
-          .select("id,name")
+        let enrollQuery = supabase
+          .from("student_enrollments")
+          .select("student_id, students:student_id(id, name)")
           .eq("class_id", selectedClass)
           .eq("school_id", schoolId)
-
-        if (error) {
-          throw error
-        }
-
-        targetStudents = (data as Student[] | null) ?? []
+        if(year) enrollQuery = enrollQuery.eq("academic_year_id", year.id)
+        const { data, error } = await enrollQuery
+        if(error) throw error
+        targetStudents = (data || []).map((e: any) => ({ id: e.student_id, name: e.students?.name ?? "Unknown" }))
       } else {
         const student = students.find((item) => item.id === selectedStudent)
         if (student) {

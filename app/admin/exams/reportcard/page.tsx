@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { dbGet } from "@/lib/db"
 import { getSchoolId } from "@/lib/school"
+import { getActiveAcademicYear } from "@/lib/academic"
 import { getSettings } from "@/lib/settings"
 import { normalizeDocumentLayout } from "@/lib/document-layouts"
 import ReportCard from "@/components/exams/ReportCard"
@@ -36,9 +37,8 @@ export default function ReportCardPage(){
   async function init(){
     const schoolId = await getSchoolId()
 
-    const [loadedClasses, loadedStudents, loadedSubjects, loadedExams, schoolRes, templateSetting, layoutSetting] = await Promise.all([
+    const [loadedClasses, loadedSubjects, loadedExams, schoolRes, templateSetting, layoutSetting] = await Promise.all([
       dbGet("classes"),
-      dbGet("students"),
       dbGet("subjects"),
       dbGet("exams"),
       supabase
@@ -51,7 +51,6 @@ export default function ReportCardPage(){
     ])
 
     setClasses(loadedClasses)
-    setStudents(loadedStudents)
     setSubjects(loadedSubjects)
     setExams(loadedExams)
     setSchool(schoolRes.data || null)
@@ -84,9 +83,21 @@ export default function ReportCardPage(){
         return
       }
 
-      const classStudents = students.filter(
-        (s)=>s.class_id === selectedClass
-      )
+      const year = await getActiveAcademicYear()
+      let enrollQuery = supabase
+        .from("student_enrollments")
+        .select("student_id, roll_number, students:student_id(id, name, student_code, phone)")
+        .eq("class_id", selectedClass)
+        .eq("school_id", schoolId)
+      if(year) enrollQuery = enrollQuery.eq("academic_year_id", year.id)
+      const { data: enrollments } = await enrollQuery
+      const classStudents = (enrollments || []).map((e: any) => ({
+        id: e.student_id,
+        name: e.students?.name ?? "Unknown",
+        student_code: e.students?.student_code ?? null,
+        phone: e.students?.phone ?? null,
+        roll_number: e.roll_number
+      }))
 
       const { data: exSubData, error: exErr } = await supabase
         .from("exam_subjects")
