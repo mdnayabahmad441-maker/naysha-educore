@@ -3,9 +3,30 @@ type SendWhatsAppMessageInput = {
   message: string
 }
 
-const apiVersion = process.env.WHATSAPP_CLOUD_API_VERSION || "v23.0"
-const accessToken = process.env.WHATSAPP_ACCESS_TOKEN
-const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
+type WhatsAppCloudConfig = {
+  accessToken: string | null
+  phoneNumberId: string | null
+  businessAccountId: string | null
+  apiVersion: string
+}
+
+function readConfig(): WhatsAppCloudConfig {
+  return {
+    apiVersion: process.env.WHATSAPP_CLOUD_API_VERSION || "v23.0",
+    accessToken:
+      process.env.WHATSAPP_ACCESS_TOKEN ||
+      process.env.META_WHATSAPP_ACCESS_TOKEN ||
+      null,
+    phoneNumberId:
+      process.env.WHATSAPP_PHONE_NUMBER_ID ||
+      process.env.META_WHATSAPP_PHONE_NUMBER_ID ||
+      null,
+    businessAccountId:
+      process.env.WHATSAPP_BUSINESS_ACCOUNT_ID ||
+      process.env.META_WHATSAPP_BUSINESS_ACCOUNT_ID ||
+      null,
+  }
+}
 
 function normalizePhoneNumber(phone: string) {
   let formatted = String(phone || "").trim().replace(/\D/g, "")
@@ -25,13 +46,39 @@ function normalizePhoneNumber(phone: string) {
   return formatted
 }
 
+export function getWhatsAppCloudStatus() {
+  const config = readConfig()
+  const missing: string[] = []
+
+  if (!config.accessToken) {
+    missing.push("WHATSAPP_ACCESS_TOKEN")
+  }
+
+  if (!config.phoneNumberId) {
+    missing.push("WHATSAPP_PHONE_NUMBER_ID")
+  }
+
+  return {
+    configured: missing.length === 0,
+    missing,
+    phoneNumberId: config.phoneNumberId,
+    businessAccountId: config.businessAccountId,
+    apiVersion: config.apiVersion,
+  }
+}
+
 export function isWhatsAppCloudConfigured() {
-  return Boolean(accessToken && phoneNumberId)
+  return getWhatsAppCloudStatus().configured
 }
 
 export async function sendWhatsAppCloudMessage({ phone, message }: SendWhatsAppMessageInput) {
-  if (!accessToken || !phoneNumberId) {
-    throw new Error("WhatsApp Cloud API is not configured")
+  const config = readConfig()
+  const status = getWhatsAppCloudStatus()
+
+  if (!status.configured) {
+    throw new Error(
+      `WhatsApp Cloud API is not configured on the server. Missing: ${status.missing.join(", ")}`
+    )
   }
 
   const to = normalizePhoneNumber(phone)
@@ -41,11 +88,11 @@ export async function sendWhatsAppCloudMessage({ phone, message }: SendWhatsAppM
   }
 
   const response = await fetch(
-    `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`,
+    `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`,
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${config.accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
 import {
+  getWhatsAppCloudStatus,
   isWhatsAppCloudConfigured,
   sendWhatsAppCloudMessage,
 } from "@/lib/whatsapp-cloud"
@@ -16,12 +17,16 @@ export async function GET(req: Request) {
     }
   }
 
+  const status = getWhatsAppCloudStatus()
+
   return NextResponse.json({
     success: true,
     provider: "whatsapp-cloud-api",
     configured: isWhatsAppCloudConfigured(),
-    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || null,
-    businessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || null,
+    missing: status.missing,
+    phoneNumberId: status.phoneNumberId,
+    businessAccountId: status.businessAccountId,
+    apiVersion: status.apiVersion,
   })
 }
 
@@ -42,6 +47,18 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Missing phone/to or message" },
         { status: 400 }
+      )
+    }
+
+    const status = getWhatsAppCloudStatus()
+
+    if (!status.configured) {
+      return NextResponse.json(
+        {
+          error: "WhatsApp Cloud API is not configured on the server",
+          missing: status.missing,
+        },
+        { status: 503 }
       )
     }
 
