@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { ensureSameSchool, requireAdminProfile } from "@/lib/api-auth"
 import { createClaudeMessage, extractClaudeText } from "@/lib/claude"
+import { getAiTenantContext } from "@/lib/server-settings"
 
 export async function POST(req: Request) {
   const authResult = await requireAdminProfile(req)
@@ -38,8 +39,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No user message found" }, { status: 400 })
     }
 
+    const tenantContext = await getAiTenantContext(schoolId)
+    const systemPrompt = [
+      `You are an ERP admin assistant for ${schoolName}. Help school admins with notices, admissions, fees, attendance, exams, parents, teachers, and document workflows. Be concise, practical, and operational.`,
+      tenantContext
+    ]
+      .filter(Boolean)
+      .join("\n\n")
+
     const response = await createClaudeMessage({
-      system: `You are an ERP admin assistant for ${schoolName}. Help school admins with notices, admissions, fees, attendance, exams, parents, teachers, and document workflows. Be concise, practical, and operational.`,
+      system: systemPrompt,
       messages: normalized
     })
 

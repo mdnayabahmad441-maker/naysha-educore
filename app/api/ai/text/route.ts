@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { ensureSameSchool, requireAdminProfile } from "@/lib/api-auth"
 import { createClaudeMessage, extractClaudeToolInput } from "@/lib/claude"
+import { getAiTenantContext } from "@/lib/server-settings"
 import type Anthropic from "@anthropic-ai/sdk"
 
 type AiTask = "certificate_text" | "notice_draft" | "enquiry_reply" | "report_card_remark"
@@ -130,10 +131,16 @@ export async function POST(req: Request) {
       return schoolMismatch
     }
 
+    const tenantContext = await getAiTenantContext(schoolId)
     const tool = taskToolMap[task]
 
     const response = await createClaudeMessage({
-      system: "You write polished school ERP content. Use the provided tool to return structured output. Keep wording practical and ready for real admin use.",
+      system: [
+        "You write polished school ERP content. Use the provided tool to return structured output. Keep wording practical and ready for real admin use.",
+        tenantContext
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
       messages: [{ role: "user", content: buildPrompt(task, body) }],
       tools: [tool],
       toolChoice: { type: "tool", name: tool.name }

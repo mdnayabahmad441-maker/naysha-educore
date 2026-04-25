@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import DocumentCanvas from "@/components/documents/DocumentCanvas"
 import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
@@ -39,8 +40,28 @@ const documentLabels: Record<DocumentKind, string> = {
   certificate: "Certificate"
 }
 
+async function getImageSize(url: string) {
+  return new Promise<{ width: number; height: number }>((resolve, reject) => {
+    const image = new Image()
+
+    image.onload = () => {
+      resolve({
+        width: image.naturalWidth,
+        height: image.naturalHeight
+      })
+    }
+
+    image.onerror = () => {
+      reject(new Error("Unable to read template image size"))
+    }
+
+    image.src = url
+  })
+}
+
 export default function DocumentStudioPage() {
   const school = useSchool()
+  const searchParams = useSearchParams()
   const [schoolId, setSchoolId] = useState<string | null>(null)
   const [students, setStudents] = useState<StudentRecord[]>([])
   const [classes, setClasses] = useState<SchoolClass[]>([])
@@ -61,11 +82,28 @@ export default function DocumentStudioPage() {
     certificate: ""
   })
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null)
+  const [interactionMode, setInteractionMode] = useState<"drag" | "place">("drag")
+  const [zoom, setZoom] = useState(1)
+  const [showGrid, setShowGrid] = useState(true)
+  const [snapToGrid, setSnapToGrid] = useState(true)
   const [previewStudentId, setPreviewStudentId] = useState("")
   const [certificateType, setCertificateType] = useState<"bonafide" | "tc">("bonafide")
   const [certificateReason, setCertificateReason] = useState("")
   const [certificateIssueDate, setCertificateIssueDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [aiCertificateDraft, setAiCertificateDraft] = useState<{ title: string; body: string } | null>(null)
+
+  useEffect(() => {
+    const documentParam = searchParams.get("document")
+    const modeParam = searchParams.get("mode")
+
+    if (documentParam === "id_card" || documentParam === "report_card" || documentParam === "certificate") {
+      setActiveDocument(documentParam)
+    }
+
+    if (modeParam === "drag" || modeParam === "place") {
+      setInteractionMode(modeParam)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     void getSchoolId().then(setSchoolId)
@@ -350,6 +388,7 @@ export default function DocumentStudioPage() {
 
     try {
       setGeneratingLayout(true)
+      const imageSize = await getImageSize(imageUrl)
 
       const response = await apiFetch("/api/ai/document-layout", {
         method: "POST",
@@ -358,7 +397,10 @@ export default function DocumentStudioPage() {
         },
         body: JSON.stringify({
           kind: activeDocument,
-          imageUrl
+          imageUrl,
+          schoolId,
+          sourceWidth: imageSize.width,
+          sourceHeight: imageSize.height
         })
       })
 
@@ -478,6 +520,81 @@ export default function DocumentStudioPage() {
 
         <div className="space-y-4">
           <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-4">
+            <div className="mb-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-sm text-gray-300">
+                  Exact layout mode:
+                  <span className="ml-2 text-cyan-200">
+                    {interactionMode === "place" ? "Click on the template to place the selected field" : "Drag fields and use handles to resize"}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInteractionMode("drag")}
+                    className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+                      interactionMode === "drag"
+                        ? "bg-cyan-500 text-slate-950"
+                        : "border border-white/10 bg-white/5 text-white hover:bg-white/10"
+                    }`}
+                  >
+                    Drag / Resize
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInteractionMode("place")}
+                    className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+                      interactionMode === "place"
+                        ? "bg-cyan-500 text-slate-950"
+                        : "border border-white/10 bg-white/5 text-white hover:bg-white/10"
+                    }`}
+                  >
+                    Click To Place
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
+                <label className="block text-sm text-gray-300">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span>Zoom</span>
+                    <span className="text-xs text-gray-400">{Math.round(zoom * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={2.5}
+                    step={0.1}
+                    value={zoom}
+                    onChange={(event) => setZoom(Number(event.target.value))}
+                    className="w-full accent-cyan-400"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setShowGrid((current) => !current)}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+                    showGrid
+                      ? "bg-cyan-500 text-slate-950"
+                      : "border border-white/10 bg-white/5 text-white hover:bg-white/10"
+                  }`}
+                >
+                  {showGrid ? "Grid On" : "Grid Off"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSnapToGrid((current) => !current)}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+                    snapToGrid
+                      ? "bg-cyan-500 text-slate-950"
+                      : "border border-white/10 bg-white/5 text-white hover:bg-white/10"
+                  }`}
+                >
+                  {snapToGrid ? "Snap On" : "Snap Off"}
+                </button>
+              </div>
+            </div>
             <DocumentCanvas
               layout={activeLayout}
               backgroundUrl={activeTemplateUrl || null}
@@ -486,6 +603,10 @@ export default function DocumentStudioPage() {
               rows={activeDocument === "report_card" ? sampleReportRows : []}
               editable
               selectedFieldId={selectedFieldId}
+              interactionMode={interactionMode}
+              showGrid={showGrid}
+              snapToGrid={snapToGrid}
+              zoom={zoom}
               onSelectField={setSelectedFieldId}
               onFieldChange={updateField}
               className="mx-auto w-full max-w-[860px]"
@@ -540,7 +661,7 @@ export default function DocumentStudioPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Field Controls</p>
             <h2 className="mt-2 text-xl font-semibold">{selectedField?.label || "Select a field"}</h2>
             <p className="mt-1 text-sm text-gray-400">
-              Drag fields on the preview or fine-tune their position and style here.
+              Drag fields, resize from the corner handles, use click-to-place mode, toggle guides and snap, zoom in for small labels, or nudge with arrow keys.
             </p>
           </div>
 

@@ -20,6 +20,28 @@ const templateInfoMap: Partial<Record<UploadKind, TemplateInfo>> = {
   "certificate-template":  { kind: "certificate",  layoutKey: "certificate_layout",  label: "Certificate" }
 }
 
+async function getImageDimensions(file: File) {
+  return new Promise<{ width: number; height: number }>((resolve, reject) => {
+    const image = new Image()
+    const objectUrl = URL.createObjectURL(file)
+
+    image.onload = () => {
+      resolve({
+        width: image.naturalWidth,
+        height: image.naturalHeight
+      })
+      URL.revokeObjectURL(objectUrl)
+    }
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error("Could not read image size"))
+    }
+
+    image.src = objectUrl
+  })
+}
+
 export default function SettingsPage() {
   const [tab, setTab] = useState("school")
   const [schoolId, setSchoolId] = useState<string | null>(null)
@@ -37,6 +59,7 @@ export default function SettingsPage() {
   const [idCardTemplateUrl, setIdCardTemplateUrl] = useState("")
   const [reportCardTemplateUrl, setReportCardTemplateUrl] = useState("")
   const [certificateTemplateUrl, setCertificateTemplateUrl] = useState("")
+  const [aiInstructions, setAiInstructions] = useState("")
   const [uploadingAsset, setUploadingAsset] = useState<UploadKind | null>(null)
   const [analyzingLayout, setAnalyzingLayout] = useState<UploadKind | null>(null)
 
@@ -74,15 +97,17 @@ export default function SettingsPage() {
         }
       )
 
-      const [loadedIdCardTemplate, loadedReportCardTemplate, loadedCertificateTemplate] = await Promise.all([
+      const [loadedIdCardTemplate, loadedReportCardTemplate, loadedCertificateTemplate, loadedAiInstructions] = await Promise.all([
         getSettings("id_card_template"),
         getSettings("report_card_template"),
-        getSettings("certificate_template")
+        getSettings("certificate_template"),
+        getSettings("ai_system_instructions")
       ])
 
       setIdCardTemplateUrl(typeof loadedIdCardTemplate === "string" ? loadedIdCardTemplate : "")
       setReportCardTemplateUrl(typeof loadedReportCardTemplate === "string" ? loadedReportCardTemplate : "")
       setCertificateTemplateUrl(typeof loadedCertificateTemplate === "string" ? loadedCertificateTemplate : "")
+      setAiInstructions(typeof loadedAiInstructions === "string" ? loadedAiInstructions : "")
 
       const { data: cls } = await supabase
         .from("classes")
@@ -129,6 +154,7 @@ export default function SettingsPage() {
 
     try {
       setUploadingAsset(assetType)
+      const imageSize = assetType === "logo" ? null : await getImageDimensions(file)
 
       const body = new FormData()
       body.append("schoolId", schoolId)
@@ -166,7 +192,13 @@ export default function SettingsPage() {
         const layoutResponse = await apiFetch("/api/ai/document-layout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kind: info.kind, imageUrl: result.url })
+          body: JSON.stringify({
+            kind: info.kind,
+            imageUrl: result.url,
+            schoolId,
+            sourceWidth: imageSize?.width,
+            sourceHeight: imageSize?.height
+          })
         })
 
         const layoutResult = await layoutResponse.json()
@@ -227,6 +259,16 @@ export default function SettingsPage() {
     } catch (e) {
       console.error(e)
       alert("Save failed")
+    }
+  }
+
+  const saveAiInstructions = async () => {
+    try {
+      await updateSettings("ai_system_instructions", aiInstructions)
+      alert("AI instructions saved")
+    } catch (error) {
+      console.error(error)
+      alert("Failed to save AI instructions")
     }
   }
 
@@ -413,6 +455,32 @@ export default function SettingsPage() {
               >
                 Open Document Studio
               </a>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <h3 className="text-lg font-semibold">AI System Instructions</h3>
+              <p className="mt-2 text-sm text-gray-400">
+                Save your school workflow, formatting rules, language style, and document rules here. The AI assistant,
+                notices, enquiry replies, certificate drafts, and template analysis will follow these instructions.
+              </p>
+              <textarea
+                value={aiInstructions}
+                onChange={(event) => setAiInstructions(event.target.value)}
+                className="mt-4 min-h-56 w-full rounded-2xl bg-[#0b1220] p-4"
+                placeholder={`Example:
+Use English only.
+Always use the current tenant school's real name from the ERP data.
+For ID cards use labels exactly as: Name, Father's Name, Course, Er. No., Mobile No.
+For class values write "Class 01", "Class 02", etc.
+Admission enquiry replies should be warm and short.
+Notices should use this format: Title, Date, Message, Principal.
+Never invent data that is not provided.`}
+              />
+              <div className="mt-4 flex justify-end">
+                <button onClick={saveAiInstructions} className="btn bg-blue-600">
+                  Save AI Instructions
+                </button>
+              </div>
             </div>
           </div>
         )}

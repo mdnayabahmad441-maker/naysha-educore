@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClaudeMessage, extractClaudeToolInput, getClaudeConfig } from "@/lib/claude"
 import { getDefaultDocumentLayout, normalizeDocumentLayout, type DocumentKind } from "@/lib/document-layouts"
+import { getAiTenantContext } from "@/lib/server-settings"
 import type Anthropic from "@anthropic-ai/sdk"
 
 const layoutTool: Anthropic.Tool = {
@@ -66,6 +67,9 @@ export async function POST(req: Request) {
     const body = await req.json()
     const kind = body?.kind as DocumentKind
     const imageUrl = String(body?.imageUrl || "").trim()
+    const schoolId = String(body?.schoolId || "").trim()
+    const sourceWidth = Number(body?.sourceWidth || 0)
+    const sourceHeight = Number(body?.sourceHeight || 0)
 
     if (!kind || !["id_card", "report_card", "certificate"].includes(kind)) {
       return NextResponse.json({ error: "Valid document kind is required" }, { status: 400 })
@@ -76,17 +80,39 @@ export async function POST(req: Request) {
     }
 
     const defaultLayout = getDefaultDocumentLayout(kind)
+    const targetWidth = sourceWidth > 0 ? sourceWidth : defaultLayout.width
+    const targetHeight = sourceHeight > 0 ? sourceHeight : defaultLayout.height
+    const tenantContext = schoolId ? await getAiTenantContext(schoolId) : ""
 
     const response = await createClaudeMessage({
       system:
-        "You are a document layout extractor for a school ERP. Analyze the uploaded school document design and use the provided tool to return the detected field positions. All x, y, w, h values are percentages of the full page. Keep field ids unchanged from the starter layout whenever possible.",
+        [
+          "You are a document layout extractor for a school ERP. Analyze the uploaded school document design and return an overlay layout that matches the template as closely as possible. All x, y, w, h values are percentages of the full image. Keep field ids unchanged from the starter layout whenever possible. Do not redesign the template. Detect the actual printed zones where dynamic text or photos should be placed.",
+          tenantContext
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
       messages: [
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: `${fieldGuides[kind]}\n\nUse this starter layout as the available field set:\n${JSON.stringify(defaultLayout.fields, null, 2)}\n\nReturn the same fields with improved placement based on the uploaded template image. Preserve width=${defaultLayout.width} and height=${defaultLayout.height}.`
+              text: `${fieldGuides[kind]}
+
+Use this starter layout as the available field set:
+${JSON.stringify(defaultLayout.fields, null, 2)}
+
+Important rules:
+- Return the same field ids from the starter layout.
+- Use the uploaded image's real size: width=${targetWidth}, height=${targetHeight}.
+- Match visible boxes, lines, badges, and text areas from the template.
+- Keep text fields inside their printed placeholders and avoid overlapping labels or artwork.
+- For photo fields, align to the visible photo frame exactly.
+- For badge or pill fields, include background color, text color, and border radius when visible.
+- If the template has pre-printed labels like Name, Father's Name, Course, Er. No., Mobile No., place only the dynamic values in the blank/value area, not over the labels.
+
+Return only the tool result.`
             },
             {
               type: "image",
@@ -106,6 +132,8 @@ export async function POST(req: Request) {
     }
 
     const layout = normalizeDocumentLayout(kind, parsed)
+    layout.width = targetWidth
+    layout.height = targetHeight
 
     return NextResponse.json({ success: true, layout })
   } catch (error) {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { useSchool } from "@/context/SchoolContext"
@@ -26,6 +27,7 @@ type SchoolClass = {
 
 export default function StudentIdCardsPage() {
   const school = useSchool()
+  const router = useRouter()
   const [students, setStudents] = useState<Student[]>([])
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [schoolId, setSchoolId] = useState<string | null>(null)
@@ -178,6 +180,13 @@ export default function StudentIdCardsPage() {
 
         <div className="flex flex-wrap gap-3">
           <button
+            onClick={() => router.push("/admin/documents?document=id_card&mode=place")}
+            className="no-print rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/15"
+          >
+            Edit ID Card Layout
+          </button>
+
+          <button
             onClick={() => {
               setTargetType("all")
               setSelectedClass("")
@@ -317,6 +326,12 @@ export default function StudentIdCardsPage() {
                 ? "Your uploaded school ID card template will be used."
                 : "No custom ID card template uploaded yet. A default layout will be used until you upload one in Settings."}
             </div>
+            <button
+              onClick={() => router.push("/admin/documents?document=id_card&mode=place")}
+              className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/15"
+            >
+              Open Exact Layout Editor
+            </button>
             <div className="mt-3 text-xs text-gray-400">Cards selected: {selectedCount}</div>
           </div>
         </div>
