@@ -34,6 +34,43 @@ export default function ReportCardPage(){
   const [sending,setSending] = useState(false)
   const [generatingRemarks,setGeneratingRemarks] = useState(false)
 
+  const saveOrUpdateResult = async (row:any) => {
+    const { data: existing, error: lookupError } = await supabase
+      .from("results")
+      .select("id")
+      .eq("student_id", row.student_id)
+      .eq("exam_id", row.exam_id)
+      .eq("school_id", row.school_id)
+      .maybeSingle()
+
+    if (lookupError) return lookupError
+
+    if (existing?.id) {
+      const { error } = await supabase
+        .from("results")
+        .update({
+          class_id: row.class_id,
+          total_marks: row.total_marks,
+          obtained_marks: row.obtained_marks,
+          percentage: row.percentage,
+          result: row.result,
+          grade: row.grade
+        })
+        .eq("id", existing.id)
+
+      return error
+    }
+
+    const { error } = await supabase
+      .from("results")
+      .insert({
+        id: crypto.randomUUID(),
+        ...row
+      })
+
+    return error
+  }
+
   async function init(){
     const schoolId = await getSchoolId()
 
@@ -180,9 +217,7 @@ export default function ReportCardPage(){
         }
 
         // ✅ FIXED UPSERT (NO MORE 400 ERROR)
-        const { error: upsertError } = await supabase
-          .from("results")
-          .upsert({
+        const upsertError = await saveOrUpdateResult({
             student_id: student.id,
             exam_id: selectedExam,
             class_id: selectedClass,
@@ -194,8 +229,6 @@ export default function ReportCardPage(){
 
             result: finalResult,
             grade: grade
-          },{
-            onConflict: "student_id,exam_id,school_id"
           })
 
         if(upsertError){

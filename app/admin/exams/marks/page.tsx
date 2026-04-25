@@ -188,6 +188,73 @@ export default function MarksPage(){
     return "F"
   }
 
+  const saveOrUpdateMark = async (row:any) => {
+    const { data: existing, error: lookupError } = await supabase
+      .from("marks")
+      .select("id")
+      .eq("school_id", row.school_id)
+      .eq("exam_id", row.exam_id)
+      .eq("student_id", row.student_id)
+      .eq("subject_id", row.subject_id)
+      .maybeSingle()
+
+    if (lookupError) return lookupError
+
+    if (existing?.id) {
+      const { error } = await supabase
+        .from("marks")
+        .update({ marks_obtained: row.marks_obtained })
+        .eq("id", existing.id)
+
+      return error
+    }
+
+    const { error } = await supabase
+      .from("marks")
+      .insert({
+        id: crypto.randomUUID(),
+        ...row
+      })
+
+    return error
+  }
+
+  const saveOrUpdateResult = async (row:any) => {
+    const { data: existing, error: lookupError } = await supabase
+      .from("results")
+      .select("id")
+      .eq("school_id", row.school_id)
+      .eq("exam_id", row.exam_id)
+      .eq("student_id", row.student_id)
+      .maybeSingle()
+
+    if (lookupError) return lookupError
+
+    if (existing?.id) {
+      const { error } = await supabase
+        .from("results")
+        .update({
+          total: row.total,
+          percentage: row.percentage,
+          status: row.status,
+          grade: row.grade,
+          rank: row.rank
+        })
+        .eq("id", existing.id)
+
+      return error
+    }
+
+    const { error } = await supabase
+      .from("results")
+      .insert({
+        ...row,
+        id: crypto.randomUUID()
+      })
+
+    return error
+  }
+
   // SAVE
   const saveMarks = async ()=>{
 
@@ -227,13 +294,13 @@ export default function MarksPage(){
       return
     }
 
-    const { error } = await supabase.from("marks").upsert(rows, {
-      onConflict: "school_id,exam_id,student_id,subject_id"
-    })
+    for (const row of rows) {
+      const error = await saveOrUpdateMark(row)
 
-    if(error){
-      alert(error.message)
-      return
+      if(error){
+        alert(error.message)
+        return
+      }
     }
 
     alert("Saved ✅")
@@ -300,9 +367,14 @@ export default function MarksPage(){
       rank: i+1
     }))
 
-    await supabase.from("results").upsert(results, {
-      onConflict: "school_id,exam_id,student_id"
-    })
+    for (const row of results) {
+      const error = await saveOrUpdateResult(row)
+
+      if(error){
+        alert(error.message)
+        return
+      }
+    }
 
     await supabase
       .from("exams")

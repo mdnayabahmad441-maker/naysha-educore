@@ -20,6 +20,7 @@ export default function PaymentsPage(){
   const [amount,setAmount] = useState("")
 
   const [loading,setLoading] = useState(false)
+  const createReceiptNumber = () => `RCPT-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
 
   const manualFeeTypes = [
     "Registration Fee",
@@ -164,7 +165,7 @@ export default function PaymentsPage(){
             fee_id: feeId,
             amount: payAmount,
             school_id: schoolId,
-            receipt_number: "RCPT-" + Date.now(),
+            receipt_number: createReceiptNumber(),
             date: new Date().toISOString()
           })
 
@@ -191,8 +192,6 @@ export default function PaymentsPage(){
 
         alert("Payment successful ✅")
       } else {
-        const receiptNumber = "RCPT-" + Date.now()
-
         for (const [manualType, manualAmountValue] of manualEntries) {
           const payAmount = Number(manualAmountValue)
           const newFeeId = crypto.randomUUID()
@@ -228,7 +227,7 @@ export default function PaymentsPage(){
               fee_id: newFeeId,
               amount: payAmount,
               school_id: schoolId,
-              receipt_number: receiptNumber,
+              receipt_number: createReceiptNumber(),
               date: new Date().toISOString()
             })
 
