@@ -8,6 +8,18 @@ import { apiFetch } from "@/lib/api-client"
 
 type UploadKind = "logo" | "id-card-template" | "report-card-template" | "certificate-template"
 
+type TemplateInfo = {
+  kind: "id_card" | "report_card" | "certificate"
+  layoutKey: string
+  label: string
+}
+
+const templateInfoMap: Partial<Record<UploadKind, TemplateInfo>> = {
+  "id-card-template":      { kind: "id_card",     layoutKey: "id_card_layout",     label: "ID Card" },
+  "report-card-template":  { kind: "report_card",  layoutKey: "report_card_layout",  label: "Report Card" },
+  "certificate-template":  { kind: "certificate",  layoutKey: "certificate_layout",  label: "Certificate" }
+}
+
 export default function SettingsPage() {
   const [tab, setTab] = useState("school")
   const [schoolId, setSchoolId] = useState<string | null>(null)
@@ -26,6 +38,7 @@ export default function SettingsPage() {
   const [reportCardTemplateUrl, setReportCardTemplateUrl] = useState("")
   const [certificateTemplateUrl, setCertificateTemplateUrl] = useState("")
   const [uploadingAsset, setUploadingAsset] = useState<UploadKind | null>(null)
+  const [analyzingLayout, setAnalyzingLayout] = useState<UploadKind | null>(null)
 
   const [loading, setLoading] = useState(true)
 
@@ -122,42 +135,59 @@ export default function SettingsPage() {
       body.append("assetType", assetType)
       body.append("file", file)
 
-      const response = await apiFetch("/api/school-assets/upload", {
-        method: "POST",
-        body
-      })
-
+      const response = await apiFetch("/api/school-assets/upload", { method: "POST", body })
       const result = await response.json()
 
       if (!response.ok || !result.success) {
         throw new Error(result.error || "Upload failed")
       }
 
+      // Update URL state
       if (assetType === "logo") {
-        setSchool((current: any) => ({
-          ...current,
-          logo_url: result.url
-        }))
+        setSchool((current: any) => ({ ...current, logo_url: result.url }))
+        alert("Logo uploaded successfully")
+        return
+      }
+      if (assetType === "id-card-template") setIdCardTemplateUrl(result.url)
+      if (assetType === "report-card-template") setReportCardTemplateUrl(result.url)
+      if (assetType === "certificate-template") setCertificateTemplateUrl(result.url)
+
+      // Auto AI layout detection for all templates
+      const info = templateInfoMap[assetType]
+      if (!info || !result.url) {
+        alert("Template uploaded successfully")
+        return
       }
 
-      if (assetType === "id-card-template") {
-        setIdCardTemplateUrl(result.url)
-      }
+      setUploadingAsset(null)
+      setAnalyzingLayout(assetType)
 
-      if (assetType === "report-card-template") {
-        setReportCardTemplateUrl(result.url)
-      }
+      try {
+        const layoutResponse = await apiFetch("/api/ai/document-layout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind: info.kind, imageUrl: result.url })
+        })
 
-      if (assetType === "certificate-template") {
-        setCertificateTemplateUrl(result.url)
-      }
+        const layoutResult = await layoutResponse.json()
 
-      alert("Uploaded successfully")
+        if (layoutResponse.ok && layoutResult?.layout) {
+          await updateSettings(info.layoutKey, layoutResult.layout)
+          alert(`${info.label} template uploaded — AI has auto-detected and saved the field layout. Open Document Studio to fine-tune if needed.`)
+        } else {
+          alert(`${info.label} template uploaded. AI layout detection failed: ${layoutResult?.error || "unknown error"}. You can retry in Document Studio.`)
+        }
+      } catch (aiError) {
+        console.error("AI layout error:", aiError)
+        alert(`${info.label} template uploaded. AI layout detection failed — you can retry in Document Studio.`)
+      } finally {
+        setAnalyzingLayout(null)
+      }
     } catch (error) {
       console.error(error)
       alert(error instanceof Error ? error.message : "Upload failed")
-    } finally {
       setUploadingAsset(null)
+      setAnalyzingLayout(null)
     }
   }
 
@@ -330,35 +360,44 @@ export default function SettingsPage() {
                 title="School Logo"
                 helpText="Uploads to the school-logos bucket and updates the school profile."
                 previewUrl={school.logo_url || ""}
-                buttonText={uploadingAsset === "logo" ? "Uploading..." : "Upload Logo"}
-                disabled={uploadingAsset !== null}
+                status={uploadingAsset === "logo" ? "uploading" : "idle"}
+                disabled={uploadingAsset !== null || analyzingLayout !== null}
                 onFileSelect={(file) => void uploadAsset("logo", file)}
               />
 
               <AssetUploader
                 title="ID Card Template"
-                helpText="Upload a portrait image template for your school ID cards."
+                helpText="Upload your ID card background. AI will auto-detect field positions instantly."
                 previewUrl={idCardTemplateUrl}
-                buttonText={uploadingAsset === "id-card-template" ? "Uploading..." : "Upload ID Card Template"}
-                disabled={uploadingAsset !== null}
+                status={
+                  uploadingAsset === "id-card-template" ? "uploading" :
+                  analyzingLayout === "id-card-template" ? "analyzing" : "idle"
+                }
+                disabled={uploadingAsset !== null || analyzingLayout !== null}
                 onFileSelect={(file) => void uploadAsset("id-card-template", file)}
               />
 
               <AssetUploader
                 title="Report Card Template"
-                helpText="Upload a report card background image. Generated reports will use this template."
+                helpText="Upload your report card background. AI will auto-detect field positions instantly."
                 previewUrl={reportCardTemplateUrl}
-                buttonText={uploadingAsset === "report-card-template" ? "Uploading..." : "Upload Report Card Template"}
-                disabled={uploadingAsset !== null}
+                status={
+                  uploadingAsset === "report-card-template" ? "uploading" :
+                  analyzingLayout === "report-card-template" ? "analyzing" : "idle"
+                }
+                disabled={uploadingAsset !== null || analyzingLayout !== null}
                 onFileSelect={(file) => void uploadAsset("report-card-template", file)}
               />
 
               <AssetUploader
                 title="Certificate Template"
-                helpText="Upload a certificate background for bonafide, TC, and custom school certificates."
+                helpText="Upload your certificate/TC background. AI will auto-detect field positions instantly."
                 previewUrl={certificateTemplateUrl}
-                buttonText={uploadingAsset === "certificate-template" ? "Uploading..." : "Upload Certificate Template"}
-                disabled={uploadingAsset !== null}
+                status={
+                  uploadingAsset === "certificate-template" ? "uploading" :
+                  analyzingLayout === "certificate-template" ? "analyzing" : "idle"
+                }
+                disabled={uploadingAsset !== null || analyzingLayout !== null}
                 onFileSelect={(file) => void uploadAsset("certificate-template", file)}
               />
             </div>
@@ -524,25 +563,37 @@ function AssetUploader({
   title,
   helpText,
   previewUrl,
-  buttonText,
+  status,
   disabled,
   onFileSelect
 }: {
   title: string
   helpText: string
   previewUrl: string
-  buttonText: string
+  status: "idle" | "uploading" | "analyzing"
   disabled: boolean
   onFileSelect: (file: File | null) => void
 }) {
+  const statusLabel =
+    status === "uploading" ? "Uploading..." :
+    status === "analyzing" ? "AI analyzing template..." :
+    previewUrl ? "Replace template" : "Choose image"
+
+  const isActive = status !== "idle"
+
   return (
-    <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+    <div className={`space-y-3 rounded-2xl border p-4 transition ${isActive ? "border-cyan-400/30 bg-cyan-500/5" : "border-white/10 bg-white/5"}`}>
       <div>
         <h3 className="text-lg font-semibold">{title}</h3>
         <p className="mt-1 text-sm text-gray-400">{helpText}</p>
       </div>
 
-      {previewUrl ? (
+      {isActive ? (
+        <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-cyan-400/30 text-sm text-cyan-300">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+          <span>{status === "analyzing" ? "AI is reading your template..." : "Uploading..."}</span>
+        </div>
+      ) : previewUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={previewUrl}
@@ -551,12 +602,12 @@ function AssetUploader({
         />
       ) : (
         <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-white/10 text-sm text-gray-500">
-          No file uploaded yet
+          No template uploaded yet
         </div>
       )}
 
-      <label className="block">
-        <span className="mb-2 block text-sm text-gray-300">Choose image</span>
+      <label className={`block ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+        <span className="mb-2 block text-sm text-gray-300">{statusLabel}</span>
         <input
           type="file"
           accept="image/png,image/jpeg,image/webp"
@@ -569,7 +620,9 @@ function AssetUploader({
         />
       </label>
 
-      <div className="text-xs text-gray-500">{buttonText}</div>
+      {previewUrl && status === "idle" && (
+        <p className="text-xs text-emerald-400">Template active — AI layout auto-generated</p>
+      )}
     </div>
   )
 }
