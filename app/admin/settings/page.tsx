@@ -6,7 +6,7 @@ import { getSchoolId } from "@/lib/school"
 import { getSettings, updateSettings } from "@/lib/settings"
 import { apiFetch } from "@/lib/api-client"
 
-type UploadKind = "logo" | "id-card-template" | "report-card-template"
+type UploadKind = "logo" | "id-card-template" | "report-card-template" | "certificate-template"
 
 export default function SettingsPage() {
   const [tab, setTab] = useState("school")
@@ -24,6 +24,7 @@ export default function SettingsPage() {
 
   const [idCardTemplateUrl, setIdCardTemplateUrl] = useState("")
   const [reportCardTemplateUrl, setReportCardTemplateUrl] = useState("")
+  const [certificateTemplateUrl, setCertificateTemplateUrl] = useState("")
   const [uploadingAsset, setUploadingAsset] = useState<UploadKind | null>(null)
 
   const [loading, setLoading] = useState(true)
@@ -60,13 +61,15 @@ export default function SettingsPage() {
         }
       )
 
-      const [loadedIdCardTemplate, loadedReportCardTemplate] = await Promise.all([
+      const [loadedIdCardTemplate, loadedReportCardTemplate, loadedCertificateTemplate] = await Promise.all([
         getSettings("id_card_template"),
-        getSettings("report_card_template")
+        getSettings("report_card_template"),
+        getSettings("certificate_template")
       ])
 
       setIdCardTemplateUrl(typeof loadedIdCardTemplate === "string" ? loadedIdCardTemplate : "")
       setReportCardTemplateUrl(typeof loadedReportCardTemplate === "string" ? loadedReportCardTemplate : "")
+      setCertificateTemplateUrl(typeof loadedCertificateTemplate === "string" ? loadedCertificateTemplate : "")
 
       const { data: cls } = await supabase
         .from("classes")
@@ -143,6 +146,10 @@ export default function SettingsPage() {
 
       if (assetType === "report-card-template") {
         setReportCardTemplateUrl(result.url)
+      }
+
+      if (assetType === "certificate-template") {
+        setCertificateTemplateUrl(result.url)
       }
 
       alert("Uploaded successfully")
@@ -318,7 +325,7 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid gap-6 lg:grid-cols-4">
               <AssetUploader
                 title="School Logo"
                 helpText="Uploads to the school-logos bucket and updates the school profile."
@@ -345,6 +352,28 @@ export default function SettingsPage() {
                 disabled={uploadingAsset !== null}
                 onFileSelect={(file) => void uploadAsset("report-card-template", file)}
               />
+
+              <AssetUploader
+                title="Certificate Template"
+                helpText="Upload a certificate background for bonafide, TC, and custom school certificates."
+                previewUrl={certificateTemplateUrl}
+                buttonText={uploadingAsset === "certificate-template" ? "Uploading..." : "Upload Certificate Template"}
+                disabled={uploadingAsset !== null}
+                onFileSelect={(file) => void uploadAsset("certificate-template", file)}
+              />
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <h3 className="text-lg font-semibold">Document Studio</h3>
+              <p className="mt-2 text-sm text-gray-400">
+                Design your ID card, report card, and certificate layouts with school-specific field positions.
+              </p>
+              <a
+                href="/admin/documents"
+                className="mt-4 inline-flex rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                Open Document Studio
+              </a>
             </div>
           </div>
         )}

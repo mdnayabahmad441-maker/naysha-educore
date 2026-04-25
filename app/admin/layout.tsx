@@ -195,6 +195,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             ⚙️ Settings
           </Link>
 
+          <Link href="/admin/documents" className={linkStyle("/admin/documents")} onClick={closeSidebar}>
+            📄 Document Studio
+          </Link>
+
         </nav>
 
         <div className="mt-6 border-t border-white/10 pt-5 md:hidden">

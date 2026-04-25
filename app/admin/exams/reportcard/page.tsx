@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { dbGet } from "@/lib/db"
 import { getSchoolId } from "@/lib/school"
 import { getSettings } from "@/lib/settings"
+import { normalizeDocumentLayout } from "@/lib/document-layouts"
 import ReportCard from "@/components/exams/ReportCard"
 import { apiFetch } from "@/lib/api-client"
 
@@ -21,6 +22,7 @@ export default function ReportCardPage(){
   const [exams,setExams] = useState<any[]>([])
   const [school,setSchool] = useState<any>(null)
   const [reportCardTemplateUrl, setReportCardTemplateUrl] = useState("")
+  const [reportCardLayout, setReportCardLayout] = useState(() => normalizeDocumentLayout("report_card", null))
 
   const [selectedClass,setSelectedClass] = useState("")
   const [selectedExam,setSelectedExam] = useState("")
@@ -33,7 +35,7 @@ export default function ReportCardPage(){
   async function init(){
     const schoolId = await getSchoolId()
 
-    const [loadedClasses, loadedStudents, loadedSubjects, loadedExams, schoolRes, templateSetting] = await Promise.all([
+    const [loadedClasses, loadedStudents, loadedSubjects, loadedExams, schoolRes, templateSetting, layoutSetting] = await Promise.all([
       dbGet("classes"),
       dbGet("students"),
       dbGet("subjects"),
@@ -43,7 +45,8 @@ export default function ReportCardPage(){
         .select("*")
         .eq("id", schoolId)
         .single(),
-      getSettings("report_card_template")
+      getSettings("report_card_template"),
+      getSettings("report_card_layout")
     ])
 
     setClasses(loadedClasses)
@@ -52,6 +55,7 @@ export default function ReportCardPage(){
     setExams(loadedExams)
     setSchool(schoolRes.data || null)
     setReportCardTemplateUrl(typeof templateSetting === "string" ? templateSetting : "")
+    setReportCardLayout(normalizeDocumentLayout("report_card", layoutSetting))
   }
 
   useEffect(()=>{
@@ -373,6 +377,7 @@ export default function ReportCardPage(){
               exam={examObj}
               classData={classObj}
               templateUrl={reportCardTemplateUrl || null}
+              layout={reportCardLayout}
             />
           </div>
         ))}

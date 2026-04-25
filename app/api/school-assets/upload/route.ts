@@ -20,6 +20,11 @@ const configMap = {
     bucket: "school-logos",
     folder: "report-card-templates",
     settingsKey: "report_card_template"
+  },
+  "certificate-template": {
+    bucket: "school-logos",
+    folder: "certificate-templates",
+    settingsKey: "certificate_template"
   }
 } as const
 
