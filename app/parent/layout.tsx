@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { waitForSession } from "@/lib/auth-session"
 import { useEffect, useState } from "react"
 import { getAuthSessionContext } from "@/lib/getUserRole"
+import { getCurrentParentStudentIds } from "@/lib/role-access"
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -31,6 +32,13 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         const context = await getAuthSessionContext()
 
         if (context?.role === "parent") {
+          setLoading(false)
+          return
+        }
+
+        const studentIds = await getCurrentParentStudentIds()
+
+        if (studentIds.length > 0) {
           setLoading(false)
           return
         }

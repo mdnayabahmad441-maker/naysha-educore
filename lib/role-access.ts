@@ -8,7 +8,31 @@ export async function getCurrentParentStudentIds() {
     return context.studentIds
   }
 
-  return []
+  const { data: userData } = await supabase.auth.getUser()
+  const user = userData.user
+  const email = String(user?.email || "").trim().toLowerCase()
+
+  if (!user || !email) {
+    return []
+  }
+
+  const { data: linkedParents } = await supabase
+    .from("parents")
+    .select("student_id")
+    .eq("auth_id", user.id)
+
+  const linkedStudentIds = [...new Set(((linkedParents || []).map((parent) => parent.student_id)).filter(Boolean))]
+
+  if (linkedStudentIds.length > 0) {
+    return linkedStudentIds
+  }
+
+  const { data: emailParents } = await supabase
+    .from("parents")
+    .select("student_id")
+    .ilike("email", email)
+
+  return [...new Set(((emailParents || []).map((parent) => parent.student_id)).filter(Boolean))]
 }
 
 export async function getCurrentTeacher() {

@@ -16,37 +16,122 @@ export type AuthSessionContext = {
 export async function getAuthSessionContext(): Promise<AuthSessionContext | null> {
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData.session?.access_token
+  const sessionUser = sessionData.session?.user || null
 
   if (!accessToken) {
+    return buildFallbackContext(sessionUser)
+  }
+
+  try {
+    const response = await fetch("/api/auth/session", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+
+      if (data?.role && data?.schoolId) {
+        return {
+          userId: String(data.userId),
+          email: String(data.email || ""),
+          role: data.role as UserRole,
+          schoolId: String(data.schoolId),
+          subdomain: String(data.subdomain || ""),
+          next: data.next as "/admin" | "/teacher" | "/parent",
+          studentIds: Array.isArray(data.studentIds) ? data.studentIds : [],
+          school_id: String(data.schoolId),
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Session context fetch failed:", error)
+  }
+
+  return buildFallbackContext(sessionUser)
+}
+
+async function buildFallbackContext(user: any): Promise<AuthSessionContext | null> {
+  if (!user) {
     return null
   }
 
-  const response = await fetch("/api/auth/session", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  })
+  const email = String(user.email || "").trim().toLowerCase()
+  const metadataRole = user.user_metadata?.role
+  const metadataSchoolId =
+    typeof user.user_metadata?.school_id === "string" ? String(user.user_metadata.school_id) : ""
 
-  if (!response.ok) {
-    return null
+  if (metadataRole === "parent") {
+    const studentIds = await getParentStudentIdsFromClient(user.id, email)
+
+    return {
+      userId: String(user.id),
+      email,
+      role: "parent",
+      schoolId: metadataSchoolId,
+      subdomain: "",
+      next: "/parent",
+      studentIds,
+      school_id: metadataSchoolId,
+    }
   }
 
-  const data = await response.json()
-
-  if (!data?.role || !data?.schoolId) {
-    return null
+  if ((metadataRole === "admin" || metadataRole === "teacher") && metadataSchoolId) {
+    return {
+      userId: String(user.id),
+      email,
+      role: metadataRole,
+      schoolId: metadataSchoolId,
+      subdomain: "",
+      next: metadataRole === "admin" ? "/admin" : "/teacher",
+      studentIds: [],
+      school_id: metadataSchoolId,
+    }
   }
 
-  return {
-    userId: String(data.userId),
-    email: String(data.email || ""),
-    role: data.role as UserRole,
-    schoolId: String(data.schoolId),
-    subdomain: String(data.subdomain || ""),
-    next: data.next as "/admin" | "/teacher" | "/parent",
-    studentIds: Array.isArray(data.studentIds) ? data.studentIds : [],
-    school_id: String(data.schoolId),
+  if (email) {
+    const studentIds = await getParentStudentIdsFromClient(user.id, email)
+
+    if (studentIds.length > 0) {
+      return {
+        userId: String(user.id),
+        email,
+        role: "parent",
+        schoolId: metadataSchoolId,
+        subdomain: "",
+        next: "/parent",
+        studentIds,
+        school_id: metadataSchoolId,
+      }
+    }
   }
+
+  return null
+}
+
+async function getParentStudentIdsFromClient(userId: string, email: string) {
+  const { data: linkedParents } = await supabase
+    .from("parents")
+    .select("student_id")
+    .eq("auth_id", userId)
+
+  const linkedStudentIds = [...new Set(((linkedParents || []).map((parent) => parent.student_id)).filter(Boolean))]
+
+  if (linkedStudentIds.length > 0) {
+    return linkedStudentIds
+  }
+
+  if (!email) {
+    return []
+  }
+
+  const { data: emailParents } = await supabase
+    .from("parents")
+    .select("student_id")
+    .ilike("email", email)
+
+  return [...new Set(((emailParents || []).map((parent) => parent.student_id)).filter(Boolean))]
 }
 
 export async function getUserRole() {
