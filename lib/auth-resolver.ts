@@ -228,6 +228,7 @@ async function persistResolvedAccess(user: User, access: ResolvedUserAccess) {
         ...metadata,
         school_id: access.schoolId,
         role: access.role,
+        active_role: access.role,
       },
     }),
   ])
@@ -240,9 +241,18 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
     throw new Error("Email missing on authenticated user")
   }
 
-  const allowParent = !preferredRole || preferredRole === "parent"
-  const allowTeacher = !preferredRole || preferredRole === "teacher"
-  const allowAdmin = !preferredRole || preferredRole === "admin"
+  const metadataActiveRole =
+    user.user_metadata?.active_role === "admin" ||
+    user.user_metadata?.active_role === "teacher" ||
+    user.user_metadata?.active_role === "parent"
+      ? (user.user_metadata.active_role as AccountRole)
+      : null
+
+  const effectivePreferredRole = preferredRole || metadataActiveRole
+
+  const allowParent = !effectivePreferredRole || effectivePreferredRole === "parent"
+  const allowTeacher = !effectivePreferredRole || effectivePreferredRole === "teacher"
+  const allowAdmin = !effectivePreferredRole || effectivePreferredRole === "admin"
 
   if (allowParent) {
     const parentRows = await resolveParentRows(user.id, email)
@@ -287,7 +297,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
       return access
     }
 
-    if (preferredRole === "parent") {
+    if (effectivePreferredRole === "parent") {
       return null
     }
   }
@@ -337,7 +347,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
       return access
     }
 
-    if (preferredRole === "teacher") {
+    if (effectivePreferredRole === "teacher") {
       return null
     }
   }

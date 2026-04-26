@@ -15,13 +15,15 @@ async function updateUserMetadataIfNeeded(user: any, schoolId: string, role: str
 
   if (
     currentMetadata.school_id !== schoolId ||
-    currentMetadata.role !== role
+    currentMetadata.role !== role ||
+    currentMetadata.active_role !== role
   ) {
     await supabase.auth.updateUser({
       data: {
         ...currentMetadata,
         school_id: schoolId,
         role,
+        active_role: role,
       },
     })
   }

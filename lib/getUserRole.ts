@@ -59,10 +59,11 @@ async function buildFallbackContext(user: any): Promise<AuthSessionContext | nul
 
   const email = String(user.email || "").trim().toLowerCase()
   const metadataRole = user.user_metadata?.role
+  const metadataActiveRole = user.user_metadata?.active_role
   const metadataSchoolId =
     typeof user.user_metadata?.school_id === "string" ? String(user.user_metadata.school_id) : ""
 
-  if (metadataRole === "parent") {
+  if (metadataActiveRole === "parent" || metadataRole === "parent") {
     const studentIds = await getParentStudentIdsFromClient(user.id, email)
 
     return {
@@ -77,14 +78,19 @@ async function buildFallbackContext(user: any): Promise<AuthSessionContext | nul
     }
   }
 
-  if ((metadataRole === "admin" || metadataRole === "teacher") && metadataSchoolId) {
+  const effectiveRole =
+    metadataActiveRole === "admin" || metadataActiveRole === "teacher" || metadataActiveRole === "parent"
+      ? metadataActiveRole
+      : metadataRole
+
+  if ((effectiveRole === "admin" || effectiveRole === "teacher") && metadataSchoolId) {
     return {
       userId: String(user.id),
       email,
-      role: metadataRole,
+      role: effectiveRole,
       schoolId: metadataSchoolId,
       subdomain: "",
-      next: metadataRole === "admin" ? "/admin" : "/teacher",
+      next: effectiveRole === "admin" ? "/admin" : "/teacher",
       studentIds: [],
       school_id: metadataSchoolId,
     }

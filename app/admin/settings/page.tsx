@@ -61,6 +61,7 @@ export default function SettingsPage() {
   const [uploadingAsset, setUploadingAsset] = useState<UploadKind | null>(null)
   const [analyzingLayout, setAnalyzingLayout] = useState<UploadKind | null>(null)
   const [deletingAsset, setDeletingAsset] = useState<UploadKind | null>(null)
+  const [deletingAccount, setDeletingAccount] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -372,6 +373,36 @@ export default function SettingsPage() {
     void reloadYears()
   }
 
+  const deleteAccount = async () => {
+    const confirmed = window.prompt('Type DELETE to permanently remove this login account.')
+
+    if (confirmed !== "DELETE") {
+      alert("Account deletion cancelled")
+      return
+    }
+
+    try {
+      setDeletingAccount(true)
+
+      const response = await apiFetch("/api/auth/delete-account", {
+        method: "DELETE",
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to delete account")
+      }
+
+      await supabase.auth.signOut()
+      window.location.href = "/login"
+    } catch (error) {
+      console.error("Delete account error:", error)
+      alert(error instanceof Error ? error.message : "Failed to delete account")
+      setDeletingAccount(false)
+    }
+  }
+
   if (loading) {
     return <div className="p-10 text-white">Loading...</div>
   }
@@ -507,6 +538,23 @@ Never invent data that is not provided.`}
               <div className="mt-4 flex justify-end">
                 <button onClick={saveAiInstructions} className="btn bg-blue-600">
                   Save AI Instructions
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-5">
+              <h3 className="text-lg font-semibold text-red-100">Danger Zone</h3>
+              <p className="mt-2 text-sm text-red-100/80">
+                Delete this login account if you want to remove access for the current signed-in user. School ERP data stays in the database, but this account and its profile will be removed.
+              </p>
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => void deleteAccount()}
+                  disabled={deletingAccount}
+                  className="btn bg-red-600 text-white disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {deletingAccount ? "Deleting Account..." : "Delete Account"}
                 </button>
               </div>
             </div>
