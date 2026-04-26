@@ -39,14 +39,19 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         const studentIds = await getCurrentParentStudentIds()
 
         if (studentIds.length > 0) {
-          setLoading(false)
-          return
-        }
+  setLoading(false)
+  return
+}
+
+// ⛔ DO NOT block immediately
+console.warn("No student IDs yet, retrying...")
+
+        
 
         await supabase.auth.refreshSession()
       }
 
-      window.location.href = "/unauthorized"
+      setLoading(false) // allow page to render instead of blocking
     }
 
     void checkAuth()
