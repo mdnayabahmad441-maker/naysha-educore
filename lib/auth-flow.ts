@@ -9,50 +9,11 @@ type AuthDestination = {
   subdomain: string
 }
 
-type ParentDestinationRecord = {
-  id: string
-  student_id: string | null
-  school_id: string | null
-}
-
-function getCurrentSubdomain() {
-  if (typeof window === "undefined") return null
-
-  const host = window.location.hostname
-  const subdomain = host.split(".")[0]
-
-  if (
-    host.includes("localhost") ||
-    subdomain === "www" ||
-    subdomain === "erp" ||
-    subdomain === "naysha"
-  ) {
-    return null
-  }
-
-  return subdomain
-}
-
-async function findSchoolSubdomain(schoolId: string) {
-  const { data: school } = await supabase
-    .from("schools")
-    .select("subdomain")
-    .eq("id", schoolId)
-    .maybeSingle()
-
-  return school?.subdomain || getCurrentSubdomain()
-}
-
 async function updateUserMetadataIfNeeded(user: any, schoolId: string, role: string) {
   const currentMetadata = user.user_metadata || {}
-
   if (currentMetadata.school_id !== schoolId || currentMetadata.role !== role) {
     await supabase.auth.updateUser({
-      data: {
-        ...currentMetadata,
-        school_id: schoolId,
-        role,
-      },
+      data: { ...currentMetadata, school_id: schoolId, role },
     })
   }
 }
@@ -61,6 +22,7 @@ export async function resolveAuthDestination(user: any, email: string): Promise<
   const normalizedEmail = email.trim().toLowerCase()
   const userId = user.id
 
+  // Handle new school admin onboarding (data stored client-side in localStorage)
   const stored = localStorage.getItem("onboardingData")
 
   if (stored) {
@@ -96,114 +58,33 @@ export async function resolveAuthDestination(user: any, email: string): Promise<
     }
   }
 
-  const { data: parents } = await supabase
-    .from("parents")
-    .select("id, student_id, school_id")
-    .or(`auth_id.eq.${userId},email.ilike.${normalizedEmail}`)
+  // All other lookups go server-side to bypass Row Level Security.
+  // Client-side Supabase (anon key) can't read parent rows when auth_id is null (first login).
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData.session?.access_token
 
-  const parentRows = (parents as ParentDestinationRecord[] | null) || []
-  const parent = parentRows[0]
-
-  if (parent) {
-    let schoolId = parent.school_id
-
-    if (!schoolId) {
-      const studentIds = parentRows
-        .map((row) => row.student_id)
-        .filter((studentId): studentId is string => Boolean(studentId))
-
-      const { data: students } = await supabase
-        .from("students")
-        .select("id, school_id")
-        .in("id", studentIds)
-
-      schoolId = ((students as Array<{ id: string; school_id: string | null }> | null) || [])
-        .map((student) => student.school_id)
-        .find((value): value is string => Boolean(value)) ?? null
-    }
-
-    if (!schoolId) {
-      throw new Error("Parent linked school not found")
-    }
-
-    const subdomain = await findSchoolSubdomain(schoolId)
-
-    if (!subdomain) {
-      throw new Error("School not found")
-    }
-
-    await supabase.from("profiles").upsert({
-      id: userId,
-      school_id: schoolId,
-      role: "parent",
-    })
-
-    await supabase
-      .from("parents")
-      .update({ auth_id: userId, school_id: schoolId })
-      .ilike("email", normalizedEmail)
-
-    await updateUserMetadataIfNeeded(user, schoolId, "parent")
-
-    return {
-      subdomain,
-      next: "/parent",
-    }
+  if (!accessToken) {
+    throw new Error("Session missing")
   }
 
-  const { data: teacher } = await supabase
-    .from("teachers")
-    .select("id, school_id")
-    .ilike("email", normalizedEmail)
-    .maybeSingle()
-
-  if (teacher) {
-    const subdomain = await findSchoolSubdomain(teacher.school_id)
-
-    if (!subdomain) {
-      throw new Error("School not found")
-    }
-
-    await supabase.from("profiles").upsert({
-      id: userId,
-      school_id: teacher.school_id,
-      role: "teacher",
-    })
-
-    await supabase
-      .from("teachers")
-      .update({ auth_id: userId })
-      .eq("id", teacher.id)
-
-    await updateUserMetadataIfNeeded(user, teacher.school_id, "teacher")
-
-    return {
-      subdomain,
-      next: "/teacher",
-    }
-  }
-
-  const { data: school } = await supabase
-    .from("schools")
-    .select("id, subdomain")
-    .ilike("email", normalizedEmail)
-    .maybeSingle()
-
-  if (!school?.subdomain) {
-    throw new Error("No parent, teacher, or admin account found for this email")
-  }
-
-  await supabase.from("profiles").upsert({
-    id: userId,
-    school_id: school.id,
-    role: "admin",
+  const response = await fetch("/api/auth/resolve-destination", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ email: normalizedEmail }),
   })
 
-  await updateUserMetadataIfNeeded(user, school.id, "admin")
+  const result = await response.json()
+
+  if (!response.ok) {
+    throw new Error(result.error || "Failed to resolve account")
+  }
 
   return {
-    subdomain: school.subdomain,
-    next: "/admin",
+    next: result.next,
+    subdomain: result.subdomain,
   }
 }
 
