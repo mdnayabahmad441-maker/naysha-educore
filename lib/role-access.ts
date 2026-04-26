@@ -1,74 +1,14 @@
 import { supabase } from "./supabase"
+import { getAuthSessionContext } from "./getUserRole"
 
 export async function getCurrentParentStudentIds() {
-  const { data: userData } = await supabase.auth.getUser()
-  const user = userData.user
-  const email = user?.email?.trim().toLowerCase()
+  const context = await getAuthSessionContext()
 
-  if (!user || !email) return []
-
-  const { data: sessionData } = await supabase.auth.getSession()
-  const accessToken = sessionData.session?.access_token
-
-  if (accessToken) {
-    try {
-      const response = await fetch("/api/auth/parent-context", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-
-        if (Array.isArray(result.studentIds)) {
-          return result.studentIds
-        }
-      }
-    } catch (error) {
-      console.error("Parent context access error:", error)
-    }
+  if (context?.role === "parent") {
+    return context.studentIds
   }
 
-  const { data: linkedParents, error: linkedError } = await supabase
-    .from("parents")
-    .select("student_id,school_id")
-    .eq("auth_id", user.id)
-
-  if (linkedError) {
-    console.error("Parent linked access error:", linkedError)
-  }
-
-  const linkedStudentIds = [...new Set(((linkedParents || []).map((parent) => parent.student_id)).filter(Boolean))]
-
-  if (linkedStudentIds.length > 0) {
-    return linkedStudentIds
-  }
-
-  const { data: parents, error } = await supabase
-    .from("parents")
-    .select("id, student_id, school_id")
-    .ilike("email", email)
-
-  if (error) {
-    console.error("Parent access error:", error)
-    return []
-  }
-
-  const parentRows = parents || []
-  const studentIds = [...new Set(parentRows.map((parent) => parent.student_id).filter(Boolean))]
-  const schoolId = parentRows.map((parent) => parent.school_id).find(Boolean) || null
-
-  if (parentRows.length > 0) {
-    const updatePayload = schoolId ? { auth_id: user.id, school_id: schoolId } : { auth_id: user.id }
-
-    await supabase
-      .from("parents")
-      .update(updatePayload)
-      .ilike("email", email)
-  }
-
-  return studentIds
+  return []
 }
 
 export async function getCurrentTeacher() {

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { waitForSession } from "@/lib/auth-session"
 import { useEffect, useState } from "react"
+import { getAuthSessionContext } from "@/lib/getUserRole"
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -27,20 +28,9 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
           await wait(500)
         }
 
-        const { data: sessionData } = await supabase.auth.getSession()
-        const accessToken = sessionData.session?.access_token
+        const context = await getAuthSessionContext()
 
-        if (!accessToken) {
-          continue
-        }
-
-        const response = await fetch("/api/auth/parent-context", {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        })
-
-        if (response.ok) {
+        if (context?.role === "parent") {
           setLoading(false)
           return
         }
@@ -52,6 +42,16 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
     }
 
     void checkAuth()
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        window.location.href = "/login"
+      }
+    })
+
+    return () => {
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
   const logout = async () => {

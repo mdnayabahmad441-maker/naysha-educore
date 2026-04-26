@@ -20,21 +20,24 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const access = await resolveUserAccess(user, "parent")
+    const access = await resolveUserAccess(user)
 
-    if (!access || access.role !== "parent") {
-      return NextResponse.json({ error: "Parent account not found" }, { status: 404 })
+    if (!access) {
+      return NextResponse.json({ error: "No authorized account found" }, { status: 404 })
     }
 
     return NextResponse.json({
-      success: true,
+      userId: access.userId,
+      email: access.email,
       role: access.role,
       schoolId: access.schoolId,
+      subdomain: access.subdomain,
+      next: access.next,
       studentIds: access.studentIds,
     })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to resolve parent access" },
+      { error: error instanceof Error ? error.message : "Failed to resolve session" },
       { status: 500 }
     )
   }

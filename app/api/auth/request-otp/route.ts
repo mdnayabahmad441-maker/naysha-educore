@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { resolveAccountByEmail } from "@/lib/auth-resolver"
 import { consumeRateLimit, getClientIp } from "@/lib/security"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -11,37 +11,13 @@ const supabaseAuthClient = createClient(
 )
 
 async function hasRecognizedAccount(email: string) {
-  const normalizedEmail = email.trim().toLowerCase()
-
-  const [{ data: teacher }, { data: school }, { data: parents }] = await Promise.all([
-    supabaseAdmin
-      .from("teachers")
-      .select("id")
-      .ilike("email", normalizedEmail)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("schools")
-      .select("id")
-      .ilike("email", normalizedEmail)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("parents")
-      .select("id")
-      .ilike("email", normalizedEmail)
-      .limit(1),
-  ])
-
-  return Boolean(teacher?.id || school?.id || (parents || []).length > 0)
+  const account = await resolveAccountByEmail(email)
+  return Boolean(account)
 }
 
 async function hasParentAccount(email: string) {
-  const { data } = await supabaseAdmin
-    .from("parents")
-    .select("id")
-    .ilike("email", email.trim().toLowerCase())
-    .limit(1)
-
-  return (data || []).length > 0
+  const account = await resolveAccountByEmail(email)
+  return account?.role === "parent"
 }
 
 export async function POST(request: NextRequest) {
