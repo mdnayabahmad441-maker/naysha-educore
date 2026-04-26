@@ -260,12 +260,11 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
       ? (user.user_metadata.active_role as AccountRole)
       : null
 
-  const effectivePreferredRole = preferredRole || metadataActiveRole
+  const effectivePreferredRole = preferredRole
 
-  const allowParent = !effectivePreferredRole || effectivePreferredRole === "parent"
-  const allowTeacher = !effectivePreferredRole || effectivePreferredRole === "teacher"
-  const allowAdmin = !effectivePreferredRole || effectivePreferredRole === "admin"
-
+const allowParent = effectivePreferredRole === "parent"
+const allowTeacher = effectivePreferredRole === "teacher"
+const allowAdmin = effectivePreferredRole === "admin"
   // ── PARENT ──────────────────────────────────────────────────────────────────
   if (allowParent) {
     const parentRows = await resolveParentRows(user.id, email)
