@@ -2,13 +2,29 @@ import { supabase } from "./supabase"
 
 export async function getCurrentParentStudentIds() {
   const { data: userData } = await supabase.auth.getUser()
-  const email = userData.user?.email?.trim().toLowerCase()
+  const user = userData.user
+  const email = user?.email?.trim().toLowerCase()
 
-  if (!email) return []
+  if (!user || !email) return []
+
+  const { data: linkedParents, error: linkedError } = await supabase
+    .from("parents")
+    .select("student_id,school_id")
+    .eq("auth_id", user.id)
+
+  if (linkedError) {
+    console.error("Parent linked access error:", linkedError)
+  }
+
+  const linkedStudentIds = [...new Set(((linkedParents || []).map((parent) => parent.student_id)).filter(Boolean))]
+
+  if (linkedStudentIds.length > 0) {
+    return linkedStudentIds
+  }
 
   const { data: parents, error } = await supabase
     .from("parents")
-    .select("student_id,school_id")
+    .select("id, student_id, school_id")
     .ilike("email", email)
 
   if (error) {
@@ -16,7 +32,20 @@ export async function getCurrentParentStudentIds() {
     return []
   }
 
-  return [...new Set((parents || []).map((parent) => parent.student_id))]
+  const parentRows = parents || []
+  const studentIds = [...new Set(parentRows.map((parent) => parent.student_id).filter(Boolean))]
+  const schoolId = parentRows.map((parent) => parent.school_id).find(Boolean) || null
+
+  if (parentRows.length > 0) {
+    const updatePayload = schoolId ? { auth_id: user.id, school_id: schoolId } : { auth_id: user.id }
+
+    await supabase
+      .from("parents")
+      .update(updatePayload)
+      .ilike("email", email)
+  }
+
+  return studentIds
 }
 
 export async function getCurrentTeacher() {

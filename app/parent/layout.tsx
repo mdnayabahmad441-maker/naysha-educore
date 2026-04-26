@@ -7,6 +7,8 @@ import { waitForSession } from "@/lib/auth-session"
 import { getUserRole } from "@/lib/getUserRole"
 import { useEffect, useState } from "react"
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [loading, setLoading] = useState(true)
@@ -21,8 +23,15 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         return
       }
 
-      const roleData = await getUserRole()
-      const metadataRole = session.user.user_metadata?.role
+      let roleData = await getUserRole()
+      let metadataRole = session.user.user_metadata?.role
+
+      if (roleData?.role !== "parent" && metadataRole !== "parent") {
+        await wait(400)
+        const refreshedSession = await waitForSession(4, 200)
+        roleData = await getUserRole()
+        metadataRole = refreshedSession?.user.user_metadata?.role
+      }
 
       if (roleData?.role !== "parent" && metadataRole !== "parent") {
         window.location.href = "/unauthorized"

@@ -7,13 +7,27 @@ import { sendNotification } from "@/lib/notifications"
 import { getActiveAcademicYear } from "@/lib/academic"
 import { getCurrentTeacherClassIds } from "@/lib/role-access"
 import { apiFetch } from "@/lib/api-client"
+import { useSchool } from "@/context/SchoolContext"
 
 type AttendancePageProps = {
   restrictToClassTeacher?: boolean
 }
 
+type AiAbsentMessage = {
+  studentName: string
+  message: string
+}
+
+type AiAttendanceSummary = {
+  insight: string
+  concern: string
+  suggestion: string
+  absentMessages: AiAbsentMessage[]
+}
+
 export default function AttendancePage({ restrictToClassTeacher = false }: AttendancePageProps){
 
+  const school = useSchool()
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
   const [classes,setClasses] = useState<any[]>([])
@@ -29,6 +43,10 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
   const [presentCount,setPresentCount] = useState(0)
   const [absentCount,setAbsentCount] = useState(0)
   const [percentage,setPercentage] = useState(0)
+
+  const [aiSummary, setAiSummary] = useState<AiAttendanceSummary | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
 
   // ================= TODAY =================
   useEffect(()=>{
@@ -285,6 +303,51 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
     }
   }
 
+  const analyseWithAi = async () => {
+    if (!schoolId || !selectedClass || !students.length) return
+
+    setAiLoading(true)
+    setAiSummary(null)
+
+    try {
+      const className = classes.find(c => c.id === selectedClass)?.name || "Class"
+      const absentStudents = students
+        .filter(s => (attendance[s.id] || "present") === "absent")
+        .map(s => ({ name: s.name, class: className }))
+
+      const res = await apiFetch("/api/ai/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task: "attendance_summary",
+          schoolId,
+          schoolName: school?.name || "School",
+          className,
+          date: selectedDate,
+          presentCount,
+          absentCount,
+          percentage,
+          absentStudents
+        })
+      })
+
+      const json = await res.json()
+      if (!res.ok || !json?.data) throw new Error(json?.error || "AI failed")
+      setAiSummary(json.data as AiAttendanceSummary)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "AI analysis failed")
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const copyMessage = (text: string, idx: number) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedIdx(idx)
+      setTimeout(() => setCopiedIdx(null), 2000)
+    })
+  }
+
   return(
     <div className="mx-auto max-w-6xl space-y-8 p-4 pb-28 text-white md:p-10 md:pb-10">
 
@@ -385,16 +448,76 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
         </div>
 
         <div className="sticky bottom-20 z-20 -mx-1 rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,15,30,0.96),rgba(11,26,51,0.9))] p-3 shadow-[0_24px_70px_rgba(2,8,23,0.38)] md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
-          <button
-            onClick={saveAttendance}
-            disabled={loading}
-            className="w-full rounded-2xl bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-700"
-          >
-            {loading ? "Saving..." : "Save Attendance"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={saveAttendance}
+              disabled={loading}
+              className="flex-1 rounded-2xl bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-700"
+            >
+              {loading ? "Saving..." : "Save Attendance"}
+            </button>
+            {students.length > 0 && (
+              <button
+                onClick={analyseWithAi}
+                disabled={aiLoading}
+                className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
+              >
+                {aiLoading ? "Analysing..." : "✦ AI Analyse"}
+              </button>
+            )}
+          </div>
         </div>
 
       </div>
+
+      {/* AI ATTENDANCE ANALYSIS */}
+      {aiSummary && (
+        <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-6 space-y-5">
+          <div className="flex items-center gap-2">
+            <span className="text-cyan-400">✦</span>
+            <h2 className="font-semibold text-cyan-100">AI Attendance Analysis</h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="rounded-xl bg-white/5 p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Insight</p>
+              <p className="text-sm text-gray-200">{aiSummary.insight}</p>
+            </div>
+            {aiSummary.concern && (
+              <div className="rounded-xl border border-yellow-400/20 bg-yellow-500/5 p-4">
+                <p className="text-xs text-yellow-400 uppercase tracking-wide mb-1">Concern</p>
+                <p className="text-sm text-yellow-200">{aiSummary.concern}</p>
+              </div>
+            )}
+            <div className="rounded-xl bg-white/5 p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Suggestion</p>
+              <p className="text-sm text-gray-200">{aiSummary.suggestion}</p>
+            </div>
+          </div>
+
+          {aiSummary.absentMessages.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-cyan-300">
+                WhatsApp Messages for Absent Students&apos; Parents
+              </p>
+              {aiSummary.absentMessages.map((item, i) => (
+                <div key={i} className="rounded-xl bg-white/5 p-4 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">{item.studentName}</p>
+                    <p className="text-sm text-gray-200">{item.message}</p>
+                  </div>
+                  <button
+                    onClick={() => copyMessage(item.message, i)}
+                    className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10"
+                  >
+                    {copiedIdx === i ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   )

@@ -1,20 +1,40 @@
 import { NextResponse } from "next/server"
 import { Resend } from "resend"
+import nodemailer from "nodemailer"
 import { isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
 
+const RESEND_TEST_FROM = "onboarding@resend.dev"
+
+function getEmailProvider(): "resend" | "gmail" | "none" {
+  const resendKey = process.env.RESEND_API_KEY
+  const resendFrom = process.env.RESEND_FROM_EMAIL || RESEND_TEST_FROM
+  const gmailUser = process.env.EMAIL_USER
+  const gmailPass = process.env.EMAIL_PASS
+
+  // Resend is only usable for real recipients when a custom domain is verified
+  if (resendKey && resendFrom !== RESEND_TEST_FROM) return "resend"
+  if (gmailUser && gmailPass) return "gmail"
+  return "none"
+}
+
 function getEmailStatus() {
-  const apiKey = process.env.RESEND_API_KEY || null
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
+  const provider = getEmailProvider()
   const missing: string[] = []
 
-  if (!apiKey) {
-    missing.push("RESEND_API_KEY")
+  if (provider === "none") {
+    missing.push("EMAIL_USER + EMAIL_PASS (Gmail) or RESEND_API_KEY + custom RESEND_FROM_EMAIL")
   }
 
   return {
-    configured: missing.length === 0,
+    configured: provider !== "none",
     missing,
-    fromEmail,
+    provider,
+    fromEmail:
+      provider === "resend"
+        ? (process.env.RESEND_FROM_EMAIL ?? RESEND_TEST_FROM)
+        : provider === "gmail"
+        ? (process.env.EMAIL_USER ?? "")
+        : "",
   }
 }
 
@@ -91,7 +111,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Email service is not configured on the server",
+          error: "Email service is not configured. Set EMAIL_USER and EMAIL_PASS in your .env.",
           missing: status.missing,
         },
         { status: 503 }
@@ -113,30 +133,38 @@ export async function POST(req: Request) {
       )
     }
 
-    const resend = new Resend(process.env.RESEND_API_KEY)
+    const html = buildHtmlContent({ message, amount, feeType, studentName })
 
-    const data = await resend.emails.send({
-      from: `NaySha ERP <${status.fromEmail}>`,
-      to: [email],
-      subject,
-      html: buildHtmlContent({
-        message,
-        amount,
-        feeType,
-        studentName,
-      }),
+    if (status.provider === "resend") {
+      const resend = new Resend(process.env.RESEND_API_KEY)
+      const data = await resend.emails.send({
+        from: `NaySha ERP <${status.fromEmail}>`,
+        to: [email],
+        subject,
+        html,
+      })
+      return NextResponse.json({ success: true, provider: "resend", to: email, data })
+    }
+
+    // Gmail via nodemailer
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
     })
 
-    return NextResponse.json({
-      success: true,
-      provider: "resend",
+    await transporter.sendMail({
+      from: `NaySha ERP <${process.env.EMAIL_USER}>`,
       to: email,
-      from: status.fromEmail,
-      data,
+      subject,
+      html,
     })
+
+    return NextResponse.json({ success: true, provider: "gmail", to: email })
   } catch (err: any) {
     console.error("Email Error:", err)
-
     return NextResponse.json(
       { success: false, error: err.message || "Internal error" },
       { status: 500 }

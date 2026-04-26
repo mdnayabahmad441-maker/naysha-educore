@@ -4,9 +4,22 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { getActiveAcademicYear } from "@/lib/academic"
+import { apiFetch } from "@/lib/api-client"
+import { useSchool } from "@/context/SchoolContext"
+
+type AiSubjectInsight = { subject: string; observation: string }
+
+type AiResultAnalysis = {
+  overview: string
+  topPerformers: string[]
+  needsAttention: string[]
+  subjectInsights: AiSubjectInsight[]
+  recommendation: string
+}
 
 export default function ResultPage(){
 
+  const school = useSchool()
   const [schoolId,setSchoolId] = useState<string | null>(null)
 
   const [exams,setExams] = useState<any[]>([])
@@ -18,6 +31,9 @@ export default function ResultPage(){
   const [results,setResults] = useState<any[]>([])
 
   const [loading,setLoading] = useState(false)
+
+  const [aiAnalysis, setAiAnalysis] = useState<AiResultAnalysis | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
 
   // ================= INIT =================
   useEffect(()=>{
@@ -150,6 +166,60 @@ export default function ResultPage(){
     return "bg-green-800"
   }
 
+  const analyseResults = async () => {
+    if (!schoolId || !results.length) return
+
+    setAiLoading(true)
+    setAiAnalysis(null)
+
+    try {
+      const exam = exams.find(e => String(e.id) === String(selectedExam))
+      const examName = exam?.name || "Exam"
+      const className = exam?.class_id ? "" : "Class"
+
+      const resultPayload = results.map(r => {
+        const st = students.find(s => s.id === r.student_id)
+        return {
+          name: st?.name || "Unknown",
+          percentage: Number(r.percentage || 0),
+          grade: r.grade || "N/A"
+        }
+      })
+
+      const subjectAvgs = subjects.map(sub => {
+        const marks = students
+          .map(s => Number(marksMap[`${s.id}_${sub.id}`] ?? null))
+          .filter(m => !isNaN(m) && m !== null)
+        const avg = marks.length
+          ? marks.reduce((a, b) => a + b, 0) / marks.length
+          : 0
+        return { name: sub.name, classAvg: avg }
+      })
+
+      const res = await apiFetch("/api/ai/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task: "result_analysis",
+          schoolId,
+          schoolName: school?.name || "School",
+          examName,
+          className,
+          results: resultPayload,
+          subjects: subjectAvgs
+        })
+      })
+
+      const json = await res.json()
+      if (!res.ok || !json?.data) throw new Error(json?.error || "AI failed")
+      setAiAnalysis(json.data as AiResultAnalysis)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "AI analysis failed")
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
   return(
 
     <div className="p-6 text-white space-y-6">
@@ -161,7 +231,8 @@ export default function ResultPage(){
         value={selectedExam}
         onChange={(e)=>{
           setSelectedExam(e.target.value)
-          loadResult(e.target.value) // 🔥 FIXED trigger
+          setAiAnalysis(null)
+          loadResult(e.target.value)
         }}
         className="p-3 bg-[#0b1220]"
       >
@@ -233,6 +304,66 @@ export default function ResultPage(){
           </tbody>
 
         </table>
+      )}
+
+      {/* AI ANALYSE BUTTON */}
+      {results.length > 0 && (
+        <button
+          onClick={analyseResults}
+          disabled={aiLoading}
+          className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-5 py-2.5 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
+        >
+          {aiLoading ? "Analysing..." : "✦ AI Analyse Results"}
+        </button>
+      )}
+
+      {/* AI ANALYSIS PANEL */}
+      {aiAnalysis && (
+        <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-6 space-y-5">
+          <div className="flex items-center gap-2">
+            <span className="text-cyan-400">✦</span>
+            <h2 className="font-semibold text-cyan-100">AI Performance Analysis</h2>
+          </div>
+
+          <p className="text-sm text-gray-200 leading-relaxed">{aiAnalysis.overview}</p>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {aiAnalysis.topPerformers.length > 0 && (
+              <div className="rounded-xl bg-green-500/10 border border-green-500/20 p-4 space-y-2">
+                <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">Top Performers</p>
+                {aiAnalysis.topPerformers.map((name, i) => (
+                  <p key={i} className="text-sm text-green-200">🏆 {name}</p>
+                ))}
+              </div>
+            )}
+
+            {aiAnalysis.needsAttention.length > 0 && (
+              <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 space-y-2">
+                <p className="text-xs font-semibold text-red-400 uppercase tracking-wide">Needs Attention</p>
+                {aiAnalysis.needsAttention.map((name, i) => (
+                  <p key={i} className="text-sm text-red-200">⚠ {name}</p>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {aiAnalysis.subjectInsights.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-cyan-400 uppercase tracking-wide">Subject Insights</p>
+              {aiAnalysis.subjectInsights.map((s, i) => (
+                <div key={i} className="rounded-xl bg-white/5 p-3 flex gap-3">
+                  <span className="text-sm font-medium text-white shrink-0">{s.subject}:</span>
+                  <span className="text-sm text-gray-300">{s.observation}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="rounded-xl border border-blue-400/20 bg-blue-500/5 p-4">
+            <p className="text-xs font-semibold text-blue-400 uppercase tracking-wide mb-1">Recommendation</p>
+            <p className="text-sm text-blue-200">{aiAnalysis.recommendation}</p>
+          </div>
+        </div>
       )}
 
     </div>

@@ -9,6 +9,8 @@ import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 import { useRouter } from "next/navigation"
 import { createRoot } from "react-dom/client"
+import { apiFetch } from "@/lib/api-client"
+import { useSchool } from "@/context/SchoolContext"
 
 type SchoolClass = {
   id: string
@@ -110,8 +112,20 @@ async function fetchFees(
   }))
 }
 
+type AiFeeReminder = {
+  studentName: string
+  amount: number
+  message: string
+}
+
+type AiFeeReminders = {
+  summary: string
+  reminders: AiFeeReminder[]
+}
+
 export default function FeesPage() {
   const router = useRouter()
+  const school = useSchool()
 
   const [schoolId, setSchoolId] = useState<string | null>(null)
   const [classes, setClasses] = useState<SchoolClass[]>([])
@@ -122,6 +136,10 @@ export default function FeesPage() {
 
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+
+  const [aiReminders, setAiReminders] = useState<AiFeeReminders | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
 
   useEffect(() => {
     void getSchoolId().then(setSchoolId)
@@ -450,6 +468,55 @@ export default function FeesPage() {
     return "bg-red-500/20 text-red-400"
   }
 
+  const generateAiReminders = async () => {
+    if (!schoolId) return
+
+    const pendingFees = fees
+      .filter(f => f.status === "pending" || f.status === "partial")
+      .map(f => ({
+        studentName: f.student.name,
+        amount: (f.total_amount ?? 0) - (f.paid_amount ?? 0),
+        month: f.month
+      }))
+
+    if (pendingFees.length === 0) {
+      alert("No pending fees to generate reminders for")
+      return
+    }
+
+    setAiLoading(true)
+    setAiReminders(null)
+
+    try {
+      const res = await apiFetch("/api/ai/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task: "fee_reminders",
+          schoolId,
+          schoolName: school?.name || "School",
+          month: selectedMonth || "current month",
+          pendingFees
+        })
+      })
+
+      const json = await res.json()
+      if (!res.ok || !json?.data) throw new Error(json?.error || "AI failed")
+      setAiReminders(json.data as AiFeeReminders)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "AI reminder generation failed")
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const copyReminder = (text: string, idx: number) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedIdx(idx)
+      setTimeout(() => setCopiedIdx(null), 2000)
+    })
+  }
+
   return (
     <div className="min-h-screen bg-[#020617] p-4 text-white md:p-6">
       <h1 className="mb-6 text-2xl font-semibold">Fees</h1>
@@ -496,7 +563,45 @@ export default function FeesPage() {
         <button onClick={generateFees} className="btn bg-blue-600">
           {generating ? "Generating..." : "Generate Fees"}
         </button>
+
+        <button
+          onClick={generateAiReminders}
+          disabled={aiLoading}
+          className="rounded-[10px] border border-cyan-400/20 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
+        >
+          {aiLoading ? "Drafting..." : "✦ AI Reminders"}
+        </button>
       </div>
+
+      {/* AI FEE REMINDERS PANEL */}
+      {aiReminders && (
+        <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-cyan-400">✦</span>
+            <h2 className="font-semibold text-cyan-100">AI Fee Reminders</h2>
+          </div>
+          <p className="text-sm text-gray-300">{aiReminders.summary}</p>
+          <div className="space-y-3">
+            {aiReminders.reminders.map((r, i) => (
+              <div key={i} className="rounded-xl bg-white/5 p-4 flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-sm font-medium text-white">{r.studentName}</p>
+                    <span className="text-xs text-yellow-400">₹{r.amount} due</span>
+                  </div>
+                  <p className="text-sm text-gray-300">{r.message}</p>
+                </div>
+                <button
+                  onClick={() => copyReminder(r.message, i)}
+                  className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10"
+                >
+                  {copiedIdx === i ? "Copied!" : "Copy"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
         {loading ? (

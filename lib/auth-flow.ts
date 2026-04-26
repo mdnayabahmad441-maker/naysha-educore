@@ -9,6 +9,12 @@ type AuthDestination = {
   subdomain: string
 }
 
+type ParentDestinationRecord = {
+  id: string
+  student_id: string | null
+  school_id: string | null
+}
+
 function getCurrentSubdomain() {
   if (typeof window === "undefined") return null
 
@@ -93,22 +99,27 @@ export async function resolveAuthDestination(user: any, email: string): Promise<
   const { data: parents } = await supabase
     .from("parents")
     .select("id, student_id, school_id")
-    .ilike("email", normalizedEmail)
-    .limit(1)
+    .or(`auth_id.eq.${userId},email.ilike.${normalizedEmail}`)
 
-  const parent = parents?.[0]
+  const parentRows = (parents as ParentDestinationRecord[] | null) || []
+  const parent = parentRows[0]
 
   if (parent) {
     let schoolId = parent.school_id
 
     if (!schoolId) {
-      const { data: student } = await supabase
-        .from("students")
-        .select("school_id")
-        .eq("id", parent.student_id)
-        .maybeSingle()
+      const studentIds = parentRows
+        .map((row) => row.student_id)
+        .filter((studentId): studentId is string => Boolean(studentId))
 
-      schoolId = student?.school_id
+      const { data: students } = await supabase
+        .from("students")
+        .select("id, school_id")
+        .in("id", studentIds)
+
+      schoolId = ((students as Array<{ id: string; school_id: string | null }> | null) || [])
+        .map((student) => student.school_id)
+        .find((value): value is string => Boolean(value)) ?? null
     }
 
     if (!schoolId) {
@@ -126,6 +137,11 @@ export async function resolveAuthDestination(user: any, email: string): Promise<
       school_id: schoolId,
       role: "parent",
     })
+
+    await supabase
+      .from("parents")
+      .update({ auth_id: userId, school_id: schoolId })
+      .ilike("email", normalizedEmail)
 
     await updateUserMetadataIfNeeded(user, schoolId, "parent")
 

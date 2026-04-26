@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase"
 import Card from "@/components/ui/Card"
 import { getSchoolId } from "@/lib/school"
 import { getActiveAcademicYear } from "@/lib/academic"
+import { apiFetch } from "@/lib/api-client"
+import { useSchool } from "@/context/SchoolContext"
 
 import {
   BarChart,
@@ -16,9 +18,16 @@ import {
   ResponsiveContainer
 } from "recharts"
 
+type AiDigest = {
+  summary: string
+  highlights: string[]
+  alerts: string[]
+}
+
 export default function DashboardPage() {
 
   const router = useRouter()
+  const school = useSchool()
 
   const [students,setStudents] = useState(0)
   const [teachers,setTeachers] = useState(0)
@@ -26,6 +35,7 @@ export default function DashboardPage() {
 
   const [attendance,setAttendance] = useState(0)
   const [classAttendance,setClassAttendance] = useState<any[]>([])
+  const [absentCount,setAbsentCount] = useState(0)
 
   const [collected,setCollected] = useState(0)
   const [pending,setPending] = useState(0)
@@ -38,6 +48,10 @@ export default function DashboardPage() {
   const [today,setToday] = useState("")
 
   const [loading,setLoading] = useState(true)
+
+  const [aiDigest, setAiDigest] = useState<AiDigest | null>(null)
+  const [digestLoading, setDigestLoading] = useState(false)
+  const [digestError, setDigestError] = useState("")
 
   type AttendanceRow = {
     status: string
@@ -159,6 +173,7 @@ export default function DashboardPage() {
 
         setAttendance(overall)
         setClassAttendance(formatted)
+        setAbsentCount(total - totalPresent)
 
         // ================= FEES =================
         const { data: fees } = await supabase
@@ -212,6 +227,46 @@ export default function DashboardPage() {
 
   },[router])
 
+  const fetchAiDigest = async () => {
+    const schoolId = await getSchoolId()
+    if (!schoolId) return
+
+    setDigestLoading(true)
+    setDigestError("")
+
+    try {
+      const newEnquiriesCount = admissionEnquiries.filter(e => e.status === "new").length
+
+      const res = await apiFetch("/api/ai/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task: "dashboard_digest",
+          schoolId,
+          schoolName: school?.name || "School",
+          stats: {
+            students,
+            teachers,
+            classes,
+            attendance,
+            collected,
+            pending,
+            newEnquiries: newEnquiriesCount,
+            absentCount
+          }
+        })
+      })
+
+      const json = await res.json()
+      if (!res.ok || !json?.data) throw new Error(json?.error || "AI failed")
+      setAiDigest(json.data as AiDigest)
+    } catch (err) {
+      setDigestError(err instanceof Error ? err.message : "Failed to load AI digest")
+    } finally {
+      setDigestLoading(false)
+    }
+  }
+
   if(loading){
     return (
       <div className="flex items-center justify-center h-[60vh] text-white">
@@ -240,6 +295,62 @@ export default function DashboardPage() {
         </p>
 
       </div>
+
+      {/* AI DAILY DIGEST */}
+      <Card className="border border-cyan-500/20 bg-cyan-500/5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-cyan-400 text-lg">✦</span>
+            <h2 className="font-semibold text-cyan-100">AI Daily Digest</h2>
+          </div>
+          <button
+            onClick={fetchAiDigest}
+            disabled={digestLoading}
+            className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
+          >
+            {digestLoading ? "Analysing..." : aiDigest ? "Refresh" : "Generate Digest"}
+          </button>
+        </div>
+
+        {digestError && (
+          <p className="text-xs text-red-400">{digestError}</p>
+        )}
+
+        {!aiDigest && !digestLoading && (
+          <p className="text-sm text-gray-400">
+            Click &quot;Generate Digest&quot; to get an AI-powered summary of today&apos;s school activity and action items.
+          </p>
+        )}
+
+        {digestLoading && (
+          <div className="space-y-2 animate-pulse">
+            <div className="h-3 bg-white/10 rounded w-3/4" />
+            <div className="h-3 bg-white/10 rounded w-1/2" />
+          </div>
+        )}
+
+        {aiDigest && !digestLoading && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-200 leading-relaxed">{aiDigest.summary}</p>
+
+            {aiDigest.alerts.length > 0 && (
+              <div className="rounded-xl border border-red-400/20 bg-red-500/5 p-3 space-y-1">
+                <p className="text-xs font-semibold text-red-300 uppercase tracking-wide">Alerts</p>
+                {aiDigest.alerts.map((alert, i) => (
+                  <p key={i} className="text-sm text-red-200">• {alert}</p>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-cyan-400 uppercase tracking-wide">Action Items</p>
+              {aiDigest.highlights.map((item, i) => (
+                <p key={i} className="text-sm text-gray-300">• {item}</p>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* 🔥 CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

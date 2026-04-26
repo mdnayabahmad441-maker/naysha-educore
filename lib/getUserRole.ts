@@ -7,6 +7,12 @@ type RoleRecord = {
   school_id: string
 }
 
+type ParentRoleRecord = {
+  id: string
+  student_id: string | null
+  school_id: string | null
+}
+
 async function persistRole(userId: string, role: UserRole, schoolId: string) {
   await supabase.from("profiles").upsert({
     id: userId,
@@ -18,6 +24,60 @@ async function persistRole(userId: string, role: UserRole, schoolId: string) {
     role,
     school_id: schoolId,
   }
+}
+
+async function resolveParentSchoolId(userId: string, normalizedEmail: string) {
+  const { data: parents } = await supabase
+    .from("parents")
+    .select("id, student_id, school_id")
+    .or(`auth_id.eq.${userId},email.ilike.${normalizedEmail}`)
+
+  const parentRows = (parents as ParentRoleRecord[] | null) || []
+
+  if (parentRows.length === 0) {
+    return null
+  }
+
+  const schoolIds = parentRows
+    .map((parent) => parent.school_id)
+    .filter((schoolId): schoolId is string => Boolean(schoolId))
+
+  if (schoolIds.length > 0) {
+    await supabase
+      .from("parents")
+      .update({ auth_id: userId })
+      .ilike("email", normalizedEmail)
+
+    return schoolIds[0]
+  }
+
+  const studentIds = parentRows
+    .map((parent) => parent.student_id)
+    .filter((studentId): studentId is string => Boolean(studentId))
+
+  if (studentIds.length === 0) {
+    return null
+  }
+
+  const { data: students } = await supabase
+    .from("students")
+    .select("id, school_id")
+    .in("id", studentIds)
+
+  const schoolId = ((students as Array<{ id: string; school_id: string | null }> | null) || [])
+    .map((student) => student.school_id)
+    .find((value): value is string => Boolean(value))
+
+  if (!schoolId) {
+    return null
+  }
+
+  await supabase
+    .from("parents")
+    .update({ auth_id: userId, school_id: schoolId })
+    .ilike("email", normalizedEmail)
+
+  return schoolId
 }
 
 export async function getUserRole() {
@@ -70,28 +130,10 @@ export async function getUserRole() {
     return persistRole(user.id, "teacher", teacher.school_id)
   }
 
-  const { data: parent } = await supabase
-    .from("parents")
-    .select("student_id, school_id")
-    .ilike("email", normalizedEmail)
-    .maybeSingle()
+  const parentSchoolId = await resolveParentSchoolId(user.id, normalizedEmail)
 
-  if (parent) {
-    let schoolId = parent.school_id
-
-    if (!schoolId && parent.student_id) {
-      const { data: student } = await supabase
-        .from("students")
-        .select("school_id")
-        .eq("id", parent.student_id)
-        .maybeSingle()
-
-      schoolId = student?.school_id
-    }
-
-    if (schoolId) {
-      return persistRole(user.id, "parent", schoolId)
-    }
+  if (parentSchoolId) {
+    return persistRole(user.id, "parent", parentSchoolId)
   }
 
   const { data: school } = await supabase
