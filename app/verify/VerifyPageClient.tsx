@@ -10,6 +10,12 @@ export default function VerifyPageClient() {
   const router = useRouter()
   const email = (params.get("email") || "").trim().toLowerCase()
   const mode = params.get("mode") || "login"
+  const preferredRole =
+    params.get("role") === "parent" ||
+    params.get("role") === "teacher" ||
+    params.get("role") === "admin"
+      ? (params.get("role") as "admin" | "teacher" | "parent")
+      : undefined
 
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
@@ -51,7 +57,7 @@ export default function VerifyPageClient() {
     }
 
     try {
-      const destination = await resolveAuthDestination(userData.user, email)
+      const destination = await resolveAuthDestination(userData.user, email, preferredRole)
 
       if (mode === "setup") {
         sessionStorage.setItem("postAuthRedirect", JSON.stringify(destination))

@@ -28,7 +28,8 @@ async function updateUserMetadataIfNeeded(user: any, schoolId: string, role: str
 
 export async function resolveAuthDestination(
   user: any,
-  email: string
+  email: string,
+  preferredRole?: "admin" | "teacher" | "parent"
 ): Promise<AuthDestination> {
   const normalizedEmail = email.trim().toLowerCase()
   const userId = user.id
@@ -88,6 +89,7 @@ export async function resolveAuthDestination(
     },
     body: JSON.stringify({
       email: normalizedEmail,
+      preferredRole: preferredRole || null,
     }),
   })
 

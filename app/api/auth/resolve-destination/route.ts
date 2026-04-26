@@ -31,103 +31,118 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const email = String(body?.email || "").trim().toLowerCase()
+    const preferredRole = String(body?.preferredRole || "").trim().toLowerCase()
     const userId = user.id
+
+    const allowParent = !preferredRole || preferredRole === "parent"
+    const allowTeacher = !preferredRole || preferredRole === "teacher"
+    const allowAdmin = !preferredRole || preferredRole === "admin"
 
     // =========================
     // 🔹 CHECK PARENT
     // =========================
-    const { data: byAuthId } = await supabaseAdmin
-      .from("parents")
-      .select("id, student_id, school_id")
-      .eq("auth_id", userId)
-
-    let parentRows =
-      byAuthId || []
-
-    if (parentRows.length === 0) {
-      const { data: byEmail } = await supabaseAdmin
+    if (allowParent) {
+      const { data: byAuthId } = await supabaseAdmin
         .from("parents")
         .select("id, student_id, school_id")
-        .ilike("email", email)
+        .eq("auth_id", userId)
 
-      parentRows = byEmail || []
-    }
+      let parentRows =
+        byAuthId || []
 
-    const parent = parentRows[0]
-
-    if (parent) {
-      let schoolId = parent.school_id
-
-      if (!schoolId) {
-        const studentIds = parentRows
-          .map((r) => r.student_id)
-          .filter((id): id is string => Boolean(id))
-
-        if (studentIds.length > 0) {
-          const { data: students } = await supabaseAdmin
-            .from("students")
-            .select("school_id")
-            .in("id", studentIds)
-
-          schoolId =
-            (students || [])
-              .map((s) => s.school_id)
-              .find((v): v is string => Boolean(v)) ?? null
-        }
-      }
-
-      if (!schoolId) {
-        return NextResponse.json(
-          { error: "Parent linked school not found" },
-          { status: 404 }
-        )
-      }
-
-      const subdomain = await findSchoolSubdomain(schoolId)
-
-      if (!subdomain) {
-        return NextResponse.json(
-          { error: "School not found" },
-          { status: 404 }
-        )
-      }
-
-      await Promise.all([
-        supabaseAdmin
-          .from("profiles")
-          .upsert({ id: userId, school_id: schoolId, role: "parent" }),
-
-        supabaseAdmin
+      if (parentRows.length === 0) {
+        const { data: byEmail } = await supabaseAdmin
           .from("parents")
-          .update({ auth_id: userId, school_id: schoolId })
-          .ilike("email", email),
+          .select("id, student_id, school_id")
+          .ilike("email", email)
 
-        supabaseAdmin.auth.admin.updateUserById(userId, {
-          user_metadata: {
-            ...user.user_metadata,
-            school_id: schoolId,
-            role: "parent",
-          },
-        }),
-      ])
+        parentRows = byEmail || []
+      }
 
-      // ✅ FIXED RESPONSE
-      return NextResponse.json({
-        next: "/parent",
-        subdomain,
-        role: "parent",
-        school_id: schoolId,
-      })
+      const parent = parentRows[0]
+
+      if (parent) {
+        let schoolId = parent.school_id
+
+        if (!schoolId) {
+          const studentIds = parentRows
+            .map((r) => r.student_id)
+            .filter((id): id is string => Boolean(id))
+
+          if (studentIds.length > 0) {
+            const { data: students } = await supabaseAdmin
+              .from("students")
+              .select("school_id")
+              .in("id", studentIds)
+
+            schoolId =
+              (students || [])
+                .map((s) => s.school_id)
+                .find((v): v is string => Boolean(v)) ?? null
+          }
+        }
+
+        if (!schoolId) {
+          return NextResponse.json(
+            { error: "Parent linked school not found" },
+            { status: 404 }
+          )
+        }
+
+        const subdomain = await findSchoolSubdomain(schoolId)
+
+        if (!subdomain) {
+          return NextResponse.json(
+            { error: "School not found" },
+            { status: 404 }
+          )
+        }
+
+        await Promise.all([
+          supabaseAdmin
+            .from("profiles")
+            .upsert({ id: userId, school_id: schoolId, role: "parent" }),
+
+          supabaseAdmin
+            .from("parents")
+            .update({ auth_id: userId, school_id: schoolId })
+            .ilike("email", email),
+
+          supabaseAdmin.auth.admin.updateUserById(userId, {
+            user_metadata: {
+              ...user.user_metadata,
+              school_id: schoolId,
+              role: "parent",
+            },
+          }),
+        ])
+
+        return NextResponse.json({
+          next: "/parent",
+          subdomain,
+          role: "parent",
+          school_id: schoolId,
+        })
+      }
+
+      if (preferredRole === "parent") {
+        return NextResponse.json(
+          { error: "Parent account not found for this email" },
+          { status: 404 }
+        )
+      }
     }
 
     // =========================
     // 🔹 CHECK TEACHER
     // =========================
-    const { data: teacher } = await supabaseAdmin
-      .from("teachers")
-      .select("id, school_id")
-      .ilike("email", email)
-      .maybeSingle()
+    const teacher = allowTeacher
+      ? (await supabaseAdmin
+          .from("teachers")
+          .select("id, school_id")
+          .ilike("email", email)
+          .maybeSingle()).data
+      : null
 
     if (teacher) {
       const subdomain = await findSchoolSubdomain(teacher.school_id)
@@ -174,11 +189,13 @@ export async function POST(request: NextRequest) {
     // =========================
     // 🔹 CHECK ADMIN
     // =========================
-    const { data: school } = await supabaseAdmin
-      .from("schools")
-      .select("id, subdomain")
-      .ilike("email", email)
-      .maybeSingle()
+    const school = allowAdmin
+      ? (await supabaseAdmin
+          .from("schools")
+          .select("id, subdomain")
+          .ilike("email", email)
+          .maybeSingle()).data
+      : null
 
     if (!school?.subdomain) {
       return NextResponse.json(

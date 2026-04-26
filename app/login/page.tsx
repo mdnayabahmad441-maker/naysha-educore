@@ -95,7 +95,11 @@ export default function LoginPage() {
     }
 
     try {
-      const destination = await resolveAuthDestination(loginData.user, resolvedAccount.email)
+      const destination = await resolveAuthDestination(
+        loginData.user,
+        resolvedAccount.email,
+        resolvedAccount.role
+      )
       await redirectWithSession(destination)
     } catch (authError) {
       setLoading(false)
@@ -127,7 +131,7 @@ export default function LoginPage() {
       return
     }
 
-    window.location.href = `/verify?email=${encodeURIComponent(resolvedAccount.email)}&mode=login`
+    window.location.href = `/verify?email=${encodeURIComponent(resolvedAccount.email)}&mode=login&role=parent`
   }
 
   const startExistingAccountSetup = async () => {
