@@ -7,6 +7,7 @@ async function findSchoolSubdomain(schoolId: string) {
     .select("subdomain")
     .eq("id", schoolId)
     .maybeSingle()
+
   return (data?.subdomain as string | null) ?? null
 }
 
@@ -32,13 +33,15 @@ export async function POST(request: NextRequest) {
     const email = String(body?.email || "").trim().toLowerCase()
     const userId = user.id
 
-    // Look up parents — first by auth_id, then by email (avoids .or() parsing issues with email chars)
+    // =========================
+    // 🔹 CHECK PARENT
+    // =========================
     const { data: byAuthId } = await supabaseAdmin
       .from("parents")
       .select("id, student_id, school_id")
       .eq("auth_id", userId)
 
-    let parentRows: Array<{ id: string; student_id: string | null; school_id: string | null }> =
+    let parentRows =
       byAuthId || []
 
     if (parentRows.length === 0) {
@@ -46,6 +49,7 @@ export async function POST(request: NextRequest) {
         .from("parents")
         .select("id, student_id, school_id")
         .ilike("email", email)
+
       parentRows = byEmail || []
     }
 
@@ -66,38 +70,59 @@ export async function POST(request: NextRequest) {
             .in("id", studentIds)
 
           schoolId =
-            ((students as Array<{ school_id: string | null }> | null) || [])
+            (students || [])
               .map((s) => s.school_id)
               .find((v): v is string => Boolean(v)) ?? null
         }
       }
 
       if (!schoolId) {
-        return NextResponse.json({ error: "Parent linked school not found" }, { status: 404 })
+        return NextResponse.json(
+          { error: "Parent linked school not found" },
+          { status: 404 }
+        )
       }
 
       const subdomain = await findSchoolSubdomain(schoolId)
+
       if (!subdomain) {
-        return NextResponse.json({ error: "School not found" }, { status: 404 })
+        return NextResponse.json(
+          { error: "School not found" },
+          { status: 404 }
+        )
       }
 
       await Promise.all([
         supabaseAdmin
           .from("profiles")
           .upsert({ id: userId, school_id: schoolId, role: "parent" }),
+
         supabaseAdmin
           .from("parents")
           .update({ auth_id: userId, school_id: schoolId })
           .ilike("email", email),
+
         supabaseAdmin.auth.admin.updateUserById(userId, {
-          user_metadata: { ...user.user_metadata, school_id: schoolId, role: "parent" },
+          user_metadata: {
+            ...user.user_metadata,
+            school_id: schoolId,
+            role: "parent",
+          },
         }),
       ])
 
-      return NextResponse.json({ next: "/parent", subdomain })
+      // ✅ FIXED RESPONSE
+      return NextResponse.json({
+        next: "/parent",
+        subdomain,
+        role: "parent",
+        school_id: schoolId,
+      })
     }
 
-    // Check teachers
+    // =========================
+    // 🔹 CHECK TEACHER
+    // =========================
     const { data: teacher } = await supabaseAdmin
       .from("teachers")
       .select("id, school_id")
@@ -106,24 +131,49 @@ export async function POST(request: NextRequest) {
 
     if (teacher) {
       const subdomain = await findSchoolSubdomain(teacher.school_id)
+
       if (!subdomain) {
-        return NextResponse.json({ error: "School not found" }, { status: 404 })
+        return NextResponse.json(
+          { error: "School not found" },
+          { status: 404 }
+        )
       }
 
       await Promise.all([
         supabaseAdmin
           .from("profiles")
-          .upsert({ id: userId, school_id: teacher.school_id, role: "teacher" }),
-        supabaseAdmin.from("teachers").update({ auth_id: userId }).eq("id", teacher.id),
+          .upsert({
+            id: userId,
+            school_id: teacher.school_id,
+            role: "teacher",
+          }),
+
+        supabaseAdmin
+          .from("teachers")
+          .update({ auth_id: userId })
+          .eq("id", teacher.id),
+
         supabaseAdmin.auth.admin.updateUserById(userId, {
-          user_metadata: { ...user.user_metadata, school_id: teacher.school_id, role: "teacher" },
+          user_metadata: {
+            ...user.user_metadata,
+            school_id: teacher.school_id,
+            role: "teacher",
+          },
         }),
       ])
 
-      return NextResponse.json({ next: "/teacher", subdomain })
+      // ✅ FIXED RESPONSE
+      return NextResponse.json({
+        next: "/teacher",
+        subdomain,
+        role: "teacher",
+        school_id: teacher.school_id,
+      })
     }
 
-    // Check schools (admin)
+    // =========================
+    // 🔹 CHECK ADMIN
+    // =========================
     const { data: school } = await supabaseAdmin
       .from("schools")
       .select("id, subdomain")
@@ -132,7 +182,7 @@ export async function POST(request: NextRequest) {
 
     if (!school?.subdomain) {
       return NextResponse.json(
-        { error: "No parent, teacher, or admin account found for this email" },
+        { error: "No account found for this email" },
         { status: 404 }
       )
     }
@@ -140,16 +190,36 @@ export async function POST(request: NextRequest) {
     await Promise.all([
       supabaseAdmin
         .from("profiles")
-        .upsert({ id: userId, school_id: school.id, role: "admin" }),
+        .upsert({
+          id: userId,
+          school_id: school.id,
+          role: "admin",
+        }),
+
       supabaseAdmin.auth.admin.updateUserById(userId, {
-        user_metadata: { ...user.user_metadata, school_id: school.id, role: "admin" },
+        user_metadata: {
+          ...user.user_metadata,
+          school_id: school.id,
+          role: "admin",
+        },
       }),
     ])
 
-    return NextResponse.json({ next: "/admin", subdomain: school.subdomain })
+    // ✅ FIXED RESPONSE
+    return NextResponse.json({
+      next: "/admin",
+      subdomain: school.subdomain,
+      role: "admin",
+      school_id: school.id,
+    })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to resolve destination" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to resolve destination",
+      },
       { status: 500 }
     )
   }

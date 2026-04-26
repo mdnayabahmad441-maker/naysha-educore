@@ -11,24 +11,35 @@ type AuthDestination = {
 
 async function updateUserMetadataIfNeeded(user: any, schoolId: string, role: string) {
   const currentMetadata = user.user_metadata || {}
-  if (currentMetadata.school_id !== schoolId || currentMetadata.role !== role) {
+
+  if (
+    currentMetadata.school_id !== schoolId ||
+    currentMetadata.role !== role
+  ) {
     await supabase.auth.updateUser({
-      data: { ...currentMetadata, school_id: schoolId, role },
+      data: {
+        ...currentMetadata,
+        school_id: schoolId,
+        role,
+      },
     })
   }
 }
 
-export async function resolveAuthDestination(user: any, email: string): Promise<AuthDestination> {
+export async function resolveAuthDestination(
+  user: any,
+  email: string
+): Promise<AuthDestination> {
   const normalizedEmail = email.trim().toLowerCase()
   const userId = user.id
 
-  // Handle new school admin onboarding (data stored client-side in localStorage)
+  // 🟢 HANDLE NEW SCHOOL CREATION
   const stored = localStorage.getItem("onboardingData")
 
   if (stored) {
     const data = JSON.parse(stored)
 
-    const { data: newSchool, error: dbError } = await supabase
+    const { data: newSchool, error } = await supabase
       .from("schools")
       .insert({
         name: data.schoolName,
@@ -39,8 +50,8 @@ export async function resolveAuthDestination(user: any, email: string): Promise<
       .select()
       .single()
 
-    if (dbError || !newSchool) {
-      throw new Error(dbError?.message || "School creation failed")
+    if (error || !newSchool) {
+      throw new Error(error?.message || "School creation failed")
     }
 
     await supabase.from("profiles").upsert({
@@ -49,7 +60,9 @@ export async function resolveAuthDestination(user: any, email: string): Promise<
       role: "admin",
     })
 
+    // ✅ VERY IMPORTANT
     await updateUserMetadataIfNeeded(user, newSchool.id, "admin")
+
     localStorage.removeItem("onboardingData")
 
     return {
@@ -58,8 +71,7 @@ export async function resolveAuthDestination(user: any, email: string): Promise<
     }
   }
 
-  // All other lookups go server-side to bypass Row Level Security.
-  // Client-side Supabase (anon key) can't read parent rows when auth_id is null (first login).
+  // 🟢 GET SESSION TOKEN
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData.session?.access_token
 
@@ -67,13 +79,16 @@ export async function resolveAuthDestination(user: any, email: string): Promise<
     throw new Error("Session missing")
   }
 
+  // 🟢 CALL BACKEND
   const response = await fetch("/api/auth/resolve-destination", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ email: normalizedEmail }),
+    body: JSON.stringify({
+      email: normalizedEmail,
+    }),
   })
 
   const result = await response.json()
@@ -82,8 +97,10 @@ export async function resolveAuthDestination(user: any, email: string): Promise<
     throw new Error(result.error || "Failed to resolve account")
   }
 
-  // Refresh the session so the new JWT carries the updated role metadata.
-  // Without this, the old token (no role) is forwarded and the dashboard denies access.
+  // ✅ CRITICAL FIX — SET METADATA HERE ALSO
+  await updateUserMetadataIfNeeded(user, result.school_id, result.role)
+
+  // ✅ REFRESH TOKEN AFTER UPDATE
   await supabase.auth.refreshSession()
 
   return {
@@ -97,6 +114,7 @@ export async function redirectWithSession(destination: AuthDestination) {
   const subdomain = sanitizeSubdomain(destination.subdomain)
 
   const { data: sessionData } = await supabase.auth.getSession()
+
   const accessToken = sessionData.session?.access_token
   const refreshToken = sessionData.session?.refresh_token
 
