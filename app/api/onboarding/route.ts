@@ -24,11 +24,11 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // ✅ CHECK DOMAIN EXISTS
+    // ✅ CHECK SUBDOMAIN EXISTS
     const { data: existing } = await supabase
       .from("schools")
       .select("id")
-      .eq("domain", domain)
+      .eq("subdomain", domain)
       .maybeSingle()
 
     if (existing) {
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       .insert([
         {
           name: schoolName,
-          domain,
+          subdomain: domain,
           email,
           phone
         }
