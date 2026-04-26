@@ -262,3 +262,56 @@ export async function resolveIdentifierToAccount(identifier: string) {
 
   return null
 }
+// ✅ REQUIRED FOR OTP FLOW
+export async function resolveAccountByEmail(email: string) {
+  const normalizedEmail = email.trim().toLowerCase()
+
+  if (!normalizedEmail) return null
+
+  // Check parent
+  const { data: parents } = await supabaseAdmin
+    .from("parents")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .limit(1)
+
+  if ((parents || []).length > 0) {
+    return {
+      email: normalizedEmail,
+      role: "parent" as const,
+      loginMethod: "otp" as const,
+    }
+  }
+
+  // Check teacher
+  const { data: teacher } = await supabaseAdmin
+    .from("teachers")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .maybeSingle()
+
+  if (teacher?.id) {
+    return {
+      email: normalizedEmail,
+      role: "teacher" as const,
+      loginMethod: "password" as const,
+    }
+  }
+
+  // Check admin
+  const { data: school } = await supabaseAdmin
+    .from("schools")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .maybeSingle()
+
+  if (school?.id) {
+    return {
+      email: normalizedEmail,
+      role: "admin" as const,
+      loginMethod: "password" as const,
+    }
+  }
+
+  return null
+}
