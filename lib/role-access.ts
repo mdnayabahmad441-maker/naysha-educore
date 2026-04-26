@@ -7,6 +7,29 @@ export async function getCurrentParentStudentIds() {
 
   if (!user || !email) return []
 
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData.session?.access_token
+
+  if (accessToken) {
+    try {
+      const response = await fetch("/api/auth/parent-context", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+
+        if (Array.isArray(result.studentIds)) {
+          return result.studentIds
+        }
+      }
+    } catch (error) {
+      console.error("Parent context access error:", error)
+    }
+  }
+
   const { data: linkedParents, error: linkedError } = await supabase
     .from("parents")
     .select("student_id,school_id")

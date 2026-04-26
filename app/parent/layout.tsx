@@ -4,7 +4,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { waitForSession } from "@/lib/auth-session"
-import { getUserRole } from "@/lib/getUserRole"
 import { useEffect, useState } from "react"
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -23,28 +22,30 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         return
       }
 
-      // Try up to 3 times — token metadata propagation can lag briefly after OTP login
-      for (let attempt = 0; attempt < 3; attempt++) {
-        if (attempt > 0) await wait(600)
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        if (attempt > 0) {
+          await wait(500)
+        }
 
-        const roleData = await getUserRole()
-        const metadataRole = session.user.user_metadata?.role
+        const { data: sessionData } = await supabase.auth.getSession()
+        const accessToken = sessionData.session?.access_token
 
-        if (roleData?.role === "parent" || metadataRole === "parent") {
+        if (!accessToken) {
+          continue
+        }
+
+        const response = await fetch("/api/auth/parent-context", {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
+
+        if (response.ok) {
           setLoading(false)
           return
         }
 
-        // On the last attempt also try a session refresh before giving up
-        if (attempt === 2) {
-          await supabase.auth.refreshSession()
-          const fresh = await waitForSession(4, 150)
-          const freshRole = await getUserRole()
-          if (freshRole?.role === "parent" || fresh?.user.user_metadata?.role === "parent") {
-            setLoading(false)
-            return
-          }
-        }
+        await supabase.auth.refreshSession()
       }
 
       window.location.href = "/unauthorized"
