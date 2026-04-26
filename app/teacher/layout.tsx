@@ -26,14 +26,24 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
         return
       }
 
-      const roleData = await getUserRole()
-
-      if (!roleData || roleData.role !== "teacher") {
-        window.location.href = "/unauthorized"
-        return
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 600))
+        const roleData = await getUserRole()
+        if (roleData?.role === "teacher") {
+          setLoading(false)
+          return
+        }
+        if (attempt === 2) {
+          await supabase.auth.refreshSession()
+          const retryRole = await getUserRole()
+          if (retryRole?.role === "teacher") {
+            setLoading(false)
+            return
+          }
+        }
       }
 
-      setLoading(false)
+      window.location.href = "/unauthorized"
     }
 
     checkAuth()

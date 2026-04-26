@@ -23,22 +23,31 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         return
       }
 
-      let roleData = await getUserRole()
-      let metadataRole = session.user.user_metadata?.role
+      // Try up to 3 times — token metadata propagation can lag briefly after OTP login
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await wait(600)
 
-      if (roleData?.role !== "parent" && metadataRole !== "parent") {
-        await wait(400)
-        const refreshedSession = await waitForSession(4, 200)
-        roleData = await getUserRole()
-        metadataRole = refreshedSession?.user.user_metadata?.role
+        const roleData = await getUserRole()
+        const metadataRole = session.user.user_metadata?.role
+
+        if (roleData?.role === "parent" || metadataRole === "parent") {
+          setLoading(false)
+          return
+        }
+
+        // On the last attempt also try a session refresh before giving up
+        if (attempt === 2) {
+          await supabase.auth.refreshSession()
+          const fresh = await waitForSession(4, 150)
+          const freshRole = await getUserRole()
+          if (freshRole?.role === "parent" || fresh?.user.user_metadata?.role === "parent") {
+            setLoading(false)
+            return
+          }
+        }
       }
 
-      if (roleData?.role !== "parent" && metadataRole !== "parent") {
-        window.location.href = "/unauthorized"
-        return
-      }
-
-      setLoading(false)
+      window.location.href = "/unauthorized"
     }
 
     void checkAuth()

@@ -4,11 +4,12 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 async function findSchoolSubdomain(schoolId: string) {
   const { data } = await supabaseAdmin
     .from("schools")
-    .select("subdomain")
+    .select("subdomain, domain")
     .eq("id", schoolId)
     .maybeSingle()
 
-  return (data?.subdomain as string | null) ?? null
+  // Fall back to domain for schools created before the subdomain migration
+  return (data?.subdomain || data?.domain || null) as string | null
 }
 
 export async function POST(request: NextRequest) {
@@ -200,12 +201,14 @@ export async function POST(request: NextRequest) {
     const school = allowAdmin
       ? (await supabaseAdmin
           .from("schools")
-          .select("id, subdomain")
+          .select("id, subdomain, domain")
           .ilike("email", email)
           .maybeSingle()).data
       : null
 
-    if (!school?.subdomain) {
+    const adminSubdomain = school?.subdomain || school?.domain || null
+
+    if (!school || !adminSubdomain) {
       return NextResponse.json(
         { error: "No account found for this email" },
         { status: 404 }
@@ -230,10 +233,9 @@ export async function POST(request: NextRequest) {
       }),
     ])
 
-    // ✅ FIXED RESPONSE
     return NextResponse.json({
       next: "/admin",
-      subdomain: school.subdomain,
+      subdomain: adminSubdomain,
       role: "admin",
       school_id: school.id,
     })

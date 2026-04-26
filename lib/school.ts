@@ -63,7 +63,7 @@ export async function getSchoolId() {
     const { data, error: schoolError } = await supabase
       .from("schools")
       .select("id")
-      .eq("subdomain", subdomain)
+      .or(`subdomain.eq.${subdomain},domain.eq.${subdomain}`)
       .limit(1)
 
     if (schoolError) {

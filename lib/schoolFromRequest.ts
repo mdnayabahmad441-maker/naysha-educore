@@ -22,7 +22,7 @@ export async function getSchoolFromRequest(req: Request) {
     const { data, error } = await supabaseAdmin
       .from("schools")
       .select("*")
-      .eq("subdomain", subdomain)
+      .or(`subdomain.eq.${subdomain},domain.eq.${subdomain}`)
       .single()
 
     if (error) {

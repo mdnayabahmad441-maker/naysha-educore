@@ -26,19 +26,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return
       }
 
-      const roleData = await getUserRole()
-
-      if (!roleData) {
-        window.location.href = "/login"
-        return
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 600))
+        const roleData = await getUserRole()
+        if (roleData?.role === "admin") {
+          setLoading(false)
+          return
+        }
+        if (attempt === 2) {
+          await supabase.auth.refreshSession()
+          const retryRole = await getUserRole()
+          if (retryRole?.role === "admin") {
+            setLoading(false)
+            return
+          }
+        }
       }
 
-      if (roleData.role !== "admin") {
-        window.location.href = "/unauthorized"
-        return
-      }
-
-      setLoading(false)
+      window.location.href = "/unauthorized"
     }
 
     void checkAuth()
