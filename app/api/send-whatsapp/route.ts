@@ -39,11 +39,14 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     success: true,
-    provider: "twilio_whatsapp",
+    provider: "whatsapp-cloud-api",
     configured: status.configured,
     missing: status.missing,
-    fromNumber: status.fromNumber,
+    phoneNumberId: status.phoneNumberId,
+    businessAccountId: status.businessAccountId,
+    phoneNumber: status.phoneNumber,
     displayName: status.displayName,
+    apiVersion: status.apiVersion,
   })
 }
 
@@ -63,7 +66,6 @@ export async function POST(req: Request) {
     const body = await req.json()
     const phone = String(body?.phone || body?.to || "").trim()
     const message = String(body?.message || "").trim()
-
     schoolId = schoolId || normalizeSchoolId(body?.schoolId)
 
     if (!schoolId) {
@@ -85,7 +87,7 @@ export async function POST(req: Request) {
     if (!status.configured) {
       return NextResponse.json(
         {
-          error: "Twilio WhatsApp is not configured for this school",
+          error: "WhatsApp Cloud API is not configured for this school",
           missing: status.missing,
         },
         { status: 503 }
@@ -100,12 +102,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      provider: "twilio_whatsapp",
+      provider: "whatsapp-cloud-api",
       to: result.to,
       result: result.data,
     })
   } catch (err) {
-    console.error("Twilio WhatsApp error:", err)
+    console.error("WhatsApp Cloud API error:", err)
 
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal error" },

@@ -1,48 +1,41 @@
-import twilio from "twilio"
-
-type SchoolWhatsAppConfig = {
-  account_sid: string | null
-  auth_token: string | null
-  from_number: string | null
-  provider: string | null
-  display_name: string | null
-}
-
 type SendWhatsAppMessageInput = {
   schoolId: string
   phone: string
   message: string
 }
 
-function normalizePhoneNumber(phone: string) {
-  let formatted = String(phone || "").trim()
+type WhatsAppCloudConfig = {
+  accessToken: string | null
+  phoneNumberId: string | null
+  businessAccountId: string | null
+  phoneNumber: string | null
+  displayName: string | null
+}
 
-  if (!formatted) {
-    return ""
+function normalizePhoneNumber(phone: string) {
+  let formatted = String(phone || "").trim().replace(/^whatsapp:/i, "").replace(/\D/g, "")
+
+  if (formatted.startsWith("0")) {
+    formatted = formatted.slice(1)
   }
 
-  formatted = formatted.replace(/^whatsapp:/i, "").replace(/\s+/g, "")
+  if (formatted.length === 10) {
+    formatted = `91${formatted}`
+  }
 
-  if (!formatted.startsWith("+")) {
-    const digits = formatted.replace(/\D/g, "")
-    const normalizedDigits = digits.length === 10 ? `91${digits}` : digits
-    formatted = `+${normalizedDigits}`
+  if (!formatted.startsWith("91")) {
+    formatted = `91${formatted}`
   }
 
   return formatted
 }
 
-function normalizeWhatsAppSender(phone: string) {
-  const normalized = normalizePhoneNumber(phone)
-  return normalized ? `whatsapp:${normalized}` : ""
-}
-
-async function loadSchoolWhatsAppConfig(schoolId: string): Promise<SchoolWhatsAppConfig> {
+async function loadSchoolWhatsAppConfig(schoolId: string): Promise<WhatsAppCloudConfig> {
   const { supabaseAdmin } = await import("@/lib/supabase-admin")
 
   const { data, error } = await supabaseAdmin
     .from("school_whatsapp")
-    .select("account_sid, auth_token, from_number, provider, display_name")
+    .select("access_token, phone_number_id, business_account_id, phone_number, display_name")
     .eq("school_id", schoolId)
     .maybeSingle()
 
@@ -51,11 +44,11 @@ async function loadSchoolWhatsAppConfig(schoolId: string): Promise<SchoolWhatsAp
   }
 
   return {
-    account_sid: data?.account_sid ?? null,
-    auth_token: data?.auth_token ?? null,
-    from_number: data?.from_number ?? null,
-    provider: data?.provider ?? null,
-    display_name: data?.display_name ?? null,
+    accessToken: data?.access_token ?? null,
+    phoneNumberId: data?.phone_number_id ?? null,
+    businessAccountId: data?.business_account_id ?? null,
+    phoneNumber: data?.phone_number ?? null,
+    displayName: data?.display_name ?? null,
   }
 }
 
@@ -66,28 +59,52 @@ export async function sendWhatsAppMessage(
 ): Promise<{ to: string; messageId: string | null }> {
   const config = await loadSchoolWhatsAppConfig(schoolId)
 
-  if (!config.account_sid || !config.auth_token || !config.from_number) {
-    throw new Error("WhatsApp is not configured for this school")
+  if (!config.accessToken || !config.phoneNumberId) {
+    throw new Error("WhatsApp is not connected for this school. Ask the admin to connect it in Settings.")
   }
 
-  const to = normalizeWhatsAppSender(phone)
-  const from = normalizeWhatsAppSender(config.from_number)
+  const apiVersion = process.env.WHATSAPP_CLOUD_API_VERSION || "v23.0"
+  const to = normalizePhoneNumber(phone)
   const body = String(message || "").trim()
 
-  if (!to) throw new Error("Invalid destination phone number")
-  if (!from) throw new Error("Invalid WhatsApp sender number")
+  if (!to) throw new Error("Invalid phone number")
   if (!body) throw new Error("Message cannot be empty")
 
-  const client = twilio(config.account_sid, config.auth_token)
-  const result = await client.messages.create({
-    from,
-    to,
-    body,
-  })
+  const response = await fetch(
+    `https://graph.facebook.com/${apiVersion}/${config.phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "text",
+        text: {
+          preview_url: false,
+          body,
+        },
+      }),
+    }
+  )
+
+  const data = await response.json()
+
+  if (!response.ok) {
+    const errorMessage =
+      data?.error?.message ||
+      data?.message ||
+      "WhatsApp Cloud API request failed"
+
+    throw new Error(errorMessage)
+  }
 
   return {
     to,
-    messageId: result.sid ?? null,
+    messageId: data?.messages?.[0]?.id ?? null,
   }
 }
 
@@ -101,7 +118,7 @@ export async function sendWhatsAppCloudMessage({
   return {
     to: result.to,
     data: {
-      sid: result.messageId,
+      messageId: result.messageId,
     },
   }
 }
@@ -110,24 +127,23 @@ export async function getWhatsAppCloudStatus(schoolId: string) {
   const config = await loadSchoolWhatsAppConfig(schoolId)
   const missing: string[] = []
 
-  if (!config.account_sid) {
-    missing.push("account_sid")
+  if (!config.accessToken) {
+    missing.push("access_token")
   }
 
-  if (!config.auth_token) {
-    missing.push("auth_token")
-  }
-
-  if (!config.from_number) {
-    missing.push("from_number")
+  if (!config.phoneNumberId) {
+    missing.push("phone_number_id")
   }
 
   return {
     configured: missing.length === 0,
     missing,
-    provider: config.provider || "twilio_whatsapp",
-    fromNumber: config.from_number ? normalizeWhatsAppSender(config.from_number) : null,
-    displayName: config.display_name || null,
+    provider: "whatsapp-cloud-api",
+    phoneNumberId: config.phoneNumberId,
+    businessAccountId: config.businessAccountId,
+    phoneNumber: config.phoneNumber,
+    displayName: config.displayName,
+    apiVersion: process.env.WHATSAPP_CLOUD_API_VERSION || "v23.0",
   }
 }
 

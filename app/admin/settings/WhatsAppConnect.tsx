@@ -1,33 +1,53 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { apiFetch } from "@/lib/api-client"
 
 type WhatsAppStatus =
   | { connected: false }
   | {
       connected: true
-      provider: string
-      accountSid: string | null
-      fromNumber: string | null
+      phoneNumber: string | null
       displayName: string | null
-      connectedAt: string | null
-      updatedAt: string | null
+      businessAccountId: string
+      phoneNumberId: string
+      lastWebhookEventAt?: string | null
+      lastWebhookStatus?: string | null
+      connectedAt: string
+      updatedAt: string
     }
 
 export default function WhatsAppConnect() {
+  const params = useSearchParams()
+
   const [status, setStatus] = useState<WhatsAppStatus | null>(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
-  const [form, setForm] = useState({
-    accountSid: "",
-    authToken: "",
-    fromNumber: "",
-    displayName: "",
-  })
+
+  useEffect(() => {
+    const result = params.get("whatsapp")
+    const message = params.get("message")
+
+    if (result === "connected") {
+      setSuccessMsg("WhatsApp connected successfully!")
+      const clean = new URL(window.location.href)
+      clean.searchParams.delete("whatsapp")
+      clean.searchParams.delete("message")
+      window.history.replaceState({}, "", clean.toString())
+    }
+
+    if (result === "error") {
+      setError(message ? decodeURIComponent(message) : "Connection failed. Please try again.")
+      const clean = new URL(window.location.href)
+      clean.searchParams.delete("whatsapp")
+      clean.searchParams.delete("message")
+      window.history.replaceState({}, "", clean.toString())
+    }
+  }, [params])
 
   useEffect(() => {
     void fetchStatus()
@@ -36,91 +56,48 @@ export default function WhatsAppConnect() {
   async function fetchStatus() {
     setLoading(true)
     setError(null)
-
     try {
       const res = await apiFetch("/api/whatsapp/status")
       const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || "Could not load WhatsApp status")
-      }
-
       setStatus(data)
-
-      if (data.connected) {
-        setForm((current) => ({
-          ...current,
-          fromNumber: data.fromNumber || "",
-          displayName: data.displayName || "",
-        }))
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load WhatsApp status.")
+    } catch {
+      setError("Could not load WhatsApp status. Check your connection.")
     } finally {
       setLoading(false)
     }
   }
 
-  function updateField(field: keyof typeof form, value: string) {
-    setForm((current) => ({ ...current, [field]: value }))
-  }
-
-  async function handleSave() {
-    if (!form.accountSid.trim() || !form.authToken.trim() || !form.fromNumber.trim()) {
-      setError("Account SID, Auth Token, and WhatsApp sender are required.")
-      return
-    }
-
-    setSaving(true)
+  async function handleConnect() {
+    setConnecting(true)
     setError(null)
-
     try {
-      const res = await apiFetch("/api/whatsapp/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      })
-
+      const res = await apiFetch("/api/whatsapp/connect")
       const data = await res.json()
 
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to save WhatsApp configuration.")
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Failed to start WhatsApp connection.")
       }
 
-      setSuccessMsg("Twilio WhatsApp saved for this school.")
-      setForm((current) => ({
-        ...current,
-        authToken: "",
-      }))
-      await fetchStatus()
+      window.location.href = data.url
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed.")
-    } finally {
-      setSaving(false)
+      setError(err instanceof Error ? err.message : "Connection failed.")
+      setConnecting(false)
     }
   }
 
   async function handleDisconnect() {
-    if (!confirm("Disconnect Twilio WhatsApp for this school?")) return
+    if (!confirm("Disconnect WhatsApp? Your school will no longer be able to send WhatsApp messages until reconnected.")) return
 
     setDisconnecting(true)
     setError(null)
-
     try {
       const res = await apiFetch("/api/whatsapp/disconnect", { method: "DELETE" })
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error || "Failed to disconnect.")
       }
-
+      setSuccessMsg("WhatsApp disconnected.")
       setStatus({ connected: false })
-      setForm({
-        accountSid: "",
-        authToken: "",
-        fromNumber: "",
-        displayName: "",
-      })
-      setSuccessMsg("Twilio WhatsApp disconnected.")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Disconnect failed.")
     } finally {
@@ -130,7 +107,7 @@ export default function WhatsAppConnect() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-3 py-6 text-sm text-slate-400">
+      <div className="flex items-center gap-3 py-6 text-slate-400 text-sm">
         <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
         Checking WhatsApp status...
       </div>
@@ -138,149 +115,170 @@ export default function WhatsAppConnect() {
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-2xl space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold text-white">Twilio WhatsApp</h2>
+        <h2 className="text-2xl font-semibold text-white">WhatsApp Business</h2>
         <p className="mt-2 text-sm leading-6 text-slate-400">
-          Save this school&apos;s Twilio WhatsApp sender details here. Each school can use its own sender while billing stays under your Twilio parent account or subaccount structure.
+          Connect your school&apos;s WhatsApp Business number via Meta. Once connected,
+          fee reminders, notices, attendance alerts, and onboarding messages will be sent from that school&apos;s own number.
         </p>
       </div>
 
       {successMsg && (
-        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-          {successMsg}
+        <div className="flex items-start gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+          <span>{successMsg}</span>
+          <button
+            type="button"
+            onClick={() => setSuccessMsg(null)}
+            className="ml-auto text-emerald-300 hover:text-white"
+          >
+            x
+          </button>
         </div>
       )}
 
       {error && (
-        <div className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
-          {error}
+        <div className="flex items-start gap-3 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="ml-auto text-red-300 hover:text-white"
+          >
+            x
+          </button>
         </div>
       )}
 
       {status?.connected ? (
-        <div className="space-y-4 rounded-[24px] border border-emerald-400/20 bg-[linear-gradient(160deg,rgba(16,185,129,0.08),rgba(6,78,59,0.06))] p-6">
+        <div className="rounded-[24px] border border-emerald-400/20 bg-[linear-gradient(160deg,rgba(16,185,129,0.08),rgba(6,78,59,0.06))] p-6 space-y-5">
           <div className="flex items-center gap-3">
             <span className="flex h-3 w-3 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
             <span className="text-sm font-semibold text-emerald-300">Connected</span>
           </div>
 
           <div className="grid gap-3 text-sm">
+            {status.displayName && (
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <span className="text-slate-400">Business name</span>
+                <span className="font-medium text-white">{status.displayName}</span>
+              </div>
+            )}
+            {status.phoneNumber && (
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <span className="text-slate-400">Phone number</span>
+                <span className="font-mono font-medium text-white">{status.phoneNumber}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-slate-400">Provider</span>
-              <span className="font-medium text-white">Twilio WhatsApp</span>
+              <span className="text-slate-400">WABA ID</span>
+              <span className="font-mono text-xs text-slate-300">{status.businessAccountId}</span>
             </div>
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-slate-400">Account SID</span>
-              <span className="font-mono text-xs text-slate-300">{status.accountSid || "-"}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-slate-400">WhatsApp sender</span>
-              <span className="font-mono text-xs text-slate-300">{status.fromNumber || "-"}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-slate-400">Display name</span>
-              <span className="text-slate-300">{status.displayName || "-"}</span>
+              <span className="text-slate-400">Phone number ID</span>
+              <span className="font-mono text-xs text-slate-300">{status.phoneNumberId}</span>
             </div>
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
               <span className="text-slate-400">Last updated</span>
               <span className="text-slate-300">
-                {status.updatedAt
-                  ? new Date(status.updatedAt).toLocaleDateString("en-IN", {
+                {new Date(status.updatedAt).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <span className="text-slate-400">Last webhook</span>
+              <span className="text-slate-300">
+                {status.lastWebhookEventAt
+                  ? new Date(status.lastWebhookEventAt).toLocaleDateString("en-IN", {
                       day: "2-digit",
                       month: "short",
                       year: "numeric",
                       hour: "2-digit",
                       minute: "2-digit",
                     })
-                  : "-"}
+                  : "No event received yet"}
               </span>
+            </div>
+            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <span className="text-slate-400">Webhook status</span>
+              <span className="text-slate-300">{status.lastWebhookStatus || "-"}</span>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void handleDisconnect()}
-            disabled={disconnecting}
-            className="rounded-2xl border border-red-400/20 bg-red-400/10 px-5 py-2.5 text-sm font-semibold text-red-200 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {disconnecting ? "Disconnecting..." : "Disconnect"}
-          </button>
+          <div className="flex flex-wrap gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => void handleConnect()}
+              disabled={connecting}
+              className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {connecting ? "Opening Meta..." : "Reconnect / Change Number"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDisconnect()}
+              disabled={disconnecting}
+              className="rounded-2xl border border-red-400/20 bg-red-400/10 px-5 py-2.5 text-sm font-semibold text-red-200 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {disconnecting ? "Disconnecting..." : "Disconnect"}
+            </button>
+          </div>
+
+          <p className="text-xs leading-5 text-slate-500">
+            Access tokens are refreshed during connection. Reconnect if Meta permissions or number ownership changes.
+          </p>
         </div>
       ) : (
-        <div className="rounded-[24px] border border-white/10 bg-white/5 p-6">
+        <div className="rounded-[24px] border border-white/10 bg-white/5 p-6 space-y-5">
           <div className="flex items-center gap-3">
             <span className="flex h-3 w-3 shrink-0 rounded-full bg-slate-500" />
             <span className="text-sm font-semibold text-slate-400">Not connected</span>
           </div>
-          <p className="mt-4 text-sm leading-6 text-slate-300">
-            This school will start sending WhatsApp messages as soon as you save its Twilio credentials and sender number.
+
+          <p className="text-sm leading-6 text-slate-300">
+            Click below to log in with your Meta account and authorise NaySha EduCore
+            to send WhatsApp messages on behalf of your school.
           </p>
+
+          <ol className="space-y-2 text-sm text-slate-400">
+            {[
+              "You will be redirected to Meta to log in.",
+              "Grant the required WhatsApp permissions.",
+              "Select or create your WhatsApp Business Account and phone number.",
+            ].map((step, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-600 text-xs text-slate-500">
+                  {i + 1}
+                </span>
+                {step}
+              </li>
+            ))}
+          </ol>
+
+          <button
+            type="button"
+            onClick={() => void handleConnect()}
+            disabled={connecting}
+            className="w-full rounded-2xl bg-[linear-gradient(135deg,#25d366,#128c7e)] px-4 py-4 text-sm font-semibold text-white shadow-[0_16px_40px_rgba(37,211,102,0.2)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {connecting ? "Opening Meta login..." : "Connect WhatsApp Business"}
+          </button>
         </div>
       )}
 
-      <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-        <div>
-          <h3 className="text-lg font-semibold text-white">School Connection Details</h3>
-          <p className="mt-1 text-sm text-slate-400">
-            Use the Twilio subaccount or sender assigned to this school. The sender should be in `whatsapp:+14155238886` style.
-          </p>
-        </div>
-
-        <input
-          value={form.accountSid}
-          onChange={(event) => updateField("accountSid", event.target.value)}
-          className="w-full rounded-xl bg-[#0b1220] px-4 py-3 text-white"
-          placeholder="Twilio Account SID"
-        />
-
-        <input
-          value={form.authToken}
-          onChange={(event) => updateField("authToken", event.target.value)}
-          className="w-full rounded-xl bg-[#0b1220] px-4 py-3 text-white"
-          placeholder="Twilio Auth Token"
-          type="password"
-        />
-
-        <input
-          value={form.fromNumber}
-          onChange={(event) => updateField("fromNumber", event.target.value)}
-          className="w-full rounded-xl bg-[#0b1220] px-4 py-3 text-white"
-          placeholder="whatsapp:+14155238886"
-        />
-
-        <input
-          value={form.displayName}
-          onChange={(event) => updateField("displayName", event.target.value)}
-          className="w-full rounded-xl bg-[#0b1220] px-4 py-3 text-white"
-          placeholder="School or sender name"
-        />
-
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={saving}
-            className="rounded-2xl bg-[linear-gradient(135deg,#1d4ed8,#0f766e)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {saving ? "Saving..." : status?.connected ? "Update Twilio WhatsApp" : "Save Twilio WhatsApp"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void fetchStatus()}
-            className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
-          >
-            Refresh Status
-          </button>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-xs leading-6 text-slate-400">
-        <p className="font-semibold text-slate-300">How a school connects in this setup</p>
-        <p>1. You create or assign the school&apos;s Twilio subaccount or approved sender.</p>
-        <p>2. You paste the Account SID, Auth Token, and WhatsApp sender here.</p>
-        <p>3. This school&apos;s notices, attendance alerts, fee messages, and onboarding messages start using that sender.</p>
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-xs leading-6 text-slate-500 space-y-1">
+        <p className="font-semibold text-slate-400">Before connecting, make sure you have:</p>
+        <ul className="list-disc list-inside space-y-0.5">
+          <li>A verified Meta Business Manager account</li>
+          <li>A WhatsApp Business Account added to that Business Manager</li>
+          <li>A phone number ready for WhatsApp Business Platform use</li>
+          <li>Your Meta App configured for Embedded Signup and WhatsApp permissions</li>
+        </ul>
       </div>
     </div>
   )
