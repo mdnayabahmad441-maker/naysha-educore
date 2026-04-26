@@ -2,6 +2,13 @@ import { User } from "@supabase/supabase-js"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export type AccountRole = "admin" | "teacher" | "parent"
+export type LoginMethod = "otp"
+
+export type ResolvedAccount = {
+  email: string
+  role: AccountRole
+  loginMethod: LoginMethod
+}
 
 export type ResolvedUserAccess = {
   userId: string
@@ -190,4 +197,64 @@ export async function resolveUserAccess(user: User): Promise<ResolvedUserAccess 
   }
 
   return null
+}
+
+// ── Account-lookup helpers (used by API routes + login page) ────────────────
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const USERNAME_PATTERN = /^[a-z0-9._-]{4,50}$/
+
+export function isEmailIdentifier(identifier: string) {
+  return EMAIL_PATTERN.test(identifier.trim().toLowerCase())
+}
+
+export function isUsernameIdentifier(identifier: string) {
+  return USERNAME_PATTERN.test(identifier.trim().toLowerCase())
+}
+
+export async function resolveUsernameToEmail(identifier: string): Promise<string | null> {
+  const normalizedUsername = identifier.trim().toLowerCase()
+  let page = 1
+
+  while (page <= 10) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 })
+    if (error) throw new Error("Lookup failed")
+    const match = data.users.find(
+      (u) => String(u.user_metadata?.username || "").trim().toLowerCase() === normalizedUsername
+    )
+    if (match?.email) return match.email.toLowerCase()
+    if (data.users.length < 200) break
+    page++
+  }
+
+  return null
+}
+
+export async function resolveAccountByEmail(email: string): Promise<ResolvedAccount | null> {
+  const normalizedEmail = email.trim().toLowerCase()
+
+  const [{ data: parents }, { data: teacher }, { data: school }] = await Promise.all([
+    supabaseAdmin.from("parents").select("id").ilike("email", normalizedEmail).limit(1),
+    supabaseAdmin.from("teachers").select("id").ilike("email", normalizedEmail).maybeSingle(),
+    supabaseAdmin.from("schools").select("id").ilike("email", normalizedEmail).maybeSingle(),
+  ])
+
+  if ((parents || []).length > 0) return { email: normalizedEmail, role: "parent", loginMethod: "otp" }
+  if (teacher?.id) return { email: normalizedEmail, role: "teacher", loginMethod: "otp" }
+  if (school?.id) return { email: normalizedEmail, role: "admin", loginMethod: "otp" }
+
+  return null
+}
+
+export async function resolveIdentifierToAccount(identifier: string): Promise<ResolvedAccount | null> {
+  const normalized = identifier.trim().toLowerCase()
+  if (!normalized) return null
+
+  if (isEmailIdentifier(normalized)) return resolveAccountByEmail(normalized)
+  if (!isUsernameIdentifier(normalized)) return null
+
+  const email = await resolveUsernameToEmail(normalized)
+  if (!email) return null
+
+  return resolveAccountByEmail(email)
 }
