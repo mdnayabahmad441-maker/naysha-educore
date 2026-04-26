@@ -101,12 +101,19 @@ export async function getUserRole() {
     return null
   }
 
-  const parentSchoolId = await resolveParentSchoolId(user.id, normalizedEmail)
+  // Fast path: trust JWT metadata when both fields are present
+  const metadataRole = user.user_metadata?.role
+  const metadataSchoolId = user.user_metadata?.school_id
 
-  if (parentSchoolId) {
-    return persistRole(user.id, "parent", parentSchoolId)
+  if (
+    (metadataRole === "admin" || metadataRole === "teacher" || metadataRole === "parent") &&
+    typeof metadataSchoolId === "string" &&
+    metadataSchoolId
+  ) {
+    return persistRole(user.id, metadataRole, metadataSchoolId)
   }
 
+  // Check profiles table (reliable, RLS allows self-read)
   const { data: profile } = await supabase
     .from("profiles")
     .select("role, school_id")
@@ -117,15 +124,11 @@ export async function getUserRole() {
     return profile
   }
 
-  const metadataRole = user.user_metadata?.role
-  const metadataSchoolId = user.user_metadata?.school_id
+  // Fallback: derive role from source tables
+  const parentSchoolId = await resolveParentSchoolId(user.id, normalizedEmail)
 
-  if (
-    (metadataRole === "admin" || metadataRole === "teacher" || metadataRole === "parent") &&
-    typeof metadataSchoolId === "string" &&
-    metadataSchoolId
-  ) {
-    return persistRole(user.id, metadataRole, metadataSchoolId)
+  if (parentSchoolId) {
+    return persistRole(user.id, "parent", parentSchoolId)
   }
 
   const { data: teacherByAuthId } = await supabase

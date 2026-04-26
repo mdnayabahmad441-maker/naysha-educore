@@ -1,6 +1,7 @@
 "use client"
 
 import { supabase } from "@/lib/supabase"
+import { waitForSession } from "@/lib/auth-session"
 import { resolveTenantOrigin } from "@/lib/auth-storage"
 import { sanitizeNextPath, sanitizeSubdomain } from "@/lib/security"
 
@@ -73,8 +74,8 @@ export async function resolveAuthDestination(
   }
 
   // 🟢 GET SESSION TOKEN
-  const { data: sessionData } = await supabase.auth.getSession()
-  const accessToken = sessionData.session?.access_token
+  const session = await waitForSession()
+  const accessToken = session?.access_token
 
   if (!accessToken) {
     throw new Error("Session missing")

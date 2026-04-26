@@ -83,6 +83,14 @@ export async function POST(request: NextRequest) {
         }
 
         if (!schoolId) {
+          // Last-resort: check if this auth user already has school_id in metadata
+          const existingMetaSchool = user.user_metadata?.school_id
+          if (typeof existingMetaSchool === "string" && existingMetaSchool) {
+            schoolId = existingMetaSchool
+          }
+        }
+
+        if (!schoolId) {
           return NextResponse.json(
             { error: "Parent linked school not found" },
             { status: 404 }
