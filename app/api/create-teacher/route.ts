@@ -123,6 +123,7 @@ export async function POST(req: Request) {
         method: "POST",
         headers: internalHeaders,
         body: JSON.stringify({
+          schoolId,
           to: phone,
           message: `Teacher Account Created\n\nHello ${name},\n\nYour teacher account is ready.\nOpen login here:\n${loginUrl}\n\nUse your email first. If this is your first login, set your password from the login screen.`,
         }),

@@ -95,6 +95,18 @@ export async function getUserRole() {
 
   if (!user) return null
 
+  const normalizedEmail = user.email?.trim().toLowerCase()
+
+  if (!normalizedEmail) {
+    return null
+  }
+
+  const parentSchoolId = await resolveParentSchoolId(user.id, normalizedEmail)
+
+  if (parentSchoolId) {
+    return persistRole(user.id, "parent", parentSchoolId)
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("role, school_id")
@@ -114,12 +126,6 @@ export async function getUserRole() {
     metadataSchoolId
   ) {
     return persistRole(user.id, metadataRole, metadataSchoolId)
-  }
-
-  const normalizedEmail = user.email?.trim().toLowerCase()
-
-  if (!normalizedEmail) {
-    return null
   }
 
   const { data: teacherByAuthId } = await supabase
@@ -148,12 +154,6 @@ export async function getUserRole() {
     }
 
     return persistRole(user.id, "teacher", teacher.school_id)
-  }
-
-  const parentSchoolId = await resolveParentSchoolId(user.id, normalizedEmail)
-
-  if (parentSchoolId) {
-    return persistRole(user.id, "parent", parentSchoolId)
   }
 
   const { data: school } = await supabase

@@ -101,7 +101,7 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             email: parent.email,
             subject: "Payment Received",
-            message: `${school?.name || "School"}\n\nPayment received for ${student?.name}\n\nClass: ${className}\nRoll: ${roll}\n\nAmount: ₹${payment.amount}\n\nThank you`,
+            message: `${school?.name || "School"}\n\nPayment received for ${student?.name}\n\nClass: ${className}\nRoll: ${roll}\n\nAmount: Rs.${payment.amount}\n\nThank you`,
           }),
         })
 
@@ -118,8 +118,9 @@ export async function POST(req: Request) {
           method: "POST",
           headers: internalHeaders,
           body: JSON.stringify({
+            schoolId: payment.school_id,
             phone: parent.phone,
-            message: `${school?.name || "School"}\n\nPayment Received\n\nStudent: ${student?.name}\nClass: ${className}\nRoll: ${roll}\n\nAmount: ₹${payment.amount}\n\nThank you`,
+            message: `${school?.name || "School"}\n\nPayment Received\n\nStudent: ${student?.name}\nClass: ${className}\nRoll: ${roll}\n\nAmount: Rs.${payment.amount}\n\nThank you`,
           }),
         })
 

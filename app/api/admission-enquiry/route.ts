@@ -85,6 +85,7 @@ ${schoolName} Admissions Team
         method: "POST",
         headers: internalHeaders,
         body: JSON.stringify({
+          schoolId: school.id,
           phone: phone.trim(),
           message: `Thank you for your admission enquiry at ${schoolName}! \n\nDear ${fatherName},\n\nWe received your enquiry for ${studentName} in ${classWanted}.\n\nOur team will contact you soon.\n\nBest regards,\n${schoolName} Team`,
         }),

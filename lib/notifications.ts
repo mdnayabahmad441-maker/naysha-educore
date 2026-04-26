@@ -14,12 +14,7 @@ export async function sendNotification({
   message: string
   type: string
 }) {
-
-  try{
-
-    // =========================
-    // 1. SAVE IN DB
-    // =========================
+  try {
     const { error } = await supabase
       .from("notifications")
       .insert({
@@ -31,55 +26,47 @@ export async function sendNotification({
       })
 
     if (error) {
-      console.error("❌ DB Notification Error:", error)
+      console.error("DB Notification Error:", error)
     } else {
-      console.log("✅ Notification saved in DB")
+      console.log("Notification saved in DB")
     }
 
-    // =========================
-    // 2. GET STUDENT PHONE
-    // =========================
     const { data: student, error: studentError } = await supabase
       .from("students")
       .select("phone, name")
       .eq("id", student_id)
       .single()
 
-    if(studentError){
-      console.error("❌ Student fetch error:", studentError)
+    if (studentError) {
+      console.error("Student fetch error:", studentError)
       return
     }
 
     if (!student?.phone) {
-      console.log("⚠️ No phone number for:", student?.name)
+      console.log("No phone number for:", student?.name)
       return
     }
 
-    console.log("📞 Sending WhatsApp to:", student.phone)
-
-    // =========================
-    // 3. CALL WHATSAPP API
-    // =========================
     const res = await apiFetch("/api/send-whatsapp", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        to: student.phone,   // ✅ IMPORTANT
+        schoolId: school_id,
+        to: student.phone,
         message: `${title}\n${message}`
       })
     })
 
     const data = await res.json()
 
-    if(!res.ok){
-      console.error("❌ WhatsApp API Error:", data)
-    }else{
-      console.log("✅ WhatsApp Sent:", data)
+    if (!res.ok) {
+      console.error("WhatsApp API Error:", data)
+    } else {
+      console.log("WhatsApp sent:", data)
     }
-
-  }catch(err){
-    console.error("❌ WhatsApp Failed:", err)
+  } catch (err) {
+    console.error("WhatsApp failed:", err)
   }
 }

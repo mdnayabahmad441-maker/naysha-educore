@@ -1,196 +1,137 @@
-// ─── Per-school function (reads credentials from DB) ─────────────────────────
+import twilio from "twilio"
 
-/**
- * Send a WhatsApp message using a school's own connected number.
- * Credentials are fetched from the school_whatsapp table.
- * Call this everywhere in the app — it works for any school automatically.
- */
-export async function sendWhatsAppMessage(
-  schoolId: string,
-  phone: string,
-  message: string
-): Promise<{ to: string; messageId: string | null }> {
-  const { supabaseAdmin } = await import("@/lib/supabase-admin")
-
-  const { data: config, error } = await supabaseAdmin
-    .from("school_whatsapp")
-    .select("access_token, phone_number_id")
-    .eq("school_id", schoolId)
-    .maybeSingle()
-
-  if (error) {
-    throw new Error(`Failed to load WhatsApp credentials: ${error.message}`)
-  }
-
-  if (!config?.access_token || !config?.phone_number_id) {
-    throw new Error(
-      "WhatsApp is not connected for this school. Ask the admin to connect it in Settings → WhatsApp."
-    )
-  }
-
-  const apiVersion = process.env.WHATSAPP_CLOUD_API_VERSION || "v18.0"
-  const to = normalizePhoneNumber(phone)
-
-  if (!to) throw new Error("Invalid phone number")
-  if (!message.trim()) throw new Error("Message cannot be empty")
-
-  const response = await fetch(
-    `https://graph.facebook.com/${apiVersion}/${config.phone_number_id}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.access_token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to,
-        type: "text",
-        text: { preview_url: false, body: message },
-      }),
-    }
-  )
-
-  const data = await response.json()
-
-  if (!response.ok) {
-    const msg = data?.error?.message || data?.message || "WhatsApp delivery failed"
-    console.error("[sendWhatsAppMessage] API error:", msg, data)
-    throw new Error(msg)
-  }
-
-  return {
-    to,
-    messageId: data?.messages?.[0]?.id ?? null,
-  }
+type SchoolWhatsAppConfig = {
+  account_sid: string | null
+  auth_token: string | null
+  from_number: string | null
+  provider: string | null
+  display_name: string | null
 }
 
-// ─── Legacy global function (reads from env vars) ─────────────────────────────
-
 type SendWhatsAppMessageInput = {
+  schoolId: string
   phone: string
   message: string
 }
 
-type WhatsAppCloudConfig = {
-  accessToken: string | null
-  phoneNumberId: string | null
-  businessAccountId: string | null
-  apiVersion: string
-}
-
-function readConfig(): WhatsAppCloudConfig {
-  return {
-    apiVersion: process.env.WHATSAPP_CLOUD_API_VERSION || "v23.0",
-    accessToken:
-      process.env.WHATSAPP_ACCESS_TOKEN ||
-      process.env.META_WHATSAPP_ACCESS_TOKEN ||
-      null,
-    phoneNumberId:
-      process.env.WHATSAPP_PHONE_NUMBER_ID ||
-      process.env.META_WHATSAPP_PHONE_NUMBER_ID ||
-      null,
-    businessAccountId:
-      process.env.WHATSAPP_BUSINESS_ACCOUNT_ID ||
-      process.env.META_WHATSAPP_BUSINESS_ACCOUNT_ID ||
-      null,
-  }
-}
-
 function normalizePhoneNumber(phone: string) {
-  let formatted = String(phone || "").trim().replace(/\D/g, "")
+  let formatted = String(phone || "").trim()
 
-  if (formatted.startsWith("0")) {
-    formatted = formatted.slice(1)
+  if (!formatted) {
+    return ""
   }
 
-  if (formatted.length === 10) {
-    formatted = `91${formatted}`
-  }
+  formatted = formatted.replace(/^whatsapp:/i, "").replace(/\s+/g, "")
 
-  if (!formatted.startsWith("91")) {
-    formatted = `91${formatted}`
+  if (!formatted.startsWith("+")) {
+    const digits = formatted.replace(/\D/g, "")
+    const normalizedDigits = digits.length === 10 ? `91${digits}` : digits
+    formatted = `+${normalizedDigits}`
   }
 
   return formatted
 }
 
-export function getWhatsAppCloudStatus() {
-  const config = readConfig()
-  const missing: string[] = []
+function normalizeWhatsAppSender(phone: string) {
+  const normalized = normalizePhoneNumber(phone)
+  return normalized ? `whatsapp:${normalized}` : ""
+}
 
-  if (!config.accessToken) {
-    missing.push("WHATSAPP_ACCESS_TOKEN")
+async function loadSchoolWhatsAppConfig(schoolId: string): Promise<SchoolWhatsAppConfig> {
+  const { supabaseAdmin } = await import("@/lib/supabase-admin")
+
+  const { data, error } = await supabaseAdmin
+    .from("school_whatsapp")
+    .select("account_sid, auth_token, from_number, provider, display_name")
+    .eq("school_id", schoolId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to load WhatsApp configuration: ${error.message}`)
   }
 
-  if (!config.phoneNumberId) {
-    missing.push("WHATSAPP_PHONE_NUMBER_ID")
+  return {
+    account_sid: data?.account_sid ?? null,
+    auth_token: data?.auth_token ?? null,
+    from_number: data?.from_number ?? null,
+    provider: data?.provider ?? null,
+    display_name: data?.display_name ?? null,
+  }
+}
+
+export async function sendWhatsAppMessage(
+  schoolId: string,
+  phone: string,
+  message: string
+): Promise<{ to: string; messageId: string | null }> {
+  const config = await loadSchoolWhatsAppConfig(schoolId)
+
+  if (!config.account_sid || !config.auth_token || !config.from_number) {
+    throw new Error("WhatsApp is not configured for this school")
+  }
+
+  const to = normalizeWhatsAppSender(phone)
+  const from = normalizeWhatsAppSender(config.from_number)
+  const body = String(message || "").trim()
+
+  if (!to) throw new Error("Invalid destination phone number")
+  if (!from) throw new Error("Invalid WhatsApp sender number")
+  if (!body) throw new Error("Message cannot be empty")
+
+  const client = twilio(config.account_sid, config.auth_token)
+  const result = await client.messages.create({
+    from,
+    to,
+    body,
+  })
+
+  return {
+    to,
+    messageId: result.sid ?? null,
+  }
+}
+
+export async function sendWhatsAppCloudMessage({
+  schoolId,
+  phone,
+  message,
+}: SendWhatsAppMessageInput) {
+  const result = await sendWhatsAppMessage(schoolId, phone, message)
+
+  return {
+    to: result.to,
+    data: {
+      sid: result.messageId,
+    },
+  }
+}
+
+export async function getWhatsAppCloudStatus(schoolId: string) {
+  const config = await loadSchoolWhatsAppConfig(schoolId)
+  const missing: string[] = []
+
+  if (!config.account_sid) {
+    missing.push("account_sid")
+  }
+
+  if (!config.auth_token) {
+    missing.push("auth_token")
+  }
+
+  if (!config.from_number) {
+    missing.push("from_number")
   }
 
   return {
     configured: missing.length === 0,
     missing,
-    phoneNumberId: config.phoneNumberId,
-    businessAccountId: config.businessAccountId,
-    apiVersion: config.apiVersion,
+    provider: config.provider || "twilio_whatsapp",
+    fromNumber: config.from_number ? normalizeWhatsAppSender(config.from_number) : null,
+    displayName: config.display_name || null,
   }
 }
 
-export function isWhatsAppCloudConfigured() {
-  return getWhatsAppCloudStatus().configured
-}
-
-export async function sendWhatsAppCloudMessage({ phone, message }: SendWhatsAppMessageInput) {
-  const config = readConfig()
-  const status = getWhatsAppCloudStatus()
-
-  if (!status.configured) {
-    throw new Error(
-      `WhatsApp Cloud API is not configured on the server. Missing: ${status.missing.join(", ")}`
-    )
-  }
-
-  const to = normalizePhoneNumber(phone)
-
-  if (!to || !message.trim()) {
-    throw new Error("Phone and message are required")
-  }
-
-  const response = await fetch(
-    `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to,
-        type: "text",
-        text: {
-          preview_url: false,
-          body: message,
-        },
-      }),
-    }
-  )
-
-  const data = await response.json()
-
-  if (!response.ok) {
-    const errorMessage =
-      data?.error?.message ||
-      data?.message ||
-      "WhatsApp Cloud API request failed"
-
-    throw new Error(errorMessage)
-  }
-
-  return {
-    to,
-    data,
-  }
+export async function isWhatsAppCloudConfigured(schoolId: string) {
+  const status = await getWhatsAppCloudStatus(schoolId)
+  return status.configured
 }
