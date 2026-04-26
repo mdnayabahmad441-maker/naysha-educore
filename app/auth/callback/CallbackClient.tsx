@@ -40,6 +40,7 @@ export default function CallbackClient() {
         return
       }
 
+      // 🔁 Handle subdomain redirect first
       if (subdomain && !canShareSessionAcrossSubdomains()) {
         const currentOrigin = window.location.origin
         const targetOrigin = resolveTenantOrigin(subdomain)
@@ -56,6 +57,7 @@ export default function CallbackClient() {
         }
       }
 
+      // ✅ STEP 1: Set session
       const { error } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
@@ -67,6 +69,7 @@ export default function CallbackClient() {
         return
       }
 
+      // ✅ STEP 2: Wait for session
       const confirmedSession = await waitForSession()
 
       if (!confirmedSession) {
@@ -74,7 +77,17 @@ export default function CallbackClient() {
         return
       }
 
+      // 🚨 STEP 3: FORCE REFRESH (THIS WAS MISSING)
+      await supabase.auth.refreshSession()
+
+      // ✅ STEP 4: OPTIONAL CHECK (debug)
+      const { data: userData } = await supabase.auth.getUser()
+      console.log("User after refresh:", userData)
+
+      // Clean URL
       window.history.replaceState({}, document.title, "/auth/callback")
+
+      // ✅ FINAL REDIRECT
       window.location.href = next
     }
 

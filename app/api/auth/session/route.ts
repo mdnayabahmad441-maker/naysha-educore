@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
-import { resolveUserAccess } from "@/lib/auth-resolver"
+import { AccountRole, resolveUserAccess } from "@/lib/auth-resolver"
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("Authorization")
@@ -20,7 +20,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const access = await resolveUserAccess(user)
+    const metadataRole = user.user_metadata?.active_role || user.user_metadata?.role
+    const preferredRole: AccountRole | null =
+      metadataRole === "admin" || metadataRole === "teacher" || metadataRole === "parent"
+        ? (metadataRole as AccountRole)
+        : null
+
+    let access = preferredRole ? await resolveUserAccess(user, preferredRole) : null
+
+    if (!access) {
+      for (const role of ["parent", "teacher", "admin"] as AccountRole[]) {
+        if (role === preferredRole) continue
+        access = await resolveUserAccess(user, role)
+        if (access) break
+      }
+    }
 
     if (!access) {
       return NextResponse.json({ error: "No authorized account found" }, { status: 404 })
