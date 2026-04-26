@@ -40,7 +40,9 @@ async function findSchoolSubdomain(schoolId: string) {
   return (data?.subdomain || data?.domain || null) as string | null
 }
 
-async function resolveParentRows(userId: string, email: string) {
+async function resolveParentRows(userId: string, email: string): Promise<ParentRow[]> {
+  console.log("[resolveParentRows] Looking up user.id:", userId, "email:", email)
+
   const { data: byAuthId, error: byAuthError } = await supabaseAdmin
     .from("parents")
     .select("id, student_id, school_id")
@@ -51,6 +53,7 @@ async function resolveParentRows(userId: string, email: string) {
   }
 
   const authRows = (byAuthId || []) as ParentRow[]
+  console.log("[resolveParentRows] Rows by auth_id:", authRows)
 
   if (authRows.length > 0) {
     return authRows
@@ -59,13 +62,16 @@ async function resolveParentRows(userId: string, email: string) {
   const { data: byEmail, error: byEmailError } = await supabaseAdmin
     .from("parents")
     .select("id, student_id, school_id")
-    .ilike("email", email)
+    .eq("email", email)
 
   if (byEmailError) {
     throw new Error(byEmailError.message)
   }
 
-  return (byEmail || []) as ParentRow[]
+  const emailRows = (byEmail || []) as ParentRow[]
+  console.log("[resolveParentRows] Rows by email:", emailRows)
+
+  return emailRows
 }
 
 async function resolveParentSchool(parentRows: ParentRow[]) {
@@ -148,17 +154,17 @@ export async function resolveAccountByEmail(email: string) {
     supabaseAdmin
       .from("teachers")
       .select("id")
-      .ilike("email", normalizedEmail)
+      .eq("email", normalizedEmail)
       .maybeSingle(),
     supabaseAdmin
       .from("schools")
       .select("id")
-      .ilike("email", normalizedEmail)
+      .eq("email", normalizedEmail)
       .maybeSingle(),
     supabaseAdmin
       .from("parents")
       .select("id")
-      .ilike("email", normalizedEmail)
+      .eq("email", normalizedEmail)
       .limit(1),
   ])
 
@@ -245,6 +251,8 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
     throw new Error("Email missing on authenticated user")
   }
 
+  console.log("[resolveUserAccess] user.id:", user.id, "email:", email, "preferredRole:", preferredRole)
+
   const metadataActiveRole =
     user.user_metadata?.active_role === "admin" ||
     user.user_metadata?.active_role === "teacher" ||
@@ -263,17 +271,18 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
     const parentRows = await resolveParentRows(user.id, email)
 
     if (parentRows.length > 0) {
-      // Always link auth_id first so future lookups are faster
+      // Link auth_id so future lookups hit the faster eq("auth_id") path
       await supabaseAdmin
         .from("parents")
         .update({ auth_id: user.id })
-        .ilike("email", email)
+        .eq("email", email)
 
       const studentIds = [...new Set(
         parentRows.map((row) => row.student_id).filter((id): id is string => Boolean(id))
       )]
 
-      // Try to resolve school from parents → students → existing JWT metadata
+      console.log("[resolveUserAccess] parent studentIds:", studentIds)
+
       const schoolId =
         (await resolveParentSchool(parentRows)) ||
         (typeof user.user_metadata?.school_id === "string" && user.user_metadata.school_id
@@ -281,8 +290,6 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
           : null)
 
       if (!schoolId) {
-        // Parent exists but no school linked yet — allow login without routing to a subdomain.
-        // Set role in metadata so the layout can recognise this user as a parent.
         await Promise.all([
           supabaseAdmin.from("profiles").upsert({ id: user.id, role: "parent" }),
           supabaseAdmin.auth.admin.updateUserById(user.id, {
@@ -328,7 +335,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
         supabaseAdmin
           .from("parents")
           .update({ auth_id: user.id, school_id: schoolId })
-          .ilike("email", email),
+          .eq("email", email),
       ])
 
       return access
@@ -351,7 +358,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
       await supabaseAdmin
         .from("teachers")
         .select("id, school_id")
-        .ilike("email", email)
+        .eq("email", email)
         .maybeSingle()
     ).data
 
@@ -399,7 +406,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
   const { data: school } = await supabaseAdmin
     .from("schools")
     .select("id, subdomain, domain")
-    .ilike("email", email)
+    .eq("email", email)
     .maybeSingle()
 
   const subdomain = school?.subdomain || school?.domain || null

@@ -5,9 +5,12 @@ import { waitForSession } from "@/lib/auth-session"
 import { resolveTenantOrigin } from "@/lib/auth-storage"
 import { sanitizeNextPath, sanitizeSubdomain } from "@/lib/security"
 
-type AuthDestination = {
+export type AuthDestination = {
   next: "/admin" | "/teacher" | "/parent"
   subdomain: string
+  role?: string
+  school_id?: string
+  student_ids?: string[]
 }
 
 export async function resolveAuthDestination(
@@ -95,6 +98,9 @@ export async function resolveAuthDestination(
   return {
     next: result.next,
     subdomain: result.subdomain || "",
+    role: result.role,
+    school_id: result.school_id,
+    student_ids: Array.isArray(result.student_ids) ? result.student_ids : [],
   }
 }
 

@@ -1,38 +1,55 @@
 import { supabase } from "./supabase"
-import { getAuthSessionContext } from "./getUserRole"
 
-export async function getCurrentParentStudentIds() {
-  const context = await getAuthSessionContext()
-
-  if (context?.role === "parent") {
-    return context.studentIds
+export async function getCurrentParentStudentIds(): Promise<string[]> {
+  // Fast path: read from localStorage set during login
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("student_ids")
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((id): id is string => typeof id === "string" && Boolean(id))
+        }
+      }
+    } catch {
+      // Corrupt localStorage value — fall through to Supabase
+    }
   }
 
+  // Supabase fallback: eq("auth_id") primary, eq("email") secondary
   const { data: userData } = await supabase.auth.getUser()
   const user = userData.user
-  const email = String(user?.email || "").trim().toLowerCase()
 
-  if (!user || !email) {
-    return []
-  }
+  if (!user) return []
 
-  const { data: linkedParents } = await supabase
+  console.log("[getCurrentParentStudentIds] user.id:", user.id)
+
+  const { data: byAuthId } = await supabase
     .from("parents")
     .select("student_id")
     .eq("auth_id", user.id)
 
-  const linkedStudentIds = [...new Set(((linkedParents || []).map((parent) => parent.student_id)).filter(Boolean))]
+  console.log("[getCurrentParentStudentIds] parentRows by auth_id:", byAuthId)
 
-  if (linkedStudentIds.length > 0) {
-    return linkedStudentIds
-  }
+  const byAuthIds = [...new Set(
+    (byAuthId || []).map((p) => p.student_id).filter((id): id is string => Boolean(id))
+  )]
 
-  const { data: emailParents } = await supabase
+  if (byAuthIds.length > 0) return byAuthIds
+
+  const email = user.email?.trim().toLowerCase()
+  if (!email) return []
+
+  const { data: byEmail } = await supabase
     .from("parents")
     .select("student_id")
-    .ilike("email", email)
+    .eq("email", email)
 
-  return [...new Set(((emailParents || []).map((parent) => parent.student_id)).filter(Boolean))]
+  console.log("[getCurrentParentStudentIds] parentRows by email:", byEmail)
+
+  return [...new Set(
+    (byEmail || []).map((p) => p.student_id).filter((id): id is string => Boolean(id))
+  )]
 }
 
 export async function getCurrentTeacher() {
@@ -50,13 +67,12 @@ export async function getCurrentTeacher() {
   if (teacherByAuth) return teacherByAuth
 
   const email = user.email?.trim().toLowerCase()
-
   if (!email) return null
 
   const { data: teacherByEmail } = await supabase
     .from("teachers")
     .select("id,school_id,email,name")
-    .ilike("email", email)
+    .eq("email", email)
     .maybeSingle()
 
   if (!teacherByEmail) return null

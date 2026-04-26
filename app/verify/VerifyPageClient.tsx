@@ -61,6 +61,17 @@ export default function VerifyPageClient() {
     try {
       const destination = await resolveAuthDestination(user, email, preferredRole)
 
+      // Persist resolved access so dashboard components can read without extra API calls
+      if (destination.role) {
+        localStorage.setItem("role", destination.role)
+      }
+      if (destination.school_id) {
+        localStorage.setItem("school_id", destination.school_id)
+      }
+      if (Array.isArray(destination.student_ids)) {
+        localStorage.setItem("student_ids", JSON.stringify(destination.student_ids))
+      }
+
       if (mode === "setup") {
         sessionStorage.setItem("postAuthRedirect", JSON.stringify(destination))
         router.push("/setup")

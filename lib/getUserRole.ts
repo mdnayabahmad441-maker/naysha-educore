@@ -135,7 +135,7 @@ async function getParentStudentIdsFromClient(userId: string, email: string) {
   const { data: emailParents } = await supabase
     .from("parents")
     .select("student_id")
-    .ilike("email", email)
+    .eq("email", email)
 
   return [...new Set(((emailParents || []).map((parent) => parent.student_id)).filter(Boolean))]
 }

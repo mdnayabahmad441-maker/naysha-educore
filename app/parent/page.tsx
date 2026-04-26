@@ -34,6 +34,7 @@ export default function ParentDashboard(){
 
       try{
         const studentIds = await getCurrentParentStudentIds()
+        console.log("[ParentDashboard] studentIds:", studentIds)
 
         if(studentIds.length === 0){
           setChildren([])
