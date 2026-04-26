@@ -10,25 +10,6 @@ type AuthDestination = {
   subdomain: string
 }
 
-async function updateUserMetadataIfNeeded(user: any, schoolId: string, role: string) {
-  const currentMetadata = user.user_metadata || {}
-
-  if (
-    currentMetadata.school_id !== schoolId ||
-    currentMetadata.role !== role ||
-    currentMetadata.active_role !== role
-  ) {
-    await supabase.auth.updateUser({
-      data: {
-        ...currentMetadata,
-        school_id: schoolId,
-        role,
-        active_role: role,
-      },
-    })
-  }
-}
-
 export async function resolveAuthDestination(
   user: any,
   email: string,
@@ -37,53 +18,59 @@ export async function resolveAuthDestination(
   const normalizedEmail = email.trim().toLowerCase()
   const userId = user.id
 
-  // 🟢 HANDLE NEW SCHOOL CREATION
-  const stored = localStorage.getItem("onboardingData")
+  // Handle first-time school creation (onboarding flow)
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("onboardingData")
 
-  if (stored) {
-    const data = JSON.parse(stored)
+    if (stored) {
+      const data = JSON.parse(stored)
 
-    const { data: newSchool, error } = await supabase
-      .from("schools")
-      .insert({
-        name: data.schoolName,
-        subdomain: data.subdomain.toLowerCase().trim(),
-        email: data.email,
-        phone: data.phone,
-      })
-      .select()
-      .single()
+      const { data: newSchool, error } = await supabase
+        .from("schools")
+        .insert({
+          name: data.schoolName,
+          subdomain: data.subdomain.toLowerCase().trim(),
+          email: data.email,
+          phone: data.phone,
+        })
+        .select()
+        .single()
 
-    if (error || !newSchool) {
-      throw new Error(error?.message || "School creation failed")
-    }
+      if (error || !newSchool) {
+        throw new Error(error?.message || "School creation failed")
+      }
 
-    await supabase.from("profiles").upsert({
-      id: userId,
-      school_id: newSchool.id,
-      role: "admin",
-    })
+      await Promise.all([
+        supabase.from("profiles").upsert({
+          id: userId,
+          school_id: newSchool.id,
+          role: "admin",
+        }),
+        supabase.auth.updateUser({
+          data: { school_id: newSchool.id, role: "admin", active_role: "admin" },
+        }),
+      ])
 
-    // ✅ VERY IMPORTANT
-    await updateUserMetadataIfNeeded(user, newSchool.id, "admin")
+      localStorage.removeItem("onboardingData")
 
-    localStorage.removeItem("onboardingData")
-
-    return {
-      subdomain: newSchool.subdomain,
-      next: "/admin",
+      return { subdomain: newSchool.subdomain, next: "/admin" }
     }
   }
 
-  // 🟢 GET SESSION TOKEN
-  const session = await waitForSession()
+  // Wait for an active session — retry with a refresh if the first pass fails
+  let session = await waitForSession(10, 200)
+
+  if (!session) {
+    await supabase.auth.refreshSession()
+    session = await waitForSession(6, 300)
+  }
+
   const accessToken = session?.access_token
 
   if (!accessToken) {
-    throw new Error("Session missing")
+    throw new Error("Session not ready — please try again")
   }
 
-  // 🟢 CALL BACKEND
   const response = await fetch("/api/auth/resolve-destination", {
     method: "POST",
     headers: {
@@ -102,15 +89,12 @@ export async function resolveAuthDestination(
     throw new Error(result.error || "Failed to resolve account")
   }
 
-  // ✅ CRITICAL FIX — SET METADATA HERE ALSO
-  await updateUserMetadataIfNeeded(user, result.school_id, result.role)
-
-  // ✅ REFRESH TOKEN AFTER UPDATE
+  // Refresh so the client JWT picks up the role/school_id written by the server
   await supabase.auth.refreshSession()
 
   return {
     next: result.next,
-    subdomain: result.subdomain,
+    subdomain: result.subdomain || "",
   }
 }
 
@@ -124,7 +108,7 @@ export async function redirectWithSession(destination: AuthDestination) {
   const refreshToken = sessionData.session?.refresh_token
 
   if (!accessToken || !refreshToken) {
-    throw new Error("Session missing")
+    throw new Error("Session missing — please log in again")
   }
 
   const payload = new URLSearchParams({

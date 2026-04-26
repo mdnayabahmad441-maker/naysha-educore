@@ -48,8 +48,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     void checkAuth()
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
         window.location.href = "/login"
       }
     })

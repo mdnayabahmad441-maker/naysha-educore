@@ -36,7 +36,7 @@ export default function VerifyPageClient() {
 
     setLoading(true)
 
-    const { error } = await supabase.auth.verifyOtp({
+    const { data: verifyData, error } = await supabase.auth.verifyOtp({
       email,
       token: otp.trim(),
       type: "email",
@@ -48,16 +48,18 @@ export default function VerifyPageClient() {
       return
     }
 
-    const { data: userData } = await supabase.auth.getUser()
+    // Use the user returned by verifyOtp directly — avoids an extra round-trip
+    // and ensures the session is fully established before we proceed.
+    const user = verifyData.user
 
-    if (!userData.user) {
+    if (!user) {
       setLoading(false)
-      alert("User not found")
+      alert("Verification failed — please try again")
       return
     }
 
     try {
-      const destination = await resolveAuthDestination(userData.user, email, preferredRole)
+      const destination = await resolveAuthDestination(user, email, preferredRole)
 
       if (mode === "setup") {
         sessionStorage.setItem("postAuthRedirect", JSON.stringify(destination))

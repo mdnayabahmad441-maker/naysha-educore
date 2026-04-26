@@ -18,6 +18,7 @@ export type ResolvedUserAccess = {
   subdomain: string
   next: "/admin" | "/teacher" | "/parent"
   studentIds: string[]
+  school_id: string
 }
 
 type ParentRow = {
@@ -215,18 +216,21 @@ export async function resolveIdentifierToAccount(identifier: string): Promise<Re
 async function persistResolvedAccess(user: User, access: ResolvedUserAccess) {
   const metadata = user.user_metadata || {}
 
+  const upsertPayload: Record<string, unknown> = {
+    id: access.userId,
+    role: access.role,
+  }
+
+  if (access.schoolId) {
+    upsertPayload.school_id = access.schoolId
+  }
+
   await Promise.all([
-    supabaseAdmin
-      .from("profiles")
-      .upsert({
-        id: access.userId,
-        school_id: access.schoolId,
-        role: access.role,
-      }),
+    supabaseAdmin.from("profiles").upsert(upsertPayload),
     supabaseAdmin.auth.admin.updateUserById(access.userId, {
       user_metadata: {
         ...metadata,
-        school_id: access.schoolId,
+        ...(access.schoolId ? { school_id: access.schoolId } : {}),
         role: access.role,
         active_role: access.role,
       },
@@ -254,27 +258,59 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
   const allowTeacher = !effectivePreferredRole || effectivePreferredRole === "teacher"
   const allowAdmin = !effectivePreferredRole || effectivePreferredRole === "admin"
 
+  // ── PARENT ──────────────────────────────────────────────────────────────────
   if (allowParent) {
     const parentRows = await resolveParentRows(user.id, email)
 
     if (parentRows.length > 0) {
+      // Always link auth_id first so future lookups are faster
+      await supabaseAdmin
+        .from("parents")
+        .update({ auth_id: user.id })
+        .ilike("email", email)
+
+      const studentIds = [...new Set(
+        parentRows.map((row) => row.student_id).filter((id): id is string => Boolean(id))
+      )]
+
+      // Try to resolve school from parents → students → existing JWT metadata
       const schoolId =
         (await resolveParentSchool(parentRows)) ||
-        (typeof user.user_metadata?.school_id === "string" ? user.user_metadata.school_id : null)
+        (typeof user.user_metadata?.school_id === "string" && user.user_metadata.school_id
+          ? user.user_metadata.school_id
+          : null)
 
       if (!schoolId) {
-        throw new Error("Parent linked school not found")
+        // Parent exists but no school linked yet — allow login without routing to a subdomain.
+        // Set role in metadata so the layout can recognise this user as a parent.
+        await Promise.all([
+          supabaseAdmin.from("profiles").upsert({ id: user.id, role: "parent" }),
+          supabaseAdmin.auth.admin.updateUserById(user.id, {
+            user_metadata: {
+              ...(user.user_metadata || {}),
+              role: "parent",
+              active_role: "parent",
+            },
+          }),
+        ])
+
+        return {
+          userId: user.id,
+          email,
+          role: "parent" as AccountRole,
+          schoolId: "",
+          subdomain: "",
+          next: "/parent" as const,
+          studentIds,
+          school_id: "",
+        }
       }
 
       const subdomain = await findSchoolSubdomain(schoolId)
 
       if (!subdomain) {
-        throw new Error("School not found")
+        throw new Error("School configuration missing — contact your school admin")
       }
-
-      const studentIds = [...new Set(
-        parentRows.map((row) => row.student_id).filter((studentId): studentId is string => Boolean(studentId))
-      )]
 
       const access: ResolvedUserAccess = {
         userId: user.id,
@@ -284,6 +320,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
         subdomain,
         next: "/parent",
         studentIds,
+        school_id: schoolId,
       }
 
       await Promise.all([
@@ -302,6 +339,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
     }
   }
 
+  // ── TEACHER ──────────────────────────────────────────────────────────────────
   if (allowTeacher) {
     const { data: teacherByAuth } = await supabaseAdmin
       .from("teachers")
@@ -332,6 +370,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
         subdomain,
         next: "/teacher",
         studentIds: [],
+        school_id: teacher.school_id,
       }
 
       await Promise.all([
@@ -352,6 +391,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
     }
   }
 
+  // ── ADMIN ────────────────────────────────────────────────────────────────────
   if (!allowAdmin) {
     return null
   }
@@ -376,6 +416,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
     subdomain,
     next: "/admin",
     studentIds: [],
+    school_id: school.id,
   }
 
   await persistResolvedAccess(user, access)

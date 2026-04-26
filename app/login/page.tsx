@@ -112,22 +112,18 @@ export default function LoginPage() {
 
     setLoading(true)
 
-    const response = await fetch("/api/auth/request-otp", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: resolvedAccount.email,
-        purpose: "parent-login",
-      }),
+    // Send OTP directly from the browser so the PKCE code verifier is stored
+    // in sessionStorage and available when the user calls verifyOtp.
+    // (A server-side signInWithOtp would lose the verifier between requests.)
+    const { error } = await supabase.auth.signInWithOtp({
+      email: resolvedAccount.email,
+      options: { shouldCreateUser: true },
     })
 
     setLoading(false)
 
-    if (!response.ok) {
-      const data = await response.json()
-      alert(data.error || "Failed to send OTP")
+    if (error) {
+      alert(error.message || "Failed to send OTP")
       return
     }
 
