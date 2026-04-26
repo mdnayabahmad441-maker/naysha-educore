@@ -75,7 +75,7 @@ async function resolveParentSchool(rows: ParentRow[]) {
   return data?.find(s => s.school_id)?.school_id || null
 }
 
-export async function resolveUserAccess(user: User): Promise<ResolvedUserAccess | null> {
+export async function resolveUserAccess(user: User, _preferredRole?: AccountRole): Promise<ResolvedUserAccess | null> {
   const email = user.email?.toLowerCase()
 
   if (!email) throw new Error("User email missing")
