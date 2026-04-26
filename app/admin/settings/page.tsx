@@ -6,6 +6,7 @@ import { getSchoolId } from "@/lib/school"
 import { getSettings, updateSettings } from "@/lib/settings"
 import { apiFetch } from "@/lib/api-client"
 import { ID_CARD_PRESETS } from "@/lib/document-layouts"
+import WhatsAppConnect from "./WhatsAppConnect"
 
 type UploadKind = "logo" | "report-card-template" | "certificate-template"
 
@@ -43,7 +44,7 @@ async function getImageDimensions(file: File) {
 }
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<"school" | "exam" | "fees" | "academic">("school")
+  const [tab, setTab] = useState<"school" | "exam" | "fees" | "academic" | "whatsapp">("school")
   const [schoolId, setSchoolId] = useState<string | null>(null)
 
   const [school, setSchool] = useState<any>({})
@@ -390,6 +391,9 @@ export default function SettingsPage() {
         <button onClick={() => setTab("academic")} className="block w-full text-left text-cyan-400">
           Academic Year
         </button>
+        <button onClick={() => setTab("whatsapp")} className="block w-full text-left">
+          WhatsApp
+        </button>
       </div>
 
       <div className="flex-1 p-10">
@@ -579,6 +583,12 @@ Never invent data that is not provided.`}
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {tab === "whatsapp" && (
+          <div className="py-2">
+            <WhatsAppConnect />
           </div>
         )}
       </div>

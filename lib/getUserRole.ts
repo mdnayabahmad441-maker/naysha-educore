@@ -27,12 +27,21 @@ async function persistRole(userId: string, role: UserRole, schoolId: string) {
 }
 
 async function resolveParentSchoolId(userId: string, normalizedEmail: string) {
-  const { data: parents } = await supabase
+  // Two separate queries to avoid .or() RLS issues when auth_id is null on first login
+  const { data: byAuthId } = await supabase
     .from("parents")
     .select("id, student_id, school_id")
-    .or(`auth_id.eq.${userId},email.ilike.${normalizedEmail}`)
+    .eq("auth_id", userId)
 
-  const parentRows = (parents as ParentRoleRecord[] | null) || []
+  let parentRows = (byAuthId as ParentRoleRecord[] | null) || []
+
+  if (parentRows.length === 0) {
+    const { data: byEmail } = await supabase
+      .from("parents")
+      .select("id, student_id, school_id")
+      .ilike("email", normalizedEmail)
+    parentRows = (byEmail as ParentRoleRecord[] | null) || []
+  }
 
   if (parentRows.length === 0) {
     return null
@@ -113,11 +122,22 @@ export async function getUserRole() {
     return null
   }
 
-  const { data: teacher } = await supabase
+  const { data: teacherByAuthId } = await supabase
     .from("teachers")
     .select("id, school_id")
-    .or(`auth_id.eq.${user.id},email.ilike.${normalizedEmail}`)
+    .eq("auth_id", user.id)
     .maybeSingle()
+
+  let teacher = teacherByAuthId
+
+  if (!teacher) {
+    const { data: teacherByEmail } = await supabase
+      .from("teachers")
+      .select("id, school_id")
+      .ilike("email", normalizedEmail)
+      .maybeSingle()
+    teacher = teacherByEmail
+  }
 
   if (teacher?.school_id) {
     if (teacher.id) {

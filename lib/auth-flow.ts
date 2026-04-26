@@ -82,6 +82,10 @@ export async function resolveAuthDestination(user: any, email: string): Promise<
     throw new Error(result.error || "Failed to resolve account")
   }
 
+  // Refresh the session so the new JWT carries the updated role metadata.
+  // Without this, the old token (no role) is forwarded and the dashboard denies access.
+  await supabase.auth.refreshSession()
+
   return {
     next: result.next,
     subdomain: result.subdomain,

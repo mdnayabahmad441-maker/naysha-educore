@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { getSchoolId } from "@/lib/school"
-import { apiFetch } from "@/lib/api-client"
-import { useSchool } from "@/context/SchoolContext"
 
 type AdmissionEnquiry = {
   id: string
@@ -18,14 +16,9 @@ type AdmissionEnquiry = {
 }
 
 export default function AdmissionEnquiryPage() {
-  const school = useSchool()
   const [enquiries, setEnquiries] = useState<AdmissionEnquiry[]>([])
   const [loading, setLoading] = useState(true)
   const [schoolId, setSchoolId] = useState<string | null>(null)
-  const [replyDrafts, setReplyDrafts] = useState<Record<string, { subject: string; message: string }>>({})
-  const [draftingId, setDraftingId] = useState<string | null>(null)
-  const [sendingReply, setSendingReply] = useState<Record<string, "email" | "whatsapp" | null>>({})
-  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
 
   useEffect(() => {
     void getSchoolId().then(setSchoolId)
@@ -36,7 +29,7 @@ export default function AdmissionEnquiryPage() {
 
     setLoading(true)
     try {
-      const response = await apiFetch("/api/admission-enquiry")
+      const response = await fetch(`/api/admission-enquiry?schoolId=${schoolId}`)
       const data = await response.json()
 
       if (data.success) {
@@ -57,41 +50,15 @@ export default function AdmissionEnquiryPage() {
 
 
   const updateStatus = async (enquiryId: string, newStatus: string) => {
-    const previousEnquiries = enquiries
-
-    setUpdatingStatusId(enquiryId)
-    setEnquiries((prev) =>
-      prev.map((enquiry) =>
+    // This would typically call an API to update the status
+    // For now, we'll just update the local state
+    setEnquiries(prev =>
+      prev.map(enquiry =>
         enquiry.id === enquiryId
           ? { ...enquiry, status: newStatus }
           : enquiry
       )
     )
-
-    try {
-      const response = await apiFetch("/api/admission-enquiry", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          enquiryId,
-          status: newStatus,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok || !result?.success) {
-        throw new Error(result?.error || "Failed to update status")
-      }
-    } catch (error) {
-      console.error(error)
-      setEnquiries(previousEnquiries)
-      alert(error instanceof Error ? error.message : "Failed to update status")
-    } finally {
-      setUpdatingStatusId(null)
-    }
   }
 
   const formatDate = (dateString: string) => {
@@ -102,109 +69,6 @@ export default function AdmissionEnquiryPage() {
       hour: '2-digit',
       minute: '2-digit'
     })
-  }
-
-  const generateReply = async (enquiry: AdmissionEnquiry) => {
-    if (!schoolId) return
-
-    try {
-      setDraftingId(enquiry.id)
-
-      const response = await apiFetch("/api/ai/text", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          task: "enquiry_reply",
-          schoolId,
-          schoolName: school?.name || "School",
-          studentName: enquiry.student_name,
-          fatherName: enquiry.father_name,
-          classWanted: enquiry.class_wanted,
-          phone: enquiry.phone,
-          email: enquiry.email,
-          address: enquiry.address,
-          status: enquiry.status
-        })
-      })
-
-      const result = await response.json()
-      if (!response.ok || !result?.data) {
-        throw new Error(result?.error || "Failed to generate reply")
-      }
-
-      setReplyDrafts((current) => ({
-        ...current,
-        [enquiry.id]: result.data
-      }))
-    } catch (error) {
-      console.error(error)
-      alert(error instanceof Error ? error.message : "Failed to generate reply")
-    } finally {
-      setDraftingId(null)
-    }
-  }
-
-  const sendDraftedReply = async (enquiry: AdmissionEnquiry, channel: "email" | "whatsapp") => {
-    const draft = replyDrafts[enquiry.id]
-
-    if (!draft) {
-      alert("Generate the AI reply first")
-      return
-    }
-
-    try {
-      setSendingReply((current) => ({
-        ...current,
-        [enquiry.id]: channel
-      }))
-
-      if (channel === "email") {
-        const response = await apiFetch("/api/send-email", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            email: enquiry.email,
-            subject: draft.subject,
-            message: draft.message
-          })
-        })
-
-        const result = await response.json()
-        if (!response.ok) {
-          throw new Error(result?.error || "Failed to send email")
-        }
-      } else {
-        const response = await apiFetch("/api/send-whatsapp", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            phone: enquiry.phone,
-            message: `${draft.subject}\n\n${draft.message}`
-          })
-        })
-
-        const result = await response.json()
-        if (!response.ok) {
-          throw new Error(result?.error || "Failed to send WhatsApp")
-        }
-      }
-
-      alert(`${channel === "email" ? "Email" : "WhatsApp"} reply sent successfully`)
-    } catch (error) {
-      console.error(error)
-      alert(error instanceof Error ? error.message : `Failed to send ${channel} reply`)
-    } finally {
-      setSendingReply((current) => ({
-        ...current,
-        [enquiry.id]: null
-      }))
-    }
   }
 
   return (
@@ -291,52 +155,16 @@ export default function AdmissionEnquiryPage() {
                       </span>
                     </td>
                     <td className="p-4">
-                      <div className="space-y-3">
-                        <select
-                          value={enquiry.status}
-                          onChange={(e) => updateStatus(enquiry.id, e.target.value)}
-                          disabled={updatingStatusId === enquiry.id}
-                          className="bg-slate-900/90 text-white border border-white/20 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        >
-                          <option className="bg-slate-900 text-white" value="new">New</option>
-                          <option className="bg-slate-900 text-white" value="contacted">Contacted</option>
-                          <option className="bg-slate-900 text-white" value="admitted">Admitted</option>
-                          <option className="bg-slate-900 text-white" value="rejected">Rejected</option>
-                        </select>
-                        <button
-                          onClick={() => generateReply(enquiry)}
-                          disabled={draftingId === enquiry.id}
-                          className="rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/20"
-                        >
-                          {draftingId === enquiry.id ? "Drafting..." : "AI Reply"}
-                        </button>
-                        {replyDrafts[enquiry.id] && (
-                          <div className="max-w-md rounded-lg border border-white/10 bg-slate-950/60 p-3 text-xs text-gray-200">
-                            <p className="font-semibold text-white">{replyDrafts[enquiry.id].subject}</p>
-                            <p className="mt-2 whitespace-pre-wrap">{replyDrafts[enquiry.id].message}</p>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <button
-                                onClick={() => navigator.clipboard.writeText(`${replyDrafts[enquiry.id].subject}\n\n${replyDrafts[enquiry.id].message}`)}
-                                className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-white/10"
-                              >
-                                Copy Reply
-                              </button>
-                              <button
-                                onClick={() => sendDraftedReply(enquiry, "email")}
-                                className="rounded-md border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/20"
-                              >
-                                {sendingReply[enquiry.id] === "email" ? "Sending Email..." : "Send Email"}
-                              </button>
-                              <button
-                                onClick={() => sendDraftedReply(enquiry, "whatsapp")}
-                                className="rounded-md border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/20"
-                              >
-                                {sendingReply[enquiry.id] === "whatsapp" ? "Sending WhatsApp..." : "Send WhatsApp"}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      <select
+                        value={enquiry.status}
+                        onChange={(e) => updateStatus(enquiry.id, e.target.value)}
+                        className="bg-slate-900/90 text-white border border-white/20 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option className="bg-slate-900 text-white" value="new">New</option>
+                        <option className="bg-slate-900 text-white" value="contacted">Contacted</option> 
+                        <option className="bg-slate-900 text-white" value="admitted">Admitted</option>
+                        <option className="bg-slate-900 text-white" value="rejected">Rejected</option>
+                      </select>
                     </td>
                   </tr>
                 ))}
