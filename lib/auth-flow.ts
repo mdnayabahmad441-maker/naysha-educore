@@ -130,9 +130,9 @@ export async function redirectWithSession(destination: AuthDestination) {
 
   if (subdomain) {
     const tenantOrigin = resolveTenantOrigin(subdomain)
-    window.location.href = `${tenantOrigin}/auth/callback#${payload.toString()}`
+    window.location.href = `${tenantOrigin}/auth/callback?next=${encodeURIComponent(next)}#${payload.toString()}`
     return
   }
 
-  window.location.href = `/auth/callback#${payload.toString()}`
+  window.location.href = `/auth/callback?next=${encodeURIComponent(next)}#${payload.toString()}`
 }

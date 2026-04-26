@@ -11,11 +11,12 @@ function readTokenParams() {
   const hash = window.location.hash.startsWith("#")
     ? new URLSearchParams(window.location.hash.slice(1))
     : null
+  const query = new URLSearchParams(window.location.search)
 
   return {
     accessToken: hash?.get("access_token") || null,
     refreshToken: hash?.get("refresh_token") || null,
-    next: sanitizeNextPath(hash?.get("next")),
+    next: sanitizeNextPath(hash?.get("next") || query.get("next")),
   }
 }
 
