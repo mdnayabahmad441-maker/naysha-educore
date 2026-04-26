@@ -2,13 +2,6 @@ import { User } from "@supabase/supabase-js"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export type AccountRole = "admin" | "teacher" | "parent"
-export type LoginMethod = "password" | "otp"
-
-export type ResolvedAccount = {
-  email: string
-  role: AccountRole
-  loginMethod: LoginMethod
-}
 
 export type ResolvedUserAccess = {
   userId: string
@@ -27,6 +20,9 @@ type ParentRow = {
   school_id: string | null
 }
 
+// ==============================
+// HELPERS
+// ==============================
 async function findSchoolSubdomain(schoolId: string) {
   const { data } = await supabaseAdmin
     .from("schools")
@@ -34,7 +30,7 @@ async function findSchoolSubdomain(schoolId: string) {
     .eq("id", schoolId)
     .maybeSingle()
 
-  return (data?.subdomain || data?.domain || null) as string | null
+  return (data?.subdomain || data?.domain || "") as string
 }
 
 async function resolveParentRows(userId: string, email: string): Promise<ParentRow[]> {
@@ -43,9 +39,7 @@ async function resolveParentRows(userId: string, email: string): Promise<ParentR
     .select("id, student_id, school_id")
     .eq("auth_id", userId)
 
-  if (byAuthId && byAuthId.length > 0) {
-    return byAuthId
-  }
+  if (byAuthId && byAuthId.length > 0) return byAuthId
 
   const { data: byEmail } = await supabaseAdmin
     .from("parents")
@@ -56,13 +50,11 @@ async function resolveParentRows(userId: string, email: string): Promise<ParentR
 }
 
 async function resolveParentSchool(parentRows: ParentRow[]) {
-  const direct =
-    parentRows.map((r) => r.school_id).find(Boolean) || null
-
+  const direct = parentRows.map(r => r.school_id).find(Boolean) || null
   if (direct) return direct
 
   const studentIds = parentRows
-    .map((r) => r.student_id)
+    .map(r => r.student_id)
     .filter((id): id is string => Boolean(id))
 
   if (studentIds.length === 0) return null
@@ -72,7 +64,7 @@ async function resolveParentSchool(parentRows: ParentRow[]) {
     .select("school_id")
     .in("id", studentIds)
 
-  return (data || []).map((s) => s.school_id).find(Boolean) || null
+  return (data || []).map(s => s.school_id).find(Boolean) || null
 }
 
 async function persistResolvedAccess(user: User, access: ResolvedUserAccess) {
@@ -93,19 +85,20 @@ async function persistResolvedAccess(user: User, access: ResolvedUserAccess) {
   ])
 }
 
+// ==============================
+// MAIN RESOLVER
+// ==============================
 export async function resolveUserAccess(user: User, preferredRole?: AccountRole | null) {
   const email = String(user.email || "").trim().toLowerCase()
 
-  if (!email) {
-    throw new Error("Email missing")
-  }
+  if (!email) throw new Error("Email missing")
 
   console.log("RESOLVER →", { email, preferredRole })
 
-  // ✅ FIXED LOGIC
+  // 🔥 FIX: STRICT ROLE CONTROL
   const allowParent = preferredRole === "parent" || !preferredRole
-  const allowTeacher = preferredRole === "teacher" || !preferredRole
-  const allowAdmin = preferredRole === "admin" || !preferredRole
+  const allowTeacher = preferredRole === "teacher"
+  const allowAdmin = preferredRole === "admin"
 
   // =========================
   // ✅ PARENT (FIRST PRIORITY)
@@ -115,8 +108,16 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
 
     if (parentRows.length > 0) {
       const studentIds = [...new Set(
-        parentRows.map((r) => r.student_id).filter((id): id is string => Boolean(id))
+        parentRows
+          .map(r => r.student_id)
+          .filter((id): id is string => Boolean(id))
       )]
+
+      // 🚨 IMPORTANT FIX: prevent empty parent
+      if (studentIds.length === 0) {
+        console.warn("Parent has no students → rejecting")
+        return null
+      }
 
       const schoolId =
         (await resolveParentSchool(parentRows)) ||
@@ -125,6 +126,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
 
       const subdomain = schoolId ? await findSchoolSubdomain(schoolId) : ""
 
+      // link auth_id
       await supabaseAdmin
         .from("parents")
         .update({ auth_id: user.id, school_id: schoolId })
@@ -134,11 +136,11 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
         userId: user.id,
         email,
         role: "parent",
-        schoolId: schoolId || "",
-        subdomain: subdomain || "",
+        schoolId,
+        subdomain,
         next: "/parent",
         studentIds,
-        school_id: schoolId || "",
+        school_id: schoolId,
       }
 
       await persistResolvedAccess(user, access)
@@ -165,7 +167,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
         email,
         role: "teacher",
         schoolId: teacher.school_id,
-        subdomain: subdomain || "",
+        subdomain,
         next: "/teacher",
         studentIds: [],
         school_id: teacher.school_id,
@@ -178,7 +180,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
   }
 
   // =========================
-  // ADMIN (LAST)
+  // ADMIN (ONLY IF EXPLICIT)
   // =========================
   if (allowAdmin) {
     const { data: school } = await supabaseAdmin
@@ -209,13 +211,14 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
 
   return null
 }
-// ✅ REQUIRED FOR LOGIN FLOW (DO NOT REMOVE)
+
+// ==============================
+// LOGIN IDENTIFIER
+// ==============================
 export async function resolveIdentifierToAccount(identifier: string) {
   const email = identifier.trim().toLowerCase()
-
   if (!email) return null
 
-  // Check parent first
   const { data: parent } = await supabaseAdmin
     .from("parents")
     .select("id")
@@ -223,14 +226,9 @@ export async function resolveIdentifierToAccount(identifier: string) {
     .limit(1)
 
   if ((parent || []).length > 0) {
-    return {
-      email,
-      role: "parent" as const,
-      loginMethod: "otp" as const,
-    }
+    return { email, role: "parent" as const, loginMethod: "otp" as const }
   }
 
-  // Check teacher
   const { data: teacher } = await supabaseAdmin
     .from("teachers")
     .select("id")
@@ -238,14 +236,9 @@ export async function resolveIdentifierToAccount(identifier: string) {
     .maybeSingle()
 
   if (teacher?.id) {
-    return {
-      email,
-      role: "teacher" as const,
-      loginMethod: "password" as const,
-    }
+    return { email, role: "teacher" as const, loginMethod: "password" as const }
   }
 
-  // Check admin
   const { data: school } = await supabaseAdmin
     .from("schools")
     .select("id")
@@ -253,65 +246,15 @@ export async function resolveIdentifierToAccount(identifier: string) {
     .maybeSingle()
 
   if (school?.id) {
-    return {
-      email,
-      role: "admin" as const,
-      loginMethod: "password" as const,
-    }
+    return { email, role: "admin" as const, loginMethod: "password" as const }
   }
 
   return null
 }
-// ✅ REQUIRED FOR OTP FLOW
+
+// ==============================
+// OTP SUPPORT
+// ==============================
 export async function resolveAccountByEmail(email: string) {
-  const normalizedEmail = email.trim().toLowerCase()
-
-  if (!normalizedEmail) return null
-
-  // Check parent
-  const { data: parents } = await supabaseAdmin
-    .from("parents")
-    .select("id")
-    .eq("email", normalizedEmail)
-    .limit(1)
-
-  if ((parents || []).length > 0) {
-    return {
-      email: normalizedEmail,
-      role: "parent" as const,
-      loginMethod: "otp" as const,
-    }
-  }
-
-  // Check teacher
-  const { data: teacher } = await supabaseAdmin
-    .from("teachers")
-    .select("id")
-    .eq("email", normalizedEmail)
-    .maybeSingle()
-
-  if (teacher?.id) {
-    return {
-      email: normalizedEmail,
-      role: "teacher" as const,
-      loginMethod: "password" as const,
-    }
-  }
-
-  // Check admin
-  const { data: school } = await supabaseAdmin
-    .from("schools")
-    .select("id")
-    .eq("email", normalizedEmail)
-    .maybeSingle()
-
-  if (school?.id) {
-    return {
-      email: normalizedEmail,
-      role: "admin" as const,
-      loginMethod: "password" as const,
-    }
-  }
-
-  return null
+  return resolveIdentifierToAccount(email)
 }
