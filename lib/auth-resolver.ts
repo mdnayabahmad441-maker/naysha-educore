@@ -209,3 +209,56 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
 
   return null
 }
+// ✅ REQUIRED FOR LOGIN FLOW (DO NOT REMOVE)
+export async function resolveIdentifierToAccount(identifier: string) {
+  const email = identifier.trim().toLowerCase()
+
+  if (!email) return null
+
+  // Check parent first
+  const { data: parent } = await supabaseAdmin
+    .from("parents")
+    .select("id")
+    .eq("email", email)
+    .limit(1)
+
+  if ((parent || []).length > 0) {
+    return {
+      email,
+      role: "parent" as const,
+      loginMethod: "otp" as const,
+    }
+  }
+
+  // Check teacher
+  const { data: teacher } = await supabaseAdmin
+    .from("teachers")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle()
+
+  if (teacher?.id) {
+    return {
+      email,
+      role: "teacher" as const,
+      loginMethod: "password" as const,
+    }
+  }
+
+  // Check admin
+  const { data: school } = await supabaseAdmin
+    .from("schools")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle()
+
+  if (school?.id) {
+    return {
+      email,
+      role: "admin" as const,
+      loginMethod: "password" as const,
+    }
+  }
+
+  return null
+}
