@@ -25,7 +25,6 @@ type ParentRecord = {
   mother_name: string | null
   email: string | null
   phone: string | null
-  name: string | null
 }
 
 type EnrollmentRecord = {
@@ -56,7 +55,8 @@ type PaymentRecord = {
 type ReportRecord = {
   id: string
   created_at: string
-  file_url: string
+  percentage: number | null
+  grade: string | null
   exams: {
     name: string
   } | null
@@ -143,7 +143,7 @@ export default function StudentProfile() {
 
           supabase
             .from("parents")
-            .select("father_name,mother_name,email,phone,name")
+            .select("father_name,mother_name,email,phone")
             .eq("student_id", id)
             .maybeSingle(),
 
@@ -167,8 +167,8 @@ export default function StudentProfile() {
             .order("date", { ascending: false }),
 
           supabase
-            .from("report_cards")
-            .select("id,created_at,file_url,exams(name)")
+            .from("results")
+            .select("id,created_at,percentage,grade,exams(name)")
             .eq("student_id", id)
             .order("created_at", { ascending: false })
         ])
@@ -478,16 +478,11 @@ export default function StudentProfile() {
                     <p className="text-xs text-gray-400">
                       {new Date(report.created_at).toLocaleDateString()}
                     </p>
+                    <p className="text-sm text-gray-300">
+                      {report.percentage !== null ? `${Number(report.percentage).toFixed(1)}%` : "-"}
+                      {report.grade ? ` • Grade ${report.grade}` : ""}
+                    </p>
                   </div>
-
-                  <a
-                    href={report.file_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded bg-blue-600 px-3 py-1 text-sm"
-                  >
-                    View PDF
-                  </a>
                 </div>
               ))}
             </div>
