@@ -394,7 +394,7 @@ export default function SettingsPage() {
         throw new Error(result.error || "Failed to delete account")
       }
 
-      await supabase.auth.signOut()
+      await supabase.auth.signOut({ scope: "local" })
       window.location.href = "/login"
     } catch (error) {
       console.error("Delete account error:", error)

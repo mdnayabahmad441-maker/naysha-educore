@@ -63,7 +63,7 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
   }, [])
 
   const logout = async () => {
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     window.location.href = "/login"
   }
 
