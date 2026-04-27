@@ -194,16 +194,20 @@ export default function NoticesPage() {
         return
       }
 
-      const { error: insertError } = await supabase.from("notices").insert({
-        id: crypto.randomUUID(),
-        school_id: schoolId,
-        title: title.trim(),
-        message: message.trim(),
-        class_id: mode === "class" ? selectedClass : null
+      const noticeRes = await apiFetch("/api/notices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          message: message.trim(),
+          class_id: mode === "class" ? selectedClass : null,
+        }),
       })
 
-      if (insertError) {
-        throw insertError
+      const noticeData = await noticeRes.json()
+
+      if (!noticeRes.ok) {
+        throw new Error(noticeData?.error || "Failed to save notice")
       }
 
       const { data: parents, error: parentsError } = await supabase
