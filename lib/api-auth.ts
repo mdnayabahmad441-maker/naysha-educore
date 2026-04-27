@@ -39,24 +39,67 @@ export async function requireAuthorizedProfile(
     }
   }
 
-  const { data: profile, error: profileError } = await supabaseAdmin
+  const userId = authData.user.id
+  const email = (authData.user.email || "").trim().toLowerCase()
+
+  // Try profiles table first
+  const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("school_id, role")
-    .eq("id", authData.user.id)
+    .eq("id", userId)
     .maybeSingle()
 
-  if (profileError || !profile?.role || !allowedRoles.includes(profile.role as AllowedRole)) {
+  if (profile?.role && allowedRoles.includes(profile.role as AllowedRole)) {
     return {
-      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      profile: {
+        userId,
+        schoolId: profile.school_id || null,
+        role: profile.role as AllowedRole,
+      },
+    }
+  }
+
+  // Fallback: check source tables directly so a missing/stale profiles row
+  // never permanently locks out a legitimate user.
+  if (allowedRoles.includes("admin") && email) {
+    const { data: school } = await supabaseAdmin
+      .from("schools")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle()
+
+    if (school?.id) {
+      return { profile: { userId, schoolId: school.id, role: "admin" } }
+    }
+  }
+
+  if (allowedRoles.includes("teacher") && email) {
+    const { data: teacher } = await supabaseAdmin
+      .from("teachers")
+      .select("school_id")
+      .eq("email", email)
+      .maybeSingle()
+
+    if (teacher?.school_id) {
+      return { profile: { userId, schoolId: teacher.school_id, role: "teacher" } }
+    }
+  }
+
+  if (allowedRoles.includes("parent") && email) {
+    const { data: parentRows } = await supabaseAdmin
+      .from("parents")
+      .select("school_id")
+      .eq("email", email)
+      .limit(1)
+
+    const schoolId = parentRows?.[0]?.school_id || null
+    if (parentRows && parentRows.length > 0) {
+      return { profile: { userId, schoolId, role: "parent" } }
     }
   }
 
   return {
-    profile: {
-      userId: authData.user.id,
-      schoolId: profile.school_id || null,
-      role: profile.role as AllowedRole,
-    },
+    response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
   }
 }
 
