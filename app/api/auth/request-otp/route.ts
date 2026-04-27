@@ -5,9 +5,10 @@ import { consumeRateLimit, getClientIp } from "@/lib/security"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// ✅ FIXED CLIENT (IMPORTANT)
 const supabaseAuthClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 async function hasRecognizedAccount(email: string) {
@@ -68,11 +69,14 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // ✅ ONLY CHECK ERROR
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
+    // ✅ ALWAYS SUCCESS IF NO ERROR
     return NextResponse.json({ success: true })
+
   } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
   }
