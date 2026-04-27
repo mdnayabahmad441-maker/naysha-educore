@@ -10,34 +10,41 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+async function ensureAuthUserExists(email: string): Promise<string> {
+  // Try to find existing user in Supabase auth
+  const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  const existing = list?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+
+  if (existing) {
+    // Confirm email if not already confirmed — unconfirmed users block generateLink
+    if (!existing.email_confirmed_at) {
+      await supabaseAdmin.auth.admin.updateUserById(existing.id, { email_confirm: true })
+    }
+    return existing.id
+  }
+
+  // Create new confirmed user
+  const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    email_confirm: true,
+  })
+  if (createError) throw new Error(`User creation failed: ${createError.message}`)
+  if (!created?.user?.id) throw new Error("User creation returned no ID")
+  return created.user.id
+}
+
 async function generateOtpCode(email: string): Promise<string> {
-  // Try to generate link (returns email_otp without using Supabase's email delivery)
-  let result = await supabaseAdmin.auth.admin.generateLink({
+  await ensureAuthUserExists(email)
+
+  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: "magiclink",
     email,
   })
 
-  // If user doesn't exist in Supabase auth yet, create them first then retry
-  if (result.error) {
-    const createResult = await supabaseAdmin.auth.admin.createUser({
-      email,
-      email_confirm: false,
-    })
+  if (error) throw new Error(`OTP generation failed: ${error.message}`)
 
-    if (createResult.error && !createResult.error.message.includes("already been registered")) {
-      throw new Error(createResult.error.message)
-    }
-
-    result = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-    })
-  }
-
-  if (result.error) throw new Error(result.error.message)
-
-  const otp = result.data?.properties?.email_otp
-  if (!otp) throw new Error("Could not generate OTP code")
+  const otp = data?.properties?.email_otp
+  if (!otp) throw new Error("OTP not returned by Supabase — check project email settings")
 
   return otp
 }
@@ -58,7 +65,7 @@ async function sendOtpEmail(origin: string, email: string, otp: string) {
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}))
-    throw new Error(data?.error || "Failed to send email")
+    throw new Error(data?.error || "Email delivery failed")
   }
 }
 
@@ -75,15 +82,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-
     const email = String(body?.email || "").trim().toLowerCase()
     const purpose = String(body?.purpose || "")
 
     if (!EMAIL_PATTERN.test(email)) {
-      return NextResponse.json(
-        { error: "Valid email is required" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Valid email is required" }, { status: 400 })
     }
 
     // Optional role check — never blocks OTP
@@ -105,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (err: any) {
-    console.error("OTP API error:", err)
+    console.error("OTP API error:", err?.message || err)
     return NextResponse.json(
       { error: err?.message || "Something went wrong" },
       { status: 500 }
