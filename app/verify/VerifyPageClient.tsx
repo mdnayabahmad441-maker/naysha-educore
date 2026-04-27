@@ -36,35 +36,20 @@ export default function VerifyPageClient() {
 
     setLoading(true)
 
-    const verifyRes = await fetch("/api/auth/verify-custom-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code: otp.trim() }),
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: otp.trim(),
+      type: "email",
     })
 
-    const verifyData = await verifyRes.json()
-
-    if (!verifyRes.ok) {
+    if (error || !data.user) {
       setLoading(false)
-      alert(verifyData?.error || "Verification failed")
+      alert(error?.message || "Invalid or expired OTP")
       return
     }
-
-    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-      access_token: verifyData.access_token,
-      refresh_token: verifyData.refresh_token,
-    })
-
-    if (sessionError || !sessionData?.user) {
-      setLoading(false)
-      alert(sessionError?.message || "Session setup failed — please try again")
-      return
-    }
-
-    const user = sessionData.user
 
     try {
-      const destination = await resolveAuthDestination(user, email, preferredRole)
+      const destination = await resolveAuthDestination(data.user, email, preferredRole)
 
       if (mode === "setup") {
         sessionStorage.setItem("postAuthRedirect", JSON.stringify(destination))
