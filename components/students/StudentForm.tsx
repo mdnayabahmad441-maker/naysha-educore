@@ -228,6 +228,7 @@ export default function StudentForm({ reload }: StudentFormProps) {
           id: crypto.randomUUID(),
           school_id: schoolId,
           student_id: studentId,
+          name: fatherName.trim() || motherName.trim() || null,
           father_name: fatherName.trim() || null,
           mother_name: motherName.trim() || null,
           email: parentEmail.trim() || null,
@@ -236,6 +237,7 @@ export default function StudentForm({ reload }: StudentFormProps) {
 
         if (parentError) {
           console.error("Parent error:", parentError)
+          throw new Error(`Parent save failed: ${parentError.message}`)
         }
       }
 
