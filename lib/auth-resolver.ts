@@ -100,54 +100,55 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
   const allowTeacher = preferredRole === "teacher"
   const allowAdmin = preferredRole === "admin"
 
-  // =========================
-  // ✅ PARENT (FIRST PRIORITY)
-  // =========================
-  if (allowParent) {
-    const parentRows = await resolveParentRows(user.id, email)
+// =========================
+// ✅ PARENT (FINAL FIX)
+// =========================
+if (allowParent) {
+  const parentRows = await resolveParentRows(user.id, email)
 
-    if (parentRows.length > 0) {
-      const studentIds = [...new Set(
-        parentRows
-          .map(r => r.student_id)
-          .filter((id): id is string => Boolean(id))
-      )]
+  if (parentRows.length > 0) {
 
-      // 🚨 IMPORTANT FIX: prevent empty parent
-      if (studentIds.length === 0) {
-        console.warn("Parent has no students → rejecting")
-        return null
-      }
+    const studentIds = [...new Set(
+      parentRows.map((r) => r.student_id).filter((id): id is string => Boolean(id))
+    )]
 
-      const schoolId =
-        (await resolveParentSchool(parentRows)) ||
-        user.user_metadata?.school_id ||
-        ""
+    console.log("✅ Parent found:", studentIds)
 
-      const subdomain = schoolId ? await findSchoolSubdomain(schoolId) : ""
+    // 🔥 DO NOT BLOCK IF SCHOOL MISSING
+    const schoolId =
+      (await resolveParentSchool(parentRows)) ||
+      user.user_metadata?.school_id ||
+      null
 
-      // link auth_id
-      await supabaseAdmin
-        .from("parents")
-        .update({ auth_id: user.id, school_id: schoolId })
-        .eq("email", email)
+    let subdomain = ""
 
-      const access: ResolvedUserAccess = {
-        userId: user.id,
-        email,
-        role: "parent",
-        schoolId,
-        subdomain,
-        next: "/parent",
-        studentIds,
-        school_id: schoolId,
-      }
-
-      await persistResolvedAccess(user, access)
-
-      return access
+    if (schoolId) {
+      const found = await findSchoolSubdomain(schoolId)
+      subdomain = found || ""
     }
+
+    // 🔥 Always link auth_id
+    await supabaseAdmin
+      .from("parents")
+      .update({ auth_id: user.id })
+      .eq("email", email)
+
+    const access: ResolvedUserAccess = {
+      userId: user.id,
+      email,
+      role: "parent",
+      schoolId: schoolId || "",
+      subdomain,
+      next: "/parent",
+      studentIds,
+      school_id: schoolId || "",
+    }
+
+    await persistResolvedAccess(user, access)
+
+    return access
   }
+}
 
   // =========================
   // TEACHER
