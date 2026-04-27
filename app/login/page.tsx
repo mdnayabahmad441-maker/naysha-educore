@@ -112,18 +112,24 @@ export default function LoginPage() {
 
     setLoading(true)
 
-    // Send OTP directly from the browser so the PKCE code verifier is stored
-    // in sessionStorage and available when the user calls verifyOtp.
-    // (A server-side signInWithOtp would lose the verifier between requests.)
-    const { error } = await supabase.auth.signInWithOtp({
-      email: resolvedAccount.email,
-      options: { shouldCreateUser: true },
+    // Use the server-side route (plain Supabase client, no PKCE) so Supabase
+    // sends a 6-digit OTP code rather than a magic link. The browser's PKCE
+    // client sends a magic-link format which causes "Error sending magic link
+    // email" when the project email provider isn't configured for that flow.
+    const response = await fetch("/api/auth/request-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: resolvedAccount.email,
+        purpose: "parent-login",
+      }),
     })
 
     setLoading(false)
 
-    if (error) {
-      alert(error.message || "Failed to send OTP")
+    if (!response.ok) {
+      const data = await response.json()
+      alert(data?.error || "Failed to send OTP")
       return
     }
 
