@@ -31,22 +31,22 @@ export default function ClassesPage(){
   // ================= LOAD =================
   const load = async (id:string) => {
 
-    const { data: cls } = await supabase
-      .from("classes")
-      .select(`*, teachers(name)`)
-      .eq("school_id", id)
+    const [{ data: cls }, { data: t }, { data: s }] = await Promise.all([
+      supabase.from("classes").select("*").eq("school_id", id),
+      supabase.from("teachers").select("id,name").eq("school_id", id),
+      supabase.from("students").select("id,class_id").eq("school_id", id),
+    ])
 
-    const { data: t } = await supabase
-      .from("teachers")
-      .select("id,name")
-      .eq("school_id", id)
+    // Resolve teacher names without relying on FK join
+    const teacherMap: Record<string, string> = {}
+    ;(t || []).forEach((teacher: any) => { teacherMap[teacher.id] = teacher.name })
 
-    const { data: s } = await supabase
-      .from("students")
-      .select("id,class_id")
-      .eq("school_id", id)
+    const classesWithTeacher = (cls || []).map((c: any) => ({
+      ...c,
+      teachers: c.class_teacher_id ? { name: teacherMap[c.class_teacher_id] || null } : null,
+    }))
 
-    setClasses(cls || [])
+    setClasses(classesWithTeacher)
     setTeachers(t || [])
     setStudents(s || [])
   }
