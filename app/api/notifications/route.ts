@@ -37,6 +37,7 @@ export async function POST(req: Request) {
       .maybeSingle()
 
     let whatsappStatus = "skipped"
+    let whatsappError: string | null = null
 
     if (parent?.phone) {
       try {
@@ -49,20 +50,25 @@ export async function POST(req: Request) {
             message: `${title}\n${message}`,
           }),
         })
-        whatsappStatus = res.ok ? "sent" : "failed"
-        if (!res.ok) {
+        if (res.ok) {
+          whatsappStatus = "sent"
+        } else {
           const err = await res.json().catch(() => ({}))
-          console.error("[notifications] WhatsApp failed:", err)
+          whatsappStatus = "failed"
+          whatsappError = err?.error || `HTTP ${res.status}`
+          console.error("[notifications] WhatsApp failed:", whatsappError)
         }
       } catch (err) {
         console.error("[notifications] WhatsApp error:", err)
         whatsappStatus = "error"
+        whatsappError = err instanceof Error ? err.message : "Unknown error"
       }
     } else {
       console.log("[notifications] No phone for student:", student_id)
+      whatsappError = "No phone number on file for this student's parent"
     }
 
-    return NextResponse.json({ success: true, whatsappStatus })
+    return NextResponse.json({ success: true, whatsappStatus, whatsappError })
   } catch (err) {
     console.error("[notifications] Error:", err)
     return NextResponse.json({ error: "Internal error" }, { status: 500 })

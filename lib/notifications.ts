@@ -19,11 +19,20 @@ export async function sendNotification({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ school_id, student_id, title, message, type }),
     })
+
     const data = await res.json()
+
     if (!res.ok) {
-      console.error("[sendNotification] API error:", data)
+      console.error("[sendNotification] API error:", data?.error || data)
+      return
+    }
+
+    console.log(`[sendNotification] saved ✓ | whatsapp: ${data.whatsappStatus}`)
+
+    if (data.whatsappStatus !== "sent") {
+      console.warn("[sendNotification] WhatsApp not sent:", data.whatsappError || data.whatsappStatus)
     }
   } catch (err) {
-    console.error("[sendNotification] Error:", err)
+    console.error("[sendNotification] Network error:", err)
   }
 }
