@@ -64,7 +64,18 @@ export async function resolveAuthDestination(
   let session = await waitForSession(10, 200)
 
   if (!session) {
-    await supabase.auth.refreshSession()
+    // 🔥 FORCE HARD REFRESH OF SESSION
+await supabase.auth.refreshSession()
+
+// wait a bit so updated JWT is applied
+await new Promise((res) => setTimeout(res, 500))
+
+// 🔥 DOUBLE CHECK SESSION
+const { data: refreshed } = await supabase.auth.getSession()
+
+if (!refreshed.session) {
+  throw new Error("Session not refreshed properly")
+}
     session = await waitForSession(6, 300)
   }
 
