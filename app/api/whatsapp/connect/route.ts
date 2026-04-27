@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
   const oauthUrl = new URL(`https://www.facebook.com/${API_VERSION}/dialog/oauth`)
   oauthUrl.searchParams.set("client_id", META_APP_ID)
   oauthUrl.searchParams.set("redirect_uri", REDIRECT_URI)
-  oauthUrl.searchParams.set("scope", "whatsapp_business_management,whatsapp_business_messaging,business_management")
+  oauthUrl.searchParams.set("scope", "whatsapp_business_management,whatsapp_business_messaging")
   oauthUrl.searchParams.set("state", state)
   oauthUrl.searchParams.set("response_type", "code")
 

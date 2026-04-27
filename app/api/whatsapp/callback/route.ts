@@ -117,23 +117,14 @@ export async function GET(request: NextRequest) {
     const shortToken = await exchangeCodeForToken(code, redirectUri)
     const accessToken = await extendToLongLivedToken(shortToken)
 
-    const bizRes = await graphGet("/me/businesses", accessToken, { fields: "id,name" })
-    const business = bizRes?.data?.[0]
-
-    if (!business) {
-      throw new Error(
-        "No Meta Business Account found. Make sure your WhatsApp Business Account is connected to a Meta Business Manager and try again."
-      )
-    }
-
-    const wabaRes = await graphGet(`/${business.id}/whatsapp_business_accounts`, accessToken, {
+    const wabaRes = await graphGet("/me/whatsapp_business_accounts", accessToken, {
       fields: "id,name",
     })
     const waba = wabaRes?.data?.[0]
 
     if (!waba) {
       throw new Error(
-        "No WhatsApp Business Account found under your Business Manager. Add one at business.facebook.com and try again."
+        "No WhatsApp Business Account found. Make sure you have a WhatsApp Business Account and try again."
       )
     }
 
@@ -159,7 +150,7 @@ export async function GET(request: NextRequest) {
           phone_number_id: phone.id,
           business_account_id: waba.id,
           phone_number: phone.display_phone_number ?? null,
-          display_name: phone.verified_name ?? business.name ?? null,
+          display_name: phone.verified_name ?? waba.name ?? null,
           last_webhook_event_at: null,
           last_webhook_status: "subscribed",
           connected_at: new Date().toISOString(),
