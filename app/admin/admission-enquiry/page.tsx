@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { getSchoolId } from "@/lib/school"
+import { apiFetch } from "@/lib/api-client"
 
 type AdmissionEnquiry = {
   id: string
@@ -29,7 +30,7 @@ export default function AdmissionEnquiryPage() {
 
     setLoading(true)
     try {
-      const response = await fetch(`/api/admission-enquiry?schoolId=${schoolId}`)
+      const response = await apiFetch(`/api/admission-enquiry?schoolId=${schoolId}`)
       const data = await response.json()
 
       if (data.success) {
@@ -38,7 +39,7 @@ export default function AdmissionEnquiryPage() {
         console.error("Failed to fetch enquiries:", data.error)
       }
     } catch (error) {
-      console.error("Error fetching enquiries:", error)
+      console.error("Failed to fetch enquiries:", error)
     } finally {
       setLoading(false)
     }
@@ -50,15 +51,26 @@ export default function AdmissionEnquiryPage() {
 
 
   const updateStatus = async (enquiryId: string, newStatus: string) => {
-    // This would typically call an API to update the status
-    // For now, we'll just update the local state
-    setEnquiries(prev =>
-      prev.map(enquiry =>
-        enquiry.id === enquiryId
-          ? { ...enquiry, status: newStatus }
-          : enquiry
-      )
-    )
+    try {
+      const response = await apiFetch("/api/admission-enquiry", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enquiryId, status: newStatus }),
+      })
+      const data = await response.json()
+
+      if (data.success) {
+        setEnquiries(prev =>
+          prev.map(enquiry =>
+            enquiry.id === enquiryId ? { ...enquiry, status: newStatus } : enquiry
+          )
+        )
+      } else {
+        alert(data.error || "Failed to update status")
+      }
+    } catch (error) {
+      console.error("Failed to update status:", error)
+    }
   }
 
   const formatDate = (dateString: string) => {
