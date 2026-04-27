@@ -59,9 +59,10 @@ export default function WhatsAppConnect() {
     try {
       const res = await apiFetch("/api/whatsapp/status")
       const data = await res.json()
-      setStatus(data)
+      // On any server error treat as not-connected, don't show error banner
+      setStatus(res.ok && typeof data?.connected === "boolean" ? data : { connected: false })
     } catch {
-      setError("Could not load WhatsApp status. Check your connection.")
+      setStatus({ connected: false })
     } finally {
       setLoading(false)
     }

@@ -18,8 +18,9 @@ export async function GET(request: NextRequest) {
     .maybeSingle()
 
   if (error) {
-    console.error("[WhatsApp status] DB error:", error.message)
-    return NextResponse.json({ error: "Failed to fetch status" }, { status: 500 })
+    // Table may not exist yet — treat as not connected instead of crashing
+    console.warn("[WhatsApp status] DB error (table may not exist):", error.message)
+    return NextResponse.json({ connected: false })
   }
 
   if (!data?.phone_number_id) {

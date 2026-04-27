@@ -4,7 +4,6 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 
 const META_APP_ID = process.env.META_APP_ID!
 const META_APP_SECRET = process.env.META_APP_SECRET!
-const REDIRECT_URI = process.env.META_WHATSAPP_REDIRECT_URI!
 const API_VERSION = process.env.WHATSAPP_CLOUD_API_VERSION || "v23.0"
 const GRAPH = `https://graph.facebook.com/${API_VERSION}`
 
@@ -25,11 +24,11 @@ async function graphGet(path: string, token: string, extra: Record<string, strin
   return data
 }
 
-async function exchangeCodeForToken(code: string): Promise<string> {
+async function exchangeCodeForToken(code: string, redirectUri: string): Promise<string> {
   const url = new URL(`${GRAPH}/oauth/access_token`)
   url.searchParams.set("client_id", META_APP_ID)
   url.searchParams.set("client_secret", META_APP_SECRET)
-  url.searchParams.set("redirect_uri", REDIRECT_URI)
+  url.searchParams.set("redirect_uri", redirectUri)
   url.searchParams.set("code", code)
 
   const res = await fetch(url.toString())
@@ -79,12 +78,17 @@ async function subscribeAppToWaba(wabaId: string, accessToken: string) {
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
+  const redirectUri = process.env.META_WHATSAPP_REDIRECT_URI || `${origin}/api/whatsapp/callback`
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
 
-  const fail = `${origin}/admin/settings?whatsapp=error`
-  const success = `${origin}/admin/settings?whatsapp=connected`
+  const cookieStore = await cookies()
+  // Redirect back to the school subdomain that initiated the OAuth flow
+  const returnOrigin = cookieStore.get("wa_return_origin")?.value || origin
+
+  const fail = `${returnOrigin}/admin/settings?whatsapp=error`
+  const success = `${returnOrigin}/admin/settings?whatsapp=connected`
 
   if (error) {
     console.warn("[WhatsApp callback] User cancelled OAuth:", error)
@@ -95,7 +99,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${fail}&reason=missing_params`)
   }
 
-  const cookieStore = await cookies()
   const storedState = cookieStore.get("wa_oauth_state")?.value
 
   if (!storedState || storedState !== state) {
@@ -111,7 +114,7 @@ export async function GET(request: NextRequest) {
   cookieStore.delete("wa_oauth_state")
 
   try {
-    const shortToken = await exchangeCodeForToken(code)
+    const shortToken = await exchangeCodeForToken(code, redirectUri)
     const accessToken = await extendToLongLivedToken(shortToken)
 
     const bizRes = await graphGet("/me/businesses", accessToken, { fields: "id,name" })
