@@ -102,26 +102,37 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
       try{
         const year = await getActiveAcademicYear()
 
-        let query = supabase
+        // Step 1: fetch enrollment rows (no FK join — avoids PostgREST PGRST200)
+        let enrollQuery = supabase
           .from("student_enrollments")
-          .select("student_id, students:student_id(id, name)")
+          .select("student_id")
           .eq("class_id", selectedClass)
           .eq("school_id", schoolId)
 
         if(year){
-          query = query.eq("academic_year_id", year.id)
+          enrollQuery = enrollQuery.eq("academic_year_id", year.id)
         }
 
-        const { data, error } = await query
+        const { data: enrollments, error: enrollError } = await enrollQuery
 
-        if(error){
-          console.error("Enrollment error:", error)
+        if(enrollError){
+          console.error("Enrollment error:", enrollError)
         }
 
-        if(data && data.length > 0){
-          finalStudents = data.map((e:any)=>({
-            id: e.student_id,
-            name: e.students?.name || "Unknown"
+        const studentIds = (enrollments || [])
+          .map((e: any) => e.student_id)
+          .filter(Boolean) as string[]
+
+        // Step 2: fetch student names separately
+        if(studentIds.length > 0){
+          const { data: studentData } = await supabase
+            .from("students")
+            .select("id, name")
+            .in("id", studentIds)
+
+          finalStudents = (studentData || []).map((s: any) => ({
+            id: s.id,
+            name: s.name || "Unknown",
           }))
         }
 
