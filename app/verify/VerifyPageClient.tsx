@@ -36,27 +36,32 @@ export default function VerifyPageClient() {
 
     setLoading(true)
 
-    const { data: verifyData, error } = await supabase.auth.verifyOtp({
-      email,
-      token: otp.trim(),
-      type: "email",
+    const verifyRes = await fetch("/api/auth/verify-custom-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code: otp.trim() }),
     })
 
-    if (error) {
+    const verifyData = await verifyRes.json()
+
+    if (!verifyRes.ok) {
       setLoading(false)
-      alert(error.message)
+      alert(verifyData?.error || "Verification failed")
       return
     }
 
-    // Use the user returned by verifyOtp directly — avoids an extra round-trip
-    // and ensures the session is fully established before we proceed.
-    const user = verifyData.user
+    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+      access_token: verifyData.access_token,
+      refresh_token: verifyData.refresh_token,
+    })
 
-    if (!user) {
+    if (sessionError || !sessionData?.user) {
       setLoading(false)
-      alert("Verification failed — please try again")
+      alert(sessionError?.message || "Session setup failed — please try again")
       return
     }
+
+    const user = sessionData.user
 
     try {
       const destination = await resolveAuthDestination(user, email, preferredRole)
