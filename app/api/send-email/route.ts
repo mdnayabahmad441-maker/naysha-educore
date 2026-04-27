@@ -6,14 +6,8 @@ import { isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
 const RESEND_TEST_FROM = "onboarding@resend.dev"
 
 function getEmailProvider(): "resend" | "gmail" | "none" {
-  const resendKey = process.env.RESEND_API_KEY
-  const resendFrom = process.env.RESEND_FROM_EMAIL || RESEND_TEST_FROM
-  const gmailUser = process.env.EMAIL_USER
-  const gmailPass = process.env.EMAIL_PASS
-
-  // Resend is only usable for real recipients when a custom domain is verified
-  if (resendKey && resendFrom !== RESEND_TEST_FROM) return "resend"
-  if (gmailUser && gmailPass) return "gmail"
+  if (process.env.RESEND_API_KEY) return "resend"
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) return "gmail"
   return "none"
 }
 
@@ -22,7 +16,7 @@ function getEmailStatus() {
   const missing: string[] = []
 
   if (provider === "none") {
-    missing.push("EMAIL_USER + EMAIL_PASS (Gmail) or RESEND_API_KEY + custom RESEND_FROM_EMAIL")
+    missing.push("RESEND_API_KEY (recommended) or EMAIL_USER + EMAIL_PASS (Gmail App Password)")
   }
 
   return {
