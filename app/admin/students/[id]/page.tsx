@@ -57,9 +57,8 @@ type ReportRecord = {
   created_at: string
   percentage: number | null
   grade: string | null
-  exams: {
-    name: string
-  } | null
+  exam_id: string | null
+  examName?: string
 }
 
 export default function StudentProfile() {
@@ -168,7 +167,7 @@ export default function StudentProfile() {
 
           supabase
             .from("results")
-            .select("id,created_at,percentage,grade,exams(name)")
+            .select("id,created_at,percentage,grade,exam_id")
             .eq("student_id", id)
             .order("created_at", { ascending: false })
         ])
@@ -177,6 +176,24 @@ export default function StudentProfile() {
           throw studentRes.error
         }
 
+        const rawReports = (reportRes.data as ReportRecord[] | null) ?? []
+
+        // Resolve exam names without relying on FK join
+        const examIds = [...new Set(rawReports.map(r => r.exam_id).filter(Boolean))] as string[]
+        let examNameMap: Record<string, string> = {}
+        if (examIds.length > 0) {
+          const { data: examRows } = await supabase
+            .from("exams")
+            .select("id, name")
+            .in("id", examIds)
+          ;(examRows || []).forEach((e: any) => { examNameMap[e.id] = e.name })
+        }
+
+        const reports = rawReports.map(r => ({
+          ...r,
+          examName: r.exam_id ? (examNameMap[r.exam_id] || "Exam") : "Exam",
+        }))
+
         if (!cancelled) {
           setStudent(studentRes.data as StudentRecord | null)
           setParent((parentRes.data as ParentRecord | null) ?? null)
@@ -184,7 +201,7 @@ export default function StudentProfile() {
           setDocuments((docRes.data as StudentDocument[] | null) ?? [])
           setAttendance((attendanceRes.data as AttendanceRecord[] | null) ?? [])
           setPayments((paymentRes.data as PaymentRecord[] | null) ?? [])
-          setReports((reportRes.data as ReportRecord[] | null) ?? [])
+          setReports(reports)
         }
       } catch (error) {
         console.error("Load error:", error)
@@ -474,7 +491,7 @@ export default function StudentProfile() {
                   className="flex items-center justify-between rounded-lg bg-white/5 p-3"
                 >
                   <div>
-                    <p className="font-medium">{report.exams?.name || "Exam"}</p>
+                    <p className="font-medium">{report.examName || "Exam"}</p>
                     <p className="text-xs text-gray-400">
                       {new Date(report.created_at).toLocaleDateString()}
                     </p>

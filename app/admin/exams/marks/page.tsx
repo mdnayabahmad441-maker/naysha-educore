@@ -108,21 +108,26 @@ export default function MarksPage(){
 
     setStudents(studentsData)
 
-    // SUBJECTS
-    const { data:subData } = await supabase
+    // SUBJECTS — two-step to avoid FK join dependency
+    const { data: examSubData } = await supabase
       .from("exam_subjects")
-      .select(`
-        subject_id,
-        total_marks,
-        subjects(name)
-      `)
+      .select("subject_id, total_marks")
       .eq("exam_id", exam.id)
 
-    const formatted = subData?.map((s:any)=>({
+    const subjectIds = (examSubData || []).map((s: any) => s.subject_id).filter(Boolean)
+
+    const { data: subjectRows } = subjectIds.length > 0
+      ? await supabase.from("subjects").select("id, name").in("id", subjectIds)
+      : { data: [] as any[] }
+
+    const nameMap: Record<string, string> = {}
+    ;(subjectRows || []).forEach((s: any) => { nameMap[s.id] = s.name })
+
+    const formatted = (examSubData || []).map((s: any) => ({
       id: s.subject_id,
-      name: s.subjects?.name || "Subject",
-      total_marks: s.total_marks
-    })) || []
+      name: nameMap[s.subject_id] || "Subject",
+      total_marks: s.total_marks,
+    }))
 
     setSubjects(formatted)
 
