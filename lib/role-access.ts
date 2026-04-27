@@ -6,63 +6,46 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
    PARENT ACCESS
 ========================= */
 export async function getCurrentParentStudentIds(): Promise<string[]> {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const { data: userData } = await supabase.auth.getUser()
-    const user = userData.user
+  const { data: userData } = await supabase.auth.getUser()
+  const user = userData.user
 
-    if (!user) {
-      await wait(300)
-      continue
-    }
+  console.log("🔍 USER:", user)
 
-    console.log("[ParentAccess] Checking user:", user.id)
+  if (!user) return []
 
-    // 1. Try auth_id
-    const { data: byAuthId } = await supabase
-      .from("parents")
-      .select("student_id")
-      .eq("auth_id", user.id)
+  const email = user.email?.trim().toLowerCase()
+  console.log("🔍 EMAIL:", email)
 
-    const idsByAuth = (byAuthId || [])
-      .map((p) => p.student_id)
-      .filter((id): id is string => Boolean(id))
+  // check auth_id
+  const { data: byAuth } = await supabase
+    .from("parents")
+    .select("*")
+    .eq("auth_id", user.id)
 
-    if (idsByAuth.length > 0) {
-      console.log("[ParentAccess] Found via auth_id:", idsByAuth)
-      return [...new Set(idsByAuth)]
-    }
+  console.log("🔍 BY AUTH:", byAuth)
 
-    // 2. Try email
-    const email = user.email?.trim().toLowerCase()
+  // check email
+  const { data: byEmail } = await supabase
+    .from("parents")
+    .select("*")
+    .eq("email", email)
 
-    if (email) {
-      const { data: byEmail } = await supabase
-        .from("parents")
-        .select("student_id")
-        .eq("email", email)
+  console.log("🔍 BY EMAIL:", byEmail)
 
-      const idsByEmail = (byEmail || [])
-        .map((p) => p.student_id)
-        .filter((id): id is string => Boolean(id))
+  const rows = (byAuth && byAuth.length > 0) ? byAuth : byEmail
 
-      if (idsByEmail.length > 0) {
-        console.log("[ParentAccess] Found via email:", idsByEmail)
-
-        // link auth_id automatically
-        await supabase
-          .from("parents")
-          .update({ auth_id: user.id })
-          .eq("email", email)
-
-        return [...new Set(idsByEmail)]
-      }
-    }
-
-    await wait(500)
+  if (!rows || rows.length === 0) {
+    console.log("❌ NO PARENT FOUND")
+    return []
   }
 
-  console.warn("[ParentAccess] No student IDs found after retries")
-  return []
+  const ids = rows
+    .map((r) => r.student_id)
+    .filter((id): id is string => Boolean(id))
+
+  console.log("✅ STUDENT IDS:", ids)
+
+  return ids
 }
 
 /* =========================
