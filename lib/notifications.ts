@@ -31,19 +31,19 @@ export async function sendNotification({
       console.log("Notification saved in DB")
     }
 
-    const { data: student, error: studentError } = await supabase
-      .from("students")
-      .select("phone, name")
-      .eq("id", student_id)
-      .single()
+    const { data: parent, error: parentError } = await supabase
+      .from("parents")
+      .select("phone")
+      .eq("student_id", student_id)
+      .maybeSingle()
 
-    if (studentError) {
-      console.error("Student fetch error:", studentError)
+    if (parentError) {
+      console.error("Parent fetch error:", parentError)
       return
     }
 
-    if (!student?.phone) {
-      console.log("No phone number for:", student?.name)
+    if (!parent?.phone) {
+      console.log("No phone number for student:", student_id)
       return
     }
 
@@ -54,7 +54,7 @@ export async function sendNotification({
       },
       body: JSON.stringify({
         schoolId: school_id,
-        to: student.phone,
+        phone: String(parent.phone).trim(),
         message: `${title}\n${message}`
       })
     })

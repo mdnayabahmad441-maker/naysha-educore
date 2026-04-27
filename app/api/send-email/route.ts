@@ -6,10 +6,9 @@ import { isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
 const RESEND_TEST_FROM = "onboarding@resend.dev"
 
 function getEmailProvider(): "resend" | "gmail" | "none" {
-  const resendFrom = process.env.RESEND_FROM_EMAIL ?? ""
-  // Resend test sender (onboarding@resend.dev) only delivers to account owner — skip it
-  if (process.env.RESEND_API_KEY && resendFrom && resendFrom !== "onboarding@resend.dev") return "resend"
+  // Gmail with App Password works for any recipient — prefer it when configured
   if (process.env.EMAIL_USER && process.env.EMAIL_PASS) return "gmail"
+  if (process.env.RESEND_API_KEY) return "resend"
   return "none"
 }
 

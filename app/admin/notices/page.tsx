@@ -261,24 +261,7 @@ export default function NoticesPage() {
           }
         }
 
-        if (parent.phone) {
-          try {
-            console.log("Sending WhatsApp:", parent.phone)
-
-            await apiFetch("/api/send-whatsapp", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                phone: String(parent.phone).trim(),
-                message: `Notice: ${title.trim()}\n\n${message.trim()}`
-              })
-            })
-
-            successCount++
-          } catch {
-            console.log("WhatsApp failed:", parent.phone)
-          }
-        }
+        successCount++
       }
 
       alert(`Notice sent to ${successCount} parents`)
