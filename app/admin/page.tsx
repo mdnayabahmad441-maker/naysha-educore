@@ -210,14 +210,21 @@ return(
 <div className="p-6 md:p-10 text-white max-w-7xl mx-auto space-y-10">
 
 {/* HEADER */}
+<div className="flex items-start justify-between gap-4">
 <div>
 <h1 className="text-3xl font-bold">
 {role === "teacher" ? "Teacher Dashboard" : `${schoolName} Dashboard`}
 </h1>
-
 <p className="text-gray-400 text-sm mt-1">
 {today} {academicYear ? `• Academic Year ${academicYear.name}` : ""}
 </p>
+</div>
+<button
+  onClick={()=>router.push("/admin/ai-assistant")}
+  className="shrink-0 flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-600/30 transition"
+>
+  <span>✦</span> AI Assistant
+</button>
 </div>
 
 {/* STATS */}
@@ -286,18 +293,6 @@ style={{ width: `${c.percent}%` }}
 <Bar dataKey="percent" fill="#3b82f6" />
 </BarChart>
 </ResponsiveContainer>
-</div>
-
-{/* AI ASSISTANT BANNER */}
-<div
-  onClick={()=>router.push("/admin/ai-assistant")}
-  className="cursor-pointer rounded-xl border border-blue-500/20 bg-linear-to-r from-blue-600/20 to-purple-600/10 p-5 flex items-center justify-between hover:from-blue-600/30 transition"
->
-  <div>
-    <p className="font-semibold text-white text-base">✦ AI Assistant</p>
-    <p className="text-sm text-gray-400 mt-0.5">Ask about attendance, fees, students or draft notices instantly</p>
-  </div>
-  <span className="text-blue-400 text-sm font-medium">Open →</span>
 </div>
 
 {/* QUICK ACTIONS */}
