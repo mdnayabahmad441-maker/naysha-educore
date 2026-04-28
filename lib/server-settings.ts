@@ -59,6 +59,60 @@ function summarizeLayout(value: unknown) {
     .join("\n")
 }
 
+export async function getSchoolLiveData(schoolId: string): Promise<string> {
+  if (!schoolId) return ""
+
+  const today = new Date().toISOString().split("T")[0]
+
+  const [
+    { count: studentCount },
+    { count: teacherCount },
+    { count: classCount },
+    { data: attendanceRows },
+    { data: payments },
+    { data: pendingFees },
+    { data: recentNotices },
+    { data: enquiries },
+  ] = await Promise.all([
+    supabaseAdmin.from("student_enrollments").select("*", { count: "exact", head: true }).eq("school_id", schoolId),
+    supabaseAdmin.from("teachers").select("*", { count: "exact", head: true }).eq("school_id", schoolId),
+    supabaseAdmin.from("classes").select("*", { count: "exact", head: true }).eq("school_id", schoolId),
+    supabaseAdmin.from("attendance").select("status").eq("school_id", schoolId).eq("date", today),
+    supabaseAdmin.from("payments").select("amount").eq("school_id", schoolId),
+    supabaseAdmin.from("fees").select("amount, paid").eq("school_id", schoolId).eq("paid", false),
+    supabaseAdmin.from("notices").select("title, created_at").eq("school_id", schoolId).order("created_at", { ascending: false }).limit(5),
+    supabaseAdmin.from("admission_enquiries").select("status").eq("school_id", schoolId),
+  ])
+
+  const present = (attendanceRows || []).filter((r: any) => r.status === "present").length
+  const absent = (attendanceRows || []).filter((r: any) => r.status === "absent").length
+  const totalMarked = present + absent
+  const attendancePct = totalMarked ? Math.round((present / totalMarked) * 100) : null
+
+  const totalFees = (payments || []).reduce((s: number, p: any) => s + (p.amount || 0), 0)
+  const pendingCount = (pendingFees || []).length
+  const pendingAmount = (pendingFees || []).reduce((s: number, f: any) => s + (f.amount || 0), 0)
+
+  const pendingEnquiries = (enquiries || []).filter((e: any) => e.status === "pending").length
+
+  const lines = [
+    `Students enrolled: ${studentCount ?? 0}`,
+    `Teachers: ${teacherCount ?? 0}`,
+    `Classes: ${classCount ?? 0}`,
+    totalMarked
+      ? `Today's attendance (${today}): ${present} present, ${absent} absent out of ${totalMarked} marked${attendancePct !== null ? ` (${attendancePct}%)` : ""}`
+      : `Today's attendance (${today}): not yet recorded`,
+    `Total fee collected: ₹${totalFees.toLocaleString("en-IN")}`,
+    pendingCount > 0 ? `Pending fee records: ${pendingCount} (₹${pendingAmount.toLocaleString("en-IN")} unpaid)` : "No pending fee records",
+    pendingEnquiries > 0 ? `Pending admission enquiries: ${pendingEnquiries}` : "No pending admission enquiries",
+    recentNotices?.length
+      ? `Recent notices: ${recentNotices.map((n: any) => `"${n.title}"`).join(", ")}`
+      : "No recent notices",
+  ]
+
+  return `Live school data (as of ${today}):\n${lines.join("\n")}`
+}
+
 export async function getAiTenantContext(schoolId: string) {
   if (!schoolId) return ""
 

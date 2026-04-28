@@ -288,6 +288,18 @@ style={{ width: `${c.percent}%` }}
 </ResponsiveContainer>
 </div>
 
+{/* AI ASSISTANT BANNER */}
+<div
+  onClick={()=>router.push("/admin/ai-assistant")}
+  className="cursor-pointer rounded-xl border border-blue-500/20 bg-linear-to-r from-blue-600/20 to-purple-600/10 p-5 flex items-center justify-between hover:from-blue-600/30 transition"
+>
+  <div>
+    <p className="font-semibold text-white text-base">✦ AI Assistant</p>
+    <p className="text-sm text-gray-400 mt-0.5">Ask about attendance, fees, students or draft notices instantly</p>
+  </div>
+  <span className="text-blue-400 text-sm font-medium">Open →</span>
+</div>
+
 {/* QUICK ACTIONS */}
 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
 
