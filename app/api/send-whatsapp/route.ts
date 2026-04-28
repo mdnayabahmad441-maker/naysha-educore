@@ -56,8 +56,15 @@ export async function POST(req: Request) {
       messageId: result.messageId,
     })
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Internal error"
-    console.error("[send-whatsapp] Error:", message)
-    return NextResponse.json({ error: message }, { status: 500 })
+    const errMsg = err instanceof Error ? err.message : "Internal error"
+    console.error("[send-whatsapp] Error:", errMsg)
+
+    // Meta API errors (e.g. #133010 invalid number, #131056 rate limit) are not server bugs.
+    // Return 200 with success:false so callers can handle gracefully without browser 500 noise.
+    const isMetaError = errMsg.includes("(#")
+    return NextResponse.json(
+      { success: false, error: errMsg },
+      { status: isMetaError ? 200 : 500 }
+    )
   }
 }

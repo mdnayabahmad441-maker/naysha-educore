@@ -51,13 +51,13 @@ export async function POST(req: Request) {
           }),
         })
 
-        if (res.ok) {
+        const waResult = await res.json().catch(() => ({}))
+        if (res.ok && waResult.success) {
           whatsappStatus = "sent"
         } else {
-          const err = await res.json().catch(() => ({}))
           whatsappStatus = "failed"
-          whatsappError = err?.error || `HTTP ${res.status}`
-          console.error("[notifications] WhatsApp failed:", whatsappError)
+          whatsappError = waResult?.error || `HTTP ${res.status}`
+          console.warn("[notifications] WhatsApp not sent:", whatsappError)
         }
       } catch (err) {
         console.error("[notifications] WhatsApp error:", err)
