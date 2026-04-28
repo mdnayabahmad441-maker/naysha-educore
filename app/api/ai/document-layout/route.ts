@@ -49,7 +49,7 @@ const fieldGuides: Record<DocumentKind, string> = {
   report_card:
     "Detect the page layout for a school report card. Position school name, report title, student identity fields, exam summary fields, a marks table area, total marks, obtained marks, result, grade, and signature labels.",
   certificate:
-    "Detect the layout for a school certificate. Position school name, school address, certificate title, large certificate body text block, student name, father name, class, admission number, issue date, and principal signature area."
+    "Detect fill-in positions on a school certificate template. The template already has school name, title, and body text pre-printed — do NOT position schoolName, schoolAddress, certificateTitle, or certificateBody. Only detect where the dynamic values go: studentName (in the blank after 'Mr./Ms.' or 'Name:'), fatherName (in the blank after 'S/o', 'D/o', or 'Father:'), className (in the blank after 'class' or 'std'), studentCode (near 'Admission No', 'Roll No', or 'Student ID' blank), issueDate (near 'Date:' or 'Place:' area at the bottom), principalSign (at the principal/signature area). Place each field value just inside its dotted-line or underline placeholder."
 }
 
 export async function GET() {

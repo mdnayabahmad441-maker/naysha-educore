@@ -20,6 +20,7 @@ export type DocumentField = {
   borderRadius?: number
   borderColor?: string
   letterSpacing?: number
+  templateHide?: boolean  // hide this field when a background template image is active
 }
 
 export type DocumentLayout = {
@@ -238,17 +239,19 @@ const defaultLayouts: Record<DocumentKind, DocumentLayout> = {
     width: 1600,
     height: 1131,
     fields: [
-      { id: "schoolLogo", label: "School Logo", type: "photo", x: 4, y: 3.5, w: 10, h: 18, borderRadius: 8, borderColor: "#e2e8f0" },
-      { id: "schoolName", label: "School Name", type: "text", x: 17, y: 6, w: 66, h: 6.5, fontSize: 28, fontWeight: 800, color: "#0f172a", align: "center", uppercase: true },
-      { id: "schoolAddress", label: "School Address", type: "text", x: 17, y: 13.5, w: 66, h: 4, fontSize: 14, fontWeight: 600, color: "#475569", align: "center" },
-      { id: "certificateTitle", label: "Certificate Title", type: "text", x: 22, y: 23, w: 56, h: 6, fontSize: 26, fontWeight: 800, color: "#1d4ed8", align: "center", uppercase: true, letterSpacing: 1.8 },
-      { id: "certificateBody", label: "Certificate Body", type: "text", x: 8, y: 33, w: 84, h: 40, fontSize: 15, fontWeight: 500, color: "#1f2937", align: "left" },
+      // Static/decorative fields — hidden when a template image is active (already printed on template)
+      { id: "schoolLogo", label: "School Logo", type: "photo", x: 4, y: 3.5, w: 10, h: 18, borderRadius: 8, borderColor: "#e2e8f0", templateHide: true },
+      { id: "schoolName", label: "School Name", type: "text", x: 17, y: 6, w: 66, h: 6.5, fontSize: 28, fontWeight: 800, color: "#0f172a", align: "center", uppercase: true, templateHide: true },
+      { id: "schoolAddress", label: "School Address", type: "text", x: 17, y: 13.5, w: 66, h: 4, fontSize: 14, fontWeight: 600, color: "#475569", align: "center", templateHide: true },
+      { id: "certificateTitle", label: "Certificate Title", type: "text", x: 22, y: 23, w: 56, h: 6, fontSize: 26, fontWeight: 800, color: "#1d4ed8", align: "center", uppercase: true, letterSpacing: 1.8, templateHide: true },
+      { id: "certificateBody", label: "Certificate Body", type: "text", x: 8, y: 33, w: 84, h: 40, fontSize: 15, fontWeight: 500, color: "#1f2937", align: "left", templateHide: true },
+      // Data fill fields — always present, positioned by AI when template is uploaded
+      { id: "studentName", label: "Student Name", type: "text", x: 35, y: 28, w: 50, h: 4.5, fontSize: 16, fontWeight: 700, color: "#0f172a", align: "left" },
+      { id: "fatherName", label: "Father Name", type: "text", x: 35, y: 36, w: 50, h: 4, fontSize: 14, fontWeight: 600, color: "#0f172a", align: "left" },
+      { id: "className", label: "Class", type: "text", x: 20, y: 48, w: 25, h: 3.6, fontSize: 14, fontWeight: 600, color: "#0f172a", align: "left" },
+      { id: "studentCode", label: "Admission No.", type: "text", x: 60, y: 48, w: 25, h: 3.6, fontSize: 14, fontWeight: 600, color: "#0f172a", align: "left" },
       { id: "issueDate", label: "Issue Date", type: "text", x: 8, y: 83, w: 22, h: 4, fontSize: 13, fontWeight: 700, color: "#334155" },
-      { id: "principalSign", label: "Principal Sign", type: "text", x: 70, y: 83, w: 22, h: 4, fontSize: 13, fontWeight: 700, color: "#334155", align: "right" },
-      { id: "studentName", label: "Student Name", type: "text", x: 24, y: 110, w: 52, h: 4, fontSize: 18, fontWeight: 800, color: "#111827", align: "center", uppercase: true },
-      { id: "fatherName", label: "Father Name", type: "text", x: 24, y: 116, w: 52, h: 3.6, fontSize: 15, fontWeight: 700, color: "#111827", align: "center" },
-      { id: "className", label: "Class", type: "text", x: 24, y: 122, w: 52, h: 3.6, fontSize: 15, fontWeight: 700, color: "#111827", align: "center" },
-      { id: "studentCode", label: "Admission No.", type: "text", x: 24, y: 128, w: 52, h: 3.6, fontSize: 15, fontWeight: 700, color: "#111827", align: "center" }
+      { id: "principalSign", label: "Principal Sign", type: "text", x: 70, y: 83, w: 22, h: 4, fontSize: 13, fontWeight: 700, color: "#334155", align: "right" }
     ]
   }
 }

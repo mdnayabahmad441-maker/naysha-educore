@@ -165,37 +165,42 @@ export default function CertificatesPage() {
   }, [selectedStudent, certType, classMap, school, issueDateLabel, reason])
 
   const canvasValues = useMemo(() => {
-    const principalSign = "Principal"
+    const hasTemplate = !!templateUrl
+    const className = classMap.get(selectedStudent?.class_id || "") || "Class"
 
     if (!selectedStudent)
       return {
         schoolName: school?.name || "School Name",
         schoolAddress: school?.address || "",
         certificateTitle: certLabels[certType],
-        certificateBody: "Select a student to preview the certificate.",
+        certificateBody: "Select a student to preview.",
         studentName: "Student Name",
-        fatherName: "S/O Parent Name",
-        className: "Class",
-        studentCode: "Admission No: —",
-        issueDate: `Date: ${issueDateLabel}`,
-        principalSign
+        fatherName: hasTemplate ? "Parent Name" : "S/O Parent Name",
+        className: hasTemplate ? "Class" : "Class: —",
+        studentCode: hasTemplate ? "—" : "Admission No: —",
+        issueDate: hasTemplate ? issueDateLabel : `Date: ${issueDateLabel}`,
+        principalSign: "Principal"
       }
 
-    const className = classMap.get(selectedStudent.class_id || "") || "Class"
-
+    // When template is active: raw values only — template labels are already printed on the image
+    // When no template: include labels since we're rendering on a blank canvas
     return {
       schoolName: school?.name || "School Name",
       schoolAddress: school?.address || "",
       certificateTitle: aiDraft?.title ?? certLabels[certType],
       certificateBody: aiDraft?.body ?? defaultBody,
       studentName: selectedStudent.name,
-      fatherName: `S/O ${selectedStudent.father_name || "Parent Name"}`,
-      className: `Class: ${className}`,
-      studentCode: `Admission No: ${selectedStudent.student_code || "N/A"}`,
-      issueDate: `Date: ${issueDateLabel}`,
-      principalSign
+      fatherName: hasTemplate
+        ? (selectedStudent.father_name || "")
+        : `S/O ${selectedStudent.father_name || "Parent Name"}`,
+      className: hasTemplate ? className : `Class: ${className}`,
+      studentCode: hasTemplate
+        ? (selectedStudent.student_code || "")
+        : `Admission No: ${selectedStudent.student_code || "N/A"}`,
+      issueDate: hasTemplate ? issueDateLabel : `Date: ${issueDateLabel}`,
+      principalSign: "Principal"
     }
-  }, [selectedStudent, certType, classMap, school, issueDateLabel, aiDraft, defaultBody])
+  }, [selectedStudent, certType, classMap, school, issueDateLabel, aiDraft, defaultBody, templateUrl])
 
   const generateAiText = async () => {
     if (!selectedStudent) return

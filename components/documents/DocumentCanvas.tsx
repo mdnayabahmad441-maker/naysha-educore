@@ -267,7 +267,7 @@ export default function DocumentCanvas({
         </div>
 
         <div className="absolute inset-0">
-          {layout.fields.map((field) => {
+          {layout.fields.filter((field) => !(backgroundUrl && field.templateHide)).map((field) => {
             const background = toRgba(field.bgColor, field.bgOpacity)
             const isSelected = editable && selectedFieldId === field.id
 
