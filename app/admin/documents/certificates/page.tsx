@@ -4,13 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { useSchool } from "@/context/SchoolContext"
-import { getSettings } from "@/lib/settings"
+import { getSettings, updateSettings } from "@/lib/settings"
 import { apiFetch } from "@/lib/api-client"
 import DocumentCanvas from "@/components/documents/DocumentCanvas"
 import {
   getCertificateBodyText,
   normalizeDocumentLayout,
-  type DocumentLayout
+  type DocumentLayout,
+  type DocumentField
 } from "@/lib/document-layouts"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
@@ -55,6 +56,12 @@ export default function CertificatesPage() {
   const [aiDraft, setAiDraft] = useState<{ title: string; body: string } | null>(null)
   const [generating, setGenerating] = useState(false)
   const [downloading, setDownloading] = useState(false)
+
+  // Layout editor
+  const [editMode, setEditMode] = useState(false)
+  const [localLayout, setLocalLayout] = useState<DocumentLayout>(() => normalizeDocumentLayout("certificate", null))
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null)
+  const [savingLayout, setSavingLayout] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -123,6 +130,37 @@ export default function CertificatesPage() {
   useEffect(() => {
     setAiDraft(null)
   }, [selectedStudentId, certType, issueDate, reason])
+
+  // Keep localLayout in sync with the loaded layout (on initial load and template change)
+  useEffect(() => {
+    setLocalLayout(layout)
+  }, [layout])
+
+  const handleFieldChange = (fieldId: string, patch: Partial<DocumentField>) => {
+    setLocalLayout((cur) => ({
+      ...cur,
+      fields: cur.fields.map((f) => (f.id === fieldId ? { ...f, ...patch } : f))
+    }))
+  }
+
+  const saveLayout = async () => {
+    setSavingLayout(true)
+    try {
+      await updateSettings("certificate_layout", localLayout)
+      setLayout(localLayout)
+      setEditMode(false)
+      setSelectedFieldId(null)
+    } catch {
+      alert("Failed to save layout")
+    }
+    setSavingLayout(false)
+  }
+
+  const cancelEdit = () => {
+    setLocalLayout(layout)
+    setEditMode(false)
+    setSelectedFieldId(null)
+  }
 
   const classMap = useMemo(() => new Map(classes.map((c) => [c.id, c.name])), [classes])
 
@@ -383,22 +421,70 @@ export default function CertificatesPage() {
             />
           </div>
 
-          {/* Template status */}
+          {/* Template status + edit positions */}
           <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-3 text-xs text-gray-400">
             {templateUrl
               ? "Your uploaded certificate template is active."
               : "No certificate template uploaded yet — upload one in Settings."}
           </div>
 
+          {templateUrl && !editMode && (
+            <button
+              type="button"
+              onClick={() => setEditMode(true)}
+              className="w-full rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20"
+            >
+              ✦ Adjust Field Positions on Template
+            </button>
+          )}
+
+          {editMode && (
+            <div className="space-y-2 rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-3">
+              <p className="text-xs font-semibold text-cyan-300">Edit mode — drag each field to its correct blank line on the template</p>
+              <div className="flex flex-wrap gap-1.5">
+                {localLayout.fields.filter(f => !f.templateHide).map(f => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setSelectedFieldId(f.id)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${selectedFieldId === f.id ? "bg-cyan-500 text-white" : "border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10"}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-500">Click a field above to select it, then drag it on the certificate →</p>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={saveLayout}
+                  disabled={savingLayout}
+                  className="flex-1 rounded-xl bg-cyan-600 px-3 py-2 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
+                >
+                  {savingLayout ? "Saving..." : "Save Positions"}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
-          <button
-            type="button"
-            onClick={generateAiText}
-            disabled={generating || !selectedStudent}
-            className="w-full rounded-2xl border border-amber-400/20 bg-amber-500/10 px-5 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-50"
-          >
-            {generating ? "Generating AI Text..." : "Generate Certificate Text with AI"}
-          </button>
+          {!templateUrl && (
+            <button
+              type="button"
+              onClick={generateAiText}
+              disabled={generating || !selectedStudent}
+              className="w-full rounded-2xl border border-amber-400/20 bg-amber-500/10 px-5 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-50"
+            >
+              {generating ? "Generating AI Text..." : "Generate Certificate Text with AI"}
+            </button>
+          )}
 
           {aiDraft && (
             <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/5 p-3 text-xs text-cyan-100">
@@ -407,39 +493,45 @@ export default function CertificatesPage() {
             </div>
           )}
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => window.print()}
-              disabled={!selectedStudent}
-              className="flex-1 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
-            >
-              Print
-            </button>
-            <button
-              type="button"
-              onClick={downloadPdf}
-              disabled={downloading || !selectedStudent}
-              className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {downloading ? "Saving..." : "Download PDF"}
-            </button>
-          </div>
+          {!editMode && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                disabled={!selectedStudent}
+                className="flex-1 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
+              >
+                Print
+              </button>
+              <button
+                type="button"
+                onClick={downloadPdf}
+                disabled={downloading || !selectedStudent}
+                className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {downloading ? "Saving..." : "Download PDF"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* RIGHT — CERTIFICATE PREVIEW */}
         <div className="cert-print-area">
-          {!selectedStudent ? (
+          {!selectedStudent && !editMode ? (
             <div className="flex h-64 items-center justify-center rounded-[28px] border border-white/10 bg-white/[0.04] text-gray-400">
               Select a student to preview the certificate
             </div>
           ) : (
             <div ref={previewRef}>
               <DocumentCanvas
-                layout={layout}
+                layout={editMode ? localLayout : layout}
                 backgroundUrl={templateUrl || null}
                 values={canvasValues}
                 logoUrl={school?.logo_url || null}
+                editable={editMode}
+                selectedFieldId={editMode ? selectedFieldId : null}
+                onSelectField={editMode ? setSelectedFieldId : undefined}
+                onFieldChange={editMode ? handleFieldChange : undefined}
                 className="mx-auto w-full max-w-5xl"
               />
             </div>
