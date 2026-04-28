@@ -165,7 +165,7 @@ export default function CertificatesPage() {
   }, [selectedStudent, certType, classMap, school, issueDateLabel, reason])
 
   const canvasValues = useMemo(() => {
-    const principalSign = school?.principal_name || "Principal"
+    const principalSign = "Principal"
 
     if (!selectedStudent)
       return {
