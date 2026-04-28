@@ -5,41 +5,19 @@ import { useSearchParams } from "next/navigation"
 import { apiFetch } from "@/lib/api-client"
 
 type WhatsAppStatus =
-  | { connected: false }
-  | {
-      connected: true
-      phoneNumber: string | null
-      displayName: string | null
-      businessAccountId: string
-      phoneNumberId: string
-      lastWebhookEventAt?: string | null
-      lastWebhookStatus?: string | null
-      connectedAt: string
-      updatedAt: string
-    }
+  | { connected: false; missing?: string[] }
+  | { connected: true; centralized: true; provider: string; apiVersion: string }
 
 export default function WhatsAppConnect() {
   const params = useSearchParams()
 
   const [status, setStatus] = useState<WhatsAppStatus | null>(null)
   const [loading, setLoading] = useState(true)
-  const [connecting, setConnecting] = useState(false)
-  const [disconnecting, setDisconnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   useEffect(() => {
     const result = params.get("whatsapp")
     const message = params.get("message")
-
-    if (result === "connected") {
-      setSuccessMsg("WhatsApp connected successfully!")
-      const clean = new URL(window.location.href)
-      clean.searchParams.delete("whatsapp")
-      clean.searchParams.delete("message")
-      window.history.replaceState({}, "", clean.toString())
-    }
-
     if (result === "error") {
       setError(message ? decodeURIComponent(message) : "Connection failed. Please try again.")
       const clean = new URL(window.location.href)
@@ -55,54 +33,14 @@ export default function WhatsAppConnect() {
 
   async function fetchStatus() {
     setLoading(true)
-    setError(null)
     try {
       const res = await apiFetch("/api/whatsapp/status")
       const data = await res.json()
-      // On any server error treat as not-connected, don't show error banner
       setStatus(res.ok && typeof data?.connected === "boolean" ? data : { connected: false })
     } catch {
       setStatus({ connected: false })
     } finally {
       setLoading(false)
-    }
-  }
-
-  async function handleConnect() {
-    setConnecting(true)
-    setError(null)
-    try {
-      const res = await apiFetch("/api/whatsapp/connect")
-      const data = await res.json()
-
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || "Failed to start WhatsApp connection.")
-      }
-
-      window.location.href = data.url
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Connection failed.")
-      setConnecting(false)
-    }
-  }
-
-  async function handleDisconnect() {
-    if (!confirm("Disconnect WhatsApp? Your school will no longer be able to send WhatsApp messages until reconnected.")) return
-
-    setDisconnecting(true)
-    setError(null)
-    try {
-      const res = await apiFetch("/api/whatsapp/disconnect", { method: "DELETE" })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || "Failed to disconnect.")
-      }
-      setSuccessMsg("WhatsApp disconnected.")
-      setStatus({ connected: false })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Disconnect failed.")
-    } finally {
-      setDisconnecting(false)
     }
   }
 
@@ -120,165 +58,76 @@ export default function WhatsAppConnect() {
       <div>
         <h2 className="text-2xl font-semibold text-white">WhatsApp Business</h2>
         <p className="mt-2 text-sm leading-6 text-slate-400">
-          Connect your school&apos;s WhatsApp Business number via Meta. Once connected,
-          fee reminders, notices, attendance alerts, and onboarding messages will be sent from that school&apos;s own number.
+          WhatsApp notifications are sent from a centralized number managed by NaySha EduCore.
+          Fee reminders, notices, attendance alerts, and onboarding messages are sent automatically.
         </p>
       </div>
-
-      {successMsg && (
-        <div className="flex items-start gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-          <span>{successMsg}</span>
-          <button
-            type="button"
-            onClick={() => setSuccessMsg(null)}
-            className="ml-auto text-emerald-300 hover:text-white"
-          >
-            x
-          </button>
-        </div>
-      )}
 
       {error && (
         <div className="flex items-start gap-3 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
           <span>{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            className="ml-auto text-red-300 hover:text-white"
-          >
-            x
-          </button>
+          <button type="button" onClick={() => setError(null)} className="ml-auto text-red-300 hover:text-white">x</button>
         </div>
       )}
 
       {status?.connected ? (
-        <div className="rounded-[24px] border border-emerald-400/20 bg-[linear-gradient(160deg,rgba(16,185,129,0.08),rgba(6,78,59,0.06))] p-6 space-y-5">
+        <div className="rounded-3xl border border-emerald-400/20 bg-[linear-gradient(160deg,rgba(16,185,129,0.08),rgba(6,78,59,0.06))] p-6 space-y-5">
           <div className="flex items-center gap-3">
             <span className="flex h-3 w-3 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
-            <span className="text-sm font-semibold text-emerald-300">Connected</span>
+            <span className="text-sm font-semibold text-emerald-300">Active — Centralized Number</span>
           </div>
 
           <div className="grid gap-3 text-sm">
-            {status.displayName && (
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <span className="text-slate-400">Business name</span>
-                <span className="font-medium text-white">{status.displayName}</span>
-              </div>
-            )}
-            {status.phoneNumber && (
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <span className="text-slate-400">Phone number</span>
-                <span className="font-mono font-medium text-white">{status.phoneNumber}</span>
-              </div>
-            )}
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-slate-400">WABA ID</span>
-              <span className="font-mono text-xs text-slate-300">{status.businessAccountId}</span>
+              <span className="text-slate-400">Provider</span>
+              <span className="text-white font-medium">WhatsApp Cloud API</span>
             </div>
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-slate-400">Phone number ID</span>
-              <span className="font-mono text-xs text-slate-300">{status.phoneNumberId}</span>
+              <span className="text-slate-400">API Version</span>
+              <span className="font-mono text-xs text-slate-300">{"apiVersion" in status ? status.apiVersion : "-"}</span>
             </div>
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-slate-400">Last updated</span>
-              <span className="text-slate-300">
-                {new Date(status.updatedAt).toLocaleDateString("en-IN", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
+              <span className="text-slate-400">Configuration</span>
+              <span className="text-emerald-400 text-xs font-medium">Managed centrally via environment</span>
             </div>
-            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-slate-400">Last webhook</span>
-              <span className="text-slate-300">
-                {status.lastWebhookEventAt
-                  ? new Date(status.lastWebhookEventAt).toLocaleDateString("en-IN", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "No event received yet"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-slate-400">Webhook status</span>
-              <span className="text-slate-300">{status.lastWebhookStatus || "-"}</span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3 pt-1">
-            <button
-              type="button"
-              onClick={() => void handleConnect()}
-              disabled={connecting}
-              className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {connecting ? "Opening Meta..." : "Reconnect / Change Number"}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleDisconnect()}
-              disabled={disconnecting}
-              className="rounded-2xl border border-red-400/20 bg-red-400/10 px-5 py-2.5 text-sm font-semibold text-red-200 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {disconnecting ? "Disconnecting..." : "Disconnect"}
-            </button>
           </div>
 
           <p className="text-xs leading-5 text-slate-500">
-            Access tokens are refreshed during connection. Reconnect if Meta permissions or number ownership changes.
+            All schools share one WhatsApp number. Messages include the school name dynamically.
+            To change the number, update <code className="text-slate-400">WHATSAPP_PHONE_NUMBER_ID</code> and <code className="text-slate-400">WHATSAPP_ACCESS_TOKEN</code> in Vercel.
           </p>
         </div>
       ) : (
-        <div className="rounded-[24px] border border-white/10 bg-white/5 p-6 space-y-5">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-3 w-3 shrink-0 rounded-full bg-slate-500" />
-            <span className="text-sm font-semibold text-slate-400">Not connected</span>
+            <span className="flex h-3 w-3 shrink-0 rounded-full bg-amber-500" />
+            <span className="text-sm font-semibold text-amber-400">Not configured</span>
           </div>
 
           <p className="text-sm leading-6 text-slate-300">
-            Click below to log in with your Meta account and authorise NaySha EduCore
-            to send WhatsApp messages on behalf of your school.
+            WhatsApp is not active. The following environment variables are missing in Vercel:
           </p>
 
-          <ol className="space-y-2 text-sm text-slate-400">
-            {[
-              "You will be redirected to Meta to log in.",
-              "Grant the required WhatsApp permissions.",
-              "Select or create your WhatsApp Business Account and phone number.",
-            ].map((step, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-600 text-xs text-slate-500">
-                  {i + 1}
-                </span>
-                {step}
-              </li>
-            ))}
-          </ol>
+          {!status?.connected && status?.missing && status.missing.length > 0 && (
+            <ul className="space-y-1">
+              {status.missing.map((v) => (
+                <li key={v} className="font-mono text-xs text-red-300 bg-red-400/10 rounded-lg px-3 py-2">{v}</li>
+              ))}
+            </ul>
+          )}
 
-          <button
-            type="button"
-            onClick={() => void handleConnect()}
-            disabled={connecting}
-            className="w-full rounded-2xl bg-[linear-gradient(135deg,#25d366,#128c7e)] px-4 py-4 text-sm font-semibold text-white shadow-[0_16px_40px_rgba(37,211,102,0.2)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {connecting ? "Opening Meta login..." : "Connect WhatsApp Business"}
-          </button>
+          <p className="text-xs text-slate-500">
+            Add the missing variables to your Vercel project settings and redeploy to activate WhatsApp notifications.
+          </p>
         </div>
       )}
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-xs leading-6 text-slate-500 space-y-1">
-        <p className="font-semibold text-slate-400">Before connecting, make sure you have:</p>
+      <div className="rounded-2xl border border-white/10 bg-white/3 px-5 py-4 text-xs leading-6 text-slate-500 space-y-1">
+        <p className="font-semibold text-slate-400">Required environment variables:</p>
         <ul className="list-disc list-inside space-y-0.5">
-          <li>A verified Meta Business Manager account</li>
-          <li>A WhatsApp Business Account added to that Business Manager</li>
-          <li>A phone number ready for WhatsApp Business Platform use</li>
-          <li>Your Meta App configured for Embedded Signup and WhatsApp permissions</li>
+          <li><code className="text-slate-400">WHATSAPP_PHONE_NUMBER_ID</code> — your Meta phone number ID</li>
+          <li><code className="text-slate-400">WHATSAPP_ACCESS_TOKEN</code> — permanent access token from Meta</li>
+          <li><code className="text-slate-400">WHATSAPP_CLOUD_API_VERSION</code> — e.g. <code className="text-slate-400">v23.0</code> (optional)</li>
         </ul>
       </div>
     </div>

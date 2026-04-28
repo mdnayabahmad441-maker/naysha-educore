@@ -1,105 +1,105 @@
-type SendWhatsAppMessageInput = {
-  schoolId: string
-  phone: string
-  message: string
+const API_VERSION = process.env.WHATSAPP_CLOUD_API_VERSION || "v23.0"
+const TEMPLATE_NAME = "school_notice"
+
+function normalizePhoneNumber(phone: string): string {
+  let n = String(phone || "").trim().replace(/^whatsapp:/i, "").replace(/\D/g, "")
+  if (n.startsWith("0")) n = n.slice(1)
+  if (n.length === 10) n = `91${n}`
+  if (!n.startsWith("91")) n = `91${n}`
+  return n
 }
 
-type WhatsAppCloudConfig = {
-  accessToken: string | null
-  phoneNumberId: string | null
-  businessAccountId: string | null
-  phoneNumber: string | null
-  displayName: string | null
+function getCentralizedConfig() {
+  return {
+    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || null,
+    accessToken: process.env.WHATSAPP_ACCESS_TOKEN || null,
+  }
 }
 
-function normalizePhoneNumber(phone: string) {
-  let formatted = String(phone || "").trim().replace(/^whatsapp:/i, "").replace(/\D/g, "")
-
-  if (formatted.startsWith("0")) {
-    formatted = formatted.slice(1)
-  }
-
-  if (formatted.length === 10) {
-    formatted = `91${formatted}`
-  }
-
-  if (!formatted.startsWith("91")) {
-    formatted = `91${formatted}`
-  }
-
-  return formatted
-}
-
-async function loadSchoolWhatsAppConfig(schoolId: string): Promise<WhatsAppCloudConfig> {
-  const { supabaseAdmin } = await import("@/lib/supabase-admin")
-
-  const { data, error } = await supabaseAdmin
-    .from("school_whatsapp")
-    .select("access_token, phone_number_id, business_account_id, phone_number, display_name")
-    .eq("school_id", schoolId)
-    .maybeSingle()
-
-  if (error) {
-    throw new Error(`Failed to load WhatsApp configuration: ${error.message}`)
-  }
+export async function getWhatsAppCloudStatus(_schoolId?: string) {
+  const { phoneNumberId, accessToken } = getCentralizedConfig()
+  const missing: string[] = []
+  if (!phoneNumberId) missing.push("WHATSAPP_PHONE_NUMBER_ID")
+  if (!accessToken) missing.push("WHATSAPP_ACCESS_TOKEN")
 
   return {
-    accessToken: data?.access_token ?? null,
-    phoneNumberId: data?.phone_number_id ?? null,
-    businessAccountId: data?.business_account_id ?? null,
-    phoneNumber: data?.phone_number ?? null,
-    displayName: data?.display_name ?? null,
+    configured: missing.length === 0,
+    missing,
+    provider: "whatsapp-cloud-api",
+    phoneNumberId,
+    businessAccountId: null,
+    phoneNumber: null,
+    displayName: null,
+    apiVersion: API_VERSION,
   }
 }
 
-export async function sendWhatsAppMessage(
-  schoolId: string,
-  phone: string,
-  message: string
-): Promise<{ to: string; messageId: string | null }> {
-  const config = await loadSchoolWhatsAppConfig(schoolId)
+export async function isWhatsAppCloudConfigured(_schoolId?: string) {
+  const status = await getWhatsAppCloudStatus()
+  return status.configured
+}
 
-  if (!config.accessToken || !config.phoneNumberId) {
-    throw new Error("WhatsApp is not connected for this school. Ask the admin to connect it in Settings.")
+export async function sendWhatsAppTemplateMessage({
+  phone,
+  parentName,
+  schoolName,
+  message,
+}: {
+  phone: string
+  parentName: string
+  schoolName: string
+  message: string
+}): Promise<{ to: string; messageId: string | null }> {
+  const { phoneNumberId, accessToken } = getCentralizedConfig()
+
+  if (!phoneNumberId || !accessToken) {
+    throw new Error(
+      "WhatsApp is not configured. Set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN in environment variables."
+    )
   }
 
-  const apiVersion = process.env.WHATSAPP_CLOUD_API_VERSION || "v23.0"
   const to = normalizePhoneNumber(phone)
-  const body = String(message || "").trim()
-
   if (!to) throw new Error("Invalid phone number")
-  if (!body) throw new Error("Message cannot be empty")
+
+  const payload = {
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    template: {
+      name: TEMPLATE_NAME,
+      language: { code: "en" },
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: String(parentName || "Parent").slice(0, 60) },
+            { type: "text", text: String(schoolName || "School").slice(0, 60) },
+            { type: "text", text: String(message || "").slice(0, 1024) },
+          ],
+        },
+      ],
+    },
+  }
 
   const response = await fetch(
-    `https://graph.facebook.com/${apiVersion}/${config.phoneNumberId}/messages`,
+    `https://graph.facebook.com/${API_VERSION}/${phoneNumberId}/messages`,
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${config.accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to,
-        type: "text",
-        text: {
-          preview_url: false,
-          body,
-        },
-      }),
+      body: JSON.stringify(payload),
     }
   )
 
   const data = await response.json()
+  console.log("[WhatsApp] Meta API response:", JSON.stringify(data))
 
   if (!response.ok) {
-    const errorMessage =
-      data?.error?.message ||
-      data?.message ||
-      "WhatsApp Cloud API request failed"
-
-    throw new Error(errorMessage)
+    const msg = data?.error?.message || "WhatsApp Cloud API request failed"
+    const code = data?.error?.code ? `(#${data.error.code}) ` : ""
+    throw new Error(`${code}${msg}`)
   }
 
   return {
@@ -108,46 +108,19 @@ export async function sendWhatsAppMessage(
   }
 }
 
+// Backward-compatible wrapper — schoolId is ignored (centralized config)
 export async function sendWhatsAppCloudMessage({
-  schoolId,
   phone,
   message,
-}: SendWhatsAppMessageInput) {
-  const result = await sendWhatsAppMessage(schoolId, phone, message)
-
-  return {
-    to: result.to,
-    data: {
-      messageId: result.messageId,
-    },
-  }
-}
-
-export async function getWhatsAppCloudStatus(schoolId: string) {
-  const config = await loadSchoolWhatsAppConfig(schoolId)
-  const missing: string[] = []
-
-  if (!config.accessToken) {
-    missing.push("access_token")
-  }
-
-  if (!config.phoneNumberId) {
-    missing.push("phone_number_id")
-  }
-
-  return {
-    configured: missing.length === 0,
-    missing,
-    provider: "whatsapp-cloud-api",
-    phoneNumberId: config.phoneNumberId,
-    businessAccountId: config.businessAccountId,
-    phoneNumber: config.phoneNumber,
-    displayName: config.displayName,
-    apiVersion: process.env.WHATSAPP_CLOUD_API_VERSION || "v23.0",
-  }
-}
-
-export async function isWhatsAppCloudConfigured(schoolId: string) {
-  const status = await getWhatsAppCloudStatus(schoolId)
-  return status.configured
+  schoolName = "School",
+  parentName = "Parent",
+}: {
+  schoolId?: string
+  phone: string
+  message: string
+  schoolName?: string
+  parentName?: string
+}) {
+  const result = await sendWhatsAppTemplateMessage({ phone, parentName, schoolName, message })
+  return { to: result.to, data: { messageId: result.messageId } }
 }

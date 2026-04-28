@@ -1,117 +1,63 @@
 import { NextResponse } from "next/server"
 import { isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
-import {
-  getWhatsAppCloudStatus,
-  sendWhatsAppCloudMessage,
-} from "@/lib/whatsapp-cloud"
+import { getWhatsAppCloudStatus, sendWhatsAppTemplateMessage } from "@/lib/whatsapp-cloud"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-function normalizeSchoolId(value: unknown) {
-  const schoolId = String(value || "").trim()
-  return schoolId || null
-}
-
 export async function GET(req: Request) {
-  let schoolId: string | null = null
-
   if (!isInternalRequest(req)) {
     const authResult = await requireAdminProfile(req)
-    if ("response" in authResult) {
-      return authResult.response
-    }
-
-    schoolId = authResult.profile.schoolId
-  } else {
-    const url = new URL(req.url)
-    schoolId = normalizeSchoolId(url.searchParams.get("schoolId"))
+    if ("response" in authResult) return authResult.response
   }
 
-  if (!schoolId) {
-    return NextResponse.json(
-      { error: "School ID is required" },
-      { status: 400 }
-    )
-  }
-
-  const status = await getWhatsAppCloudStatus(schoolId)
+  const status = await getWhatsAppCloudStatus()
 
   return NextResponse.json({
     success: true,
     provider: "whatsapp-cloud-api",
     configured: status.configured,
     missing: status.missing,
-    phoneNumberId: status.phoneNumberId,
-    businessAccountId: status.businessAccountId,
-    phoneNumber: status.phoneNumber,
-    displayName: status.displayName,
     apiVersion: status.apiVersion,
   })
 }
 
 export async function POST(req: Request) {
   try {
-    let schoolId: string | null = null
-
     if (!isInternalRequest(req)) {
       const authResult = await requireAdminProfile(req)
-      if ("response" in authResult) {
-        return authResult.response
-      }
-
-      schoolId = authResult.profile.schoolId
+      if ("response" in authResult) return authResult.response
     }
 
     const body = await req.json()
     const phone = String(body?.phone || body?.to || "").trim()
     const message = String(body?.message || "").trim()
-    schoolId = schoolId || normalizeSchoolId(body?.schoolId)
-
-    if (!schoolId) {
-      return NextResponse.json(
-        { error: "Missing schoolId for internal WhatsApp request" },
-        { status: 400 }
-      )
-    }
+    const schoolName = String(body?.schoolName || "School").trim()
+    const parentName = String(body?.parentName || "Parent").trim()
 
     if (!phone || !message) {
-      return NextResponse.json(
-        { error: "Missing phone/to or message" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Missing phone/to or message" }, { status: 400 })
     }
 
-    const status = await getWhatsAppCloudStatus(schoolId)
-
+    const status = await getWhatsAppCloudStatus()
     if (!status.configured) {
       return NextResponse.json(
-        {
-          error: "WhatsApp Cloud API is not configured for this school",
-          missing: status.missing,
-        },
+        { error: `WhatsApp is not configured. Missing: ${status.missing.join(", ")}` },
         { status: 503 }
       )
     }
 
-    const result = await sendWhatsAppCloudMessage({
-      schoolId,
-      phone,
-      message,
-    })
+    const result = await sendWhatsAppTemplateMessage({ phone, message, schoolName, parentName })
 
     return NextResponse.json({
       success: true,
       provider: "whatsapp-cloud-api",
       to: result.to,
-      result: result.data,
+      messageId: result.messageId,
     })
   } catch (err) {
-    console.error("WhatsApp Cloud API error:", err)
-
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal error" },
-      { status: 500 }
-    )
+    const message = err instanceof Error ? err.message : "Internal error"
+    console.error("[send-whatsapp] Error:", message)
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

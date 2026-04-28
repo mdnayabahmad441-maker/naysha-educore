@@ -118,9 +118,10 @@ export async function POST(req: Request) {
           method: "POST",
           headers: internalHeaders,
           body: JSON.stringify({
-            schoolId: payment.school_id,
             phone: parent.phone,
-            message: `${school?.name || "School"}\n\nPayment Received\n\nStudent: ${student?.name}\nClass: ${className}\nRoll: ${roll}\n\nAmount: Rs.${payment.amount}\n\nThank you`,
+            message: `Payment Received\n\nStudent: ${student?.name}\nClass: ${className}\nRoll: ${roll}\nAmount: Rs.${payment.amount}\n\nThank you`,
+            schoolName: school?.name || "School",
+            parentName: parent?.name || "Parent",
           }),
         })
 

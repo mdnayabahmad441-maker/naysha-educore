@@ -30,11 +30,10 @@ export async function POST(req: Request) {
       console.error("[notifications] DB insert error:", dbError.message)
     }
 
-    const { data: parent } = await supabaseAdmin
-      .from("parents")
-      .select("phone")
-      .eq("student_id", student_id)
-      .maybeSingle()
+    const [{ data: parent }, { data: school }] = await Promise.all([
+      supabaseAdmin.from("parents").select("name, phone").eq("student_id", student_id).maybeSingle(),
+      supabaseAdmin.from("schools").select("name").eq("id", schoolId).maybeSingle(),
+    ])
 
     let whatsappStatus = "skipped"
     let whatsappError: string | null = null
@@ -45,11 +44,13 @@ export async function POST(req: Request) {
           method: "POST",
           headers: getInternalApiHeaders(),
           body: JSON.stringify({
-            schoolId,
             phone: String(parent.phone).trim(),
             message: `${title}\n${message}`,
+            schoolName: school?.name || "School",
+            parentName: parent?.name || "Parent",
           }),
         })
+
         if (res.ok) {
           whatsappStatus = "sent"
         } else {
@@ -64,7 +65,6 @@ export async function POST(req: Request) {
         whatsappError = err instanceof Error ? err.message : "Unknown error"
       }
     } else {
-      console.log("[notifications] No phone for student:", student_id)
       whatsappError = "No phone number on file for this student's parent"
     }
 

@@ -119,13 +119,20 @@ export async function POST(req: Request) {
     })
 
     if (phone) {
+      const { data: schoolRow } = await supabaseAdmin
+        .from("schools")
+        .select("name")
+        .eq("id", schoolId)
+        .maybeSingle()
+
       await fetch(`${baseUrl}/api/send-whatsapp`, {
         method: "POST",
         headers: internalHeaders,
         body: JSON.stringify({
-          schoolId,
-          to: phone,
-          message: `Teacher Account Created\n\nHello ${name},\n\nYour teacher account is ready.\nOpen login here:\n${loginUrl}\n\nUse your email first. If this is your first login, set your password from the login screen.`,
+          phone,
+          message: `Your teacher account is ready.\nLogin: ${loginUrl}\n\nUse your email. First-time? Set your password from the login screen.`,
+          schoolName: schoolRow?.name || "School",
+          parentName: name || "Teacher",
         }),
       })
     }
