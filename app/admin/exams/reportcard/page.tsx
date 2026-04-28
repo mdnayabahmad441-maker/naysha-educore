@@ -136,6 +136,24 @@ export default function ReportCardPage(){
         roll_number: e.roll_number
       }))
 
+      // Fetch father_name from parents table
+      const studentIds = classStudents.map((s) => s.id)
+      let parentMap = new Map<string, string>()
+      if (studentIds.length > 0) {
+        const { data: parentData } = await supabase
+          .from("parents")
+          .select("student_id,father_name")
+          .in("student_id", studentIds)
+        ;(parentData || []).forEach((p: any) => {
+          if (p.father_name) parentMap.set(p.student_id, p.father_name)
+        })
+      }
+
+      const classStudentsWithParents = classStudents.map((s) => ({
+        ...s,
+        father_name: parentMap.get(s.id) || null
+      }))
+
       const { data: exSubData, error: exErr } = await supabase
         .from("exam_subjects")
         .select("*")
@@ -163,7 +181,7 @@ export default function ReportCardPage(){
 
       const reportsTemp:any[] = []
 
-      for(const student of classStudents){
+      for(const student of classStudentsWithParents){
 
         let totalMarks = 0
         let obtainedMarks = 0
@@ -353,7 +371,9 @@ export default function ReportCardPage(){
           headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({
             to: phone,
-            message: `Hello ${student.name}, your result is ready.`
+            schoolName: school?.name || "School",
+            parentName: r.student.father_name || r.student.name,
+            message: `${r.student.name} scored ${r.report.percentage.toFixed(1)}% (Grade ${r.report.grade}) — Result: ${r.report.finalResult}. Please contact the school for details.`
           })
         })
 

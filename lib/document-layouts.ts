@@ -238,16 +238,17 @@ const defaultLayouts: Record<DocumentKind, DocumentLayout> = {
     width: 1600,
     height: 1131,
     fields: [
-      { id: "schoolName", label: "School Name", type: "text", x: 16, y: 8, w: 68, h: 5.5, fontSize: 28, fontWeight: 800, color: "#0f172a", align: "center", uppercase: true },
-      { id: "schoolAddress", label: "School Address", type: "text", x: 20, y: 14.2, w: 60, h: 3.4, fontSize: 14, fontWeight: 600, color: "#475569", align: "center" },
-      { id: "certificateTitle", label: "Certificate Title", type: "text", x: 25, y: 24, w: 50, h: 5, fontSize: 26, fontWeight: 800, color: "#1d4ed8", align: "center", uppercase: true, letterSpacing: 1.8 },
-      { id: "certificateBody", label: "Certificate Body", type: "text", x: 12, y: 38, w: 76, h: 28, fontSize: 15, fontWeight: 500, color: "#1f2937", align: "left" },
-      { id: "studentName", label: "Student Name", type: "text", x: 24, y: 52, w: 52, h: 4, fontSize: 18, fontWeight: 800, color: "#111827", align: "center", uppercase: true },
-      { id: "fatherName", label: "Father Name", type: "text", x: 24, y: 58, w: 52, h: 3.6, fontSize: 15, fontWeight: 700, color: "#111827", align: "center" },
-      { id: "className", label: "Class", type: "text", x: 24, y: 64, w: 52, h: 3.6, fontSize: 15, fontWeight: 700, color: "#111827", align: "center" },
-      { id: "studentCode", label: "Admission No.", type: "text", x: 24, y: 70, w: 52, h: 3.6, fontSize: 15, fontWeight: 700, color: "#111827", align: "center" },
-      { id: "issueDate", label: "Issue Date", type: "text", x: 12, y: 84, w: 20, h: 3, fontSize: 13, fontWeight: 700, color: "#334155" },
-      { id: "principalSign", label: "Principal Sign", type: "text", x: 72, y: 84, w: 16, h: 3, fontSize: 13, fontWeight: 700, color: "#334155", align: "right" }
+      { id: "schoolLogo", label: "School Logo", type: "photo", x: 4, y: 3.5, w: 10, h: 18, borderRadius: 8, borderColor: "#e2e8f0" },
+      { id: "schoolName", label: "School Name", type: "text", x: 17, y: 6, w: 66, h: 6.5, fontSize: 28, fontWeight: 800, color: "#0f172a", align: "center", uppercase: true },
+      { id: "schoolAddress", label: "School Address", type: "text", x: 17, y: 13.5, w: 66, h: 4, fontSize: 14, fontWeight: 600, color: "#475569", align: "center" },
+      { id: "certificateTitle", label: "Certificate Title", type: "text", x: 22, y: 23, w: 56, h: 6, fontSize: 26, fontWeight: 800, color: "#1d4ed8", align: "center", uppercase: true, letterSpacing: 1.8 },
+      { id: "certificateBody", label: "Certificate Body", type: "text", x: 8, y: 33, w: 84, h: 40, fontSize: 15, fontWeight: 500, color: "#1f2937", align: "left" },
+      { id: "issueDate", label: "Issue Date", type: "text", x: 8, y: 83, w: 22, h: 4, fontSize: 13, fontWeight: 700, color: "#334155" },
+      { id: "principalSign", label: "Principal Sign", type: "text", x: 70, y: 83, w: 22, h: 4, fontSize: 13, fontWeight: 700, color: "#334155", align: "right" },
+      { id: "studentName", label: "Student Name", type: "text", x: 24, y: 110, w: 52, h: 4, fontSize: 18, fontWeight: 800, color: "#111827", align: "center", uppercase: true },
+      { id: "fatherName", label: "Father Name", type: "text", x: 24, y: 116, w: 52, h: 3.6, fontSize: 15, fontWeight: 700, color: "#111827", align: "center" },
+      { id: "className", label: "Class", type: "text", x: 24, y: 122, w: 52, h: 3.6, fontSize: 15, fontWeight: 700, color: "#111827", align: "center" },
+      { id: "studentCode", label: "Admission No.", type: "text", x: 24, y: 128, w: 52, h: 3.6, fontSize: 15, fontWeight: 700, color: "#111827", align: "center" }
     ]
   }
 }

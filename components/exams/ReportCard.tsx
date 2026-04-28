@@ -27,20 +27,20 @@ export default function ReportCard({
   const activeLayout = normalizeDocumentLayout("report_card", layout)
   const values = {
     schoolName: school?.name || "School Name",
-    reportTitle: "Student Performance Report",
+    reportTitle: `${exam?.name || "Exam"} Result`,
     studentName: `Name: ${student?.name || "-"}`,
     className: `Class: ${classData?.name || "-"}`,
     rollNumber: `Roll No: ${student?.roll_number || "-"}`,
-    fatherName: `Father Name: ${student?.father_name || "-"}`,
+    fatherName: `Father: ${student?.father_name || "-"}`,
     examName: `Exam: ${exam?.name || "-"}`,
     grade: `Grade: ${report.grade}`,
     percentage: `Percentage: ${report.percentage.toFixed(2)}%`,
     result: report.finalResult,
     totalMarks: `Total Marks: ${report.totalMarks}`,
     obtainedMarks: `Obtained Marks: ${report.obtainedMarks}`,
-    remark: report.remark || "Teacher Remark: Consistent effort shown throughout the term.",
-    classTeacherSign: "Class Teacher",
-    principalSign: "Principal"
+    remark: report.remark || "",
+    classTeacherSign: school?.class_teacher_name || "Class Teacher",
+    principalSign: school?.principal_name || "Principal"
   }
 
   return (

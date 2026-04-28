@@ -165,25 +165,27 @@ export default function CertificatesPage() {
   }, [selectedStudent, certType, classMap, school, issueDateLabel, reason])
 
   const canvasValues = useMemo(() => {
+    const principalSign = school?.principal_name || "Principal"
+
     if (!selectedStudent)
       return {
         schoolName: school?.name || "School Name",
         schoolAddress: school?.address || "",
         certificateTitle: certLabels[certType],
-        certificateBody: "",
+        certificateBody: "Select a student to preview the certificate.",
         studentName: "Student Name",
         fatherName: "S/O Parent Name",
         className: "Class",
         studentCode: "Admission No: —",
         issueDate: `Date: ${issueDateLabel}`,
-        principalSign: "Principal"
+        principalSign
       }
 
     const className = classMap.get(selectedStudent.class_id || "") || "Class"
 
     return {
       schoolName: school?.name || "School Name",
-      schoolAddress: school?.address || school?.subdomain || "",
+      schoolAddress: school?.address || "",
       certificateTitle: aiDraft?.title ?? certLabels[certType],
       certificateBody: aiDraft?.body ?? defaultBody,
       studentName: selectedStudent.name,
@@ -191,7 +193,7 @@ export default function CertificatesPage() {
       className: `Class: ${className}`,
       studentCode: `Admission No: ${selectedStudent.student_code || "N/A"}`,
       issueDate: `Date: ${issueDateLabel}`,
-      principalSign: "Principal"
+      principalSign
     }
   }, [selectedStudent, certType, classMap, school, issueDateLabel, aiDraft, defaultBody])
 
@@ -432,6 +434,7 @@ export default function CertificatesPage() {
                 layout={layout}
                 backgroundUrl={templateUrl || null}
                 values={canvasValues}
+                logoUrl={school?.logo_url || null}
                 className="mx-auto w-full max-w-5xl"
               />
             </div>
