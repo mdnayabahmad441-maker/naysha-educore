@@ -130,9 +130,12 @@ export async function POST(req: Request) {
         headers: internalHeaders,
         body: JSON.stringify({
           phone,
-          message: `Your teacher account is ready.\nLogin: ${loginUrl}\n\nUse your email. First-time? Set your password from the login screen.`,
-          schoolName: schoolRow?.name || "School",
-          parentName: name || "Teacher",
+          templateName: "school_notice",
+          variables: [
+            name || "Teacher",
+            schoolRow?.name || "School",
+            `Your teacher account is ready.\nLogin: ${loginUrl}\n\nUse your email. First-time? Set your password from the login screen.`,
+          ],
         }),
       })
     }

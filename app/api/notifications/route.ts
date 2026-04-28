@@ -45,9 +45,12 @@ export async function POST(req: Request) {
           headers: getInternalApiHeaders(),
           body: JSON.stringify({
             phone: String(parent.phone).trim(),
-            message: `${title}\n${message}`,
-            schoolName: school?.name || "School",
-            parentName: parent?.name || "Parent",
+            templateName: "school_notice",
+            variables: [
+              parent?.name || "Parent",
+              school?.name || "School",
+              `${title}\n${message}`,
+            ],
           }),
         })
 

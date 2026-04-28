@@ -245,7 +245,7 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
       // ================= NOTIFICATIONS =================
       const { data: parents } = await supabase
         .from("parents")
-        .select("student_id, email, phone")
+        .select("student_id, name, email, phone")
         .in("student_id", students.map(s=>s.id))
 
       const parentMap:any = {}
@@ -277,7 +277,12 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 phone: parent.phone,
-                message: `${s.name} was absent on ${new Date(selectedDate).toLocaleDateString()} ❌`
+                templateName: "school_notice",
+                variables: [
+                  parent?.name || "Parent",
+                  school?.name || "School",
+                  `${s.name} was absent on ${new Date(selectedDate).toLocaleDateString()} ❌`,
+                ],
               })
             })
           }catch(err){
@@ -458,7 +463,7 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
 
         </div>
 
-        <div className="sticky bottom-20 z-20 -mx-1 rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,15,30,0.96),rgba(11,26,51,0.9))] p-3 shadow-[0_24px_70px_rgba(2,8,23,0.38)] md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+        <div className="sticky bottom-20 z-20 -mx-1 rounded-3xl border border-white/10 bg-[linear-gradient(135deg,rgba(8,15,30,0.96),rgba(11,26,51,0.9))] p-3 shadow-[0_24px_70px_rgba(2,8,23,0.38)] md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
           <div className="flex gap-2">
             <button
               onClick={saveAttendance}

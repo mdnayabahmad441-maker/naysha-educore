@@ -409,16 +409,12 @@ ${schoolName} Team
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   phone: parentPhone.trim(),
-                  message: `Welcome to ${schoolName}!
-
-Dear Parent,
-
-We are delighted to welcome your child ${name.trim()} to our school family.
-
-Thank you for choosing ${schoolName}.
-
-Best regards,
-${schoolName} Team`
+                  templateName: "school_notice",
+                  variables: [
+                    fatherName.trim() || "Parent",
+                    schoolName || "School",
+                    `Welcome! We are delighted to welcome your child ${name.trim()} to ${schoolName || "our school"}.`,
+                  ],
                 })
               })
             } catch (err) {

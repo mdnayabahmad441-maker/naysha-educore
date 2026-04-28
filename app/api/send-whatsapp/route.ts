@@ -5,6 +5,7 @@ import { getWhatsAppCloudStatus, sendWhatsAppTemplateMessage } from "@/lib/whats
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+// ✅ GET: Check WhatsApp config status
 export async function GET(req: Request) {
   if (!isInternalRequest(req)) {
     const authResult = await requireAdminProfile(req)
@@ -22,32 +23,47 @@ export async function GET(req: Request) {
   })
 }
 
+// ✅ POST: Send WhatsApp template message
 export async function POST(req: Request) {
   try {
+    // 🔐 Auth check
     if (!isInternalRequest(req)) {
       const authResult = await requireAdminProfile(req)
       if ("response" in authResult) return authResult.response
     }
 
     const body = await req.json()
-    const phone = String(body?.phone || body?.to || "").trim()
-    const message = String(body?.message || "").trim()
-    const schoolName = String(body?.schoolName || "School").trim()
-    const parentName = String(body?.parentName || "Parent").trim()
 
-    if (!phone || !message) {
-      return NextResponse.json({ error: "Missing phone/to or message" }, { status: 400 })
+    // ✅ REQUIRED INPUTS
+    const phone = String(body?.phone || body?.to || "").trim()
+    const templateName = String(body?.templateName || "").trim()
+    const variables = Array.isArray(body?.variables) ? body.variables : []
+
+    // ❌ Validation
+    if (!phone || !templateName) {
+      return NextResponse.json(
+        { error: "Missing phone/to or templateName" },
+        { status: 400 }
+      )
     }
 
+    // 📡 Check WhatsApp config
     const status = await getWhatsAppCloudStatus()
     if (!status.configured) {
       return NextResponse.json(
-        { error: `WhatsApp is not configured. Missing: ${status.missing.join(", ")}` },
+        {
+          error: `WhatsApp is not configured. Missing: ${status.missing.join(", ")}`,
+        },
         { status: 503 }
       )
     }
 
-    const result = await sendWhatsAppTemplateMessage({ phone, message, schoolName, parentName })
+    // 🚀 Send template message
+    const result = await sendWhatsAppTemplateMessage({
+  phone,
+  templateName,
+  variables,
+})
 
     return NextResponse.json({
       success: true,
@@ -55,16 +71,14 @@ export async function POST(req: Request) {
       to: result.to,
       messageId: result.messageId,
     })
+
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : "Internal error"
     console.error("[send-whatsapp] Error:", errMsg)
 
-    // Meta API errors (e.g. #133010 invalid number, #131056 rate limit) are not server bugs.
-    // Return 200 with success:false so callers can handle gracefully without browser 500 noise.
-    const isMetaError = errMsg.includes("(#")
     return NextResponse.json(
       { success: false, error: errMsg },
-      { status: isMetaError ? 200 : 500 }
+      { status: 500 }
     )
   }
 }

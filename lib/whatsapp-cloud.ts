@@ -41,14 +41,12 @@ export async function isWhatsAppCloudConfigured(_schoolId?: string) {
 
 export async function sendWhatsAppTemplateMessage({
   phone,
-  parentName,
-  schoolName,
-  message,
+  templateName,
+  variables,
 }: {
   phone: string
-  parentName: string
-  schoolName: string
-  message: string
+  templateName: string
+  variables: string[]
 }): Promise<{ to: string; messageId: string | null }> {
   const { phoneNumberId, accessToken } = getCentralizedConfig()
 
@@ -66,18 +64,16 @@ export async function sendWhatsAppTemplateMessage({
     to,
     type: "template",
     template: {
-      name: TEMPLATE_NAME,
+      name: templateName,
       language: { code: "en" },
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: String(parentName || "Parent").slice(0, 60) },
-            { type: "text", text: String(schoolName || "School").slice(0, 60) },
-            { type: "text", text: String(message || "").slice(0, 1024) },
-          ],
-        },
-      ],
+      components: variables.length > 0
+        ? [
+            {
+              type: "body",
+              parameters: variables.map((v) => ({ type: "text", text: String(v).slice(0, 1024) })),
+            },
+          ]
+        : [],
     },
   }
 
@@ -108,7 +104,7 @@ export async function sendWhatsAppTemplateMessage({
   }
 }
 
-// Backward-compatible wrapper — schoolId is ignored (centralized config)
+// Backward-compatible wrapper — uses school_notice template
 export async function sendWhatsAppCloudMessage({
   phone,
   message,
@@ -121,6 +117,10 @@ export async function sendWhatsAppCloudMessage({
   schoolName?: string
   parentName?: string
 }) {
-  const result = await sendWhatsAppTemplateMessage({ phone, parentName, schoolName, message })
+  const result = await sendWhatsAppTemplateMessage({
+    phone,
+    templateName: TEMPLATE_NAME,
+    variables: [parentName, schoolName, message],
+  })
   return { to: result.to, data: { messageId: result.messageId } }
 }
