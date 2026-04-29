@@ -59,6 +59,9 @@ export async function sendWhatsAppTemplateMessage({
   const parsed = parsePhone(phone)
   if (!parsed) throw new Error("Invalid phone number")
 
+  const sanitize = (s: string) =>
+    String(s).replace(/[\t\n\r]/g, " ").replace(/ {3,}/g, "  ").trim()
+
   const payload = {
     countryCode: parsed.countryCode,
     phoneNumber: parsed.phoneNumber,
@@ -67,7 +70,7 @@ export async function sendWhatsAppTemplateMessage({
     template: {
       name: templateName,
       languageCode: "en",
-      bodyValues: variables,
+      bodyValues: variables.map(sanitize),
     },
   }
 
