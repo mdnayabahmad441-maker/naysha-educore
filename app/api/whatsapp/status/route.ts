@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     connected: true,
-    provider: "whatsapp-cloud-api",
+    provider: "interakt",
     centralized: true,
     apiVersion: status.apiVersion,
   })

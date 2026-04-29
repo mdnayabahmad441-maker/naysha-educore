@@ -1,36 +1,38 @@
-const API_VERSION = process.env.WHATSAPP_CLOUD_API_VERSION || "v23.0"
+const INTERAKT_API_URL = "https://api.interakt.ai/v1/public/message/"
 const TEMPLATE_NAME = "school_notice"
 
-function normalizePhoneNumber(phone: string): string {
-  let n = String(phone || "").trim().replace(/^whatsapp:/i, "").replace(/\D/g, "")
-  if (n.startsWith("0")) n = n.slice(1)
-  if (n.length === 10) n = `91${n}`
-  if (!n.startsWith("91")) n = `91${n}`
-  return n
-}
-
-function getCentralizedConfig() {
+function getInteraktConfig() {
   return {
-    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || null,
-    accessToken: process.env.WHATSAPP_ACCESS_TOKEN || null,
+    apiKey: process.env.INTERAKT_API_KEY || null,
   }
 }
 
+function parsePhone(phone: string): { countryCode: string; phoneNumber: string } | null {
+  let n = String(phone || "").trim().replace(/\s+/g, "").replace(/^whatsapp:/i, "")
+  if (n.startsWith("+")) n = n.slice(1)
+  n = n.replace(/\D/g, "")
+  if (n.startsWith("0")) n = n.slice(1)
+
+  if (n.length === 10) return { countryCode: "+91", phoneNumber: n }
+  if (n.length === 12 && n.startsWith("91")) return { countryCode: "+91", phoneNumber: n.slice(2) }
+  if (n.length > 10) return { countryCode: `+${n.slice(0, n.length - 10)}`, phoneNumber: n.slice(-10) }
+  return null
+}
+
 export async function getWhatsAppCloudStatus(_schoolId?: string) {
-  const { phoneNumberId, accessToken } = getCentralizedConfig()
+  const { apiKey } = getInteraktConfig()
   const missing: string[] = []
-  if (!phoneNumberId) missing.push("WHATSAPP_PHONE_NUMBER_ID")
-  if (!accessToken) missing.push("WHATSAPP_ACCESS_TOKEN")
+  if (!apiKey) missing.push("INTERAKT_API_KEY")
 
   return {
     configured: missing.length === 0,
     missing,
-    provider: "whatsapp-cloud-api",
-    phoneNumberId,
+    provider: "interakt",
+    phoneNumberId: null,
     businessAccountId: null,
     phoneNumber: null,
     displayName: null,
-    apiVersion: API_VERSION,
+    apiVersion: "v1",
   }
 }
 
@@ -48,59 +50,48 @@ export async function sendWhatsAppTemplateMessage({
   templateName: string
   variables: string[]
 }): Promise<{ to: string; messageId: string | null }> {
-  const { phoneNumberId, accessToken } = getCentralizedConfig()
+  const { apiKey } = getInteraktConfig()
 
-  if (!phoneNumberId || !accessToken) {
-    throw new Error(
-      "WhatsApp is not configured. Set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN in environment variables."
-    )
+  if (!apiKey) {
+    throw new Error("Interakt is not configured. Set INTERAKT_API_KEY in environment variables.")
   }
 
-  const to = normalizePhoneNumber(phone)
-  if (!to) throw new Error("Invalid phone number")
+  const parsed = parsePhone(phone)
+  if (!parsed) throw new Error("Invalid phone number")
 
   const payload = {
-    messaging_product: "whatsapp",
-    to,
-    type: "template",
+    countryCode: parsed.countryCode,
+    phoneNumber: parsed.phoneNumber,
+    callbackData: "naysha_erp",
+    type: "Template",
     template: {
       name: templateName,
-      language: { code: "en" },
-      components: variables.length > 0
-        ? [
-            {
-              type: "body",
-              parameters: variables.map((v) => ({ type: "text", text: String(v).slice(0, 1024) })),
-            },
-          ]
-        : [],
+      languageCode: "en",
+      bodyValues: variables,
     },
   }
 
-  const response = await fetch(
-    `https://graph.facebook.com/${API_VERSION}/${phoneNumberId}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    }
-  )
+  const response = await fetch(INTERAKT_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
 
   const data = await response.json()
-  console.log("[WhatsApp] Meta API response:", JSON.stringify(data))
+  console.log("[Interakt] API response:", JSON.stringify(data))
 
   if (!response.ok) {
-    const msg = data?.error?.message || "WhatsApp Cloud API request failed"
-    const code = data?.error?.code ? `(#${data.error.code}) ` : ""
+    const msg = data?.message || data?.error || "Interakt API request failed"
+    const code = data?.code ? `(#${data.code}) ` : ""
     throw new Error(`${code}${msg}`)
   }
 
   return {
-    to,
-    messageId: data?.messages?.[0]?.id ?? null,
+    to: `${parsed.countryCode}${parsed.phoneNumber}`,
+    messageId: data?.id ?? null,
   }
 }
 
