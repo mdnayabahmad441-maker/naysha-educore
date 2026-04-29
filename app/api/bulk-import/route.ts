@@ -90,7 +90,8 @@ async function importStudents(
       const rawType = r["student_type"] || r["type"] || "day_scholar"
       const studentType = VALID_STUDENT_TYPES.includes(rawType) ? rawType : "day_scholar"
 
-      const dob = r["date_of_birth"] || r["dob"] || ""
+      const dobRaw = r["date_of_birth"] || r["dob"] || ""
+      const dob = dobRaw && !isNaN(Date.parse(dobRaw)) ? dobRaw : null
 
       // Resolve class
       const className = r["class"] || r["class_name"] || ""
@@ -117,7 +118,7 @@ async function importStudents(
         student_type: studentType,
         father_name: r["father_name"] || null,
         mother_name: r["mother_name"] || null,
-        date_of_birth: dob || null,
+        date_of_birth: dob,
         student_code: studentCode,
         class_id: classId,
       })
