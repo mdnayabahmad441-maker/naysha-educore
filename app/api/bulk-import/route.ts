@@ -117,7 +117,6 @@ async function importStudents(
         student_type: studentType,
         father_name: r["father_name"] || null,
         mother_name: r["mother_name"] || null,
-        address: r["address"] || null,
         date_of_birth: dob || null,
         student_code: studentCode,
         class_id: classId,

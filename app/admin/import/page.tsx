@@ -20,7 +20,6 @@ const TEMPLATES: Record<ImportType, { headers: string[]; example: string[] }> = 
       "Parent Email",
       "Parent Phone",
       "Date of Birth",
-      "Address",
     ],
     example: [
       "Riya Sharma",
@@ -33,7 +32,6 @@ const TEMPLATES: Record<ImportType, { headers: string[]; example: string[] }> = 
       "parent@example.com",
       "9876543210",
       "2012-05-15",
-      "123 Main Street, City",
     ],
   },
   teachers: {
@@ -231,7 +229,7 @@ export default function ImportPage() {
           <p className="text-sm font-medium">Download Template</p>
           <p className="text-xs text-slate-400 mt-0.5">
             {importType === "students"
-              ? "Template includes: Name, Roll Number, Class, Student Email, Student Type (day_scholar / day_scholar_transport / hosteler), Father Name, Mother Name, Parent Email, Parent Phone, Date of Birth, Address"
+              ? "Template includes: Name, Roll Number, Class, Student Email, Student Type (day_scholar / day_scholar_transport / hosteler), Father Name, Mother Name, Parent Email, Parent Phone, Date of Birth"
               : importType === "teachers"
               ? "Template includes: Name, Email, Phone, Subject, Qualification, Experience Years"
               : "Template includes: Name, Capacity, Teacher Name"}
