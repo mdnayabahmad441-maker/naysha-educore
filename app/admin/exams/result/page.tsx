@@ -105,28 +105,36 @@ export default function ResultPage(){
 
       setStudents(studentsData)
 
-      // ✅ SUBJECTS
-      const { data:subjectData } = await supabase
+      // ✅ SUBJECTS — fetch exam_subjects then resolve names separately
+      const { data: examSubData } = await supabase
         .from("exam_subjects")
-        .select(`
-          subject_id,
-          subjects(name)
-        `)
+        .select("subject_id, total_marks")
         .eq("exam_id", exam.id)
 
-      const formattedSubjects = subjectData?.map((s:any)=>({
+      const subjectIds = (examSubData || []).map((s: any) => s.subject_id).filter(Boolean)
+
+      let subjectNameMap: Record<string, string> = {}
+      if (subjectIds.length > 0) {
+        const { data: subjectRows } = await supabase
+          .from("subjects")
+          .select("id, name")
+          .in("id", subjectIds)
+        subjectRows?.forEach((s: any) => { subjectNameMap[s.id] = s.name })
+      }
+
+      const formattedSubjects = (examSubData || []).map((s: any) => ({
         id: s.subject_id,
-        name: s.subjects?.name || "Subject"
-      })) || []
+        name: subjectNameMap[s.subject_id] || "Subject",
+        total_marks: s.total_marks,
+      }))
 
       setSubjects(formattedSubjects)
 
-      // ✅ MARKS
+      // ✅ MARKS — only filter by exam_id so school_id gaps don't hide data
       const { data:marksData } = await supabase
         .from("marks")
-        .select("*")
+        .select("student_id, subject_id, marks_obtained")
         .eq("exam_id", exam.id)
-        .eq("school_id", schoolId)
 
       const map:any = {}
 
@@ -262,7 +270,7 @@ export default function ResultPage(){
               <th className="p-2">Rank</th>
               <th className="p-2">Name</th>
               {subjects.map(s=>(
-                <th key={s.id} className="p-2">{s.name}</th>
+                <th key={s.id} className="p-2">{s.name}{s.total_marks ? ` /${s.total_marks}` : ""}</th>
               ))}
               <th className="p-2">Total</th>
               <th className="p-2">%</th>
