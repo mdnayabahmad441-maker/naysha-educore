@@ -214,7 +214,6 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
     setLoading(true)
 
     try{
-
       const payload = students.map((s:any)=>({
         id: crypto.randomUUID(),
         student_id: s.id,
@@ -224,7 +223,7 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
         date: selectedDate
       }))
 
-      // DELETE OLD
+      // DELETE + INSERT in parallel
       await supabase
         .from("attendance")
         .delete()
@@ -232,89 +231,86 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
         .eq("school_id", schoolId)
         .eq("date", selectedDate)
 
-      // INSERT NEW
-      const { error } = await supabase
-        .from("attendance")
-        .insert(payload)
+      const { error } = await supabase.from("attendance").insert(payload)
 
       if(error){
         alert(error.message)
         return
       }
 
-      // ================= NOTIFICATIONS =================
+      // ── Attendance saved — unblock the UI immediately ──────────────────
+      setLoading(false)
+      alert("Attendance saved ✅")
+
+      // ── Fire all notifications in parallel (non-blocking) ──────────────
       const { data: parents } = await supabase
         .from("parents")
         .select("student_id, name, email, phone")
-        .in("student_id", students.map(s=>s.id))
+        .in("student_id", students.map((s:any) => s.id))
 
-      const parentMap:any = {}
-      parents?.forEach((p:any)=>{
-        parentMap[p.student_id] = p
-      })
+      const parentMap: Record<string, any> = {}
+      parents?.forEach((p:any) => { parentMap[p.student_id] = p })
 
-      for (const s of students){
+      const dateLabel = new Date(selectedDate).toLocaleDateString()
 
-        const status = attendance[s.id] || "present"
-        const parent = parentMap[s.id]
+      await Promise.allSettled(
+        students.flatMap((s: any) => {
+          const status = attendance[s.id] || "present"
+          const parent = parentMap[s.id]
+          const jobs: Promise<any>[] = []
 
-        // DB notification
-        await sendNotification({
-          school_id: schoolId,
-          student_id: s.id,
-          title: status === "absent"
-            ? "Student Absent ❌"
-            : "Student Present ✅",
-          message: `${s.name} was ${status} on ${new Date(selectedDate).toLocaleDateString()}`,
-          type: "attendance"
+          // DB notification
+          jobs.push(
+            sendNotification({
+              school_id: schoolId!,
+              student_id: s.id,
+              title: status === "absent" ? "Student Absent ❌" : "Student Present ✅",
+              message: `${s.name} was ${status} on ${dateLabel}`,
+              type: "attendance",
+            }).catch((err: any) => console.error("DB notification error:", err))
+          )
+
+          // WhatsApp — absent students only
+          if(status === "absent" && parent?.phone){
+            jobs.push(
+              apiFetch("/api/send-whatsapp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  phone: parent.phone,
+                  templateName: "school_notice",
+                  variables: [
+                    parent?.name || "Parent",
+                    school?.name || "School",
+                    `${s.name} was absent on ${dateLabel} ❌`,
+                  ],
+                }),
+              }).catch((err: any) => console.error("WhatsApp error:", err))
+            )
+          }
+
+          // Email
+          if(parent?.email){
+            jobs.push(
+              apiFetch("/api/send-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  email: parent.email,
+                  subject: "Attendance Update",
+                  message: `${s.name} is ${status} on ${dateLabel}`,
+                }),
+              }).catch((err: any) => console.error("Email error:", err))
+            )
+          }
+
+          return jobs
         })
-
-        // ✅ WHATSAPP FIXED
-        if(status === "absent" && parent?.phone){
-          try{
-            await apiFetch("/api/send-whatsapp",{
-              method:"POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                phone: parent.phone,
-                templateName: "school_notice",
-                variables: [
-                  parent?.name || "Parent",
-                  school?.name || "School",
-                  `${s.name} was absent on ${new Date(selectedDate).toLocaleDateString()} ❌`,
-                ],
-              })
-            })
-          }catch(err){
-            console.error("WhatsApp error:", err)
-          }
-        }
-
-        // ✅ EMAIL FIXED
-        if(parent?.email){
-          try{
-            await apiFetch("/api/send-email",{
-              method:"POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                email: parent.email,
-                subject: "Attendance Update",
-                message: `${s.name} is ${status} on ${new Date(selectedDate).toLocaleDateString()}`
-              })
-            })
-          }catch(err){
-            console.error("Email error:", err)
-          }
-        }
-
-      }
-
-      alert("Attendance saved + notifications sent ✅")
+      )
 
     }catch(err){
       console.error(err)
       alert("Error saving attendance")
-    }finally{
       setLoading(false)
     }
   }
