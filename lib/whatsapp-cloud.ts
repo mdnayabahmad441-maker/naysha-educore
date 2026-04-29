@@ -1,5 +1,5 @@
 const INTERAKT_API_URL = "https://api.interakt.ai/v1/public/message/"
-const TEMPLATE_NAME = "school_notice"
+const TEMPLATE_NAME = process.env.INTERAKT_TEMPLATE_NAME || "school_notice"
 
 function getInteraktConfig() {
   return {

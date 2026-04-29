@@ -9,10 +9,7 @@ type ImportRequest = {
 
 export async function POST(req: Request) {
   const authResult = await requireAdminProfile(req)
-
-  if ("response" in authResult) {
-    return authResult.response
-  }
+  if ("response" in authResult) return authResult.response
 
   try {
     const body: ImportRequest = await req.json()
@@ -26,7 +23,7 @@ export async function POST(req: Request) {
     let imported = 0
     const errors: string[] = []
 
-    const headers = data[0] || []
+    const headers = data[0] ?? []
     const rows = data.slice(1)
 
     if (type === "students") {
@@ -37,140 +34,171 @@ export async function POST(req: Request) {
       imported = await importClasses(rows, headers, schoolId, errors)
     }
 
-    return NextResponse.json({
-      success: imported > 0,
-      imported,
-      errors: errors.slice(0, 5),
-    })
+    return NextResponse.json({ success: imported > 0, imported, errors: errors.slice(0, 10) })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
 
-async function importStudents(rows: string[][], headers: string[], schoolId: string, errors: string[]) {
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+function mapRow(headers: string[], row: string[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  headers.forEach((h, i) => {
+    const key = h.trim().toLowerCase().replace(/\s+/g, "_")
+    out[key] = (row[i] ?? "").trim()
+  })
+  return out
+}
+
+const VALID_STUDENT_TYPES = ["day_scholar", "day_scholar_transport", "hosteler"]
+
+// ─── students ─────────────────────────────────────────────────────────────────
+
+async function importStudents(
+  rows: string[][],
+  headers: string[],
+  schoolId: string,
+  errors: string[]
+) {
   let imported = 0
 
+  // Fetch active academic year once
+  const { data: year } = await supabaseAdmin
+    .from("academic_years")
+    .select("id")
+    .eq("school_id", schoolId)
+    .eq("is_active", true)
+    .maybeSingle()
+
   for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    if (row.every((c) => !c.trim())) continue // skip blank rows
+
     try {
-      const row = rows[i]
-      const record: Record<string, any> = {}
+      const r = mapRow(headers, row)
 
-      headers.forEach((header, index) => {
-        const value = row[index]?.trim() || ""
-        const lowerHeader = header.toLowerCase().replace(/\s+/g, "_")
-
-        if (lowerHeader === "name") record.name = value
-        if (lowerHeader === "roll_number" || lowerHeader === "roll number") record.roll_number = parseInt(value) || null
-        if (lowerHeader === "class") record.class_name = value
-        if (lowerHeader === "email") record.email = value
-        if (lowerHeader === "phone") record.phone = value
-        if (lowerHeader === "father_name" || lowerHeader === "father name") record.father_name = value
-        if (lowerHeader === "mother_name" || lowerHeader === "mother name") record.mother_name = value
-        if (lowerHeader === "address") record.address = value
-        if (lowerHeader === "dob" || lowerHeader === "date_of_birth") record.date_of_birth = value
-      })
-
-      if (!record.name) {
-        errors.push(`Row ${i + 1}: Missing student name`)
+      const name = r["name"] || r["student_name"] || ""
+      if (!name) {
+        errors.push(`Row ${i + 2}: Missing student name`)
         continue
       }
 
-      let classId = null
-      if (record.class_name) {
+      const rollRaw = r["roll_number"] || r["roll"] || ""
+      const rollNumber = rollRaw ? parseInt(rollRaw) || null : null
+
+      const rawType = r["student_type"] || r["type"] || "day_scholar"
+      const studentType = VALID_STUDENT_TYPES.includes(rawType) ? rawType : "day_scholar"
+
+      const dob = r["date_of_birth"] || r["dob"] || ""
+
+      // Resolve class
+      const className = r["class"] || r["class_name"] || ""
+      let classId: string | null = null
+      if (className) {
         const { data: cls } = await supabaseAdmin
           .from("classes")
           .select("id")
           .eq("school_id", schoolId)
-          .ilike("name", record.class_name)
+          .ilike("name", className)
           .maybeSingle()
-
-        classId = cls?.id
+        classId = cls?.id ?? null
       }
 
       const studentId = crypto.randomUUID()
-      const studentCode = `ST${Date.now()}${Math.random().toString(36).slice(2, 8)}`
+      const studentCode = `ST${Date.now()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 
-      const { error } = await supabaseAdmin.from("students").insert({
+      const { error: studentErr } = await supabaseAdmin.from("students").insert({
         id: studentId,
         school_id: schoolId,
-        name: record.name,
-        email: record.email || null,
-        phone: record.phone || null,
-        father_name: record.father_name || null,
-        mother_name: record.mother_name || null,
-        address: record.address || null,
-        date_of_birth: record.date_of_birth || null,
+        name,
+        email: r["student_email"] || r["email"] || null,
+        roll_number: rollNumber,
+        student_type: studentType,
+        father_name: r["father_name"] || null,
+        mother_name: r["mother_name"] || null,
+        address: r["address"] || null,
+        date_of_birth: dob || null,
         student_code: studentCode,
         class_id: classId,
       })
 
-      if (error) {
-        errors.push(`Row ${i + 1}: ${error.message}`)
-      } else {
-        imported++
+      if (studentErr) {
+        errors.push(`Row ${i + 2}: ${studentErr.message}`)
+        continue
+      }
 
-        if (classId && record.roll_number) {
-          const { data: year } = await supabaseAdmin
-            .from("academic_years")
-            .select("id")
-            .eq("school_id", schoolId)
-            .eq("is_active", true)
-            .maybeSingle()
+      imported++
 
-          if (year) {
-            await supabaseAdmin.from("student_enrollments").insert({
-              id: crypto.randomUUID(),
-              student_id: studentId,
-              class_id: classId,
-              school_id: schoolId,
-              academic_year_id: year.id,
-              roll_number: record.roll_number,
-            })
-          }
-        }
+      // Enrollment — create whenever class is found
+      if (classId && year) {
+        await supabaseAdmin.from("student_enrollments").insert({
+          id: crypto.randomUUID(),
+          student_id: studentId,
+          class_id: classId,
+          school_id: schoolId,
+          academic_year_id: year.id,
+          roll_number: rollNumber,
+        })
+      }
+
+      // Parent record — create when any parent field is present
+      const fatherName = r["father_name"] || ""
+      const motherName = r["mother_name"] || ""
+      const parentEmail = r["parent_email"] || ""
+      const parentPhone = r["parent_phone"] || ""
+
+      if (fatherName || motherName || parentEmail || parentPhone) {
+        await supabaseAdmin.from("parents").insert({
+          id: crypto.randomUUID(),
+          school_id: schoolId,
+          student_id: studentId,
+          name: fatherName || motherName || null,
+          father_name: fatherName || null,
+          mother_name: motherName || null,
+          email: parentEmail || null,
+          phone: parentPhone || null,
+        })
       }
     } catch (err: any) {
-      errors.push(`Row ${i + 1}: ${err.message}`)
+      errors.push(`Row ${i + 2}: ${err.message}`)
     }
   }
 
   return imported
 }
 
-async function importTeachers(rows: string[][], headers: string[], schoolId: string, errors: string[]) {
+// ─── teachers ─────────────────────────────────────────────────────────────────
+
+async function importTeachers(
+  rows: string[][],
+  headers: string[],
+  schoolId: string,
+  errors: string[]
+) {
   let imported = 0
 
   for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    if (row.every((c) => !c.trim())) continue
+
     try {
-      const row = rows[i]
-      const record: Record<string, any> = {}
+      const r = mapRow(headers, row)
+      const name = r["name"] || ""
+      const email = (r["email"] || "").toLowerCase()
 
-      headers.forEach((header, index) => {
-        const value = row[index]?.trim() || ""
-        const lowerHeader = header.toLowerCase().replace(/\s+/g, "_")
-
-        if (lowerHeader === "name") record.name = value
-        if (lowerHeader === "email") record.email = value
-        if (lowerHeader === "phone") record.phone = value
-        if (lowerHeader === "subject") record.subject = value
-        if (lowerHeader === "qualification") record.qualification = value
-        if (lowerHeader === "experience_years" || lowerHeader === "experience years") record.experience_years = parseInt(value) || 0
-      })
-
-      if (!record.name || !record.email) {
-        errors.push(`Row ${i + 1}: Missing teacher name or email`)
+      if (!name || !email) {
+        errors.push(`Row ${i + 2}: Missing teacher name or email`)
         continue
       }
 
-      const normalizedEmail = record.email.toLowerCase().trim()
-
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: normalizedEmail,
+        email,
         email_confirm: true,
       })
 
       if (authError || !authData?.user?.id) {
-        errors.push(`Row ${i + 1}: ${authError?.message || "Auth user not created"}`)
+        errors.push(`Row ${i + 2}: ${authError?.message || "Auth user not created"}`)
         continue
       }
 
@@ -178,77 +206,76 @@ async function importTeachers(rows: string[][], headers: string[], schoolId: str
         id: crypto.randomUUID(),
         auth_id: authData.user.id,
         school_id: schoolId,
-        name: record.name,
-        email: normalizedEmail,
-        phone: record.phone || null,
-        subject: record.subject || null,
-        qualification: record.qualification || null,
-        experience_years: record.experience_years || 0,
+        name,
+        email,
+        phone: r["phone"] || null,
+        subject: r["subject"] || null,
+        qualification: r["qualification"] || null,
+        experience_years: parseInt(r["experience_years"] || "0") || 0,
       })
 
       if (error) {
-        errors.push(`Row ${i + 1}: ${error.message}`)
+        errors.push(`Row ${i + 2}: ${error.message}`)
       } else {
         imported++
       }
     } catch (err: any) {
-      errors.push(`Row ${i + 1}: ${err.message}`)
+      errors.push(`Row ${i + 2}: ${err.message}`)
     }
   }
 
   return imported
 }
 
-async function importClasses(rows: string[][], headers: string[], schoolId: string, errors: string[]) {
+// ─── classes ──────────────────────────────────────────────────────────────────
+
+async function importClasses(
+  rows: string[][],
+  headers: string[],
+  schoolId: string,
+  errors: string[]
+) {
   let imported = 0
 
   for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    if (row.every((c) => !c.trim())) continue
+
     try {
-      const row = rows[i]
-      const record: Record<string, any> = {}
+      const r = mapRow(headers, row)
+      const name = r["name"] || ""
 
-      headers.forEach((header, index) => {
-        const value = row[index]?.trim() || ""
-        const lowerHeader = header.toLowerCase().replace(/\s+/g, "_")
-
-        if (lowerHeader === "name") record.name = value
-        if (lowerHeader === "capacity") record.capacity = parseInt(value) || 40
-        if (lowerHeader === "teacher_name" || lowerHeader === "teacher name") record.teacher_name = value
-      })
-
-      if (!record.name) {
-        errors.push(`Row ${i + 1}: Missing class name`)
+      if (!name) {
+        errors.push(`Row ${i + 2}: Missing class name`)
         continue
       }
 
-      let teacherId = null
-
-      if (record.teacher_name) {
+      let teacherId: string | null = null
+      if (r["teacher_name"]) {
         const { data: teacher } = await supabaseAdmin
           .from("teachers")
           .select("id")
           .eq("school_id", schoolId)
-          .ilike("name", record.teacher_name)
+          .ilike("name", r["teacher_name"])
           .maybeSingle()
-
-        teacherId = teacher?.id
+        teacherId = teacher?.id ?? null
       }
 
       const { error } = await supabaseAdmin.from("classes").insert({
         id: crypto.randomUUID(),
         school_id: schoolId,
-        name: record.name,
-        capacity: record.capacity,
-        class_teacher_id: teacherId || null,
+        name,
+        capacity: parseInt(r["capacity"] || "40") || 40,
+        class_teacher_id: teacherId,
       })
 
       if (error) {
-        errors.push(`Row ${i + 1}: ${error.message}`)
+        errors.push(`Row ${i + 2}: ${error.message}`)
       } else {
         imported++
       }
     } catch (err: any) {
-      errors.push(`Row ${i + 1}: ${err.message}`)
+      errors.push(`Row ${i + 2}: ${err.message}`)
     }
   }
 

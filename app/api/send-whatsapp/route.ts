@@ -76,9 +76,17 @@ export async function POST(req: Request) {
     const errMsg = err instanceof Error ? err.message : "Internal error"
     console.error("[send-whatsapp] Error:", errMsg)
 
+    // Return HTTP 200 for Interakt/WhatsApp API-level rejections so the caller
+    // can read { success: false } without triggering browser console red errors.
+    const isApiError =
+      errMsg.includes("(#") ||
+      errMsg.includes("template") ||
+      errMsg.includes("Interakt") ||
+      errMsg.includes("Please correct")
+
     return NextResponse.json(
       { success: false, error: errMsg },
-      { status: 500 }
+      { status: isApiError ? 200 : 500 }
     )
   }
 }
