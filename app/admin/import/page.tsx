@@ -124,37 +124,50 @@ export default function ImportPage() {
       return
     }
 
+    const CHUNK_SIZE = 100
+    const headers = allRows[0]
+    const dataRows = allRows.slice(1)
+    const total = dataRows.length
+    const chunks: string[][][] = []
+
+    for (let i = 0; i < dataRows.length; i += CHUNK_SIZE) {
+      chunks.push([headers, ...dataRows.slice(i, i + CHUNK_SIZE)])
+    }
+
     setLoading(true)
-    setStatus({ type: "info", text: `Importing ${allRows.length - 1} records…` })
+    let totalImported = 0
+    const allErrors: string[] = []
 
     try {
-      const response = await apiFetch("/api/bulk-import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: importType, data: allRows }),
-      })
-
-      const result = await response.json()
-
-      if (result.imported > 0 || result.success) {
-        const errNote = result.errors?.length
-          ? ` (${result.errors.length} skipped — see details below)`
-          : ""
-        setStatus({ type: "success", text: `Imported ${result.imported} records successfully.${errNote}` })
-
-        if (result.errors?.length) {
-          console.warn("[bulk-import] row errors:", result.errors)
-        }
-
-        setAllRows([])
-        setPreview([])
-        if (fileInputRef.current) fileInputRef.current.value = ""
-      } else {
+      for (let i = 0; i < chunks.length; i++) {
         setStatus({
-          type: "error",
-          text: result.error || result.errors?.[0] || "Import failed.",
+          type: "info",
+          text: `Importing… ${Math.min((i + 1) * CHUNK_SIZE, total)} / ${total} records`,
         })
+
+        const response = await apiFetch("/api/bulk-import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: importType, data: chunks[i] }),
+        })
+
+        const result = await response.json()
+        totalImported += result.imported ?? 0
+        if (result.errors?.length) allErrors.push(...result.errors)
+
+        if (!response.ok && !result.imported) {
+          setStatus({ type: "error", text: result.error || "Import failed." })
+          return
+        }
       }
+
+      const errNote = allErrors.length ? ` (${allErrors.length} rows skipped)` : ""
+      setStatus({ type: "success", text: `Imported ${totalImported} records successfully.${errNote}` })
+      if (allErrors.length) console.warn("[bulk-import] skipped rows:", allErrors)
+
+      setAllRows([])
+      setPreview([])
+      if (fileInputRef.current) fileInputRef.current.value = ""
     } catch {
       setStatus({ type: "error", text: "Network error during import." })
     } finally {

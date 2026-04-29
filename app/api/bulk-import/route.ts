@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+
+export const maxDuration = 60
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminProfile } from "@/lib/api-auth"
 
