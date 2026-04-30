@@ -98,7 +98,8 @@ export async function sendWhatsAppTemplateMessage({
   }
 }
 
-// Backward-compatible wrapper — uses school_notice template
+// Wrapper for naysha_automation_transaction_alert template
+// {{1}} = parentName, {{2}} = message/reference, {{3}} = date, {{4}} = schoolName
 export async function sendWhatsAppCloudMessage({
   phone,
   message,
@@ -111,10 +112,16 @@ export async function sendWhatsAppCloudMessage({
   schoolName?: string
   parentName?: string
 }) {
+  const today = new Date().toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+
   const result = await sendWhatsAppTemplateMessage({
     phone,
     templateName: TEMPLATE_NAME,
-    variables: [parentName, schoolName, message],
+    variables: [parentName, message, today, schoolName],
   })
   return { to: result.to, data: { messageId: result.messageId } }
 }
