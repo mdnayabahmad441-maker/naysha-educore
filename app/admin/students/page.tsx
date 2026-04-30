@@ -20,10 +20,9 @@ type StudentListRow = {
 
 async function fetchStudentsForSchool(schoolId: string): Promise<StudentListRow[]> {
   const year = await getActiveAcademicYear()
-  if (!year?.id) return []
 
   // 🔹 SINGLE QUERY: Get enrollments with joined student and class data
-  const { data: enrollments, error } = await supabase
+  let query = supabase
     .from("student_enrollments")
     .select(
       `
@@ -33,7 +32,11 @@ async function fetchStudentsForSchool(schoolId: string): Promise<StudentListRow[
       `
     )
     .eq("school_id", schoolId)
-    .eq("academic_year_id", year.id)
+
+  // Only filter by academic year when one is active — never block the list
+  if (year?.id) query = query.eq("academic_year_id", year.id)
+
+  const { data: enrollments, error } = await query
 
   if (error) {
     console.error("Enrollment fetch error:", error)

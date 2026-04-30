@@ -12,7 +12,7 @@ export const getActiveAcademicYear = async () => {
     .select("*")
     .eq("school_id", schoolId)
     .eq("is_active", true)
-    .single()
+    .maybeSingle()
 
   return data
 }
