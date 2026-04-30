@@ -153,17 +153,17 @@ export default function LoginPage() {
 
     setSetupLoading(true)
 
-    const setupRes = await fetch("/api/auth/send-parent-otp", {
+    // Ensures Supabase auth user exists for any registered role (teacher, admin, parent)
+    const setupRes = await fetch("/api/auth/setup-account", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: normalizedEmail }),
     })
 
-    // For non-parents (staff), skip the pre-creation step and proceed directly
-    if (!setupRes.ok && setupRes.status !== 404) {
+    if (!setupRes.ok) {
       setSetupLoading(false)
       const data = await setupRes.json().catch(() => ({}))
-      alert(data?.error || "Failed to send OTP")
+      alert(data?.error || "Failed to prepare account")
       return
     }
 
