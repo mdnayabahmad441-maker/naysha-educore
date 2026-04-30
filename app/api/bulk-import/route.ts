@@ -54,6 +54,17 @@ function mapRow(headers: string[], row: string[]): Record<string, string> {
 }
 
 const VALID_STUDENT_TYPES = ["day_scholar", "day_scholar_transport", "hosteler"]
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
+function truncate(value: string | null | undefined, max: number): string | null {
+  if (!value) return null
+  return String(value).slice(0, max) || null
+}
+
+function safeEmail(value: string | undefined | null): string | null {
+  const e = String(value || "").trim().toLowerCase()
+  return EMAIL_RE.test(e) ? e : null
+}
 
 // ─── students ─────────────────────────────────────────────────────────────────
 
@@ -150,12 +161,12 @@ async function importStudents(
     studentRows.push({
       id: studentId,
       school_id: schoolId,
-      name,
-      email: r["student_email"] || r["email"] || null,
+      name: name.slice(0, 200),
+      email: safeEmail(r["student_email"] || r["email"]),
       roll_number: rollNumber,
       student_type: studentType,
-      father_name: r["father_name"] || null,
-      mother_name: r["mother_name"] || null,
+      father_name: truncate(r["father_name"], 200),
+      mother_name: truncate(r["mother_name"], 200),
       date_of_birth: dob,
       student_code: studentCode,
       class_id: classId,
@@ -172,10 +183,10 @@ async function importStudents(
       })
     }
 
-    const fatherName = r["father_name"] || ""
-    const motherName = r["mother_name"] || ""
-    const parentEmail = r["parent_email"] || ""
-    const parentPhone = r["parent_phone"] || ""
+    const fatherName = truncate(r["father_name"], 200) || ""
+    const motherName = truncate(r["mother_name"], 200) || ""
+    const parentEmail = safeEmail(r["parent_email"]) || ""
+    const parentPhone = truncate(r["parent_phone"], 20) || ""
 
     if (fatherName || motherName || parentEmail || parentPhone) {
       parentRows.push({
@@ -230,11 +241,11 @@ async function importTeachers(
 
     try {
       const r = mapRow(headers, row)
-      const name = r["name"] || ""
-      const email = (r["email"] || "").toLowerCase()
+      const name = (r["name"] || "").slice(0, 200)
+      const email = safeEmail(r["email"]) || ""
 
       if (!name || !email) {
-        errors.push(`Row ${i + 2}: Missing teacher name or email`)
+        errors.push(`Row ${i + 2}: Missing teacher name or valid email`)
         continue
       }
 

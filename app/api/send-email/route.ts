@@ -115,15 +115,23 @@ export async function POST(req: Request) {
 
     const body = await req.json()
     const email = String(body.email || body.to || "").trim().toLowerCase()
-    const subject = String(body.subject || "School Notification").trim()
-    const message = String(body.message || "").trim()
-    const studentName = body.studentName
+    const subject = String(body.subject || "School Notification").trim().slice(0, 200)
+    const message = String(body.message || "").trim().slice(0, 5000)
+    const studentName = body.studentName ? String(body.studentName).slice(0, 200) : undefined
     const amount = body.amount
-    const feeType = body.feeType
+    const feeType = body.feeType ? String(body.feeType).slice(0, 100) : undefined
 
-    if (!email || !message) {
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+    if (!email || !EMAIL_RE.test(email)) {
       return NextResponse.json(
-        { success: false, error: "Missing email or message" },
+        { success: false, error: "Valid email address required" },
+        { status: 400 }
+      )
+    }
+
+    if (!message) {
+      return NextResponse.json(
+        { success: false, error: "Missing message" },
         { status: 400 }
       )
     }

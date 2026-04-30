@@ -28,13 +28,22 @@ export function sanitizeNextPath(value: string | null | undefined) {
 }
 
 export function getClientIp(headers: Headers) {
-  const forwarded = headers.get("x-forwarded-for")
+  // Platform-set headers cannot be spoofed by the client
+  const realIp = headers.get("x-real-ip")
+  if (realIp) return realIp.trim()
 
+  const cfIp = headers.get("cf-connecting-ip")
+  if (cfIp) return cfIp.trim()
+
+  // X-Forwarded-For: take the RIGHTMOST entry (added by trusted infrastructure),
+  // not the leftmost (which can be injected by the client).
+  const forwarded = headers.get("x-forwarded-for")
   if (forwarded) {
-    return forwarded.split(",")[0]?.trim() || "unknown"
+    const ips = forwarded.split(",").map((s) => s.trim()).filter(Boolean)
+    return ips[ips.length - 1] || "unknown"
   }
 
-  return headers.get("x-real-ip") || "unknown"
+  return "unknown"
 }
 
 export function consumeRateLimit(key: string, limit: number, windowMs: number) {
