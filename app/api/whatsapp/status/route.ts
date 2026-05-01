@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     connected: true,
-    provider: "interakt",
+    provider: "meta-cloud-api",
     centralized: true,
     apiVersion: status.apiVersion,
   })

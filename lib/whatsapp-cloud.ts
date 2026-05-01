@@ -1,38 +1,44 @@
-const INTERAKT_API_URL = "https://api.interakt.ai/v1/public/message/"
-const TEMPLATE_NAME = process.env.INTERAKT_TEMPLATE_NAME || "school_notice"
+const META_API_VERSION = "v19.0"
+const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
+const TEMPLATE_NAME = process.env.WHATSAPP_TEMPLATE_NAME || "naysha_automation_transaction_alert"
 
-function getInteraktConfig() {
+function getMetaConfig() {
   return {
-    apiKey: process.env.INTERAKT_API_KEY || null,
+    token: process.env.META_WHATSAPP_TOKEN || null,
+    phoneNumberId: process.env.META_PHONE_NUMBER_ID || null,
   }
 }
 
-function parsePhone(phone: string): { countryCode: string; phoneNumber: string } | null {
+function parsePhone(phone: string): string | null {
   let n = String(phone || "").trim().replace(/\s+/g, "").replace(/^whatsapp:/i, "")
   if (n.startsWith("+")) n = n.slice(1)
   n = n.replace(/\D/g, "")
   if (n.startsWith("0")) n = n.slice(1)
 
-  if (n.length === 10) return { countryCode: "+91", phoneNumber: n }
-  if (n.length === 12 && n.startsWith("91")) return { countryCode: "+91", phoneNumber: n.slice(2) }
-  if (n.length > 10) return { countryCode: `+${n.slice(0, n.length - 10)}`, phoneNumber: n.slice(-10) }
+  if (n.length === 10) return `91${n}`
+  if (n.length === 12 && n.startsWith("91")) return n
+  if (n.length > 10) return n
   return null
 }
 
+const sanitize = (s: string) =>
+  String(s).replace(/[\t\n\r]/g, " ").replace(/ {3,}/g, "  ").trim()
+
 export async function getWhatsAppCloudStatus(_schoolId?: string) {
-  const { apiKey } = getInteraktConfig()
+  const { token, phoneNumberId } = getMetaConfig()
   const missing: string[] = []
-  if (!apiKey) missing.push("INTERAKT_API_KEY")
+  if (!token) missing.push("META_WHATSAPP_TOKEN")
+  if (!phoneNumberId) missing.push("META_PHONE_NUMBER_ID")
 
   return {
     configured: missing.length === 0,
     missing,
-    provider: "interakt",
-    phoneNumberId: null,
+    provider: "meta-cloud-api",
+    phoneNumberId: phoneNumberId || null,
     businessAccountId: null,
     phoneNumber: null,
     displayName: null,
-    apiVersion: "v1",
+    apiVersion: META_API_VERSION,
   }
 }
 
@@ -45,60 +51,70 @@ export async function sendWhatsAppTemplateMessage({
   phone,
   templateName,
   variables,
+  languageCode = "en",
 }: {
   phone: string
   templateName: string
   variables: string[]
+  languageCode?: string
 }): Promise<{ to: string; messageId: string | null }> {
-  const { apiKey } = getInteraktConfig()
+  const { token, phoneNumberId } = getMetaConfig()
 
-  if (!apiKey) {
-    throw new Error("Interakt is not configured. Set INTERAKT_API_KEY in environment variables.")
+  if (!token || !phoneNumberId) {
+    throw new Error("Meta WhatsApp Cloud API is not configured. Set META_WHATSAPP_TOKEN and META_PHONE_NUMBER_ID.")
   }
 
-  const parsed = parsePhone(phone)
-  if (!parsed) throw new Error("Invalid phone number")
-
-  const sanitize = (s: string) =>
-    String(s).replace(/[\t\n\r]/g, " ").replace(/ {3,}/g, "  ").trim()
+  const to = parsePhone(phone)
+  if (!to) throw new Error("Invalid phone number")
 
   const payload = {
-    countryCode: parsed.countryCode,
-    phoneNumber: parsed.phoneNumber,
-    callbackData: "naysha_erp",
-    type: "Template",
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
     template: {
       name: templateName,
-      languageCode: "en",
-      bodyValues: variables.map(sanitize),
+      language: { code: languageCode },
+      components: variables.length > 0
+        ? [
+            {
+              type: "body",
+              parameters: variables.map((v) => ({
+                type: "text",
+                text: sanitize(v),
+              })),
+            },
+          ]
+        : [],
     },
   }
 
-  const response = await fetch(INTERAKT_API_URL, {
+  const response = await fetch(`${META_API_BASE}/${phoneNumberId}/messages`, {
     method: "POST",
     headers: {
-      Authorization: `Basic ${apiKey}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   })
 
   const data = await response.json()
-  console.log("[Interakt] API response:", JSON.stringify(data))
+  console.log("[Meta WhatsApp] API response:", JSON.stringify(data))
 
   if (!response.ok) {
-    const msg = data?.message || data?.error || "Interakt API request failed"
-    const code = data?.code ? `(#${data.code}) ` : ""
+    const errObj = data?.error || {}
+    const msg = errObj.message || data?.message || "Meta WhatsApp API request failed"
+    const code = errObj.code ? `(#${errObj.code}) ` : ""
     throw new Error(`${code}${msg}`)
   }
 
   return {
-    to: `${parsed.countryCode}${parsed.phoneNumber}`,
-    messageId: data?.id ?? null,
+    to,
+    messageId: data?.messages?.[0]?.id ?? null,
   }
 }
 
-// Wrapper for naysha_automation_transaction_alert template
+// General-purpose wrapper — maps school notification fields to template variables
+// Template: naysha_automation_transaction_alert
 // {{1}} = parentName, {{2}} = message/reference, {{3}} = date, {{4}} = schoolName
 export async function sendWhatsAppCloudMessage({
   phone,

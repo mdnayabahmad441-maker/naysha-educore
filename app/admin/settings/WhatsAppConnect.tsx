@@ -80,7 +80,7 @@ export default function WhatsAppConnect() {
           <div className="grid gap-3 text-sm">
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
               <span className="text-slate-400">Provider</span>
-              <span className="text-white font-medium">Interakt</span>
+              <span className="text-white font-medium">Meta Cloud API</span>
             </div>
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
               <span className="text-slate-400">API Version</span>
@@ -93,8 +93,8 @@ export default function WhatsAppConnect() {
           </div>
 
           <p className="text-xs leading-5 text-slate-500">
-            All schools share one WhatsApp number via Interakt. Messages include the school name dynamically.
-            To update, change <code className="text-slate-400">INTERAKT_API_KEY</code> in Vercel.
+            All schools share one WhatsApp number via Meta Cloud API. Messages include the school name dynamically.
+            To update, change <code className="text-slate-400">META_WHATSAPP_TOKEN</code> in Vercel.
           </p>
         </div>
       ) : (
@@ -123,9 +123,10 @@ export default function WhatsAppConnect() {
       )}
 
       <div className="rounded-2xl border border-white/10 bg-white/3 px-5 py-4 text-xs leading-6 text-slate-500 space-y-1">
-        <p className="font-semibold text-slate-400">Required environment variable:</p>
+        <p className="font-semibold text-slate-400">Required environment variables:</p>
         <ul className="list-disc list-inside space-y-0.5">
-          <li><code className="text-slate-400">INTERAKT_API_KEY</code> — your Interakt API key (from Interakt dashboard → Developer → API Keys)</li>
+          <li><code className="text-slate-400">META_WHATSAPP_TOKEN</code> — permanent access token from Meta Business Manager</li>
+          <li><code className="text-slate-400">META_PHONE_NUMBER_ID</code> — phone number ID from Meta WhatsApp API Setup</li>
         </ul>
       </div>
     </div>
