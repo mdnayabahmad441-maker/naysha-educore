@@ -112,31 +112,17 @@ export default function LoginPage() {
 
     setLoading(true)
 
-    // Ensure the parent has a Supabase auth account before sending OTP.
-    // This bypasses the project-level "Signups not allowed for otp" error.
-    const setupRes = await fetch("/api/auth/send-parent-otp", {
+    const res = await fetch("/api/auth/parent-otp/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: resolvedAccount.email }),
     })
 
-    if (!setupRes.ok) {
-      setLoading(false)
-      const data = await setupRes.json().catch(() => ({}))
-      alert(data?.error || "Failed to send OTP")
-      return
-    }
-
-    // Auth user now exists — send the OTP email
-    const { error } = await supabase.auth.signInWithOtp({
-      email: resolvedAccount.email,
-      options: { shouldCreateUser: false },
-    })
-
     setLoading(false)
 
-    if (error) {
-      alert(error.message || "Failed to send OTP")
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert(data?.error || "Failed to send OTP")
       return
     }
 

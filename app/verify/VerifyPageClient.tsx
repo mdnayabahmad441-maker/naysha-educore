@@ -29,16 +29,58 @@ export default function VerifyPageClient() {
   }
 
   const verify = async () => {
-    if (!otp.trim()) {
+    const trimmedOtp = otp.trim()
+    if (!trimmedOtp) {
       alert("Enter OTP")
       return
     }
 
     setLoading(true)
 
+    // Parent login uses our custom OTP system (Resend + parent_otps table)
+    if (preferredRole === "parent" && mode === "login") {
+      const res = await fetch("/api/auth/parent-otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: trimmedOtp }),
+      })
+
+      const result = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        setLoading(false)
+        alert(result?.error || "Invalid or expired code")
+        return
+      }
+
+      // Use the magic-link token returned by the server to open a real session
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: result.token,
+        type: "magiclink",
+      })
+
+      if (error || !data.user) {
+        setLoading(false)
+        alert(error?.message || "Failed to create session")
+        return
+      }
+
+      try {
+        const destination = await resolveAuthDestination(data.user, email, "parent")
+        await redirectWithSession(destination)
+      } catch (authError) {
+        alert(authError instanceof Error ? authError.message : "Verification failed")
+        setLoading(false)
+      }
+
+      return
+    }
+
+    // All other roles (teacher/admin first-time setup) use Supabase built-in OTP
     const { data, error } = await supabase.auth.verifyOtp({
       email,
-      token: otp.trim(),
+      token: trimmedOtp,
       type: "email",
     })
 
@@ -65,7 +107,7 @@ export default function VerifyPageClient() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.16),_transparent_38%),linear-gradient(160deg,#07111f_0%,#0b182b_58%,#08101d_100%)] px-6 py-10 text-white">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.16),transparent_38%),linear-gradient(160deg,#07111f_0%,#0b182b_58%,#08101d_100%)] px-6 py-10 text-white">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-5xl items-center justify-center">
         <div className="grid w-full overflow-hidden rounded-[28px] border border-white/10 bg-white/6 shadow-[0_24px_80px_rgba(2,8,23,0.55)] backdrop-blur xl:grid-cols-[1.15fr_0.85fr]">
           <section className="hidden border-r border-white/10 bg-[linear-gradient(180deg,rgba(14,116,144,0.16),rgba(8,15,30,0.08))] p-10 xl:flex xl:flex-col xl:justify-between">

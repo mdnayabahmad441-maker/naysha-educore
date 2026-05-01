@@ -23,16 +23,28 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         return
       }
 
-      // 🔥 DO NOT BLOCK ANYMORE
-      try {
-        const studentIds = await getCurrentParentStudentIds()
-        console.log("Parent access:", studentIds)
-      } catch (e) {
-        console.warn("Parent check failed:", e)
+      // ✅ REAL CHECK: must have linked student
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await wait(400)
+
+        try {
+          const studentIds = await getCurrentParentStudentIds()
+          console.log("Parent access check:", studentIds)
+
+          if (studentIds.length > 0) {
+            setLoading(false)
+            return
+          }
+        } catch (e) {
+          console.warn("Parent check error:", e)
+        }
+
+        // 🔁 refresh session (important after login)
+        await supabase.auth.refreshSession()
       }
 
-      // ✅ ALWAYS ALLOW PAGE
-      setLoading(false)
+      // ❌ If no students → block access
+      window.location.href = "/unauthorized"
     }
 
     void checkAuth()
@@ -70,6 +82,7 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className="flex h-screen flex-col bg-[#020c1b] text-white md:flex-row">
+      {/* Sidebar */}
       <aside className="w-64 bg-[#0b1a33] p-6 hidden md:block">
         <h1 className="mb-6 text-xl font-bold">Parent Panel</h1>
 
@@ -88,6 +101,7 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         </button>
       </aside>
 
+      {/* Main */}
       <div className="flex flex-1 flex-col">
         <header className="border-b border-white/10 bg-[#0b1a33] px-6 py-4">
           <h2 className="text-lg font-semibold">Parent Dashboard</h2>
