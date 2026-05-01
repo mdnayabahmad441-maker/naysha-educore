@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const res = await fetch(`${WA_SERVER}/status`)
+    const res = await fetch(`${WA_SERVER}/status`, { headers: { "ngrok-skip-browser-warning": "true" } })
     const data = await res.json()
     return NextResponse.json({ success: true, provider: "whatsapp-web.js", connected: data.ready })
   } catch {
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
     const res = await fetch(`${WA_SERVER}/send`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
       body: JSON.stringify({ phone, message }),
     })
 
