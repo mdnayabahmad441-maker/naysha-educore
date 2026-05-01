@@ -1,92 +1,57 @@
 import { NextResponse } from "next/server"
 import { isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
-import { getWhatsAppCloudStatus, sendWhatsAppTemplateMessage } from "@/lib/whatsapp-cloud"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-// ✅ GET: Check WhatsApp config status
+const WA_SERVER = process.env.WHATSAPP_SERVER_URL || "http://localhost:3001"
+
 export async function GET(req: Request) {
   if (!isInternalRequest(req)) {
-    const authResult = await requireAdminProfile(req)
-    if ("response" in authResult) return authResult.response
+    const auth = await requireAdminProfile(req)
+    if ("response" in auth) return auth.response
   }
 
-  const status = await getWhatsAppCloudStatus()
-
-  return NextResponse.json({
-    success: true,
-    provider: "whatsapp-cloud-api",
-    configured: status.configured,
-    missing: status.missing,
-    apiVersion: status.apiVersion,
-  })
+  try {
+    const res = await fetch(`${WA_SERVER}/status`)
+    const data = await res.json()
+    return NextResponse.json({ success: true, provider: "whatsapp-web.js", connected: data.ready })
+  } catch {
+    return NextResponse.json({ success: false, provider: "whatsapp-web.js", connected: false, error: "WhatsApp server not running" })
+  }
 }
 
-// ✅ POST: Send WhatsApp template message
 export async function POST(req: Request) {
   try {
-    // 🔐 Auth check
     if (!isInternalRequest(req)) {
-      const authResult = await requireAdminProfile(req)
-      if ("response" in authResult) return authResult.response
+      const auth = await requireAdminProfile(req)
+      if ("response" in auth) return auth.response
     }
 
     const body = await req.json()
-
-    // ✅ REQUIRED INPUTS
     const phone = String(body?.phone || body?.to || "").trim()
-    const templateName = String(body?.templateName || "").trim()
-    const variables = Array.isArray(body?.variables) ? body.variables : []
+    const message = String(body?.message || "").trim()
 
-    // ❌ Validation
-    if (!phone || !templateName) {
-      return NextResponse.json(
-        { error: "Missing phone/to or templateName" },
-        { status: 400 }
-      )
+    if (!phone || !message) {
+      return NextResponse.json({ error: "Missing phone or message" }, { status: 400 })
     }
 
-    // 📡 Check WhatsApp config
-    const status = await getWhatsAppCloudStatus()
-    if (!status.configured) {
-      return NextResponse.json(
-        {
-          error: `WhatsApp is not configured. Missing: ${status.missing.join(", ")}`,
-        },
-        { status: 503 }
-      )
-    }
-
-    // 🚀 Send template message
-    const result = await sendWhatsAppTemplateMessage({
-  phone,
-  templateName,
-  variables,
-})
-
-    return NextResponse.json({
-      success: true,
-      provider: "whatsapp-cloud-api",
-      to: result.to,
-      messageId: result.messageId,
+    const res = await fetch(`${WA_SERVER}/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, message }),
     })
 
+    const result = await res.json()
+
+    if (!res.ok || !result.success) {
+      return NextResponse.json({ success: false, error: result.error || "Send failed" }, { status: res.status })
+    }
+
+    return NextResponse.json({ success: true, provider: "whatsapp-web.js", to: result.to })
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : "Internal error"
     console.error("[send-whatsapp] Error:", errMsg)
-
-    // Return HTTP 200 for Meta/WhatsApp API-level rejections so the caller
-    // can read { success: false } without triggering browser console red errors.
-    const isApiError =
-      errMsg.includes("(#") ||
-      errMsg.includes("template") ||
-      errMsg.includes("Meta WhatsApp") ||
-      errMsg.includes("OAuthException")
-
-    return NextResponse.json(
-      { success: false, error: errMsg },
-      { status: isApiError ? 200 : 500 }
-    )
+    return NextResponse.json({ success: false, error: errMsg }, { status: 500 })
   }
 }

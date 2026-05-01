@@ -1,2 +1,3 @@
-2026/04/17-10:03:42.207 174c Creating DB C:\naysha-educore\naysha-educore\.wwebjs_auth\session\Default\Session Storage since it was missing.
-2026/04/17-10:03:42.233 174c Reusing MANIFEST C:\naysha-educore\naysha-educore\.wwebjs_auth\session\Default\Session Storage/MANIFEST-000001
+2026/05/01-20:45:27.148 8694 Reusing MANIFEST C:\naysha-educore\naysha-educore\.wwebjs_auth\session\Default\Session Storage/MANIFEST-000001
+2026/05/01-20:45:27.152 8694 Recovering log #3
+2026/05/01-20:45:27.156 8694 Reusing old log C:\naysha-educore\naysha-educore\.wwebjs_auth\session\Default\Session Storage/000003.log 
