@@ -69,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-(--bg-main) p-6 text-white">
-        Loading...
+        <div className="spinner" />
       </div>
     )
   }
@@ -99,40 +99,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         <nav className="mt-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pb-6 pr-1 text-sm">
-          <Link href="/admin" className={linkStyle("/admin")} onClick={closeSidebar}>Dashboard</Link>
+          <Link href="/admin" className={`nav-link ${linkStyle("/admin")}`} onClick={closeSidebar}>Dashboard</Link>
 
           <p className="mb-2 mt-6 text-xs uppercase text-gray-500">Academics</p>
-          <Link href="/admin/students" className={linkStyle("/admin/students")} onClick={closeSidebar}>Students</Link>
-          <Link href="/admin/students/id-cards" className={linkStyle("/admin/students/id-cards")} onClick={closeSidebar}>ID Cards</Link>
-          <Link href="/admin/classes" className={linkStyle("/admin/classes")} onClick={closeSidebar}>Classes</Link>
-          <Link href="/admin/subjects" className={linkStyle("/admin/subjects")} onClick={closeSidebar}>Subjects</Link>
-          <Link href="/admin/teachers" className={linkStyle("/admin/teachers")} onClick={closeSidebar}>Teachers</Link>
-          <Link href="/admin/admission-enquiry" className={linkStyle("/admin/admission-enquiry")} onClick={closeSidebar}>Admission Enquiry</Link>
-          <Link href="/admin/promotion" className={linkStyle("/admin/promotion")} onClick={closeSidebar}>Promotion</Link>
+          <Link href="/admin/students" className={`nav-link ${linkStyle("/admin/students")}`} onClick={closeSidebar}>Students</Link>
+          <Link href="/admin/students/id-cards" className={`nav-link ${linkStyle("/admin/students/id-cards")}`} onClick={closeSidebar}>ID Cards</Link>
+          <Link href="/admin/classes" className={`nav-link ${linkStyle("/admin/classes")}`} onClick={closeSidebar}>Classes</Link>
+          <Link href="/admin/subjects" className={`nav-link ${linkStyle("/admin/subjects")}`} onClick={closeSidebar}>Subjects</Link>
+          <Link href="/admin/teachers" className={`nav-link ${linkStyle("/admin/teachers")}`} onClick={closeSidebar}>Teachers</Link>
+          <Link href="/admin/admission-enquiry" className={`nav-link ${linkStyle("/admin/admission-enquiry")}`} onClick={closeSidebar}>Admission Enquiry</Link>
+          <Link href="/admin/promotion" className={`nav-link ${linkStyle("/admin/promotion")}`} onClick={closeSidebar}>Promotion</Link>
 
           <p className="mb-2 mt-6 text-xs uppercase text-gray-500">Attendance</p>
-          <Link href="/admin/attendance" className={linkStyle("/admin/attendance")} onClick={closeSidebar}>Attendance</Link>
+          <Link href="/admin/attendance" className={`nav-link ${linkStyle("/admin/attendance")}`} onClick={closeSidebar}>Attendance</Link>
 
           <p className="mb-2 mt-6 text-xs uppercase text-gray-500">Examinations</p>
-          <Link href="/admin/exams/create" className={linkStyle("/admin/exams/create")} onClick={closeSidebar}>Create Exam</Link>
-          <Link href="/admin/exams/marks" className={linkStyle("/admin/exams/marks")} onClick={closeSidebar}>Marks Entry</Link>
-          <Link href="/admin/exams/result" className={linkStyle("/admin/exams/result")} onClick={closeSidebar}>Results</Link>
-          <Link href="/admin/exams/reportcard" className={linkStyle("/admin/exams/reportcard")} onClick={closeSidebar}>Report Cards</Link>
-          <Link href="/admin/documents/certificates" className={linkStyle("/admin/documents/certificates")} onClick={closeSidebar}>Certificates / TC</Link>
+          <Link href="/admin/exams/create" className={`nav-link ${linkStyle("/admin/exams/create")}`} onClick={closeSidebar}>Create Exam</Link>
+          <Link href="/admin/exams/marks" className={`nav-link ${linkStyle("/admin/exams/marks")}`} onClick={closeSidebar}>Marks Entry</Link>
+          <Link href="/admin/exams/result" className={`nav-link ${linkStyle("/admin/exams/result")}`} onClick={closeSidebar}>Results</Link>
+          <Link href="/admin/exams/reportcard" className={`nav-link ${linkStyle("/admin/exams/reportcard")}`} onClick={closeSidebar}>Report Cards</Link>
+          <Link href="/admin/documents/certificates" className={`nav-link ${linkStyle("/admin/documents/certificates")}`} onClick={closeSidebar}>Certificates / TC</Link>
 
           <p className="mb-2 mt-6 text-xs uppercase text-gray-500">Finance</p>
-          <Link href="/admin/fees" className={linkStyle("/admin/fees")} onClick={closeSidebar}>Fees</Link>
-          <Link href="/admin/payments" className={linkStyle("/admin/payments")} onClick={closeSidebar}>Payments</Link>
-          <Link href="/admin/reports" className={linkStyle("/admin/reports")} onClick={closeSidebar}>Reports</Link>
+          <Link href="/admin/fees" className={`nav-link ${linkStyle("/admin/fees")}`} onClick={closeSidebar}>Fees</Link>
+          <Link href="/admin/payments" className={`nav-link ${linkStyle("/admin/payments")}`} onClick={closeSidebar}>Payments</Link>
+          <Link href="/admin/reports" className={`nav-link ${linkStyle("/admin/reports")}`} onClick={closeSidebar}>Reports</Link>
 
           <p className="mb-2 mt-6 text-xs uppercase text-gray-500">Communication</p>
-          <Link href="/admin/notices" className={linkStyle("/admin/notices")} onClick={closeSidebar}>Notices</Link>
-          <Link href="/admin/events" className={linkStyle("/admin/events")} onClick={closeSidebar}>Events</Link>
+          <Link href="/admin/notices" className={`nav-link ${linkStyle("/admin/notices")}`} onClick={closeSidebar}>Notices</Link>
+          <Link href="/admin/events" className={`nav-link ${linkStyle("/admin/events")}`} onClick={closeSidebar}>Events</Link>
 
           <p className="mb-2 mt-6 text-xs uppercase text-gray-500">System</p>
-          <Link href="/admin/import" className={linkStyle("/admin/import")} onClick={closeSidebar}>Bulk Import</Link>
-          <Link href="/admin/settings" className={linkStyle("/admin/settings")} onClick={closeSidebar}>Settings</Link>
-          <Link href="/admin/ai-assistant" className={linkStyle("/admin/ai-assistant")} onClick={closeSidebar}>AI Assistant</Link>
+          <Link href="/admin/import" className={`nav-link ${linkStyle("/admin/import")}`} onClick={closeSidebar}>Bulk Import</Link>
+          <Link href="/admin/settings" className={`nav-link ${linkStyle("/admin/settings")}`} onClick={closeSidebar}>Settings</Link>
+          <Link href="/admin/ai-assistant" className={`nav-link ${linkStyle("/admin/ai-assistant")}`} onClick={closeSidebar}>AI Assistant</Link>
         </nav>
 
         <div className="mt-6 border-t border-white/10 pt-5 md:hidden">
@@ -177,7 +177,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         <main className="flex-1 overflow-y-auto bg-(--bg-main) p-4 md:p-10">
-          {children}
+          <div className="page-enter">{children}</div>
         </main>
       </div>
     </div>

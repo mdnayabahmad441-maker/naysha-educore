@@ -26,7 +26,11 @@ export default function TeacherDashboard() {
   }, [])
 
   if (loading) {
-    return <div className="p-6 text-white md:p-10">Loading...</div>
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="spinner" />
+      </div>
+    )
   }
 
   const quickLinks = [
@@ -54,7 +58,7 @@ export default function TeacherDashboard() {
 
   return (
     <div className="space-y-6 p-4 text-white md:p-10">
-      <section className="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.14),transparent_34%),linear-gradient(135deg,rgba(11,26,51,0.96),rgba(8,15,30,0.92))] p-6 shadow-[0_26px_80px_rgba(2,8,23,0.45)] md:p-8">
+      <section className="animate-scale-in overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.14),transparent_34%),linear-gradient(135deg,rgba(11,26,51,0.96),rgba(8,15,30,0.92))] p-6 shadow-[0_26px_80px_rgba(2,8,23,0.45)] md:p-8">
         <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-cyan-200/70">
           Teacher Overview
         </p>
@@ -66,7 +70,7 @@ export default function TeacherDashboard() {
         </p>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4">
+          <div className="stat-card animate-slide-up stagger-2 rounded-2xl border border-white/10 bg-white/6 px-4 py-4">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
               Subject
             </p>
@@ -75,7 +79,7 @@ export default function TeacherDashboard() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4">
+          <div className="stat-card animate-slide-up stagger-3 rounded-2xl border border-white/10 bg-white/6 px-4 py-4">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
               School
             </p>
@@ -84,7 +88,7 @@ export default function TeacherDashboard() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 sm:col-span-2 xl:col-span-1">
+          <div className="stat-card animate-slide-up stagger-4 rounded-2xl border border-white/10 bg-white/6 px-4 py-4 sm:col-span-2 xl:col-span-1">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
               Access
             </p>
@@ -95,7 +99,7 @@ export default function TeacherDashboard() {
         </div>
       </section>
 
-      <section>
+      <section className="animate-slide-up stagger-3">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-white">Quick Actions</h2>
@@ -106,11 +110,11 @@ export default function TeacherDashboard() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {quickLinks.map((item) => (
+          {quickLinks.map((item, idx) => (
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] p-5 shadow-[0_18px_48px_rgba(2,8,23,0.24)] transition hover:border-cyan-300/20 hover:bg-[linear-gradient(180deg,rgba(56,189,248,0.10),rgba(255,255,255,0.04))]"
+              className={`animate-slide-up stagger-${idx + 1} rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] p-5 shadow-[0_18px_48px_rgba(2,8,23,0.24)] transition hover:border-cyan-300/20 hover:bg-[linear-gradient(180deg,rgba(56,189,248,0.10),rgba(255,255,255,0.04))]`}
             >
               <h3 className="text-lg font-semibold text-white">
                 {item.title}

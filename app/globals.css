@@ -4,12 +4,9 @@
   --bg-main: #020c1b;
   --bg-card: #0b1220;
   --bg-soft: #111827;
-
   --border: rgba(255,255,255,0.08);
-
   --text-main: #ffffff;
   --text-muted: #9ca3af;
-
   --primary: #3b82f6;
   --primary-2: #06b6d4;
 }
@@ -20,25 +17,117 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-/* GLOBAL UI SYSTEM */
+/* ── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
 
-/* CARD */
+/* ── Keyframes ─────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Animation utilities ───────────────────────────────── */
+.animate-fade-in   { animation: fadeIn   0.35s ease both; }
+.animate-slide-up  { animation: slideUp  0.4s  cubic-bezier(0.22,1,0.36,1) both; }
+.animate-slide-left  { animation: slideInLeft  0.35s cubic-bezier(0.22,1,0.36,1) both; }
+.animate-slide-right { animation: slideInRight 0.35s cubic-bezier(0.22,1,0.36,1) both; }
+.animate-scale-in  { animation: scaleIn  0.3s  cubic-bezier(0.22,1,0.36,1) both; }
+.animate-pulse-soft { animation: pulse-soft 1.8s ease-in-out infinite; }
+
+/* Stagger delays for list items */
+.stagger-1  { animation-delay: 0.05s; }
+.stagger-2  { animation-delay: 0.10s; }
+.stagger-3  { animation-delay: 0.15s; }
+.stagger-4  { animation-delay: 0.20s; }
+.stagger-5  { animation-delay: 0.25s; }
+.stagger-6  { animation-delay: 0.30s; }
+
+/* ── Skeleton loader ───────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.09) 50%,
+    rgba(255,255,255,0.04) 100%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.6s infinite linear;
+  border-radius: 10px;
+}
+
+/* ── Card ──────────────────────────────────────────────── */
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(2,8,23,0.35);
+  border-color: rgba(255,255,255,0.13);
 }
 
-/* INPUT */
-.input {
-  background: var(--bg-soft);
-  border: 1px solid var(--border);
-  color: white;
-  border-radius: 10px;
-  padding: 10px 14px;
+/* ── Stat card hover lift ──────────────────────────────── */
+.stat-card {
+  transition: transform 0.25s cubic-bezier(0.22,1,0.36,1),
+              box-shadow 0.25s ease,
+              border-color 0.25s ease;
+}
+.stat-card:hover {
+  transform: translateY(-4px) scale(1.015);
+  box-shadow: 0 20px 48px rgba(2,8,23,0.45);
 }
 
-/* BUTTON */
+/* ── Buttons ───────────────────────────────────────────── */
+button {
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.12s ease, opacity 0.15s ease;
+}
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
 .btn-primary {
   background: linear-gradient(135deg, var(--primary), var(--primary-2));
   border-radius: 10px;
@@ -46,23 +135,49 @@ body {
   font-weight: 500;
 }
 
-/* TABLE */
+/* ── Inputs ────────────────────────────────────────────── */
+input, select, textarea {
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: rgba(59,130,246,0.5) !important;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+}
+
+/* ── Table ─────────────────────────────────────────────── */
 .table-container {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
 }
-
-/* ROW HOVER */
+.row-hover {
+  transition: background 0.15s ease;
+}
 .row-hover:hover {
   background: rgba(255,255,255,0.05);
 }
 
-button {
-  cursor: pointer;
+/* ── Sidebar nav links ─────────────────────────────────── */
+.nav-link {
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+.nav-link:hover {
+  transform: translateX(3px);
 }
 
-input {
-  outline: none;
+/* ── Page wrapper ──────────────────────────────────────── */
+.page-enter {
+  animation: slideUp 0.42s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+/* ── Spinner ───────────────────────────────────────────── */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin-slow 0.7s linear infinite;
 }

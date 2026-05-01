@@ -210,7 +210,7 @@ return(
 <div className="p-6 md:p-10 text-white max-w-7xl mx-auto space-y-10">
 
 {/* HEADER */}
-<div className="flex items-start justify-between gap-4">
+<div className="animate-fade-in flex items-start justify-between gap-4">
 <div>
 <h1 className="text-3xl font-bold">
 {role === "teacher" ? "Teacher Dashboard" : `${schoolName} Dashboard`}
@@ -230,25 +230,25 @@ return(
 {/* STATS */}
 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
 
-<div className="bg-blue-600/20 border border-blue-500/20 rounded-xl p-6">
+<div className="stat-card animate-slide-up stagger-1 bg-blue-600/20 border border-blue-500/20 rounded-xl p-6">
 <p className="text-gray-400 text-sm">Students</p>
 <p className="text-3xl font-bold">{students}</p>
 </div>
 
 {role !== "teacher" && (
-<div className="bg-purple-600/20 border border-purple-500/20 rounded-xl p-6">
+<div className="stat-card animate-slide-up stagger-2 bg-purple-600/20 border border-purple-500/20 rounded-xl p-6">
 <p className="text-gray-400 text-sm">Teachers</p>
 <p className="text-3xl font-bold">{teachers}</p>
 </div>
 )}
 
-<div className="bg-green-600/20 border border-green-500/20 rounded-xl p-6">
+<div className="stat-card animate-slide-up stagger-3 bg-green-600/20 border border-green-500/20 rounded-xl p-6">
 <p className="text-gray-400 text-sm">Classes</p>
 <p className="text-3xl font-bold">{classes}</p>
 </div>
 
 {role !== "teacher" && (
-<div className="bg-yellow-600/20 border border-yellow-500/20 rounded-xl p-6">
+<div className="stat-card animate-slide-up stagger-4 bg-yellow-600/20 border border-yellow-500/20 rounded-xl p-6">
 <p className="text-gray-400 text-sm">Fees</p>
 <p className="text-3xl font-bold">₹{fees}</p>
 </div>
@@ -257,7 +257,7 @@ return(
 </div>
 
 {/* ATTENDANCE */}
-<div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+<div className="animate-slide-up stagger-2 bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
 <h2 className="text-lg font-semibold">Today&apos;s Attendance</h2>
 
 {classAttendance.map((c:any,i:number)=>(
@@ -282,7 +282,7 @@ style={{ width: `${c.percent}%` }}
 </div>
 
 {/* CHART */}
-<div className="bg-white/5 border border-white/10 rounded-xl p-6">
+<div className="animate-slide-up stagger-3 bg-white/5 border border-white/10 rounded-xl p-6">
 <h2 className="mb-4 font-semibold">Attendance Overview</h2>
 
 <ResponsiveContainer width="100%" height={250}>
@@ -296,24 +296,24 @@ style={{ width: `${c.percent}%` }}
 </div>
 
 {/* QUICK ACTIONS */}
-<div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+<div className="animate-slide-up stagger-4 grid grid-cols-2 md:grid-cols-4 gap-6">
 
-<button onClick={()=>router.push("/admin/students/create")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10">Add Student</button>
+<button onClick={()=>router.push("/admin/students/create")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition">Add Student</button>
 
 {role !== "teacher" && (
-<button onClick={()=>router.push("/admin/teachers/add")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10">Add Teacher</button>
+<button onClick={()=>router.push("/admin/teachers/add")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition">Add Teacher</button>
 )}
 
-<button onClick={()=>router.push("/admin/classes")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10">Manage Classes</button>
+<button onClick={()=>router.push("/admin/classes")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition">Manage Classes</button>
 
 {role !== "teacher" && (
-<button onClick={()=>router.push("/admin/fees")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10">Collect Fees</button>
+<button onClick={()=>router.push("/admin/fees")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition">Collect Fees</button>
 )}
 
 </div>
 
 {/* LOWER */}
-<div className="grid md:grid-cols-2 gap-6">
+<div className="animate-slide-up stagger-5 grid md:grid-cols-2 gap-6">
 
 <div className="bg-white/5 border border-white/10 p-6 rounded-xl">
 <h2 className="text-lg mb-4">Recent Students</h2>

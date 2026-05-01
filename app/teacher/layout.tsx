@@ -67,7 +67,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#020c1b] text-white">
-        Loading...
+        <div className="spinner" />
       </div>
     )
   }
@@ -114,7 +114,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
         </div>
 
         <nav className="mt-8 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 pb-6 text-sm">
-          <Link href="/teacher" className={linkStyle("/teacher")} onClick={() => setOpen(false)}>
+          <Link href="/teacher" className={`nav-link ${linkStyle("/teacher")}`} onClick={() => setOpen(false)}>
             Dashboard
           </Link>
 
@@ -122,19 +122,19 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
             Academics
           </p>
 
-          <Link href="/teacher/students" className={linkStyle("/teacher/students")} onClick={() => setOpen(false)}>
+          <Link href="/teacher/students" className={`nav-link ${linkStyle("/teacher/students")}`} onClick={() => setOpen(false)}>
             Students
           </Link>
 
-          <Link href="/teacher/attendance" className={linkStyle("/teacher/attendance")} onClick={() => setOpen(false)}>
+          <Link href="/teacher/attendance" className={`nav-link ${linkStyle("/teacher/attendance")}`} onClick={() => setOpen(false)}>
             Attendance
           </Link>
 
-          <Link href="/teacher/exams" className={linkStyle("/teacher/exams")} onClick={() => setOpen(false)}>
+          <Link href="/teacher/exams" className={`nav-link ${linkStyle("/teacher/exams")}`} onClick={() => setOpen(false)}>
             Create Exam
           </Link>
 
-          <Link href="/teacher/marks" className={linkStyle("/teacher/marks")} onClick={() => setOpen(false)}>
+          <Link href="/teacher/marks" className={`nav-link ${linkStyle("/teacher/marks")}`} onClick={() => setOpen(false)}>
             Enter Marks
           </Link>
         </nav>
@@ -186,7 +186,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 pb-28 md:p-10 md:pb-10">
-          {children}
+          <div className="page-enter">{children}</div>
         </main>
 
         <nav className="fixed inset-x-4 bottom-4 z-30 rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,rgba(7,12,22,0.96),rgba(11,26,51,0.92))] p-2 shadow-[0_24px_70px_rgba(2,8,23,0.5)] backdrop-blur md:hidden">
