@@ -1,22 +1,25 @@
-import { apiFetch } from "./api-client"
+import pkg from "whatsapp-web.js"
+import qrcode from "qrcode-terminal"
 
-export async function sendWhatsApp(
-  phone: string,
-  message: string,
-  parentName = "Parent",
-  schoolName = "School"
-) {
-  try {
-    await apiFetch("/api/send-whatsapp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        phone,
-        templateName: "school_notice",
-        variables: [parentName, schoolName, message],
-      }),
-    })
-  } catch (err) {
-    console.error("WhatsApp error:", err)
-  }
+const { Client, LocalAuth } = pkg
+
+const client = new Client({
+  authStrategy: new LocalAuth(),
+})
+
+client.on("qr", (qr: string) => {
+  console.log("Scan this QR with your WhatsApp:")
+  qrcode.generate(qr, { small: true })
+})
+
+client.on("ready", () => {
+  console.log("WhatsApp is ready ✅")
+})
+
+client.initialize()
+
+export async function sendWhatsApp(phone: string, message: string) {
+  const formattedNumber = `91${phone}@c.us`
+
+  return client.sendMessage(formattedNumber, message)
 }

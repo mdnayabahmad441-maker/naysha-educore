@@ -639,6 +639,7 @@ Never invent data that is not provided.`}
             <WhatsAppConnect />
           </div>
         )}
+
       </div>
 
       <style jsx>{`
