@@ -152,38 +152,17 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
 
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="border-b border-white/10 bg-[#0b1a33] px-4 py-4 md:px-8">
-          <div className="md:hidden">
-            <div className="rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.18),transparent_38%),linear-gradient(135deg,rgba(12,22,45,0.96),rgba(11,26,51,0.88))] px-4 py-4 shadow-[0_24px_60px_rgba(2,8,23,0.42)]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-cyan-200/70">
-                    Teacher Workspace
-                  </p>
-                  <h2 className="mt-2 truncate text-lg font-semibold text-white">
-                    {school?.name || "Teacher Panel"}
-                  </h2>
-                  <p className="mt-1 truncate text-xs text-slate-400">
-                    Faster attendance, marks, and class updates on mobile.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => setOpen(true)}
-                  className="shrink-0 rounded-2xl border border-white/10 bg-white/6 px-3 py-2 text-sm text-white shadow-[0_12px_28px_rgba(15,23,42,0.28)] hover:bg-white/10"
-                >
-                  Menu
-                </button>
-              </div>
-
-              <div className="mt-4 flex items-center gap-2 text-xs">
-                <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-100">
-                  Live Session
-                </span>
-                <span className="truncate rounded-full border border-white/10 bg-white/6 px-3 py-1 text-slate-300">
-                  {school?.subdomain ? `${school.subdomain}.naysha.online` : "Teacher access"}
-                </span>
-              </div>
-            </div>
+          <div className="flex items-center justify-between md:hidden">
+            <h2 className="text-base font-semibold text-white truncate">
+              {school?.name || "Teacher Panel"}
+            </h2>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white hover:bg-white/10"
+            >
+              Menu
+            </button>
           </div>
 
           <div className="mt-4 hidden items-center justify-between md:flex">
