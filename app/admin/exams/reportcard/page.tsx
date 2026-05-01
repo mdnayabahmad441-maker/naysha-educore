@@ -371,12 +371,7 @@ export default function ReportCardPage(){
           headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({
             phone,
-            templateName: "fee_reminder",
-            variables: [
-              `${r.report.percentage.toFixed(1)}% - Grade ${r.report.grade} (${r.report.finalResult})`,
-              r.student.name,
-              school?.name || "School",
-            ],
+            message: `${school?.name || "School"}: Result for ${r.student.name} — ${r.report.percentage.toFixed(1)}% - Grade ${r.report.grade} (${r.report.finalResult})`,
           })
         })
 

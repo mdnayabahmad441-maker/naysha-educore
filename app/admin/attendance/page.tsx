@@ -280,8 +280,7 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   phone: parent.phone,
-                  templateName: "attendance_absent",
-                  variables: [s.name, dateLabel],
+                  message: `${s.name} was marked Absent on ${dateLabel}.`,
                 }),
               }).catch((err: any) => console.error("WhatsApp error:", err))
             )
@@ -295,8 +294,7 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   phone: parent.phone,
-                  templateName: "attendance_present",
-                  variables: [s.name, dateLabel],
+                  message: `${s.name} was marked Present on ${dateLabel}.`,
                 }),
               }).catch((err: any) => console.error("WhatsApp error:", err))
             )

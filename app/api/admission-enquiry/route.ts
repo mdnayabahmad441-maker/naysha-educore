@@ -86,12 +86,7 @@ ${schoolName} Admissions Team
         headers: internalHeaders,
         body: JSON.stringify({
           phone: phone.trim(),
-          templateName: "school_notice",
-          variables: [
-            fatherName || "Parent",
-            schoolName || "School",
-            `Thank you for your admission enquiry!\n\nWe received your enquiry for ${studentName} in ${classWanted}.\n\nOur team will contact you soon.`,
-          ],
+          message: `${schoolName || "School"}: Thank you for your admission enquiry!\n\nWe received your enquiry for ${studentName} in ${classWanted}.\n\nOur team will contact you soon.`,
         }),
       })
     } catch (err) {
