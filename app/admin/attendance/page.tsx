@@ -251,7 +251,9 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
       const parentMap: Record<string, any> = {}
       parents?.forEach((p:any) => { parentMap[p.student_id] = p })
 
-      const dateLabel = new Date(selectedDate).toLocaleDateString()
+      const dateLabel = new Date(selectedDate).toLocaleDateString("en-IN", {
+        day: "2-digit", month: "long", year: "numeric",
+      })
 
       await Promise.allSettled(
         students.flatMap((s: any) => {
@@ -270,7 +272,7 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
             }).catch((err: any) => console.error("DB notification error:", err))
           )
 
-          // WhatsApp — absent students only
+          // WhatsApp — absent students
           if(status === "absent" && parent?.phone){
             jobs.push(
               apiFetch("/api/send-whatsapp", {
@@ -278,12 +280,23 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   phone: parent.phone,
-                  templateName: "school_notice",
-                  variables: [
-                    parent?.name || "Parent",
-                    school?.name || "School",
-                    `${s.name} was absent on ${dateLabel} ❌`,
-                  ],
+                  templateName: "attendance_absent",
+                  variables: [s.name, dateLabel],
+                }),
+              }).catch((err: any) => console.error("WhatsApp error:", err))
+            )
+          }
+
+          // WhatsApp — present students
+          if(status === "present" && parent?.phone){
+            jobs.push(
+              apiFetch("/api/send-whatsapp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  phone: parent.phone,
+                  templateName: "attendance_present",
+                  variables: [s.name, dateLabel],
                 }),
               }).catch((err: any) => console.error("WhatsApp error:", err))
             )

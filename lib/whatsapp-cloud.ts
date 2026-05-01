@@ -1,6 +1,6 @@
 const META_API_VERSION = "v19.0"
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
-const TEMPLATE_NAME = process.env.WHATSAPP_TEMPLATE_NAME || "naysha_automation_transaction_alert"
+const TEMPLATE_NAME = process.env.WHATSAPP_TEMPLATE_NAME || "attendance_absent"
 
 function getMetaConfig() {
   return {
