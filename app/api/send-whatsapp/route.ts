@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server"
 import { isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
+import { getWhatsAppCloudStatus, sendWhatsAppCloudMessage } from "@/lib/whatsapp-cloud"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
-
-const WA_SERVER = process.env.WHATSAPP_SERVER_URL || "http://localhost:3001"
 
 export async function GET(req: Request) {
   if (!isInternalRequest(req)) {
@@ -12,13 +11,14 @@ export async function GET(req: Request) {
     if ("response" in auth) return auth.response
   }
 
-  try {
-    const res = await fetch(`${WA_SERVER}/status`, { headers: { "ngrok-skip-browser-warning": "true" } })
-    const data = await res.json()
-    return NextResponse.json({ success: true, provider: "whatsapp-web.js", connected: data.ready })
-  } catch {
-    return NextResponse.json({ success: false, provider: "whatsapp-web.js", connected: false, error: "WhatsApp server not running" })
-  }
+  const status = await getWhatsAppCloudStatus()
+  return NextResponse.json({
+    success: true,
+    provider: "whatsapp-cloud-api",
+    configured: status.configured,
+    missing: status.missing,
+    apiVersion: status.apiVersion,
+  })
 }
 
 export async function POST(req: Request) {
@@ -36,22 +36,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing phone or message" }, { status: 400 })
     }
 
-    const res = await fetch(`${WA_SERVER}/send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
-      body: JSON.stringify({ phone, message }),
-    })
-
-    const result = await res.json()
-
-    if (!res.ok || !result.success) {
-      return NextResponse.json({ success: false, error: result.error || "Send failed" }, { status: res.status })
+    const status = await getWhatsAppCloudStatus()
+    if (!status.configured) {
+      return NextResponse.json(
+        { error: `WhatsApp not configured. Missing: ${status.missing.join(", ")}` },
+        { status: 503 }
+      )
     }
 
-    return NextResponse.json({ success: true, provider: "whatsapp-web.js", to: result.to })
+    const result = await sendWhatsAppCloudMessage({ phone, message })
+
+    return NextResponse.json({ success: true, provider: "whatsapp-cloud-api", to: result.to })
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : "Internal error"
     console.error("[send-whatsapp] Error:", errMsg)
-    return NextResponse.json({ success: false, error: errMsg }, { status: 500 })
+
+    const isApiError =
+      errMsg.includes("(#") ||
+      errMsg.includes("template") ||
+      errMsg.includes("Meta WhatsApp") ||
+      errMsg.includes("OAuthException")
+
+    return NextResponse.json(
+      { success: false, error: errMsg },
+      { status: isApiError ? 200 : 500 }
+    )
   }
 }
