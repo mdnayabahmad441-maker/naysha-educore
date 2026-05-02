@@ -112,23 +112,17 @@ export default function LoginPage() {
 
     setLoading(true)
 
-    // Step 1: ensure Supabase auth user exists for this parent
-    await fetch("/api/auth/request-otp", {
+    const res = await fetch("/api/auth/parent-otp/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: resolvedAccount.email }),
     })
 
-    // Step 2: send OTP from browser so PKCE flow works correctly
-    const { error } = await supabase.auth.signInWithOtp({
-      email: resolvedAccount.email,
-      options: { shouldCreateUser: false },
-    })
-
     setLoading(false)
 
-    if (error) {
-      alert(error.message || "Failed to send OTP")
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert(data?.error || "Failed to send OTP")
       return
     }
 
