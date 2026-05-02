@@ -21,47 +21,48 @@ type StudentListRow = {
 async function fetchStudentsForSchool(schoolId: string): Promise<StudentListRow[]> {
   const year = await getActiveAcademicYear()
 
-  // 🔹 SINGLE QUERY: Get enrollments with joined student and class data
-  let query = supabase
-    .from("student_enrollments")
-    .select(
-      `
-      roll_number,
-      students: student_id (id, name, student_code),
-      classes: class_id (name)
-      `
-    )
+  // Fetch all students in the school
+  const { data: students, error } = await supabase
+    .from("students")
+    .select("id, name, student_code")
     .eq("school_id", schoolId)
-
-  // Only filter by academic year when one is active — never block the list
-  if (year?.id) query = query.eq("academic_year_id", year.id)
-
-  const { data: enrollments, error } = await query
+    .order("name", { ascending: true })
 
   if (error) {
-    console.error("Enrollment fetch error:", error)
+    console.error("Students fetch error:", error)
     return []
   }
 
-  // 🔹 TRANSFORM DATA
-  const rows = (enrollments || []).map((row: any, index: number) => {
-    const student = row.students
-    const cls = row.classes
+  if (!students?.length) return []
 
-    if (!student) return null
+  // Fetch enrollments for active year (optional — used for class/roll info)
+  const studentIds = students.map((s: any) => s.id)
+  let enrollmentQuery = supabase
+    .from("student_enrollments")
+    .select("student_id, roll_number, classes: class_id (name)")
+    .eq("school_id", schoolId)
+    .in("student_id", studentIds)
 
+  if (year?.id) enrollmentQuery = enrollmentQuery.eq("academic_year_id", year.id)
+
+  const { data: enrollments } = await enrollmentQuery
+
+  const enrollmentMap = new Map(
+    (enrollments || []).map((e: any) => [e.student_id, e])
+  )
+
+  const rows: StudentListRow[] = students.map((student: any, index: number) => {
+    const enrollment = enrollmentMap.get(student.id)
     return {
       id: student.id,
       name: student.name,
-      roll_number: row.roll_number,
-      class_name: cls?.name || null,
-      display_id: student.student_code || `ST${String(index + 1).padStart(2, "0")}`
+      roll_number: enrollment?.roll_number ?? null,
+      class_name: (enrollment?.classes as any)?.name || null,
+      display_id: student.student_code || `ST${String(index + 1).padStart(2, "0")}`,
     }
   })
 
-  const cleanRows = rows.filter(Boolean) as StudentListRow[]
-
-  return cleanRows.sort((a, b) => {
+  return rows.sort((a, b) => {
     const classA = a.class_name || "zzzz"
     const classB = b.class_name || "zzzz"
     const classCompare = classA.localeCompare(classB)
@@ -170,7 +171,7 @@ export default function StudentsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Students</h1>
           <p className="text-sm text-gray-400">
-            {students.length} enrolled students
+            {students.length} students
           </p>
         </div>
 
