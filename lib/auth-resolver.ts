@@ -20,9 +20,6 @@ type ParentRow = {
   school_id: string | null
 }
 
-// ==============================
-// HELPERS
-// ==============================
 async function findSchoolSubdomain(schoolId: string) {
   const { data } = await supabaseAdmin
     .from("schools")
@@ -85,74 +82,60 @@ async function persistResolvedAccess(user: User, access: ResolvedUserAccess) {
   ])
 }
 
-// ==============================
-// MAIN RESOLVER
-// ==============================
 export async function resolveUserAccess(user: User, preferredRole?: AccountRole | null) {
   const email = String(user.email || "").trim().toLowerCase()
-
   if (!email) throw new Error("Email missing")
 
-  console.log("RESOLVER →", { email, preferredRole })
-
-  // 🔥 FIX: STRICT ROLE CONTROL
   const allowParent = preferredRole === "parent" || !preferredRole
   const allowTeacher = preferredRole === "teacher"
   const allowAdmin = preferredRole === "admin"
 
-// =========================
-// ✅ PARENT (FINAL FIX)
-// =========================
-if (allowParent) {
-  const parentRows = await resolveParentRows(user.id, email)
+  if (allowParent) {
+    const parentRows = await resolveParentRows(user.id, email)
 
-  if (parentRows.length > 0) {
+    if (parentRows.length > 0) {
+      const studentIds = [
+        ...new Set(
+          parentRows
+            .map(r => r.student_id)
+            .filter((id): id is string => Boolean(id))
+        ),
+      ]
 
-    const studentIds = [...new Set(
-      parentRows.map((r) => r.student_id).filter((id): id is string => Boolean(id))
-    )]
+      const schoolId =
+        (await resolveParentSchool(parentRows)) ||
+        user.user_metadata?.school_id ||
+        ""
 
-    console.log("✅ Parent found:", studentIds)
+      let subdomain = ""
 
-    // 🔥 DO NOT BLOCK IF SCHOOL MISSING
-    const schoolId =
-      (await resolveParentSchool(parentRows)) ||
-      user.user_metadata?.school_id ||
-      null
+      if (schoolId) {
+        const found = await findSchoolSubdomain(schoolId)
+        subdomain = found || ""
+      }
 
-    let subdomain = ""
+      await supabaseAdmin
+        .from("parents")
+        .update({ auth_id: user.id })
+        .eq("email", email)
 
-    if (schoolId) {
-      const found = await findSchoolSubdomain(schoolId)
-      subdomain = found || ""
+      const access: ResolvedUserAccess = {
+        userId: user.id,
+        email,
+        role: "parent",
+        schoolId: schoolId || "",
+        subdomain,
+        next: "/parent",
+        studentIds,
+        school_id: schoolId || "",
+      }
+
+      await persistResolvedAccess(user, access)
+
+      return access
     }
-
-    // 🔥 Always link auth_id
-    await supabaseAdmin
-      .from("parents")
-      .update({ auth_id: user.id })
-      .eq("email", email)
-
-    const access: ResolvedUserAccess = {
-      userId: user.id,
-      email,
-      role: "parent",
-      schoolId: schoolId || "",
-      subdomain,
-      next: "/parent",
-      studentIds,
-      school_id: schoolId || "",
-    }
-
-    await persistResolvedAccess(user, access)
-
-    return access
   }
-}
 
-  // =========================
-  // TEACHER
-  // =========================
   if (allowTeacher) {
     const { data: teacher } = await supabaseAdmin
       .from("teachers")
@@ -180,9 +163,6 @@ if (allowParent) {
     }
   }
 
-  // =========================
-  // ADMIN (ONLY IF EXPLICIT)
-  // =========================
   if (allowAdmin) {
     const { data: school } = await supabaseAdmin
       .from("schools")
@@ -213,9 +193,6 @@ if (allowParent) {
   return null
 }
 
-// ==============================
-// LOGIN IDENTIFIER
-// ==============================
 export async function resolveIdentifierToAccount(identifier: string) {
   const email = identifier.trim().toLowerCase()
   if (!email) return null
@@ -253,9 +230,6 @@ export async function resolveIdentifierToAccount(identifier: string) {
   return null
 }
 
-// ==============================
-// OTP SUPPORT
-// ==============================
 export async function resolveAccountByEmail(email: string) {
   return resolveIdentifierToAccount(email)
 }
