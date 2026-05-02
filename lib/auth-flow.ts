@@ -2,8 +2,7 @@
 
 import { supabase } from "@/lib/supabase"
 import { waitForSession } from "@/lib/auth-session"
-import { resolveTenantOrigin } from "@/lib/auth-storage"
-import { sanitizeNextPath, sanitizeSubdomain } from "@/lib/security"
+import { sanitizeNextPath } from "@/lib/security"
 
 export type AuthDestination = {
   next: "/admin" | "/teacher" | "/parent"
@@ -117,7 +116,6 @@ if (!refreshed.session) {
 
 export async function redirectWithSession(destination: AuthDestination) {
   const next = sanitizeNextPath(destination.next)
-  const subdomain = sanitizeSubdomain(destination.subdomain)
 
   const { data: sessionData } = await supabase.auth.getSession()
 
@@ -134,13 +132,7 @@ export async function redirectWithSession(destination: AuthDestination) {
     next,
   })
 
-  // Parents stay on the current domain — no subdomain redirect needed
-  // (parent pages resolve school via session school_id, not subdomain)
-  if (subdomain && next !== "/parent") {
-    const tenantOrigin = resolveTenantOrigin(subdomain)
-    window.location.href = `${tenantOrigin}/auth/callback?next=${encodeURIComponent(next)}#${payload.toString()}`
-    return
-  }
-
+  // Always complete auth on the current domain — school pages resolve
+  // school context via session school_id, not subdomain
   window.location.href = `/auth/callback?next=${encodeURIComponent(next)}#${payload.toString()}`
 }
