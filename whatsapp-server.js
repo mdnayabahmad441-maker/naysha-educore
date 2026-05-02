@@ -80,11 +80,17 @@ const server = http.createServer(async (req, res) => {
           return
         }
 
-        // Normalize phone: strip non-digits, ensure country code
+        // Resolve the correct WhatsApp ID for the number
         const digits = phone.replace(/\D/g, "")
-        const chatId = `${digits}@c.us`
+        const numberId = await client.getNumberId(digits)
 
-        await client.sendMessage(chatId, message)
+        if (!numberId) {
+          res.statusCode = 404
+          res.end(JSON.stringify({ success: false, error: `Number ${digits} is not on WhatsApp` }))
+          return
+        }
+
+        await client.sendMessage(numberId._serialized, message)
         res.end(JSON.stringify({ success: true, to: chatId }))
       } catch (err) {
         console.error("Send error:", err.message)
