@@ -134,7 +134,9 @@ export async function redirectWithSession(destination: AuthDestination) {
     next,
   })
 
-  if (subdomain) {
+  // Parents stay on the current domain — no subdomain redirect needed
+  // (parent pages resolve school via session school_id, not subdomain)
+  if (subdomain && next !== "/parent") {
     const tenantOrigin = resolveTenantOrigin(subdomain)
     window.location.href = `${tenantOrigin}/auth/callback?next=${encodeURIComponent(next)}#${payload.toString()}`
     return
