@@ -37,47 +37,7 @@ export default function VerifyPageClient() {
 
     setLoading(true)
 
-    // Parent login uses our custom OTP system (Resend + parent_otps table)
-    if (preferredRole === "parent" && mode === "login") {
-      const res = await fetch("/api/auth/parent-otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code: trimmedOtp }),
-      })
-
-      const result = await res.json().catch(() => ({}))
-
-      if (!res.ok) {
-        setLoading(false)
-        alert(result?.error || "Invalid or expired code")
-        return
-      }
-
-      // Use the magic-link token returned by the server to open a real session
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: result.token,
-        type: "magiclink",
-      })
-
-      if (error || !data.user) {
-        setLoading(false)
-        alert(error?.message || "Failed to create session")
-        return
-      }
-
-      try {
-        const destination = await resolveAuthDestination(data.user, email, "parent")
-        await redirectWithSession(destination)
-      } catch (authError) {
-        alert(authError instanceof Error ? authError.message : "Verification failed")
-        setLoading(false)
-      }
-
-      return
-    }
-
-    // All other roles (teacher/admin first-time setup) use Supabase built-in OTP
+    // All roles use Supabase built-in OTP
     const { data, error } = await supabase.auth.verifyOtp({
       email,
       token: trimmedOtp,
