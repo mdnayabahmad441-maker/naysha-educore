@@ -83,7 +83,7 @@ async function buildFallbackContext(user: any): Promise<AuthSessionContext | nul
       ? metadataActiveRole
       : metadataRole
 
-  if ((effectiveRole === "admin" || effectiveRole === "teacher") && metadataSchoolId) {
+  if (effectiveRole === "admin" || effectiveRole === "teacher") {
     return {
       userId: String(user.id),
       email,
