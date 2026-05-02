@@ -112,21 +112,34 @@ export default function LoginPage() {
 
     setLoading(true)
 
-    const res = await fetch("/api/auth/parent-otp/send", {
+    // Ensure Supabase auth user exists server-side
+    const res = await fetch("/api/auth/request-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: resolvedAccount.email }),
     })
 
-    setLoading(false)
-
     if (!res.ok) {
+      setLoading(false)
       const data = await res.json().catch(() => ({}))
-      alert(data?.error || "Failed to send login link")
+      alert(data?.error || "Failed to prepare account")
       return
     }
 
-    alert(`Login link sent to ${resolvedAccount.email} — check your inbox and click the link to sign in.`)
+    // Send OTP from browser via Supabase
+    const { error } = await supabase.auth.signInWithOtp({
+      email: resolvedAccount.email,
+      options: { shouldCreateUser: false },
+    })
+
+    setLoading(false)
+
+    if (error) {
+      alert(error.message || "Failed to send OTP")
+      return
+    }
+
+    window.location.href = `/verify?email=${encodeURIComponent(resolvedAccount.email)}&mode=login&role=parent`
   }
 
   const startExistingAccountSetup = async () => {
