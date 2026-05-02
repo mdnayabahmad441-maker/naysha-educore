@@ -129,7 +129,7 @@ export default function LoginPage() {
     // Send OTP from browser via Supabase
     const { error } = await supabase.auth.signInWithOtp({
       email: resolvedAccount.email,
-      options: { shouldCreateUser: false },
+      options: { shouldCreateUser: true },
     })
 
     setLoading(false)
