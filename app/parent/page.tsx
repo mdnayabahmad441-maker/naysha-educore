@@ -24,6 +24,9 @@ type ChildSummary = {
   results: any[]
 }
 
+// small wait helper (important for session delay)
+const wait = (ms: number) => new Promise((res) => setTimeout(res, ms))
+
 export default function ParentDashboard(){
   const [children,setChildren] = useState<ChildSummary[]>([])
   const [loading,setLoading] = useState(true)
@@ -33,10 +36,29 @@ export default function ParentDashboard(){
       setLoading(true)
 
       try{
-        const studentIds = await getCurrentParentStudentIds()
-        console.log("[ParentDashboard] studentIds:", studentIds)
 
+        let studentIds: string[] = []
+
+        //  retry logic
+        for (let attempt = 0; attempt < 5; attempt++) {
+          if (attempt > 0) await wait(400)
+
+          try {
+            studentIds = await getCurrentParentStudentIds()
+            console.log("[ParentDashboard] studentIds:", studentIds)
+
+            if (studentIds.length > 0) break
+          } catch (e) {
+            console.warn("Retry error:", e)
+          }
+
+          //  refresh session between retries
+          await supabase.auth.refreshSession()
+        }
+
+        // prevent false empty state
         if(studentIds.length === 0){
+          console.warn("No student found after retries")
           setChildren([])
           return
         }
@@ -51,6 +73,7 @@ export default function ParentDashboard(){
         }
 
         const studentRows = (students as StudentRecord[] | null) || []
+
         const classIds = [
           ...new Set(
             studentRows
@@ -58,6 +81,7 @@ export default function ParentDashboard(){
               .filter((id): id is string => Boolean(id))
           )
         ]
+
         const [classesRes, attendanceRes, paymentsRes, resultsRes] =
           await Promise.all([
             classIds.length
@@ -83,7 +107,9 @@ export default function ParentDashboard(){
               .order("created_at",{ascending:false})
           ])
 
-        if(classesRes.error) console.error("Parent classes load error:", classesRes.error)
+        if(classesRes.error) {
+          console.error("Parent classes load error:", classesRes.error)
+        }
 
         const classMap = new Map(
           ((classesRes.data as NamedRecord[] | null) || []).map((item)=>[
@@ -95,12 +121,15 @@ export default function ParentDashboard(){
         setChildren(studentRows.map((student)=>({
           student: {
             ...student,
-            class_name: student.class_id ? classMap.get(student.class_id) || null : null
+            class_name: student.class_id
+              ? classMap.get(student.class_id) || null
+              : null
           },
           attendance: (attendanceRes.data || []).filter((item)=>item.student_id === student.id),
           payments: (paymentsRes.data || []).filter((item)=>item.student_id === student.id),
           results: (resultsRes.data || []).filter((item)=>item.student_id === student.id)
         })))
+
       }catch(error){
         console.error("Parent dashboard load error:", error)
         setChildren([])
@@ -126,14 +155,20 @@ export default function ParentDashboard(){
 
       {children.map(({ student, attendance, payments, results })=>{
         const presentDays = attendance.filter((item)=>item.status==="present").length
+
         const attendancePercent = attendance.length
           ? ((presentDays/attendance.length)*100).toFixed(1)
           : "0"
-        const totalFees = payments.reduce((sum,item)=>sum + Number(item.amount || 0),0)
+
+        const totalFees = payments.reduce(
+          (sum,item)=>sum + Number(item.amount || 0),0
+        )
+
         const lastResult = results[0]
 
         return(
           <div key={student.id} className="space-y-6 rounded-xl border border-white/10 bg-white/10 p-6">
+
             <div>
               <h2 className="text-2xl font-semibold">{student.name}</h2>
               <p className="text-gray-400 mt-1">
@@ -155,7 +190,9 @@ export default function ParentDashboard(){
               <div className="bg-white/10 p-6 rounded-xl text-center">
                 <p className="text-gray-400 text-sm">Last Result</p>
                 <h3 className="text-2xl font-bold">
-                  {lastResult ? `${Number(lastResult.percentage || 0).toFixed(1)}%` : "-"}
+                  {lastResult
+                    ? `${Number(lastResult.percentage || 0).toFixed(1)}%`
+                    : "-"}
                 </h3>
               </div>
             </div>
@@ -181,6 +218,7 @@ export default function ParentDashboard(){
                 ))}
               </div>
             </div>
+
           </div>
         )
       })}
