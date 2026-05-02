@@ -306,24 +306,18 @@ export default function SettingsPage() {
   }
 
   const saveClassFees = async () => {
-    for (const classId in classFees) {
-      const value = classFees[classId]
+    await supabase.from("class_fee_settings").delete().eq("school_id", schoolId)
 
-      const { error } = await supabase
-        .from("class_fee_settings")
-        .upsert(
-          {
-            class_id: classId,
-            school_id: schoolId,
-            tuition_fee: Number(value.tuition || 0),
-            transport_fee: Number(value.transport || 0),
-            hostel_fee: Number(value.hostel || 0),
-          },
-          {
-            onConflict: "class_id,school_id",
-          }
-        )
+    const rows = Object.entries(classFees).map(([classId, value]: [string, any]) => ({
+      class_id: classId,
+      school_id: schoolId,
+      tuition_fee: Number(value.tuition || 0),
+      transport_fee: Number(value.transport || 0),
+      hostel_fee: Number(value.hostel || 0),
+    }))
 
+    if (rows.length > 0) {
+      const { error } = await supabase.from("class_fee_settings").insert(rows)
       if (error) {
         console.error(error)
         alert(error.message)

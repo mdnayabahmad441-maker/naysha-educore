@@ -35,18 +35,16 @@ export async function updateSettings(key: string, value: any) {
     const schoolId = await getSchoolId()
     if (!schoolId) return
 
-    const { error } = await supabase
+    const { data: existing } = await supabase
       .from("settings")
-      .upsert(
-        {
-          school_id: schoolId,
-          key,
-          value
-        },
-        {
-          onConflict: "school_id,key" // 🔥 FIXED
-        }
-      )
+      .select("id")
+      .eq("school_id", schoolId)
+      .eq("key", key)
+      .maybeSingle()
+
+    const { error } = existing
+      ? await supabase.from("settings").update({ value }).eq("school_id", schoolId).eq("key", key)
+      : await supabase.from("settings").insert({ school_id: schoolId, key, value })
 
     if (error) {
       console.error("❌ Settings update error:", error)
