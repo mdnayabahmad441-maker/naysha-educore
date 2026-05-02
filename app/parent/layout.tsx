@@ -12,7 +12,6 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [loading, setLoading] = useState(true)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -23,28 +22,32 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         return
       }
 
-      // ✅ REAL CHECK: must have linked student
-      for (let attempt = 0; attempt < 3; attempt++) {
-        if (attempt > 0) await wait(400)
+      let studentIds: string[] = []
+
+     
+      for (let attempt = 0; attempt < 5; attempt++) {
+        if (attempt > 0) await wait(500)
 
         try {
-          const studentIds = await getCurrentParentStudentIds()
+          studentIds = await getCurrentParentStudentIds()
           console.log("Parent access check:", studentIds)
 
-          if (studentIds.length > 0) {
-            setLoading(false)
-            return
-          }
+          if (studentIds.length > 0) break
         } catch (e) {
           console.warn("Parent check error:", e)
         }
 
-        // 🔁 refresh session (important after login)
         await supabase.auth.refreshSession()
       }
 
-      // ❌ If no students → block access
-      window.location.href = "/unauthorized"
+      
+      if (studentIds.length === 0) {
+        console.warn("No student linked to parent")
+        window.location.href = "/unauthorized"
+        return
+      }
+
+      setLoading(false)
     }
 
     void checkAuth()
@@ -82,7 +85,6 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className="flex h-screen flex-col bg-[#020c1b] text-white md:flex-row">
-      {/* Sidebar */}
       <aside className="w-64 bg-[#0b1a33] p-6 hidden md:block">
         <h1 className="mb-6 text-xl font-bold">Parent Panel</h1>
 
@@ -101,7 +103,6 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         </button>
       </aside>
 
-      {/* Main */}
       <div className="flex flex-1 flex-col">
         <header className="border-b border-white/10 bg-[#0b1a33] px-6 py-4">
           <h2 className="text-lg font-semibold">Parent Dashboard</h2>
