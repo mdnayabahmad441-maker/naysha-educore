@@ -207,17 +207,25 @@ export async function resolveIdentifierToAccount(identifier: string) {
     return { email, role: "parent" as const, loginMethod: "otp" as const }
   }
 
-  const { data: teacher } = await supabaseAdmin
+  const { data: teacher, error: teacherError } = await supabaseAdmin
     .from("teachers")
     .select("id, auth_id")
-    .eq("email", email)
+    .ilike("email", email)
     .maybeSingle()
+
+  if (teacherError) {
+    console.error("[resolveIdentifierToAccount] teacher lookup error:", teacherError)
+  }
 
   if (teacher?.id) {
     let mustSetPassword = false
     if (teacher.auth_id) {
-      const { data: { user: authUser } } = await supabaseAdmin.auth.admin.getUserById(teacher.auth_id)
-      mustSetPassword = authUser?.user_metadata?.must_set_password === true
+      try {
+        const { data: authData } = await supabaseAdmin.auth.admin.getUserById(teacher.auth_id)
+        mustSetPassword = authData?.user?.user_metadata?.must_set_password === true
+      } catch (e) {
+        console.error("[resolveIdentifierToAccount] getUserById error:", e)
+      }
     }
     return {
       email,
