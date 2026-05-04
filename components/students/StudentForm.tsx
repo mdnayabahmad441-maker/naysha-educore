@@ -411,9 +411,7 @@ ${schoolName} Team
                   phone: parentPhone.trim(),
                   templateName: "school_notice",
                   variables: [
-                    fatherName.trim() || "Parent",
-                    schoolName || "School",
-                    `Welcome! We are delighted to welcome your child ${name.trim()} to ${schoolName || "our school"}.`,
+                    `Welcome! Your child ${name.trim()} has been successfully enrolled at ${schoolName || "our school"}.`,
                   ],
                 })
               })

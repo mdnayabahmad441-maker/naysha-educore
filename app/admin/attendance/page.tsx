@@ -282,6 +282,7 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
                 body: JSON.stringify({
                   phone: parent.phone,
                   message: waMsg,
+                  templateName: "attendance_absent",
                   variables: [s.name, dateLabel],
                 }),
               }).catch((err: any) => console.error("WhatsApp error:", err))
@@ -298,6 +299,7 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
                 body: JSON.stringify({
                   phone: parent.phone,
                   message: waMsg,
+                  templateName: "attendance_absent",
                   variables: [s.name, dateLabel],
                 }),
               }).catch((err: any) => console.error("WhatsApp error:", err))

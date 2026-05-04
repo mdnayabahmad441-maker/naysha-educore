@@ -47,7 +47,7 @@ export async function POST(req: Request) {
             phone: String(parent.phone).trim(),
             message: `${school?.name || "School"}: ${title}\n${message}`,
             templateName: "school_notice",
-            variables: [title, message],
+            variables: [`${title}: ${message}`],
           }),
         })
 

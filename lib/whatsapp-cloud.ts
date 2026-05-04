@@ -113,14 +113,11 @@ export async function sendWhatsAppTemplateMessage({
   }
 }
 
-// General-purpose wrapper — maps school notification fields to template variables
-// Template: naysha_automation_transaction_alert
-// {{1}} = parentName, {{2}} = message/reference, {{3}} = date, {{4}} = schoolName
+// General-purpose wrapper — uses school_notice template: "Dear Parent this is to inform you that {{1}}."
+// {{1}} = full message text
 export async function sendWhatsAppCloudMessage({
   phone,
   message,
-  schoolName = "School",
-  parentName = "Parent",
 }: {
   schoolId?: string
   phone: string
@@ -128,16 +125,10 @@ export async function sendWhatsAppCloudMessage({
   schoolName?: string
   parentName?: string
 }) {
-  const today = new Date().toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-
   const result = await sendWhatsAppTemplateMessage({
     phone,
     templateName: TEMPLATE_NAME,
-    variables: [parentName, message, today, schoolName],
+    variables: [sanitize(message)],
   })
   return { to: result.to, data: { messageId: result.messageId } }
 }
