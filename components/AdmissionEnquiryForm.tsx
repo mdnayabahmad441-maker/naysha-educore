@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
-type SchoolClass = {
-  id: string
-  name: string
-}
+const CLASS_OPTIONS = [
+  "Nursery", "LKG", "UKG",
+  "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
+  "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
+]
 
 type AdmissionEnquiryFormProps = {
   schoolId?: string
@@ -19,24 +20,8 @@ export default function AdmissionEnquiryForm({ schoolId, schoolName }: Admission
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
   const [address, setAddress] = useState("")
-
-  const [classes, setClasses] = useState<SchoolClass[]>([])
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-
-  useEffect(() => {
-    if (!schoolId) return
-
-    // Fetch available classes
-    void fetch(`/api/classes?schoolId=${schoolId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setClasses(data.classes || [])
-        }
-      })
-      .catch(err => console.error("Failed to load classes:", err))
-  }, [schoolId])
 
   const submitEnquiry = async () => {
     if (!studentName.trim() || !fatherName.trim() || !classWanted || !phone.trim() || !email.trim() || !address.trim()) {
@@ -152,10 +137,8 @@ export default function AdmissionEnquiryForm({ schoolId, schoolName }: Admission
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
           >
             <option value="">Select Class</option>
-            {classes.map((cls) => (
-              <option key={cls.id} value={cls.name}>
-                {cls.name}
-              </option>
+            {CLASS_OPTIONS.map((cls) => (
+              <option key={cls} value={cls}>{cls}</option>
             ))}
           </select>
         </div>
