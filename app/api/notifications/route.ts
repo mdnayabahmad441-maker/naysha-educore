@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
-import { isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
+import { isInternalRequest, requireAuthorizedProfile } from "@/lib/api-auth"
 import { getBaseUrl, getInternalApiHeaders } from "@/lib/internal-api"
 
 export async function POST(req: Request) {
@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     let callerSchoolId: string | null = null
 
     if (!isInternalRequest(req)) {
-      const auth = await requireAdminProfile(req)
+      const auth = await requireAuthorizedProfile(req, ["admin", "teacher"])
       if ("response" in auth) return auth.response
       callerSchoolId = auth.profile.schoolId
     }

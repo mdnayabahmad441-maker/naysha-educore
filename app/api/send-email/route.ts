@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { Resend } from "resend"
 import nodemailer from "nodemailer"
-import { isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
+import { isInternalRequest, requireAuthorizedProfile } from "@/lib/api-auth"
 
 const RESEND_TEST_FROM = "onboarding@resend.dev"
 
@@ -74,7 +74,7 @@ function buildHtmlContent({
 
 export async function GET(req: Request) {
   if (!isInternalRequest(req)) {
-    const authResult = await requireAdminProfile(req)
+    const authResult = await requireAuthorizedProfile(req, ["admin", "teacher"])
     if ("response" in authResult) {
       return authResult.response
     }
@@ -94,7 +94,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     if (!isInternalRequest(req)) {
-      const authResult = await requireAdminProfile(req)
+      const authResult = await requireAuthorizedProfile(req, ["admin", "teacher"])
       if ("response" in authResult) {
         return authResult.response
       }

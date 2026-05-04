@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
+import { isInternalRequest, requireAuthorizedProfile } from "@/lib/api-auth"
 import { getWhatsAppCloudStatus, sendWhatsAppCloudMessage } from "@/lib/whatsapp-cloud"
 
 export const runtime = "nodejs"
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(req: Request) {
   if (!isInternalRequest(req)) {
-    const auth = await requireAdminProfile(req)
+    const auth = await requireAuthorizedProfile(req, ["admin", "teacher"])
     if ("response" in auth) return auth.response
   }
 
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     if (!isInternalRequest(req)) {
-      const auth = await requireAdminProfile(req)
+      const auth = await requireAuthorizedProfile(req, ["admin", "teacher"])
       if ("response" in auth) return auth.response
     }
 

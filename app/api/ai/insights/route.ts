@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { ensureSameSchool, requireAdminProfile } from "@/lib/api-auth"
+import { ensureSameSchool, requireAuthorizedProfile } from "@/lib/api-auth"
 import { createClaudeMessage, extractClaudeToolInput } from "@/lib/claude"
 import { getAiTenantContext } from "@/lib/server-settings"
 import type Anthropic from "@anthropic-ai/sdk"
@@ -212,7 +212,7 @@ Provide:
 }
 
 export async function POST(req: Request) {
-  const authResult = await requireAdminProfile(req)
+  const authResult = await requireAuthorizedProfile(req, ["admin", "teacher"])
   if ("response" in authResult) return authResult.response
 
   try {

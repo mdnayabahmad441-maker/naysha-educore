@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
-import { ensureSameSchool, requireAdminProfile } from "@/lib/api-auth"
+import { ensureSameSchool, requireAuthorizedProfile } from "@/lib/api-auth"
 import { createClaudeMessage, extractClaudeText } from "@/lib/claude"
 import { getAiTenantContext, getSchoolLiveData } from "@/lib/server-settings"
 
 export async function POST(req: Request) {
-  const authResult = await requireAdminProfile(req)
+  const authResult = await requireAuthorizedProfile(req, ["admin", "teacher"])
 
   if ("response" in authResult) {
     return authResult.response
