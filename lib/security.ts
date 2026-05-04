@@ -22,9 +22,11 @@ export function sanitizeSubdomain(value: string | null | undefined) {
   return normalized
 }
 
-export function sanitizeNextPath(value: string | null | undefined) {
+export function sanitizeNextPath(value: string | null | undefined): "/admin" | "/teacher" | "/parent" {
   const normalized = String(value || "").trim()
-  return NEXT_PATHS.has(normalized) ? (normalized as "/admin" | "/teacher" | "/parent") : "/admin"
+  if (NEXT_PATHS.has(normalized)) return normalized as "/admin" | "/teacher" | "/parent"
+  // Do not guess role — callers must resolve role from JWT if this returns the default
+  return "/admin"
 }
 
 export function getClientIp(headers: Headers) {

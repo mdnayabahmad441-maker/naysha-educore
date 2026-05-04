@@ -4,7 +4,6 @@ import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { waitForSession } from "@/lib/auth-session"
-import { sanitizeNextPath } from "@/lib/security"
 
 function readTokenParams() {
   const hash = window.location.hash.startsWith("#")
@@ -16,8 +15,13 @@ function readTokenParams() {
   return {
     accessToken: hash?.get("access_token") || null,
     refreshToken: hash?.get("refresh_token") || null,
-    next: sanitizeNextPath(hash?.get("next") || query.get("next")),
   }
+}
+
+function roleToDestination(role: string | undefined): string {
+  if (role === "teacher") return "/teacher"
+  if (role === "parent") return "/parent"
+  return "/admin"
 }
 
 export default function CallbackClient() {
@@ -25,12 +29,19 @@ export default function CallbackClient() {
 
   useEffect(() => {
     const run = async () => {
-      const { accessToken, refreshToken, next } = readTokenParams()
+      const { accessToken, refreshToken } = readTokenParams()
 
-      // No tokens — check for existing session
+      // No tokens — check for existing session and route by role
       if (!accessToken || !refreshToken) {
         const existingSession = await waitForSession(3, 150)
-        window.location.href = existingSession ? next : "/login"
+        if (existingSession) {
+          const role =
+            existingSession.user?.user_metadata?.active_role ||
+            existingSession.user?.user_metadata?.role
+          window.location.href = roleToDestination(role)
+        } else {
+          window.location.href = "/login"
+        }
         return
       }
 
@@ -61,10 +72,18 @@ export default function CallbackClient() {
         await new Promise((res) => setTimeout(res, 400))
       }
 
+      // Read role from freshly refreshed JWT — this is authoritative
+      const { data: freshSession } = await supabase.auth.getSession()
+      const jwtRole =
+        freshSession.session?.user?.user_metadata?.active_role ||
+        freshSession.session?.user?.user_metadata?.role
+
+      const destination = roleToDestination(jwtRole)
+
       // Clean up URL and redirect
       window.history.replaceState({}, document.title, "/auth/callback")
       await new Promise((res) => setTimeout(res, 300))
-      window.location.href = next
+      window.location.href = destination
     }
 
     void run()
