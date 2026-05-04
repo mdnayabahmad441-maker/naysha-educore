@@ -432,6 +432,38 @@ export default function SettingsPage() {
               <button onClick={saveSchool} className="btn bg-blue-600">Save</button>
             </div>
 
+            {school.subdomain && (
+              <div className="rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5">
+                <h3 className="text-lg font-semibold text-white">Admission Enquiry Form</h3>
+                <p className="mt-1 text-sm text-gray-400">
+                  Share this link with parents so they can submit admission enquiries directly for your school.
+                </p>
+                <div className="mt-4 flex items-center gap-3">
+                  <code className="flex-1 truncate rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-sm text-cyan-300">
+                    {`https://erp.naysha.online/admission-enquiry?school=${school.subdomain}`}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`https://erp.naysha.online/admission-enquiry?school=${school.subdomain}`)
+                      alert("Link copied!")
+                    }}
+                    className="shrink-0 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/20"
+                  >
+                    Copy
+                  </button>
+                  <a
+                    href={`/admission-enquiry?school=${school.subdomain}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
+                  >
+                    Open
+                  </a>
+                </div>
+              </div>
+            )}
+
             <div className="grid gap-6 lg:grid-cols-4">
               <AssetUploader
                 title="School Logo"
