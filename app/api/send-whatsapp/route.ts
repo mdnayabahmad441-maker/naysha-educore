@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { isInternalRequest, requireAuthorizedProfile } from "@/lib/api-auth"
-import { getWhatsAppCloudStatus, sendWhatsAppCloudMessage } from "@/lib/whatsapp-cloud"
+import { getWhatsAppCloudStatus, sendWhatsAppCloudMessage, sendWhatsAppTemplateMessage } from "@/lib/whatsapp-cloud"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -44,7 +44,17 @@ export async function POST(req: Request) {
       )
     }
 
-    const result = await sendWhatsAppCloudMessage({ phone, message })
+    // If caller provides explicit variables, send them directly to the template
+    // (avoids param-count mismatch when template has fewer/more than 4 params)
+    const variables = Array.isArray(body?.variables)
+      ? (body.variables as string[]).map(String)
+      : null
+
+    const templateName = process.env.WHATSAPP_TEMPLATE_NAME || "attendance_absent"
+
+    const result = variables
+      ? await sendWhatsAppTemplateMessage({ phone, templateName, variables })
+      : await sendWhatsAppCloudMessage({ phone, message })
 
     return NextResponse.json({ success: true, provider: "whatsapp-cloud-api", to: result.to })
   } catch (err) {

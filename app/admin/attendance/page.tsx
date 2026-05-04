@@ -274,13 +274,15 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
 
           // WhatsApp — absent students
           if(status === "absent" && parent?.phone){
+            const waMsg = `${s.name} was marked Absent on ${dateLabel}.`
             jobs.push(
               apiFetch("/api/send-whatsapp", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   phone: parent.phone,
-                  message: `${s.name} was marked Absent on ${dateLabel}.`,
+                  message: waMsg,
+                  variables: [s.name, dateLabel],
                 }),
               }).catch((err: any) => console.error("WhatsApp error:", err))
             )
@@ -288,26 +290,29 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
 
           // WhatsApp — present students
           if(status === "present" && parent?.phone){
+            const waMsg = `${s.name} was marked Present on ${dateLabel}.`
             jobs.push(
               apiFetch("/api/send-whatsapp", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   phone: parent.phone,
-                  message: `${s.name} was marked Present on ${dateLabel}.`,
+                  message: waMsg,
+                  variables: [s.name, dateLabel],
                 }),
               }).catch((err: any) => console.error("WhatsApp error:", err))
             )
           }
 
-          // Email
-          if(parent?.email){
+          // Email — only if address passes basic validation
+          const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+          if(parent?.email && EMAIL_RE.test(String(parent.email).trim())){
             jobs.push(
               apiFetch("/api/send-email", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  email: parent.email,
+                  email: String(parent.email).trim(),
                   subject: "Attendance Update",
                   message: `${s.name} is ${status} on ${dateLabel}`,
                 }),
