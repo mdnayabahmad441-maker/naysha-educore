@@ -70,6 +70,7 @@ export default function SetupPage() {
       data: {
         ...user.user_metadata,
         username: normalizedUsername,
+        must_set_password: false,
       },
     })
 

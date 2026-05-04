@@ -209,12 +209,21 @@ export async function resolveIdentifierToAccount(identifier: string) {
 
   const { data: teacher } = await supabaseAdmin
     .from("teachers")
-    .select("id")
+    .select("id, auth_id")
     .eq("email", email)
     .maybeSingle()
 
   if (teacher?.id) {
-    return { email, role: "teacher" as const, loginMethod: "password" as const }
+    let mustSetPassword = false
+    if (teacher.auth_id) {
+      const { data: { user: authUser } } = await supabaseAdmin.auth.admin.getUserById(teacher.auth_id)
+      mustSetPassword = authUser?.user_metadata?.must_set_password === true
+    }
+    return {
+      email,
+      role: "teacher" as const,
+      loginMethod: mustSetPassword ? ("otp" as const) : ("password" as const),
+    }
   }
 
   const { data: school } = await supabaseAdmin

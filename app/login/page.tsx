@@ -112,7 +112,6 @@ export default function LoginPage() {
 
     setLoading(true)
 
-    // Ensure Supabase auth user exists server-side
     const res = await fetch("/api/auth/request-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -126,7 +125,6 @@ export default function LoginPage() {
       return
     }
 
-    // Send OTP from browser via Supabase
     const { error } = await supabase.auth.signInWithOtp({
       email: resolvedAccount.email,
       options: { shouldCreateUser: true },
@@ -140,6 +138,27 @@ export default function LoginPage() {
     }
 
     window.location.href = `/verify?email=${encodeURIComponent(resolvedAccount.email)}&mode=login&role=parent`
+  }
+
+  const sendTeacherSetupOtp = async () => {
+    if (!resolvedAccount?.email) return
+
+    setLoading(true)
+
+    // Teacher auth user already exists — just send OTP, no creation needed
+    const { error } = await supabase.auth.signInWithOtp({
+      email: resolvedAccount.email,
+      options: { shouldCreateUser: false },
+    })
+
+    setLoading(false)
+
+    if (error) {
+      alert(error.message || "Failed to send verification code")
+      return
+    }
+
+    window.location.href = `/verify?email=${encodeURIComponent(resolvedAccount.email)}&mode=setup&role=teacher`
   }
 
   const startExistingAccountSetup = async () => {
@@ -382,6 +401,33 @@ export default function LoginPage() {
                           className="rounded-2xl bg-[linear-gradient(135deg,#0ea5e9,#2563eb)] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
                         >
                           {loading ? "Signing In..." : "Login"}
+                        </button>
+                      </div>
+                    </>
+                  ) : resolvedAccount.role === "teacher" ? (
+                    <>
+                      <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                        <p className="font-semibold">First Login — Set Your Password</p>
+                        <p className="mt-1 text-emerald-200/80">
+                          We will send a verification code to <span className="font-medium text-white">{resolvedAccount.email}</span>. Use it to create your password.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={backToEmailStep}
+                          className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10"
+                        >
+                          Change Email
+                        </button>
+                        <button
+                          type="button"
+                          onClick={sendTeacherSetupOtp}
+                          disabled={loading}
+                          className="rounded-2xl bg-[linear-gradient(135deg,#10b981,#0f766e)] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          {loading ? "Sending Code..." : "Send Code"}
                         </button>
                       </div>
                     </>

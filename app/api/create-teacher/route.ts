@@ -72,6 +72,8 @@ export async function POST(req: Request) {
       user_metadata: {
         school_id: schoolId,
         role: "teacher",
+        active_role: "teacher",
+        must_set_password: true,
       },
     })
 
