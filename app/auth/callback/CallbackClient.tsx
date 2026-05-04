@@ -3,12 +3,8 @@
 import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import {
-  canShareSessionAcrossSubdomains,
-  resolveTenantOrigin,
-} from "@/lib/auth-storage"
 import { waitForSession } from "@/lib/auth-session"
-import { sanitizeNextPath, sanitizeSubdomain } from "@/lib/security"
+import { sanitizeNextPath } from "@/lib/security"
 
 function readTokenParams() {
   const hash = window.location.hash.startsWith("#")
@@ -30,45 +26,15 @@ export default function CallbackClient() {
   useEffect(() => {
     const run = async () => {
       const { accessToken, refreshToken, next } = readTokenParams()
-      const subdomain = sanitizeSubdomain(params.get("subdomain"))
 
-      // =========================
-      // 1. NO TOKENS CASE
-      // =========================
+      // No tokens — check for existing session
       if (!accessToken || !refreshToken) {
         const existingSession = await waitForSession(3, 150)
-
-        if (existingSession) {
-          window.location.href = next
-          return
-        }
-
-        window.location.href = "/login"
+        window.location.href = existingSession ? next : "/login"
         return
       }
 
-      // =========================
-      // 2. HANDLE SUBDOMAIN
-      // =========================
-      if (subdomain && !canShareSessionAcrossSubdomains()) {
-        const currentOrigin = window.location.origin
-        const targetOrigin = resolveTenantOrigin(subdomain)
-
-        if (currentOrigin !== targetOrigin) {
-          const payload = new URLSearchParams({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-            next,
-          })
-
-          window.location.href = `${targetOrigin}/auth/callback#${payload.toString()}`
-          return
-        }
-      }
-
-      // =========================
-      // 3. SET SESSION
-      // =========================
+      // Set session from URL tokens
       const { error } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
@@ -80,9 +46,7 @@ export default function CallbackClient() {
         return
       }
 
-      // =========================
-      // 4. WAIT FOR SESSION
-      // =========================
+      // Wait for session to be established
       const confirmedSession = await waitForSession(5, 200)
 
       if (!confirmedSession) {
@@ -91,33 +55,15 @@ export default function CallbackClient() {
         return
       }
 
-      // =========================
-      // 5. HARD REFRESH LOOP (CRITICAL FIX)
-      // =========================
+      // Refresh to ensure JWT has latest metadata (role, school_id)
       for (let i = 0; i < 3; i++) {
         await supabase.auth.refreshSession()
         await new Promise((res) => setTimeout(res, 400))
       }
 
-      // =========================
-      // 6. VERIFY USER (DEBUG)
-      // =========================
-      const { data: userData } = await supabase.auth.getUser()
-      console.log("✅ FINAL USER:", userData)
-
-      // =========================
-      // 7. CLEAN URL
-      // =========================
+      // Clean up URL and redirect
       window.history.replaceState({}, document.title, "/auth/callback")
-
-      // =========================
-      // 8. FINAL DELAY (VERY IMPORTANT)
-      // =========================
-      await new Promise((res) => setTimeout(res, 500))
-
-      // =========================
-      // 9. REDIRECT
-      // =========================
+      await new Promise((res) => setTimeout(res, 300))
       window.location.href = next
     }
 

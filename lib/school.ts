@@ -45,42 +45,21 @@ export async function getSchoolId() {
         cachedUserId = user.id
         return profile.school_id
       }
+
+      // Profile had no school_id — try a session refresh in case metadata was recently updated
+      try {
+        await supabase.auth.refreshSession()
+        const { data: refreshed } = await supabase.auth.getUser()
+        const refreshedId = refreshed?.user?.user_metadata?.school_id
+        if (typeof refreshedId === "string" && refreshedId) {
+          cachedSchoolId = refreshedId
+          cachedUserId = refreshed?.user?.id || null
+          return refreshedId
+        }
+      } catch {}
     }
 
-    if (typeof window === "undefined") return null
-
-    const host = window.location.hostname
-    let subdomain = host.split(".")[0]
-
-    if (
-      host.includes("localhost") ||
-      subdomain === "www" ||
-      subdomain === "erp"
-    ) {
-      subdomain = "default"
-    }
-
-    const { data, error: schoolError } = await supabase
-      .from("schools")
-      .select("id")
-      .or(`subdomain.eq.${subdomain},domain.eq.${subdomain}`)
-      .limit(1)
-
-    if (schoolError) {
-      console.error("School subdomain lookup error:", schoolError)
-      return null
-    }
-
-    const school = data?.[0]
-
-    if (!school) {
-      console.error("No school found")
-      return null
-    }
-
-    cachedSchoolId = school.id
-    cachedUserId = user?.id || null
-    return school.id
+    return null
   } catch (err) {
     console.error("School error:", err)
     return null

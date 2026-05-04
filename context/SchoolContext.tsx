@@ -15,89 +15,65 @@ type School = {
 
 const SchoolContext = createContext<School | null>(null)
 
-let globalSchool: School | null = null // 🔥 global cache
+let globalSchool: School | null = null
 
-export function SchoolProvider({ children }: any){
-
+export function SchoolProvider({ children }: any) {
   const [school, setSchool] = useState<School | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(()=>{
-
+  useEffect(() => {
     const load = async () => {
-
       try {
+        // Try session metadata school_id first
+        let { data: sessionData } = await supabase.auth.getSession()
+        let schoolId = sessionData.session?.user?.user_metadata?.school_id
 
-        // ✅ STEP 1: GET SESSION FIRST (IMPORTANT)
-        const { data: sessionData } = await supabase.auth.getSession()
+        // If not in metadata, refresh session and try again
+        if (!schoolId) {
+          await supabase.auth.refreshSession()
+          const { data: refreshed } = await supabase.auth.getSession()
+          schoolId = refreshed.session?.user?.user_metadata?.school_id
+        }
 
-        if (sessionData.session?.user) {
+        // If still not found, check profiles table
+        if (!schoolId && sessionData.session?.user?.id) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("school_id")
+            .eq("id", sessionData.session.user.id)
+            .maybeSingle()
+          schoolId = profile?.school_id
+        }
 
-          const schoolId =
-            sessionData.session.user.user_metadata?.school_id
+        if (schoolId) {
+          const { data: schoolData, error: schoolError } = await supabase
+            .from("schools")
+            .select("id,name,subdomain,email,phone,address,logo_url")
+            .eq("id", schoolId)
+            .single()
 
-          if (schoolId) {
-            const { data: schoolData, error: schoolError } = await supabase
-              .from("schools")
-              .select("id,name,subdomain,email,phone,address,logo_url")
-              .eq("id", schoolId)
-              .single()
+          if (schoolError) {
+            console.error("School fetch error:", schoolError)
+          }
 
-            if (schoolError) {
-              console.error("School fetch error:", schoolError)
-            }
-
-            if (schoolData) {
-              globalSchool = schoolData
-              setSchool(schoolData)
-              setLoading(false)
-              return
-            }
+          if (schoolData) {
+            globalSchool = schoolData
+            setSchool(schoolData)
+            setLoading(false)
+            return
           }
         }
 
-        // ✅ STEP 2: FALLBACK (PUBLIC ACCESS)
-        const host = window.location.hostname
-        let subdomain = host.split(".")[0]
-
-        if (host.includes("localhost")) {
-          subdomain = "default"
-        }
-
-        const { data, error } = await supabase
-          .from("schools")
-          .select("id,name,subdomain,email,phone,address,logo_url")
-          .eq("subdomain", subdomain)
-          .limit(1) // ✅ NO SINGLE
-
-        if (error) {
-          console.error("School fetch error:", error)
-          setLoading(false)
-          return
-        }
-
-        const schoolData = data?.[0] || null
-
-        if (!schoolData) {
-          console.warn("No school found")
-          setLoading(false)
-          return
-        }
-
-        globalSchool = schoolData
-        setSchool(schoolData)
-
+        console.warn("No school found for current session")
       } catch (err) {
         console.error("Context error:", err)
       } finally {
         setLoading(false)
       }
-
     }
 
     load()
-
-  },[])
+  }, [])
 
   if (loading) {
     return (
@@ -114,10 +90,8 @@ export function SchoolProvider({ children }: any){
   )
 }
 
-// ✅ Hook
 export const useSchool = () => useContext(SchoolContext)
 
-// ✅ Global access (VERY IMPORTANT)
 export function getGlobalSchool() {
   return globalSchool
 }
