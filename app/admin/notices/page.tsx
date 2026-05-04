@@ -245,7 +245,8 @@ export default function NoticesPage() {
           type: "notice"
         })
 
-        if (parent.email) {
+        const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+        if (parent.email && EMAIL_RE.test(String(parent.email).trim())) {
           try {
             await apiFetch("/api/send-email", {
               method: "POST",

@@ -1,6 +1,6 @@
 const META_API_VERSION = "v19.0"
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
-const TEMPLATE_NAME = process.env.WHATSAPP_TEMPLATE_NAME || "attendance_absent"
+const TEMPLATE_NAME = process.env.WHATSAPP_TEMPLATE_NAME || "school_notice"
 
 function getMetaConfig() {
   return {

@@ -50,7 +50,9 @@ export async function POST(req: Request) {
       ? (body.variables as string[]).map(String)
       : null
 
-    const templateName = process.env.WHATSAPP_TEMPLATE_NAME || "attendance_absent"
+    const templateName = String(
+      body?.templateName || process.env.WHATSAPP_TEMPLATE_NAME || "school_notice"
+    ).trim()
 
     const result = variables
       ? await sendWhatsAppTemplateMessage({ phone, templateName, variables })
