@@ -7,7 +7,7 @@ import { requireAdminProfile } from "@/lib/api-auth"
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { studentName, fatherName, classWanted, phone, email, address } = body
+    const { studentName, fatherName, classWanted, phone, email, address, schoolId } = body
 
     if (!studentName || !fatherName || !classWanted || !phone || !email || !address) {
       return NextResponse.json(
@@ -16,7 +16,15 @@ export async function POST(req: Request) {
       )
     }
 
-    const school = await getSchoolFromRequest(req)
+    // Prefer schoolId from body (single-domain flow), fall back to subdomain detection
+    let school: any = null
+    if (schoolId) {
+      const { data } = await supabaseAdmin.from("schools").select("*").eq("id", schoolId).maybeSingle()
+      school = data
+    }
+    if (!school) {
+      school = await getSchoolFromRequest(req)
+    }
     if (!school) {
       return NextResponse.json(
         { success: false, error: "School not found" },
