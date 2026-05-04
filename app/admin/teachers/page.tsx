@@ -137,19 +137,13 @@ export default function TeachersPage(){
 
       if(existingTeacher){
         alert("Teacher with this email already exists")
+        setLoading(false)
         return
       }
 
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", form.email)
-        .maybeSingle()
-
-      let authId = null
-      if(profileData){
-        authId = profileData.id
-      }
+      // FIXED: Don't query profiles table for email - it may not exist
+      // Instead, create teacher without auth_id first
+      // The auth_id will be linked when teacher logs in
 
       const { data: newTeacher, error: teacherError } = await supabase
         .from("teachers")
@@ -160,13 +154,14 @@ export default function TeachersPage(){
           qualification: form.qualification,
           experience_years: Number(form.experience_years || 0),
           school_id: schoolId,
-          auth_id: authId
+          auth_id: null  // Will be linked on first login
         })
         .select()
         .single()
 
       if(teacherError){
         alert(teacherError.message)
+        setLoading(false)
         return
       }
 
@@ -192,7 +187,7 @@ export default function TeachersPage(){
         await supabase.from("teacher_subjects").insert(rows)
       }
 
-      alert(" Teacher created")
+      alert("✅ Teacher created successfully")
       resetForm()
       load()
 
@@ -247,7 +242,7 @@ export default function TeachersPage(){
         await supabase.from("teacher_subjects").insert(rows)
       }
 
-      alert(" Teacher updated")
+      alert("✅ Teacher updated")
       resetForm()
       load()
 
