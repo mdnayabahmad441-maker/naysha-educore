@@ -1,3 +1,5 @@
+
+
 "use client"
 
 import { useEffect, useState } from "react"
@@ -6,7 +8,6 @@ import Button from "@/components/ui/Button"
 import { getTeachers } from "@/services/teachers.service"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
-import { apiFetch } from "@/lib/api-client"
 
 export default function TeachersPage(){
 
@@ -31,9 +32,7 @@ export default function TeachersPage(){
     selectedSubjects:[] as string[]
   })
 
-  // ================= LOAD =================
   const load = async () => {
-
     const data = await getTeachers()
     setTeachers(data)
 
@@ -65,12 +64,10 @@ export default function TeachersPage(){
     load()
   },[])
 
-  // ================= HANDLE CHANGE =================
   const handleChange = (key:string,val:any)=>{
     setForm(prev=>({...prev,[key]:val}))
   }
 
-  // ================= SUBJECT DISPLAY =================
   const getTeacherSubjects = (teacherId:string)=>{
     const subjectIds = teacherSubjects
       .filter(ts=>ts.teacher_id === teacherId)
@@ -83,12 +80,10 @@ export default function TeachersPage(){
     return names.join(", ") || "-"
   }
 
-  // ================= FILTER SUBJECTS =================
   const filteredSubjects = subjects.filter(s =>
     form.selectedClasses.includes(s.class_id)
   )
 
-  // ================= TOGGLE =================
   const toggleClass = (id:string)=>{
     setForm(prev=>{
       const exists = prev.selectedClasses.includes(id)
@@ -122,9 +117,7 @@ export default function TeachersPage(){
     })
   }
 
-  // ================= CREATE =================
   const submit = async () => {
-
     if(!form.name || !form.email){
       alert("Name & Email required")
       return
@@ -199,8 +192,7 @@ export default function TeachersPage(){
         await supabase.from("teacher_subjects").insert(rows)
       }
 
-      alert("✅ Teacher created")
-
+      alert(" Teacher created")
       resetForm()
       load()
 
@@ -212,16 +204,13 @@ export default function TeachersPage(){
     }
   }
 
-  // ================= UPDATE =================
   const updateTeacher = async () => {
-
     if(!editingTeacher) return
 
     const schoolId = await getSchoolId()
     setLoading(true)
 
     try{
-
       await supabase
         .from("teachers")
         .update({
@@ -258,8 +247,7 @@ export default function TeachersPage(){
         await supabase.from("teacher_subjects").insert(rows)
       }
 
-      alert("✅ Teacher updated")
-
+      alert(" Teacher updated")
       resetForm()
       load()
 
@@ -271,9 +259,7 @@ export default function TeachersPage(){
     }
   }
 
-  // ================= DELETE =================
   const deleteTeacher = async (id:string)=>{
-
     if(!confirm("Delete this teacher?")) return
 
     const schoolId = await getSchoolId()
@@ -292,9 +278,7 @@ export default function TeachersPage(){
     load()
   }
 
-  // ================= EDIT OPEN =================
   const openEdit = async (teacher:any)=>{
-
     const { data: cls } = await supabase
       .from("teacher_classes")
       .select("class_id")
@@ -336,9 +320,7 @@ export default function TeachersPage(){
   }
 
   return(
-
     <div className="p-10 text-white max-w-7xl mx-auto space-y-6">
-
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Teachers</h1>
         <Button onClick={()=>setShowForm(true)} disabled={loading}>+ Add Teacher</Button>
@@ -353,7 +335,6 @@ export default function TeachersPage(){
               <th className="p-3 text-left">Subjects</th>
             </tr>
           </thead>
-
           <tbody>
             {teachers.map((t)=>(
               <tr key={t.id}
@@ -390,7 +371,6 @@ export default function TeachersPage(){
       {showForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-[#020c1b] p-6 rounded-xl w-150 space-y-4 border border-white/10 max-h-[90vh] overflow-y-auto">
-
             <h2 className="text-xl font-bold">{editingTeacher ? "Edit Teacher" : "Add Teacher"}</h2>
 
             <input placeholder="Name *" value={form.name}
@@ -449,11 +429,9 @@ export default function TeachersPage(){
                 {loading ? "Processing..." : (editingTeacher ? "Update" : "Create")}
               </Button>
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   )
 }
