@@ -266,45 +266,14 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
             sendNotification({
               school_id: schoolId!,
               student_id: s.id,
-              title: status === "absent" ? "Student Absent ❌" : "Student Present ✅",
-              message: `${s.name} was ${status} on ${dateLabel}`,
+              title: status === "absent" ? "Attendance Alert" : "Attendance Update",
+              message: status === "absent"
+                ? `${s.name} was marked absent on ${dateLabel}. Kindly take note and ensure regular attendance.`
+                : `${s.name} was marked present on ${dateLabel}. Thank you for ensuring regular attendance.`,
               type: "attendance",
             }).catch((err: any) => console.error("DB notification error:", err))
           )
 
-          // WhatsApp — absent students
-          if(status === "absent" && parent?.phone){
-            const waMsg = `${s.name} was marked Absent on ${dateLabel}.`
-            jobs.push(
-              apiFetch("/api/send-whatsapp", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  phone: parent.phone,
-                  message: waMsg,
-                  templateName: "attendance_absent",
-                  variables: [s.name, dateLabel],
-                }),
-              }).catch((err: any) => console.error("WhatsApp error:", err))
-            )
-          }
-
-          // WhatsApp — present students
-          if(status === "present" && parent?.phone){
-            const waMsg = `${s.name} was marked Present on ${dateLabel}.`
-            jobs.push(
-              apiFetch("/api/send-whatsapp", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  phone: parent.phone,
-                  message: waMsg,
-                  templateName: "attendance_absent",
-                  variables: [s.name, dateLabel],
-                }),
-              }).catch((err: any) => console.error("WhatsApp error:", err))
-            )
-          }
 
           // Email — only if address passes basic validation
           const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
