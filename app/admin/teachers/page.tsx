@@ -1,3 +1,5 @@
+
+
 "use client"
 
 import { useEffect, useState } from "react"
@@ -6,7 +8,6 @@ import Button from "@/components/ui/Button"
 import { getTeachers } from "@/services/teachers.service"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
-import { apiFetch } from "@/lib/api-client"
 
 export default function TeachersPage(){
 
@@ -19,7 +20,7 @@ export default function TeachersPage(){
   const [selectedTeacher,setSelectedTeacher] = useState<any>(null)
   const [editingTeacher,setEditingTeacher] = useState<any>(null)
 
-  const [,setLoading] = useState(false)
+  const [loading,setLoading] = useState(false)
 
   const [form,setForm] = useState({
     name:"",
@@ -31,9 +32,7 @@ export default function TeachersPage(){
     selectedSubjects:[] as string[]
   })
 
-  // ================= LOAD =================
   const load = async () => {
-
     const data = await getTeachers()
     setTeachers(data)
 
@@ -65,12 +64,10 @@ export default function TeachersPage(){
     load()
   },[])
 
-  // ================= HANDLE CHANGE =================
   const handleChange = (key:string,val:any)=>{
     setForm(prev=>({...prev,[key]:val}))
   }
 
-  // ================= SUBJECT DISPLAY =================
   const getTeacherSubjects = (teacherId:string)=>{
     const subjectIds = teacherSubjects
       .filter(ts=>ts.teacher_id === teacherId)
@@ -83,12 +80,10 @@ export default function TeachersPage(){
     return names.join(", ") || "-"
   }
 
-  // ================= FILTER SUBJECTS =================
   const filteredSubjects = subjects.filter(s =>
     form.selectedClasses.includes(s.class_id)
   )
 
-  // ================= TOGGLE =================
   const toggleClass = (id:string)=>{
     setForm(prev=>{
       const exists = prev.selectedClasses.includes(id)
@@ -122,48 +117,77 @@ export default function TeachersPage(){
     })
   }
 
-  // ================= CREATE =================
   const submit = async () => {
-
     if(!form.name || !form.email){
       alert("Name & Email required")
       return
     }
 
-      setLoading(true)
+    setLoading(true)
 
     try{
+      const schoolId = await getSchoolId()
 
-      const res = await apiFetch("/api/create-teacher",{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({
+      const { data: existingTeacher } = await supabase
+        .from("teachers")
+        .select("id")
+        .eq("email", form.email)
+        .eq("school_id", schoolId)
+        .maybeSingle()
+
+      if(existingTeacher){
+        alert("Teacher with this email already exists")
+        setLoading(false)
+        return
+      }
+
+      // FIXED: Don't query profiles table for email - it may not exist
+      // Instead, create teacher without auth_id first
+      // The auth_id will be linked when teacher logs in
+
+      const { data: newTeacher, error: teacherError } = await supabase
+        .from("teachers")
+        .insert({
           name: form.name,
           email: form.email,
           phone: form.phone,
           qualification: form.qualification,
           experience_years: Number(form.experience_years || 0),
-          classes: form.selectedClasses,
-          subjects: form.selectedSubjects.map((subjectId) => {
-            const subject = subjects.find((item) => item.id === subjectId)
-
-            return {
-              subject_id: subjectId,
-              class_id: subject?.class_id || null
-            }
-          })
+          school_id: schoolId,
+          auth_id: null  // Will be linked on first login
         })
-      })
+        .select()
+        .single()
 
-      const data = await res.json()
-
-      if(!res.ok){
-        alert(data.error)
+      if(teacherError){
+        alert(teacherError.message)
+        setLoading(false)
         return
       }
 
-      alert("✅ Teacher created")
+      if(form.selectedClasses.length){
+        const rows = form.selectedClasses.map(c=>({
+          teacher_id: newTeacher.id,
+          class_id: c,
+          school_id: schoolId
+        }))
+        await supabase.from("teacher_classes").insert(rows)
+      }
 
+      if(form.selectedSubjects.length){
+        const rows = form.selectedSubjects.map(s=>{
+          const subject = subjects.find(sub=>sub.id === s)
+          return {
+            teacher_id: newTeacher.id,
+            subject_id: s,
+            class_id: subject?.class_id,
+            school_id: schoolId
+          }
+        })
+        await supabase.from("teacher_subjects").insert(rows)
+      }
+
+      alert("✅ Teacher created successfully")
       resetForm()
       load()
 
@@ -175,16 +199,13 @@ export default function TeachersPage(){
     }
   }
 
-  // ================= UPDATE =================
   const updateTeacher = async () => {
-
     if(!editingTeacher) return
 
     const schoolId = await getSchoolId()
     setLoading(true)
 
     try{
-
       await supabase
         .from("teachers")
         .update({
@@ -196,11 +217,9 @@ export default function TeachersPage(){
         .eq("id", editingTeacher.id)
         .eq("school_id", schoolId)
 
-      // reset relations
       await supabase.from("teacher_classes").delete().eq("teacher_id", editingTeacher.id)
       await supabase.from("teacher_subjects").delete().eq("teacher_id", editingTeacher.id)
 
-      // reinsert classes
       if(form.selectedClasses.length){
         const rows = form.selectedClasses.map(c=>({
           teacher_id: editingTeacher.id,
@@ -210,11 +229,9 @@ export default function TeachersPage(){
         await supabase.from("teacher_classes").insert(rows)
       }
 
-      // reinsert subjects
       if(form.selectedSubjects.length){
         const rows = form.selectedSubjects.map(s=>{
           const subject = subjects.find(sub=>sub.id === s)
-
           return {
             teacher_id: editingTeacher.id,
             subject_id: s,
@@ -226,7 +243,6 @@ export default function TeachersPage(){
       }
 
       alert("✅ Teacher updated")
-
       resetForm()
       load()
 
@@ -238,9 +254,7 @@ export default function TeachersPage(){
     }
   }
 
-  // ================= DELETE =================
   const deleteTeacher = async (id:string)=>{
-
     if(!confirm("Delete this teacher?")) return
 
     const schoolId = await getSchoolId()
@@ -259,9 +273,7 @@ export default function TeachersPage(){
     load()
   }
 
-  // ================= EDIT OPEN =================
   const openEdit = async (teacher:any)=>{
-
     const { data: cls } = await supabase
       .from("teacher_classes")
       .select("class_id")
@@ -303,12 +315,10 @@ export default function TeachersPage(){
   }
 
   return(
-
     <div className="p-10 text-white max-w-7xl mx-auto space-y-6">
-
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Teachers</h1>
-        <Button onClick={()=>setShowForm(true)}>+ Add Teacher</Button>
+        <Button onClick={()=>setShowForm(true)} disabled={loading}>+ Add Teacher</Button>
       </div>
 
       <Card>
@@ -316,16 +326,17 @@ export default function TeachersPage(){
           <thead className="bg-white/10">
             <tr>
               <th className="p-3 text-left">Name</th>
+              <th className="p-3 text-left">Email</th>
               <th className="p-3 text-left">Subjects</th>
             </tr>
           </thead>
-
           <tbody>
             {teachers.map((t)=>(
               <tr key={t.id}
                 onClick={()=>setSelectedTeacher(t)}
                 className="border-t cursor-pointer hover:bg-white/5">
                 <td className="p-3">{t.name}</td>
+                <td className="p-3">{t.email}</td>
                 <td className="p-3">{getTeacherSubjects(t.id)}</td>
               </tr>
             ))}
@@ -333,83 +344,89 @@ export default function TeachersPage(){
         </table>
       </Card>
 
-      {/* PROFILE */}
       {selectedTeacher && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
-          <div className="bg-[#020c1b] p-6 rounded-xl w-125 space-y-4">
-            <h2>{selectedTeacher.name}</h2>
-            <p>{selectedTeacher.email}</p>
-            <p>{getTeacherSubjects(selectedTeacher.id)}</p>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-[#020c1b] p-6 rounded-xl w-125 space-y-4 border border-white/10">
+            <h2 className="text-xl font-bold">{selectedTeacher.name}</h2>
+            <p className="text-gray-300">Email: {selectedTeacher.email}</p>
+            <p className="text-gray-300">Phone: {selectedTeacher.phone || "-"}</p>
+            <p className="text-gray-300">Qualification: {selectedTeacher.qualification || "-"}</p>
+            <p className="text-gray-300">Experience: {selectedTeacher.experience_years || 0} years</p>
+            <p className="text-gray-300">Subjects: {getTeacherSubjects(selectedTeacher.id)}</p>
 
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-3 pt-4">
               <Button onClick={()=>openEdit(selectedTeacher)}>Edit</Button>
               <Button color="red" onClick={()=>deleteTeacher(selectedTeacher.id)}>Delete</Button>
+              <Button onClick={()=>setSelectedTeacher(null)}>Close</Button>
             </div>
-
-            <Button onClick={()=>setSelectedTeacher(null)}>Close</Button>
           </div>
         </div>
       )}
 
-      {/* FORM */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
-          <div className="bg-[#020c1b] p-6 rounded-xl w-150 space-y-4">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-[#020c1b] p-6 rounded-xl w-150 space-y-4 border border-white/10 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold">{editingTeacher ? "Edit Teacher" : "Add Teacher"}</h2>
 
-            <h2>{editingTeacher ? "Edit Teacher" : "Add Teacher"}</h2>
-
-            <input placeholder="Name" value={form.name}
+            <input placeholder="Name *" value={form.name}
               onChange={e=>handleChange("name",e.target.value)}
-              className="bg-white/10 p-2 rounded w-full"/>
+              className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none"/>
 
-            <input placeholder="Email" value={form.email}
+            <input placeholder="Email *" value={form.email}
               disabled={!!editingTeacher}
               onChange={e=>handleChange("email",e.target.value)}
-              className="bg-white/10 p-2 rounded w-full"/>
+              className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none disabled:opacity-50"/>
 
             <input placeholder="Phone" value={form.phone}
               onChange={e=>handleChange("phone",e.target.value)}
-              className="bg-white/10 p-2 rounded w-full"/>
+              className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none"/>
 
-            {/* CLASSES */}
+            <input placeholder="Qualification" value={form.qualification}
+              onChange={e=>handleChange("qualification",e.target.value)}
+              className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none"/>
+
+            <input placeholder="Experience (years)" type="number" value={form.experience_years}
+              onChange={e=>handleChange("experience_years",e.target.value)}
+              className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none"/>
+
             <div>
-              <p>Classes</p>
+              <p className="mb-2 font-semibold">Classes</p>
               <div className="flex gap-2 flex-wrap">
                 {classes.map(c=>(
-                  <button key={c.id}
+                  <button key={c.id} type="button"
                     onClick={()=>toggleClass(c.id)}
-                    className={form.selectedClasses.includes(c.id) ? "bg-blue-500 px-2" : "bg-white/10 px-2"}>
+                    className={`px-3 py-1 rounded-full text-sm transition ${form.selectedClasses.includes(c.id) ? "bg-blue-500 text-white" : "bg-white/10 text-gray-300 hover:bg-white/20"}`}>
                     {c.name}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* SUBJECTS */}
             <div>
-              <p>Subjects</p>
+              <p className="mb-2 font-semibold">Subjects</p>
               <div className="flex gap-2 flex-wrap">
                 {filteredSubjects.map(s=>(
-                  <button key={s.id}
+                  <button key={s.id} type="button"
                     onClick={()=>toggleSubject(s.id)}
-                    className={form.selectedSubjects.includes(s.id) ? "bg-green-500 px-2" : "bg-white/10 px-2"}>
+                    className={`px-3 py-1 rounded-full text-sm transition ${form.selectedSubjects.includes(s.id) ? "bg-green-500 text-white" : "bg-white/10 text-gray-300 hover:bg-white/20"}`}>
                     {s.name}
                   </button>
                 ))}
               </div>
+              {filteredSubjects.length === 0 && form.selectedClasses.length > 0 && (
+                <p className="text-yellow-400 text-sm mt-2">No subjects found for selected classes</p>
+              )}
             </div>
 
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 pt-4">
               <Button onClick={resetForm}>Cancel</Button>
-              <Button onClick={editingTeacher ? updateTeacher : submit}>
-                {editingTeacher ? "Update" : "Create"}
+              <Button onClick={editingTeacher ? updateTeacher : submit} disabled={loading}>
+                {loading ? "Processing..." : (editingTeacher ? "Update" : "Create")}
               </Button>
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   )
 }

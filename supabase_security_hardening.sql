@@ -1,3 +1,5 @@
+
+
 create extension if not exists pgcrypto;
 
 create or replace function public.current_user_school_id()
@@ -98,6 +100,16 @@ with check (
   and public.current_user_role() = 'admin'
 );
 
+drop policy if exists "teacher read own classes" on public.classes;
+create policy "teacher read own classes"
+on public.classes
+for select
+using (
+  school_id = public.current_user_school_id()
+  and public.current_user_role() = 'teacher'
+  and id in (select class_id from public.teacher_classes where teacher_id = (select id from public.teachers where auth_id = auth.uid()))
+);
+
 drop policy if exists "same school read subjects" on public.subjects;
 create policy "same school read subjects"
 on public.subjects
@@ -117,6 +129,16 @@ with check (
   and public.current_user_role() = 'admin'
 );
 
+drop policy if exists "teacher read own subjects" on public.subjects;
+create policy "teacher read own subjects"
+on public.subjects
+for select
+using (
+  school_id = public.current_user_school_id()
+  and public.current_user_role() = 'teacher'
+  and id in (select subject_id from public.teacher_subjects where teacher_id = (select id from public.teachers where auth_id = auth.uid()))
+);
+
 drop policy if exists "same school read students" on public.students;
 create policy "same school read students"
 on public.students
@@ -134,6 +156,21 @@ using (
 with check (
   school_id = public.current_user_school_id()
   and public.current_user_role() = 'admin'
+);
+
+drop policy if exists "teacher read own students" on public.students;
+create policy "teacher read own students"
+on public.students
+for select
+using (
+  school_id = public.current_user_school_id()
+  and public.current_user_role() = 'teacher'
+  and id in (
+    select student_id from public.student_enrollments 
+    where class_id in (
+      select class_id from public.teacher_classes where teacher_id = (select id from public.teachers where auth_id = auth.uid())
+    )
+  )
 );
 
 drop policy if exists "same school read parents" on public.parents;
@@ -174,6 +211,14 @@ with check (
   and public.current_user_role() = 'admin'
 );
 
+drop policy if exists "teacher read own profile" on public.teachers;
+create policy "teacher read own profile"
+on public.teachers
+for select
+using (
+  auth_id = auth.uid()
+);
+
 drop policy if exists "same school read teacher_classes" on public.teacher_classes;
 create policy "same school read teacher_classes"
 on public.teacher_classes
@@ -193,6 +238,14 @@ with check (
   and public.current_user_role() = 'admin'
 );
 
+drop policy if exists "teacher read own classes" on public.teacher_classes;
+create policy "teacher read own classes"
+on public.teacher_classes
+for select
+using (
+  teacher_id = (select id from public.teachers where auth_id = auth.uid())
+);
+
 drop policy if exists "same school read teacher_subjects" on public.teacher_subjects;
 create policy "same school read teacher_subjects"
 on public.teacher_subjects
@@ -210,6 +263,14 @@ using (
 with check (
   school_id = public.current_user_school_id()
   and public.current_user_role() = 'admin'
+);
+
+drop policy if exists "teacher read own subjects" on public.teacher_subjects;
+create policy "teacher read own subjects"
+on public.teacher_subjects
+for select
+using (
+  teacher_id = (select id from public.teachers where auth_id = auth.uid())
 );
 
 drop policy if exists "same school read fees" on public.fees;
@@ -288,6 +349,18 @@ with check (
   and public.current_user_role() = 'admin'
 );
 
+drop policy if exists "teacher read own class enrollments" on public.student_enrollments;
+create policy "teacher read own class enrollments"
+on public.student_enrollments
+for select
+using (
+  school_id = public.current_user_school_id()
+  and public.current_user_role() = 'teacher'
+  and class_id in (
+    select class_id from public.teacher_classes where teacher_id = (select id from public.teachers where auth_id = auth.uid())
+  )
+);
+
 drop policy if exists "same school read attendance" on public.attendance;
 create policy "same school read attendance"
 on public.attendance
@@ -301,10 +374,18 @@ for all
 using (
   school_id = public.current_user_school_id()
   and public.current_user_role() in ('admin', 'teacher')
+  and (
+    public.current_user_role() = 'admin'
+    or class_id in (select class_id from public.teacher_classes where teacher_id = (select id from public.teachers where auth_id = auth.uid()))
+  )
 )
 with check (
   school_id = public.current_user_school_id()
   and public.current_user_role() in ('admin', 'teacher')
+  and (
+    public.current_user_role() = 'admin'
+    or class_id in (select class_id from public.teacher_classes where teacher_id = (select id from public.teachers where auth_id = auth.uid()))
+  )
 );
 
 drop policy if exists "same school read exams" on public.exams;
@@ -320,10 +401,18 @@ for all
 using (
   school_id = public.current_user_school_id()
   and public.current_user_role() in ('admin', 'teacher')
+  and (
+    public.current_user_role() = 'admin'
+    or class_id in (select class_id from public.teacher_classes where teacher_id = (select id from public.teachers where auth_id = auth.uid()))
+  )
 )
 with check (
   school_id = public.current_user_school_id()
   and public.current_user_role() in ('admin', 'teacher')
+  and (
+    public.current_user_role() = 'admin'
+    or class_id in (select class_id from public.teacher_classes where teacher_id = (select id from public.teachers where auth_id = auth.uid()))
+  )
 );
 
 drop policy if exists "same school read exam subjects" on public.exam_subjects;
@@ -358,10 +447,24 @@ for all
 using (
   school_id = public.current_user_school_id()
   and public.current_user_role() in ('admin', 'teacher')
+  and (
+    public.current_user_role() = 'admin'
+    or student_id in (
+      select student_id from public.student_enrollments 
+      where class_id in (select class_id from public.teacher_classes where teacher_id = (select id from public.teachers where auth_id = auth.uid()))
+    )
+  )
 )
 with check (
   school_id = public.current_user_school_id()
   and public.current_user_role() in ('admin', 'teacher')
+  and (
+    public.current_user_role() = 'admin'
+    or student_id in (
+      select student_id from public.student_enrollments 
+      where class_id in (select class_id from public.teacher_classes where teacher_id = (select id from public.teachers where auth_id = auth.uid()))
+    )
+  )
 );
 
 drop policy if exists "same school read results" on public.results;
@@ -505,3 +608,71 @@ with check (
   school_id = public.current_user_school_id()
   and public.current_user_role() = 'admin'
 );
+
+CREATE TABLE IF NOT EXISTS admission_enquiries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  student_name TEXT NOT NULL,
+  father_name TEXT NOT NULL,
+  class_wanted TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  email TEXT NOT NULL,
+  address TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'contacted', 'admitted', 'rejected')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admission_enquiries_school_id ON admission_enquiries(school_id);
+CREATE INDEX IF NOT EXISTS idx_admission_enquiries_status ON admission_enquiries(status);
+CREATE INDEX IF NOT EXISTS idx_admission_enquiries_created_at ON admission_enquiries(created_at DESC);
+
+ALTER TABLE admission_enquiries ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public to insert admission enquiries" ON admission_enquiries
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow school admins to view admission enquiries" ON admission_enquiries
+  FOR SELECT USING (
+    school_id IN (
+      SELECT school_id FROM profiles WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
+CREATE POLICY "Allow school admins to update admission enquiries" ON admission_enquiries
+  FOR UPDATE USING (
+    school_id IN (
+      SELECT school_id FROM profiles WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
+ALTER TABLE public.teachers ADD COLUMN IF NOT EXISTS auth_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.teachers ADD COLUMN IF NOT EXISTS class_teacher_id UUID REFERENCES public.classes(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_teachers_auth_id ON public.teachers(auth_id);
+CREATE INDEX IF NOT EXISTS idx_teacher_classes_teacher_id ON public.teacher_classes(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_teacher_subjects_teacher_id ON public.teacher_subjects(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_student_enrollments_class_id ON public.student_enrollments(class_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_class_id ON public.attendance(class_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_date ON public.attendance(date);
+CREATE INDEX IF NOT EXISTS idx_exams_class_id ON public.exams(class_id);
+
+INSERT INTO public.teachers (id, school_id, name, email, auth_id)
+SELECT 
+  gen_random_uuid(),
+  p.school_id,
+  COALESCE(p.full_name, 'Teacher'),
+  p.email,
+  p.id
+FROM public.profiles p
+WHERE p.role = 'teacher'
+AND NOT EXISTS (
+  SELECT 1 FROM public.teachers t WHERE t.auth_id = p.id
+)
+ON CONFLICT (id) DO NOTHING;
+
+UPDATE public.teachers t
+SET auth_id = p.id
+FROM public.profiles p
+WHERE p.email = t.email
+AND t.auth_id IS NULL;

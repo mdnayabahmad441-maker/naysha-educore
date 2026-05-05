@@ -49,42 +49,79 @@ export async function getCurrentParentStudentIds(): Promise<string[]> {
 }
 
 /* =========================
-   TEACHER ACCESS
+   TEACHER ACCESS - FIXED
 ========================= */
 export async function getCurrentTeacher() {
-  const { data: userData } = await supabase.auth.getUser()
-  const user = userData.user
+  try {
+    // First check if we have a session
+    const { data: sessionData } = await supabase.auth.getSession()
+    const session = sessionData.session
+    
+    if (!session) {
+      console.log("❌ No active session")
+      return null
+    }
 
-  if (!user) return null
+    const user = session.user
+    console.log("🔍 Current user:", user?.email)
 
-  // Try auth_id first
-  const { data: teacherByAuth } = await supabase
-    .from("teachers")
-    .select("id, school_id, email, name")
-    .eq("auth_id", user.id)
-    .maybeSingle()
+    if (!user) return null
 
-  if (teacherByAuth) return teacherByAuth
+    // Try auth_id first (most reliable)
+    const { data: teacherByAuth, error: authError } = await supabase
+      .from("teachers")
+      .select("id, school_id, email, name, auth_id")
+      .eq("auth_id", user.id)
+      .maybeSingle()
 
-  // Fallback to email
-  const email = user.email?.trim().toLowerCase()
-  if (!email) return null
+    if (!authError && teacherByAuth) {
+      console.log("✅ Teacher found by auth_id:", teacherByAuth.email)
+      return teacherByAuth
+    }
 
-  const { data: teacherByEmail } = await supabase
-    .from("teachers")
-    .select("id, school_id, email, name")
-    .eq("email", email)
-    .maybeSingle()
+    // Fallback to email
+    const email = user.email?.trim().toLowerCase()
+    if (!email) {
+      console.log("❌ No email found")
+      return null
+    }
 
-  if (!teacherByEmail) return null
+    const { data: teacherByEmail, error: emailError } = await supabase
+      .from("teachers")
+      .select("id, school_id, email, name, auth_id")
+      .eq("email", email)
+      .maybeSingle()
 
-  // Link auth_id automatically
-  await supabase
-    .from("teachers")
-    .update({ auth_id: user.id })
-    .eq("id", teacherByEmail.id)
+    if (emailError) {
+      console.error("Email lookup error:", emailError)
+    }
 
-  return teacherByEmail
+    if (teacherByEmail) {
+      console.log("✅ Teacher found by email:", teacherByEmail.email)
+      
+      // Link auth_id automatically if not already linked
+      if (!teacherByEmail.auth_id) {
+        const { error: updateError } = await supabase
+          .from("teachers")
+          .update({ auth_id: user.id })
+          .eq("id", teacherByEmail.id)
+
+        if (updateError) {
+          console.error("Failed to link auth_id:", updateError)
+        } else {
+          console.log("✅ Linked auth_id to teacher")
+        }
+      }
+      
+      return teacherByEmail
+    }
+
+    console.log("❌ No teacher found for email:", email)
+    return null
+  } catch (error) {
+    console.error("Error in getCurrentTeacher:", error)
+    return null
+  }
 }
 
 /* =========================

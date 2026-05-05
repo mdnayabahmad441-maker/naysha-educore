@@ -1,3 +1,5 @@
+
+
 "use client"
 
 export const dynamic = "force-dynamic"
@@ -9,6 +11,7 @@ import { supabase } from "@/lib/supabase"
 import { waitForSession } from "@/lib/auth-session"
 import { getUserRole } from "@/lib/getUserRole"
 import { useSchool } from "@/context/SchoolContext"
+import { getCurrentTeacher } from "@/lib/role-access"
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -16,34 +19,42 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
 
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
+  const [teacherName, setTeacherName] = useState("")
 
   useEffect(() => {
     const checkAuth = async () => {
-      const session = await waitForSession()
+      try {
+        const session = await waitForSession()
 
-      if (!session) {
-        window.location.href = "/login"
-        return
-      }
-
-      for (let attempt = 0; attempt < 3; attempt++) {
-        if (attempt > 0) await new Promise((r) => setTimeout(r, 600))
-        const roleData = await getUserRole()
-        if (roleData?.role === "teacher") {
-          setLoading(false)
+        if (!session) {
+          window.location.href = "/login"
           return
         }
-        if (attempt === 2) {
-          await supabase.auth.refreshSession()
-          const retryRole = await getUserRole()
-          if (retryRole?.role === "teacher") {
-            setLoading(false)
-            return
+
+        let roleData = null
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (attempt > 0) await new Promise((r) => setTimeout(r, 600))
+          roleData = await getUserRole()
+          if (roleData?.role === "teacher") {
+            break
           }
         }
-      }
 
-      window.location.href = "/unauthorized"
+        if (roleData?.role !== "teacher") {
+          window.location.href = "/unauthorized"
+          return
+        }
+
+        const teacher = await getCurrentTeacher()
+        if (teacher?.name) {
+          setTeacherName(teacher.name)
+        }
+
+        setLoading(false)
+      } catch (error) {
+        console.error("Auth error:", error)
+        window.location.href = "/login"
+      }
     }
 
     checkAuth()
@@ -113,7 +124,12 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
           </button>
         </div>
 
-        <nav className="mt-8 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 pb-6 text-sm">
+        <div className="mt-4 pb-4 border-b border-white/10">
+          <p className="text-xs text-gray-400">Logged in as</p>
+          <p className="text-sm font-semibold text-white truncate">{teacherName || "Teacher"}</p>
+        </div>
+
+        <nav className="mt-6 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 pb-6 text-sm">
           <Link href="/teacher" className={`nav-link ${linkStyle("/teacher")}`} onClick={() => setOpen(false)}>
             Dashboard
           </Link>
@@ -123,7 +139,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
           </p>
 
           <Link href="/teacher/students" className={`nav-link ${linkStyle("/teacher/students")}`} onClick={() => setOpen(false)}>
-            Students
+            My Students
           </Link>
 
           <Link href="/teacher/attendance" className={`nav-link ${linkStyle("/teacher/attendance")}`} onClick={() => setOpen(false)}>
@@ -131,7 +147,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
           </Link>
 
           <Link href="/teacher/exams" className={`nav-link ${linkStyle("/teacher/exams")}`} onClick={() => setOpen(false)}>
-            Create Exam
+            Exams
           </Link>
 
           <Link href="/teacher/marks" className={`nav-link ${linkStyle("/teacher/marks")}`} onClick={() => setOpen(false)}>
@@ -170,18 +186,20 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
               <h2 className="text-base font-semibold md:text-lg">
                 Teacher Panel
               </h2>
-
               <p className="text-xs text-gray-400">
                 {school?.subdomain ? `${school.subdomain}.naysha.online` : ""}
               </p>
             </div>
 
-            <button
-              onClick={logout}
-              className="rounded-full border border-red-400/20 bg-[linear-gradient(135deg,rgba(239,68,68,0.88),rgba(190,24,93,0.88))] px-5 py-2 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(127,29,29,0.28)] transition hover:brightness-110"
-            >
-              Sign Out
-            </button>
+            <div className="flex items-center gap-4">
+              <p className="text-sm text-gray-300">Welcome, {teacherName}</p>
+              <button
+                onClick={logout}
+                className="rounded-full border border-red-400/20 bg-[linear-gradient(135deg,rgba(239,68,68,0.88),rgba(190,24,93,0.88))] px-5 py-2 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(127,29,29,0.28)] transition hover:brightness-110"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </header>
 
