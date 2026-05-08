@@ -11,7 +11,7 @@ type Row = {
   check_in_time: string | null
   check_out_time: string | null
   distance_meters: number | null
-  teachers: { name: string; email: string } | null
+  teachers: { name: string; email: string }[] | null
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -272,8 +272,8 @@ export default function AdminTeacherAttendancePage() {
                 {records.map(r => (
                   <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition">
                     <td className="px-5 py-3">
-                      <p className="font-medium text-white">{r.teachers?.name ?? "—"}</p>
-                      <p className="text-xs text-slate-400">{r.teachers?.email ?? ""}</p>
+                      <p className="font-medium text-white">{r.teachers?.[0]?.name ?? "—"}</p>
+                      <p className="text-xs text-slate-400">{r.teachers?.[0]?.email ?? ""}</p>
                     </td>
                     {viewMode === "month" && (
                       <td className="px-5 py-3 text-slate-300">
