@@ -77,12 +77,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const linkStyle = (path: string) =>
     `flex items-center gap-3 rounded-lg px-4 py-2 transition-all duration-200 ${
       pathname === path || pathname.startsWith(path + "/")
-        ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md"
-        : "text-gray-400 hover:bg-white/5 hover:text-white"
+        ? "nav-link-active"
+        : "nav-link-inactive"
     }`
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-(--bg-main) text-white md:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden bg-(--bg-main) text-(--text-main) md:flex-row">
       <div
         className={`fixed inset-0 z-30 bg-black/60 transition-opacity duration-200 md:hidden ${sidebarOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
         onClick={closeSidebar}
@@ -90,7 +90,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       <aside className={`fixed inset-y-0 left-0 z-40 flex h-full w-full max-w-[320px] flex-col overflow-hidden border-r border-white/10 bg-(--bg-card) p-6 transition-transform duration-200 md:static md:translate-x-0 md:w-64 md:max-w-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between gap-4 md:block">
-          <h1 className="mb-6 bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-xl font-bold text-transparent">
+          <h1 className="mb-6 bg-linear-to-r from-(--color-accent) to-(--color-accent-2) bg-clip-text text-xl font-bold text-transparent">
             {school?.name || "NaySha EduCore"}
           </h1>
           <button type="button" className="rounded-lg border border-white/10 px-3 py-2 text-sm text-white hover:bg-white/5 md:hidden" onClick={closeSidebar}>
@@ -107,6 +107,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/admin/classes" className={`nav-link ${linkStyle("/admin/classes")}`} onClick={closeSidebar}>Classes</Link>
           <Link href="/admin/subjects" className={`nav-link ${linkStyle("/admin/subjects")}`} onClick={closeSidebar}>Subjects</Link>
           <Link href="/admin/teachers" className={`nav-link ${linkStyle("/admin/teachers")}`} onClick={closeSidebar}>Teachers</Link>
+          <Link href="/admin/teacher-attendance" className={`nav-link ${linkStyle("/admin/teacher-attendance")}`} onClick={closeSidebar}>Teacher Attendance</Link>
           <Link href="/admin/admission-enquiry" className={`nav-link ${linkStyle("/admin/admission-enquiry")}`} onClick={closeSidebar}>Admission Enquiry</Link>
           <Link href="/admin/promotion" className={`nav-link ${linkStyle("/admin/promotion")}`} onClick={closeSidebar}>Promotion</Link>
 
@@ -132,6 +133,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <p className="mb-2 mt-6 text-xs uppercase text-gray-500">System</p>
           <Link href="/admin/import" className={`nav-link ${linkStyle("/admin/import")}`} onClick={closeSidebar}>Bulk Import</Link>
           <Link href="/admin/settings" className={`nav-link ${linkStyle("/admin/settings")}`} onClick={closeSidebar}>Settings</Link>
+          <Link href="/admin/settings/appearance" className={`nav-link ${linkStyle("/admin/settings/appearance")}`} onClick={closeSidebar}>Appearance</Link>
           <Link href="/admin/ai-assistant" className={`nav-link ${linkStyle("/admin/ai-assistant")}`} onClick={closeSidebar}>AI Assistant</Link>
         </nav>
 
