@@ -32,40 +32,75 @@ function getTimeStatus(now: Date, start: string, end: string, lateAfter: string)
 
 // GET — teacher fetches their own attendance history
 export async function GET(req: Request) {
-  const auth = await requireAuthorizedProfile(req, ["teacher"])
-  if ("response" in auth) return auth.response
+  try {
+    const auth = await requireAuthorizedProfile(req, ["teacher"])
+    if ("response" in auth) return auth.response
 
-  const url = new URL(req.url)
-  const month = url.searchParams.get("month") // YYYY-MM
+    const url = new URL(req.url)
+    const month = url.searchParams.get("month") // YYYY-MM
 
-  const { data: teacher } = await supabaseAdmin
-    .from("teachers")
-    .select("id, school_id")
-    .eq("auth_id", auth.profile.userId)
-    .maybeSingle()
+    // Resolve teacher by auth_id first, fall back to email
+    let teacher: { id: string; school_id: string } | null = null
 
-  if (!teacher) return NextResponse.json({ error: "Teacher not found" }, { status: 404 })
+    const { data: byAuthId } = await supabaseAdmin
+      .from("teachers")
+      .select("id, school_id")
+      .eq("auth_id", auth.profile.userId)
+      .maybeSingle()
 
-  let query = supabaseAdmin
-    .from("teacher_attendance")
-    .select("*")
-    .eq("teacher_id", teacher.id)
-    .order("date", { ascending: false })
+    if (byAuthId) {
+      teacher = byAuthId
+    } else {
+      // Fallback: look up via auth user email
+      const { data: userData } = await supabaseAdmin.auth.admin.getUserById(auth.profile.userId)
+      const email = userData?.user?.email?.trim().toLowerCase()
+      if (email) {
+        const { data: byEmail } = await supabaseAdmin
+          .from("teachers")
+          .select("id, school_id")
+          .eq("email", email)
+          .maybeSingle()
+        teacher = byEmail
+      }
+    }
 
-  if (month) {
-    query = query.gte("date", `${month}-01`).lte("date", `${month}-31`)
-  } else {
-    query = query.limit(30)
+    if (!teacher) return NextResponse.json({ error: "Teacher record not found" }, { status: 404 })
+
+    let query = supabaseAdmin
+      .from("teacher_attendance")
+      .select("*")
+      .eq("teacher_id", teacher.id)
+      .order("date", { ascending: false })
+
+    if (month) {
+      query = query.gte("date", `${month}-01`).lte("date", `${month}-31`)
+    } else {
+      query = query.limit(30)
+    }
+
+    const { data, error } = await query
+    if (error) {
+      console.error("[teacher-attendance GET]", error.message)
+      // Table missing — give an actionable message
+      if (error.message.includes("does not exist")) {
+        return NextResponse.json(
+          { error: "Attendance table not set up yet. Ask your admin to run the teacher_attendance_schema.sql in Supabase." },
+          { status: 503 }
+        )
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, records: data || [] })
+  } catch (err: any) {
+    console.error("[teacher-attendance GET] Uncaught:", err)
+    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 })
   }
-
-  const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  return NextResponse.json({ success: true, records: data || [] })
 }
 
 // POST — teacher marks check-in or check-out
 export async function POST(req: Request) {
+  try {
   const auth = await requireAuthorizedProfile(req, ["teacher"])
   if ("response" in auth) return auth.response
 
@@ -81,12 +116,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Valid latitude and longitude required" }, { status: 400 })
   }
 
-  // Resolve teacher record
-  const { data: teacher } = await supabaseAdmin
+  // Resolve teacher — try auth_id first, fall back to email
+  let teacher: { id: string; school_id: string } | null = null
+
+  const { data: byAuthId } = await supabaseAdmin
     .from("teachers")
     .select("id, school_id")
     .eq("auth_id", auth.profile.userId)
     .maybeSingle()
+
+  if (byAuthId) {
+    teacher = byAuthId
+  } else {
+    const { data: userData } = await supabaseAdmin.auth.admin.getUserById(auth.profile.userId)
+    const email = userData?.user?.email?.trim().toLowerCase()
+    if (email) {
+      const { data: byEmail } = await supabaseAdmin
+        .from("teachers")
+        .select("id, school_id")
+        .eq("email", email)
+        .maybeSingle()
+      teacher = byEmail
+    }
+  }
 
   if (!teacher) return NextResponse.json({ error: "Teacher not found" }, { status: 404 })
 
@@ -185,4 +237,8 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ success: true, action: "check_out", distance })
+  } catch (err: any) {
+    console.error("[teacher-attendance POST] Uncaught:", err)
+    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 })
+  }
 }

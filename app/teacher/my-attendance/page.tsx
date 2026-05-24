@@ -43,6 +43,7 @@ export default function TeacherMyAttendancePage() {
   const [gps, setGps] = useState<GpsState>({ status: "idle" })
   const [today, setToday] = useState<TodayRecord>(null)
   const [records, setRecords] = useState<AttendanceRecord[]>([])
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(true)
   const [clock, setClock] = useState(new Date())
@@ -55,6 +56,7 @@ export default function TeacherMyAttendancePage() {
 
   const loadRecords = useCallback(async () => {
     setRefreshing(true)
+    setLoadError(null)
     try {
       const res = await apiFetch("/api/teacher-attendance")
       const data = await res.json()
@@ -64,7 +66,11 @@ export default function TeacherMyAttendancePage() {
         const todayRec = all.find(r => r.date === todayStr) ?? null
         setToday(todayRec)
         setRecords(all.filter(r => r.date !== todayStr))
+      } else {
+        setLoadError(data.error || "Could not load attendance records.")
       }
+    } catch {
+      setLoadError("Network error. Please check your connection and refresh.")
     } finally {
       setRefreshing(false)
     }
@@ -136,6 +142,25 @@ export default function TeacherMyAttendancePage() {
           {clock.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
         </p>
       </div>
+
+      {/* Error banner */}
+      {loadError && (
+        <div className="rounded-2xl border border-red-400/30 bg-red-400/10 px-5 py-4">
+          <p className="text-sm font-semibold text-red-300">Could not load attendance</p>
+          <p className="mt-1 text-xs text-red-400/80">{loadError}</p>
+          {loadError.includes("schema") && (
+            <p className="mt-2 text-xs text-red-300/70">
+              Action required: Run <code className="rounded bg-red-900/40 px-1 py-0.5 font-mono">teacher_attendance_schema.sql</code> in your Supabase SQL Editor.
+            </p>
+          )}
+          <button
+            onClick={loadRecords}
+            className="mt-3 rounded-lg border border-red-400/30 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-400/10"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Today status */}
       <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">

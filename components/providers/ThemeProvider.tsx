@@ -121,20 +121,20 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
       .eq("id", school.id)
       .maybeSingle()
       .then(({ data, error }) => {
-        if (error) return // column missing or RLS — stay on cached/default theme
+        if (!error) {
+          const raw = (data as Record<string, unknown> | null)?.ui_theme
+          const id = (typeof raw === "string" && THEMES.some((t) => t.id === raw))
+            ? (raw as ThemeId)
+            : DEFAULT_THEME_ID
 
-        const raw = (data as Record<string, unknown> | null)?.ui_theme
-        const id = (typeof raw === "string" && THEMES.some((t) => t.id === raw))
-          ? (raw as ThemeId)
-          : DEFAULT_THEME_ID
-
-        const theme = getThemeById(id)
-        applyThemeToDom(theme)
-        injectFonts(theme)
-        setThemeId(id)
-        localStorage.setItem(STORAGE_KEY, id)
+          const theme = getThemeById(id)
+          applyThemeToDom(theme)
+          injectFonts(theme)
+          setThemeId(id)
+          localStorage.setItem(STORAGE_KEY, id)
+        }
+        setIsLoading(false)
       })
-      .finally(() => setIsLoading(false))
   }, [school?.id])
 
   const setTheme = async (id: ThemeId): Promise<void> => {

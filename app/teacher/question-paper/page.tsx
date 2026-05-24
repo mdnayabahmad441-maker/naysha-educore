@@ -94,15 +94,45 @@ async function downloadPdf(
   y = 44
 
   const lines = content.split("\n")
+  const optBuf: string[] = []
+  const col2X = margin + maxW / 2 + 2
+
+  const flushOpts = () => {
+    if (optBuf.length === 0) return
+    for (let oi = 0; oi < optBuf.length; oi += 2) {
+      if (y > 275) { doc.addPage(); y = margin }
+      doc.setFontSize(10)
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor("#111827")
+      const leftStr = "  " + optBuf[oi]
+      const rightStr = oi + 1 < optBuf.length ? "  " + optBuf[oi + 1] : ""
+      const leftLines = doc.splitTextToSize(leftStr, maxW / 2 - 4)
+      const rightLines = rightStr ? doc.splitTextToSize(rightStr, maxW / 2 - 4) : []
+      const maxL = Math.max(leftLines.length, rightLines.length)
+      leftLines.forEach((l: string, li: number) => doc.text(l, margin, y + li * 4.5))
+      rightLines.forEach((l: string, li: number) => doc.text(l, col2X, y + li * 4.5))
+      y += maxL * 4.5 + 0.5
+    }
+    optBuf.length = 0
+  }
+
   for (const raw of lines) {
     const line = raw.trim()
-    if (!line) { y += 3; continue }
+    if (!line) { flushOpts(); y += 3; continue }
 
-    if (/^SECTION\s+[ABC]/i.test(line) || /^---/.test(line) || /^ANSWER KEY/i.test(line)) {
+    if (/^\([a-d]\)/i.test(line)) {
+      optBuf.push(line)
+      if (optBuf.length >= 4) flushOpts()
+      continue
+    }
+
+    flushOpts()
+
+    if (/^SECTION\s+[A-Z]/i.test(line) || /^---/.test(line) || /^ANSWER KEY/i.test(line) || /^OBJECTIVE QUESTIONS/i.test(line) || /^NEET\s+(ANSWER|PRACTICE)/i.test(line) || /^JEE\s+(MAINS|ADVANCED)/i.test(line)) {
       addSectionHeader(line.replace(/^-+/, "").trim() || line)
     } else if (/^(Q\d+|[0-9]+\.)/.test(line)) {
       addLine(line, 11, "normal")
-    } else if (/^\(Answer any/i.test(line) || /^General Instructions/i.test(line) || /^Note:/i.test(line) || /^Examiner/i.test(line)) {
+    } else if (/^\(Answer any/i.test(line) || /^General Instructions/i.test(line) || /^Note:/i.test(line) || /^Examiner/i.test(line) || /^Marking Scheme/i.test(line) || /^Time:/i.test(line)) {
       addLine(line, 10, "bold")
     } else if (/^OR$/i.test(line)) {
       y += 2
@@ -114,6 +144,7 @@ async function downloadPdf(
       addLine(line, 10)
     }
   }
+  flushOpts()
 
   const filename = meta.isAnswerKey
     ? `AnswerKey_Class${meta.cls}_${meta.subject}.pdf`
@@ -133,6 +164,8 @@ export default function QuestionPaperPage() {
   const [chapter, setChapter] = useState("")
   const [topic, setTopic] = useState("")
   const [difficulty, setDifficulty] = useState<"Easy" | "Medium" | "Hard">("Medium")
+  const [questionType, setQuestionType] = useState<"mixed" | "objective">("mixed")
+  const [examType, setExamType] = useState<"CBSE" | "NEET" | "JEE_MAINS" | "JEE_ADVANCED">("CBSE")
   const [marks, setMarks] = useState("40")
 
   // Paper state
@@ -148,6 +181,13 @@ export default function QuestionPaperPage() {
   const [pdfLoading, setPdfLoading] = useState(false)
   const [akPdfLoading, setAkPdfLoading] = useState(false)
 
+  // Add-question panel
+  const [showAddQ, setShowAddQ] = useState(false)
+  const [addQType, setAddQType] = useState<"mcq" | "short" | "long">("mcq")
+  const [addQText, setAddQText] = useState("")
+  const [addQMarks, setAddQMarks] = useState("1")
+  const [addQOptions, setAddQOptions] = useState({ a: "", b: "", c: "", d: "" })
+
   const paperRef = useRef<HTMLDivElement>(null)
 
   const subjects = SUBJECTS_BY_CLASS[cls] ?? []
@@ -155,9 +195,10 @@ export default function QuestionPaperPage() {
   useEffect(() => { getSchoolId().then(setSchoolId) }, [])
   useEffect(() => { if (tab === "history" && schoolId) loadHistory() }, [tab, schoolId])
 
-  // Reset subject when class changes
+  // Reset subject and examType when class changes
   useEffect(() => {
     setSubject(SUBJECTS_BY_CLASS[cls]?.[0] ?? "")
+    if (!["11", "12"].includes(cls)) setExamType("CBSE")
   }, [cls])
 
   async function loadHistory() {
@@ -181,7 +222,7 @@ export default function QuestionPaperPage() {
       const res = await apiFetch("/api/generate-questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ class: cls, subject, chapter: chapter.trim(), topic: topic.trim(), difficulty, marks: Number(marks), schoolId, save }),
+        body: JSON.stringify({ class: cls, subject, chapter: chapter.trim(), topic: topic.trim(), difficulty, marks: Number(marks), schoolId, save, questionType, examType, schoolName: school?.name || "" }),
       })
       const data = await res.json()
 
@@ -258,6 +299,25 @@ export default function QuestionPaperPage() {
     window.print()
   }
 
+  function appendQuestion() {
+    if (!addQText.trim()) return
+    const existingNums = (editContent.match(/^Q?\d+[\.\)]/gm) || []).length
+    const nextNum = existingNums + 1
+    const marksLabel = addQType === "mcq" ? "[1 Mark]" : `[${addQMarks} Marks]`
+    let q = `\nQ${nextNum}. ${addQText.trim()} ${marksLabel}\n`
+    if (addQType === "mcq") {
+      q += `(a) ${addQOptions.a || "Option A"}\n`
+      q += `(b) ${addQOptions.b || "Option B"}\n`
+      q += `(c) ${addQOptions.c || "Option C"}\n`
+      q += `(d) ${addQOptions.d || "Option D"}\n`
+    }
+    setEditContent(prev => prev + q)
+    setEditMode(true)
+    setAddQText("")
+    setAddQOptions({ a: "", b: "", c: "", d: "" })
+    setShowAddQ(false)
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-16 text-white">
@@ -288,6 +348,57 @@ export default function QuestionPaperPage() {
         <>
           {/* Form */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            {/* Question Type Toggle — hidden for NEET/JEE (they have their own pattern) */}
+            {(examType === "CBSE") && (
+              <div className="mb-5">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">Question Type</p>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { value: "mixed", label: "Mixed", desc: "MCQ + Short + Long Answer" },
+                    { value: "objective", label: "Objective Only", desc: "MCQs only (1 mark each)" },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setQuestionType(opt.value)}
+                      className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+                        questionType === opt.value
+                          ? "border-cyan-400/40 bg-cyan-400/15 text-cyan-200"
+                          : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <span className={`h-2 w-2 rounded-full ${questionType === opt.value ? "bg-cyan-400" : "bg-slate-600"}`} />
+                      {opt.label}
+                      <span className={`text-xs font-normal ${questionType === opt.value ? "text-cyan-300/80" : "text-slate-500"}`}>
+                        — {opt.desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Exam type banner for NEET / JEE */}
+            {examType !== "CBSE" && (
+              <div className={`mb-5 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${
+                examType === "NEET"
+                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                  : examType === "JEE_MAINS"
+                  ? "border-blue-400/30 bg-blue-400/10 text-blue-200"
+                  : "border-amber-400/30 bg-amber-400/10 text-amber-200"
+              }`}>
+                <span className="text-lg">{examType === "NEET" ? "🧬" : examType === "JEE_MAINS" ? "⚗️" : "🏆"}</span>
+                <div>
+                  <p className="font-semibold">
+                    {examType === "NEET" ? "NEET Mode — NTA Guidelines" : examType === "JEE_MAINS" ? "JEE Mains Mode — NTA Guidelines" : "JEE Advanced Mode — IIT Guidelines"}
+                  </p>
+                  <p className="text-xs opacity-75">
+                    {examType === "NEET" ? "Single correct MCQs · +4/−1 marking · NCERT-anchored" : examType === "JEE_MAINS" ? "MCQ + Numerical · +4/−1 (MCQ) · +4/0 (Numerical)" : "Single/Multi correct + Integer · Partial marking applies"}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {/* Class */}
               <div>
@@ -317,6 +428,23 @@ export default function QuestionPaperPage() {
                   <option value="Hard">Hard</option>
                 </select>
               </div>
+
+              {/* Exam Type — Class 11 & 12 only */}
+              {["11", "12"].includes(cls) && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-slate-400">Exam Type</label>
+                  <select
+                    value={examType}
+                    onChange={e => setExamType(e.target.value as any)}
+                    className="w-full rounded-xl border border-white/10 bg-[#08111f] px-4 py-2.5 text-sm text-white"
+                  >
+                    <option value="CBSE">CBSE Board</option>
+                    <option value="NEET">NEET (NTA)</option>
+                    <option value="JEE_MAINS">JEE Mains (NTA)</option>
+                    <option value="JEE_ADVANCED">JEE Advanced (IIT)</option>
+                  </select>
+                </div>
+              )}
 
               {/* Chapter */}
               <div className="sm:col-span-2">
@@ -453,11 +581,11 @@ export default function QuestionPaperPage() {
                       </span>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {editMode ? (
                       <>
                         <button
-                          onClick={() => { setEditContent(content); setEditMode(false) }}
+                          onClick={() => { setEditContent(content); setEditMode(false); setShowAddQ(false) }}
                           className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10"
                         >
                           Cancel
@@ -479,6 +607,16 @@ export default function QuestionPaperPage() {
                       </button>
                     )}
                     <button
+                      onClick={() => { setShowAddQ(prev => !prev); setEditMode(true) }}
+                      className={`rounded-xl border px-4 py-2 text-xs font-semibold transition ${
+                        showAddQ
+                          ? "border-indigo-400/40 bg-indigo-400/15 text-indigo-200"
+                          : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                      }`}
+                    >
+                      + Add Question
+                    </button>
+                    <button
                       onClick={() => printSection("paper")}
                       className="rounded-xl bg-[linear-gradient(135deg,#0f766e,#0d9488)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110"
                     >
@@ -493,6 +631,86 @@ export default function QuestionPaperPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Add Question Panel */}
+                {showAddQ && (
+                  <div className="mx-5 mb-4 mt-1 rounded-xl border border-indigo-400/20 bg-indigo-400/5 p-5">
+                    <p className="mb-4 text-sm font-semibold text-indigo-200">Add Question Manually</p>
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      {([
+                        { v: "mcq", label: "MCQ (1 Mark)" },
+                        { v: "short", label: "Short Answer" },
+                        { v: "long", label: "Long Answer" },
+                      ] as const).map(opt => (
+                        <button
+                          key={opt.v}
+                          type="button"
+                          onClick={() => { setAddQType(opt.v); setAddQMarks(opt.v === "mcq" ? "1" : opt.v === "short" ? "2" : "4") }}
+                          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                            addQType === opt.v
+                              ? "border-indigo-400/40 bg-indigo-500/20 text-indigo-200"
+                              : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                      {addQType !== "mcq" && (
+                        <div className="flex items-center gap-2 ml-2">
+                          <span className="text-xs text-slate-400">Marks:</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={addQMarks}
+                            onChange={e => setAddQMarks(e.target.value)}
+                            className="w-16 rounded-lg border border-white/10 bg-[#08111f] px-2 py-1.5 text-xs text-white"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <textarea
+                      value={addQText}
+                      onChange={e => setAddQText(e.target.value)}
+                      placeholder="Type your question here..."
+                      rows={3}
+                      className="mb-3 w-full rounded-xl border border-white/10 bg-[#08111f] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-400/40"
+                    />
+
+                    {addQType === "mcq" && (
+                      <div className="mb-4 grid gap-2 sm:grid-cols-2">
+                        {(["a", "b", "c", "d"] as const).map(opt => (
+                          <div key={opt} className="flex items-center gap-2">
+                            <span className="w-6 shrink-0 text-center text-xs font-bold text-slate-400">({opt})</span>
+                            <input
+                              value={addQOptions[opt]}
+                              onChange={e => setAddQOptions(prev => ({ ...prev, [opt]: e.target.value }))}
+                              placeholder={`Option ${opt.toUpperCase()}`}
+                              className="flex-1 rounded-lg border border-white/10 bg-[#08111f] px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={appendQuestion}
+                        disabled={!addQText.trim()}
+                        className="rounded-xl bg-[linear-gradient(135deg,#4f46e5,#7c3aed)] px-5 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50"
+                      >
+                        Append to Paper
+                      </button>
+                      <button
+                        onClick={() => setShowAddQ(false)}
+                        className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Content */}
                 {editMode ? (
@@ -595,68 +813,111 @@ export default function QuestionPaperPage() {
 
 // ─── Paper Renderer ───────────────────────────────────────────────────────────
 
+type RenderItem =
+  | { kind: "blank" }
+  | { kind: "options"; opts: string[] }
+  | { kind: "text"; raw: string }
+
+function buildRenderItems(content: string): RenderItem[] {
+  const rawLines = content.split("\n")
+  const items: RenderItem[] = []
+  let i = 0
+  while (i < rawLines.length) {
+    const line = rawLines[i].trim()
+    if (!line) {
+      items.push({ kind: "blank" })
+      i++
+      continue
+    }
+    // Group consecutive (a)(b)(c)(d) option lines horizontally
+    if (/^\(a\)/i.test(line)) {
+      const opts: string[] = [line]
+      let j = i + 1
+      while (j < rawLines.length && j <= i + 3) {
+        const next = rawLines[j].trim()
+        if (/^\([b-d]\)/i.test(next)) { opts.push(next); j++ }
+        else break
+      }
+      if (opts.length > 1) {
+        items.push({ kind: "options", opts })
+        i = j
+        continue
+      }
+    }
+    items.push({ kind: "text", raw: line })
+    i++
+  }
+  return items
+}
+
 function PaperRenderer({ content }: { content: string }) {
-  const lines = content.split("\n")
+  const items = buildRenderItems(content)
 
   return (
-    <div className="space-y-1 font-sans text-sm leading-relaxed text-slate-200">
-      {lines.map((raw, i) => {
-        const line = raw.trim()
-        if (!line) return <div key={i} className="h-3" />
+    <div className="space-y-0.5 font-sans text-sm leading-relaxed text-slate-200">
+      {items.map((item, idx) => {
+        if (item.kind === "blank") return <div key={idx} className="h-2" />
 
-        if (/^SECTION\s+[ABC]/i.test(line)) {
+        if (item.kind === "options") {
           return (
-            <div key={i} className="qp-sec-hdr my-4 rounded-lg bg-blue-600/20 px-4 py-2 text-base font-bold text-blue-200 tracking-wide">
+            <div key={idx} className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 pl-6 pr-2">
+              {item.opts.map((opt, j) => (
+                <span key={j} className="text-slate-300">{opt}</span>
+              ))}
+            </div>
+          )
+        }
+
+        const line = item.raw
+
+        if (/^SECTION\s+[A-Z]/i.test(line) || /^OBJECTIVE QUESTIONS/i.test(line) || /^NEET\s+PRACTICE/i.test(line) || /^JEE\s+(MAINS|ADVANCED)\s+PRACTICE/i.test(line)) {
+          return (
+            <div key={idx} className="qp-sec-hdr my-4 rounded-lg bg-blue-600/20 px-4 py-2 text-base font-bold text-blue-200 tracking-wide">
               {line}
             </div>
           )
         }
 
-        if (/^---+/.test(line)) return <hr key={i} className="border-white/10 my-3" />
+        if (/^---+/.test(line)) return <hr key={idx} className="border-white/10 my-3" />
 
         if (/^OR$/i.test(line)) {
           return (
-            <p key={i} className="my-2 text-center text-xs font-bold uppercase tracking-widest text-slate-400">
+            <p key={idx} className="my-2 text-center text-xs font-bold uppercase tracking-widest text-slate-400">
               ─── OR ───
             </p>
           )
         }
 
         if (/^\*\*(.+)\*\*$/.test(line)) {
-          return <p key={i} className="font-bold text-white">{line.replace(/\*\*/g, "")}</p>
+          return <p key={idx} className="font-bold text-white">{line.replace(/\*\*/g, "")}</p>
         }
 
-        if (/^(General Instructions|Note:|Time:|Max Marks:)/i.test(line)) {
-          return <p key={i} className="font-semibold text-slate-100">{line}</p>
+        if (/^(General Instructions|Note:|Time:|Max Marks:|Marking Scheme:|Marking:|Instructions)/i.test(line)) {
+          return <p key={idx} className="font-semibold text-slate-100">{line}</p>
         }
 
         if (/^[•\-]\s/.test(line)) {
-          return <p key={i} className="pl-4 text-slate-300">• {line.slice(2)}</p>
-        }
-
-        if (/^\(a\)|\(b\)|\(c\)|\(d\)/i.test(line)) {
-          return <p key={i} className="pl-8 text-slate-300">{line}</p>
+          return <p key={idx} className="pl-4 text-slate-300">• {line.slice(2)}</p>
         }
 
         if (/^Q?\d+[\.\)]\s/.test(line) || /^\d+\.\s/.test(line)) {
-          return <p key={i} className="mt-3 font-medium text-white">{line}</p>
+          return <p key={idx} className="mt-3 font-medium text-white">{line}</p>
         }
 
-        // Marks indicators
         const marksMatch = line.match(/\[(\d+)\s*[Mm]arks?\]/)
         if (marksMatch) {
           const [full] = marksMatch
           const parts = line.split(full)
           return (
-            <p key={i} className="flex gap-2">
+            <p key={idx} className="flex gap-2 flex-wrap">
               <span>{parts[0]}</span>
               <span className="qp-mark-badge rounded border border-amber-400/30 bg-amber-400/10 px-2 text-xs font-semibold text-amber-300">{full}</span>
-              <span>{parts[1]}</span>
+              {parts[1] && <span>{parts[1]}</span>}
             </p>
           )
         }
 
-        return <p key={i} className="text-slate-300">{line}</p>
+        return <p key={idx} className="text-slate-300">{line}</p>
       })}
     </div>
   )
