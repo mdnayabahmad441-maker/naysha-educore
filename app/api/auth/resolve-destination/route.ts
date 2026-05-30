@@ -22,7 +22,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const preferredRole =
-      body?.preferredRole === "admin" || body?.preferredRole === "teacher" || body?.preferredRole === "parent"
+      body?.preferredRole === "admin" ||
+      body?.preferredRole === "teacher" ||
+      body?.preferredRole === "parent" ||
+      body?.preferredRole === "super_admin"
         ? (body.preferredRole as AccountRole)
         : null
 

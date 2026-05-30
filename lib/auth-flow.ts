@@ -5,7 +5,7 @@ import { waitForSession } from "@/lib/auth-session"
 import { sanitizeNextPath } from "@/lib/security"
 
 export type AuthDestination = {
-  next: "/admin" | "/teacher" | "/parent"
+  next: "/admin" | "/teacher" | "/parent" | "/super-admin"
   subdomain: string
   role?: string
   school_id?: string
@@ -15,7 +15,7 @@ export type AuthDestination = {
 export async function resolveAuthDestination(
   user: any,
   email: string,
-  preferredRole?: "admin" | "teacher" | "parent"
+  preferredRole?: "admin" | "teacher" | "parent" | "super_admin"
 ): Promise<AuthDestination> {
   const normalizedEmail = email.trim().toLowerCase()
   const userId = user.id

@@ -18,7 +18,7 @@ const bodyFont = Manrope({
 
 type ResolvedAccount = {
   email: string
-  role: "admin" | "teacher" | "parent"
+  role: "admin" | "teacher" | "parent" | "super_admin"
   loginMethod: "password" | "otp"
 }
 
@@ -145,7 +145,6 @@ export default function LoginPage() {
 
     setLoading(true)
 
-    // Teacher auth user already exists — just send OTP, no creation needed
     const { error } = await supabase.auth.signInWithOtp({
       email: resolvedAccount.email,
       options: { shouldCreateUser: false },
@@ -171,7 +170,6 @@ export default function LoginPage() {
 
     setSetupLoading(true)
 
-    // Ensures Supabase auth user exists for any registered role (teacher, admin, parent)
     const setupRes = await fetch("/api/auth/setup-account", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -236,337 +234,264 @@ export default function LoginPage() {
     resolvedAccount?.role === "admin" ? "Admin" :
     resolvedAccount?.role === "teacher" ? "Teacher" :
     resolvedAccount?.role === "parent" ? "Parent" :
+    resolvedAccount?.role === "super_admin" ? "Super Admin" :
     null
 
   return (
-    <div className={`${bodyFont.className} min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_28%),radial-gradient(circle_at_right,_rgba(34,197,94,0.10),_transparent_26%),linear-gradient(145deg,#040b16_0%,#091120_46%,#050a13_100%)] text-white`}>
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-6 lg:px-10">
-        <header className="flex items-center justify-between border-b border-white/10 pb-5">
+    <div className={`${bodyFont.className} min-h-screen bg-[#050b14] text-white`}>
+      <main className="mx-auto grid min-h-screen max-w-6xl gap-8 px-5 py-8 lg:grid-cols-[1fr_440px] lg:items-center lg:px-8">
+        <section className="space-y-8">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-cyan-200/80">
-              School ERP Platform
-            </p>
-            <h1 className={`${headingFont.className} mt-2 text-2xl font-bold text-white`}>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cyan-300">
               NaySha EduCore
+            </p>
+            <h1 className={`${headingFont.className} mt-4 max-w-2xl text-4xl font-bold leading-tight md:text-5xl`}>
+              School ERP for daily academic and admin work.
             </h1>
+            <p className="mt-4 max-w-xl text-base leading-7 text-slate-300">
+              Sign in to your school workspace or create a new school account.
+            </p>
           </div>
 
-          <div className="hidden rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 md:block">
-            Email-first access for Admin, Teacher and Parent panels
+          <div className="max-w-xl rounded-2xl border border-white/10 bg-white/5 p-5">
+            <p className="text-sm font-semibold text-white">New school?</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Create your school workspace before using the login flow.
+            </p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <a
+                href="/onboarding"
+                className="inline-flex justify-center rounded-xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-cyan-400"
+              >
+                Create School Account
+              </a>
+            </div>
           </div>
-        </header>
+        </section>
 
-        <main className="grid flex-1 items-center gap-8 py-8 xl:grid-cols-[1.15fr_0.85fr]">
-          <section className="hidden gap-6 xl:grid">
-            <div className="max-w-3xl">
-              <p className="mb-5 inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.26em] text-cyan-200">
-                ERP Login Workspace
-              </p>
-              <h2 className={`${headingFont.className} text-4xl font-bold leading-tight text-white md:text-6xl`}>
-                One login entry, then the ERP chooses the right path.
-              </h2>
-              <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300">
-                Enter your email first. Admins and teachers continue with password login,
-                while parents stay on OTP verification for simpler family access.
+        <section className="w-full">
+          <div className="rounded-2xl border border-white/10 bg-[#0b1424] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:p-6">
+            <div className="mb-6">
+              <h2 className={`${headingFont.className} text-2xl font-semibold`}>Sign in</h2>
+              <p className="mt-2 text-sm text-slate-400">
+                Use your registered email to continue.
               </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {[
-                { title: "Email First", text: "The system checks the account type before asking for the next login step." },
-                { title: "Staff Password Login", text: "Admins and teachers use password-based sign-in after email detection." },
-                { title: "Parent OTP Login", text: "Parents get a one-time passcode flow that works well on phones." },
-                { title: "Role-Based Routing", text: "Each user lands directly in the correct school panel after authentication." },
-                { title: "First-Time Setup", text: "Existing school accounts can create credentials through email verification once." },
-                { title: "Multi-School Ready", text: "After login, users are redirected into the correct tenant workspace automatically." },
-              ].map((item) => (
-                <article
-                  key={item.title}
-                  className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] p-5 shadow-[0_16px_44px_rgba(2,8,23,0.22)]"
-                >
-                  <h3 className={`${headingFont.className} text-lg font-semibold text-white`}>
-                    {item.title}
-                  </h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">
-                    {item.text}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="mx-auto w-full max-w-md">
-            <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(8,15,30,0.92),rgba(7,12,22,0.86))] shadow-[0_26px_80px_rgba(2,8,23,0.42)] backdrop-blur">
-              <div className="border-b border-white/10 px-5 py-5 sm:px-7 sm:py-6">
-                <div className="xl:hidden">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-cyan-200/80">
-                    School ERP Platform
-                  </p>
-                  <h1 className={`${headingFont.className} mt-2 text-2xl font-bold text-white`}>
-                    NaySha EduCore
-                  </h1>
-                </div>
-
-                <div className="mt-4 rounded-[24px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_36%),linear-gradient(135deg,rgba(8,15,30,0.9),rgba(7,12,22,0.82))] px-4 py-4 shadow-[0_18px_50px_rgba(2,8,23,0.3)]">
-                  <p className="text-sm font-medium uppercase tracking-[0.24em] text-cyan-200/80">
-                    Access Portal
-                  </p>
-                  <h3 className={`${headingFont.className} mt-3 text-2xl font-semibold text-white sm:text-3xl`}>
-                    Sign In
-                  </h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">
-                    Start with your email. We will switch to password or OTP based on your role.
-                  </p>
-                </div>
+            {setupDone ? (
+              <div className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                Account setup completed. You can now sign in with your email and password.
               </div>
+            ) : null}
 
-              <div className="px-5 py-5 sm:px-7 sm:py-7">
-                {setupDone ? (
-                  <div className="mb-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-                    Account setup completed. You can now sign in with your email and password.
-                  </div>
-                ) : null}
+            {resetSent ? (
+              <div className="mb-4 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+                Password reset email sent. Please check your inbox.
+              </div>
+            ) : null}
 
-                {resetSent ? (
-                  <div className="mb-5 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
-                    Password reset email sent. Please check your inbox.
-                  </div>
-                ) : null}
-
-                <div className="space-y-4 rounded-[26px] border border-white/10 bg-white/5 p-4 sm:p-5">
+            <div className="space-y-4">
+              {!resolvedAccount ? (
+                <>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                      Login
-                    </p>
-                    <p className="mt-1 text-sm text-slate-300">
-                      Identify the account first, then continue with the right sign-in method.
-                    </p>
+                    <label className="mb-2 block text-sm font-medium text-slate-200">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="Enter your email"
+                      className="w-full rounded-xl border border-white/10 bg-[#07101d] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-cyan-400/50"
+                    />
                   </div>
 
-                  {!resolvedAccount ? (
-                    <>
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-slate-200">
-                          Email
-                        </label>
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(event) => setEmail(event.target.value)}
-                          placeholder="Enter your email"
-                          className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-3.5 text-white placeholder:text-slate-500"
-                        />
-                      </div>
+                  <button
+                    type="button"
+                    onClick={identifyAccount}
+                    disabled={loading}
+                    className="w-full rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {loading ? "Checking Account..." : "Continue"}
+                  </button>
+                </>
+              ) : resolvedAccount.loginMethod === "password" ? (
+                <>
+                  <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                    {roleLabel} account found for <span className="font-semibold">{resolvedAccount.email}</span>.
+                  </div>
 
-                      <button
-                        type="button"
-                        onClick={identifyAccount}
-                        disabled={loading}
-                        className="w-full rounded-2xl bg-[linear-gradient(135deg,#0ea5e9,#2563eb)] px-4 py-4 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(14,116,144,0.28)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        {loading ? "Checking Account..." : "Continue"}
-                      </button>
-                    </>
-                  ) : resolvedAccount.loginMethod === "password" ? (
-                    <>
-                      <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-                        {roleLabel} account found for <span className="font-semibold">{resolvedAccount.email}</span>.
-                      </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-200">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Enter password"
+                      className="w-full rounded-xl border border-white/10 bg-[#07101d] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-cyan-400/50"
+                    />
+                  </div>
 
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-slate-200">
-                          Password
-                        </label>
-                        <input
-                          type="password"
-                          value={password}
-                          onChange={(event) => setPassword(event.target.value)}
-                          placeholder="Enter password"
-                          className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-3.5 text-white placeholder:text-slate-500"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={backToEmailStep}
-                          className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10"
-                        >
-                          Change Email
-                        </button>
-                        <button
-                          type="button"
-                          onClick={loginWithPassword}
-                          disabled={loading}
-                          className="rounded-2xl bg-[linear-gradient(135deg,#0ea5e9,#2563eb)] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                          {loading ? "Signing In..." : "Login"}
-                        </button>
-                      </div>
-                    </>
-                  ) : resolvedAccount.role === "teacher" ? (
-                    <>
-                      <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-                        <p className="font-semibold">First Login — Set Your Password</p>
-                        <p className="mt-1 text-emerald-200/80">
-                          We will send a verification code to <span className="font-medium text-white">{resolvedAccount.email}</span>. Use it to create your password.
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={backToEmailStep}
-                          className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10"
-                        >
-                          Change Email
-                        </button>
-                        <button
-                          type="button"
-                          onClick={sendTeacherSetupOtp}
-                          disabled={loading}
-                          className="rounded-2xl bg-[linear-gradient(135deg,#10b981,#0f766e)] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                          {loading ? "Sending Code..." : "Send Code"}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                        Parent account found for <span className="font-semibold">{resolvedAccount.email}</span>.
-                        Continue with OTP login.
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={backToEmailStep}
-                          className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10"
-                        >
-                          Change Email
-                        </button>
-                        <button
-                          type="button"
-                          onClick={sendParentOtp}
-                          disabled={loading}
-                          className="rounded-2xl bg-[linear-gradient(135deg,#f59e0b,#d97706)] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                          {loading ? "Sending OTP..." : "Send OTP"}
-                        </button>
-                      </div>
-                    </>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
-                      onClick={() => setHelperMode(helperMode === "setup" ? "none" : "setup")}
-                      className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
-                        helperMode === "setup"
-                          ? "border-amber-300/30 bg-amber-300/15 text-amber-100"
-                          : "border-white/10 bg-white/6 text-slate-200 hover:bg-white/10"
-                      }`}
+                      onClick={backToEmailStep}
+                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10"
                     >
-                      First-Time Setup
+                      Change Email
                     </button>
                     <button
                       type="button"
-                      onClick={() => setHelperMode(helperMode === "reset" ? "none" : "reset")}
-                      className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
-                        helperMode === "reset"
-                          ? "border-cyan-300/30 bg-cyan-300/15 text-cyan-100"
-                          : "border-white/10 bg-white/6 text-slate-200 hover:bg-white/10"
-                      }`}
+                      onClick={loginWithPassword}
+                      disabled={loading}
+                      className="rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      Reset Password
+                      {loading ? "Signing In..." : "Login"}
                     </button>
                   </div>
-                </div>
-
-                {helperMode === "setup" ? (
-                  <div className="mt-4 rounded-[26px] border border-amber-300/20 bg-amber-300/10 p-4 sm:p-5">
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        Set password for an existing school account
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-slate-300">
-                        Use your school email. We will verify it with OTP first, then let you create your password.
-                      </p>
-                    </div>
-
-                    <div className="mt-4 space-y-3">
-                      <input
-                        type="email"
-                        value={setupEmail}
-                        onChange={(event) => setSetupEmail(event.target.value)}
-                        placeholder="Enter existing school email"
-                        className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-3.5 text-white placeholder:text-slate-500"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={startExistingAccountSetup}
-                        disabled={setupLoading}
-                        className="w-full rounded-2xl border border-amber-200/20 bg-[linear-gradient(135deg,#f59e0b,#d97706)] px-4 py-3.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        {setupLoading ? "Sending OTP..." : "Verify Email And Set Password"}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-
-                {helperMode === "reset" ? (
-                  <div className="mt-4 rounded-[26px] border border-cyan-300/20 bg-cyan-300/10 p-4 sm:p-5">
-                    <p className="text-sm font-semibold text-white">
-                      Forgot password
+                </>
+              ) : resolvedAccount.role === "teacher" ? (
+                <>
+                  <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                    <p className="font-semibold">First login setup</p>
+                    <p className="mt-1 text-emerald-200/80">
+                      Verification code will be sent to <span className="font-medium text-white">{resolvedAccount.email}</span>.
                     </p>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">
-                      Request a reset link for admin and teacher accounts.
-                    </p>
-
-                    <div className="mt-4 space-y-3">
-                      <input
-                        type="email"
-                        value={resetEmail}
-                        onChange={(event) => setResetEmail(event.target.value)}
-                        placeholder="Enter account email"
-                        className="w-full rounded-2xl border border-white/10 bg-[#08111f] px-4 py-3.5 text-white placeholder:text-slate-500"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={requestPasswordReset}
-                        disabled={resetLoading}
-                        className="w-full rounded-2xl border border-cyan-200/20 bg-[linear-gradient(135deg,#0891b2,#2563eb)] px-4 py-3.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        {resetLoading ? "Sending Reset..." : "Send Password Reset"}
-                      </button>
-                    </div>
                   </div>
-                ) : null}
 
-                <div className="mt-4 rounded-[24px] border border-white/10 bg-white/5 p-4">
-                  <p className="text-sm font-semibold text-white">
-                    First-time school onboarding
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
-                    New school admins should start here before using the login flow.
-                  </p>
-                  <div className="mt-4">
-                    <a
-                      href="/onboarding"
-                      className="block rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-center text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={backToEmailStep}
+                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10"
                     >
-                      Create School Account
-                    </a>
+                      Change Email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={sendTeacherSetupOtp}
+                      disabled={loading}
+                      className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {loading ? "Sending Code..." : "Send Code"}
+                    </button>
                   </div>
-                </div>
+                </>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+                    Parent account found for <span className="font-semibold">{resolvedAccount.email}</span>.
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={backToEmailStep}
+                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10"
+                    >
+                      Change Email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={sendParentOtp}
+                      disabled={loading}
+                      className="rounded-xl bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {loading ? "Sending OTP..." : "Send OTP"}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setHelperMode(helperMode === "setup" ? "none" : "setup")}
+                  className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                    helperMode === "setup"
+                      ? "border-amber-300/30 bg-amber-300/15 text-amber-100"
+                      : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                  }`}
+                >
+                  Setup
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHelperMode(helperMode === "reset" ? "none" : "reset")}
+                  className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                    helperMode === "reset"
+                      ? "border-cyan-300/30 bg-cyan-300/15 text-cyan-100"
+                      : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                  }`}
+                >
+                  Reset Password
+                </button>
               </div>
             </div>
-          </section>
-        </main>
-      </div>
+
+            {helperMode === "setup" ? (
+              <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/10 p-4">
+                <p className="text-sm font-semibold text-white">First-time setup</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  Verify your school email and create your password.
+                </p>
+                <div className="mt-4 space-y-3">
+                  <input
+                    type="email"
+                    value={setupEmail}
+                    onChange={(event) => setSetupEmail(event.target.value)}
+                    placeholder="Enter existing school email"
+                    className="w-full rounded-xl border border-white/10 bg-[#07101d] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-amber-300/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={startExistingAccountSetup}
+                    disabled={setupLoading}
+                    className="w-full rounded-xl bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {setupLoading ? "Sending OTP..." : "Verify Email"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {helperMode === "reset" ? (
+              <div className="mt-4 rounded-xl border border-cyan-300/20 bg-cyan-300/10 p-4">
+                <p className="text-sm font-semibold text-white">Forgot password</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  Request a reset link for admin and teacher accounts.
+                </p>
+                <div className="mt-4 space-y-3">
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(event) => setResetEmail(event.target.value)}
+                    placeholder="Enter account email"
+                    className="w-full rounded-xl border border-white/10 bg-[#07101d] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={requestPasswordReset}
+                    disabled={resetLoading}
+                    className="w-full rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {resetLoading ? "Sending Reset..." : "Send Reset Link"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-slate-400 lg:hidden">
+              New school?{" "}
+              <a href="/onboarding" className="font-semibold text-cyan-300">
+                Create account
+              </a>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   )
 }

@@ -108,7 +108,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/admin/subjects" className={`nav-link ${linkStyle("/admin/subjects")}`} onClick={closeSidebar}>Subjects</Link>
           <Link href="/admin/teachers" className={`nav-link ${linkStyle("/admin/teachers")}`} onClick={closeSidebar}>Teachers</Link>
           <Link href="/admin/teacher-attendance" className={`nav-link ${linkStyle("/admin/teacher-attendance")}`} onClick={closeSidebar}>Teacher Attendance</Link>
+          <Link href="/admin/admissions" className={`nav-link ${linkStyle("/admin/admissions")}`} onClick={closeSidebar}>Admissions</Link>
           <Link href="/admin/admission-enquiry" className={`nav-link ${linkStyle("/admin/admission-enquiry")}`} onClick={closeSidebar}>Admission Enquiry</Link>
+          <Link href="/admin/homework" className={`nav-link ${linkStyle("/admin/homework")}`} onClick={closeSidebar}>Homework</Link>
           <Link href="/admin/promotion" className={`nav-link ${linkStyle("/admin/promotion")}`} onClick={closeSidebar}>Promotion</Link>
 
           <p className="mb-2 mt-6 text-xs uppercase text-gray-500">Attendance</p>

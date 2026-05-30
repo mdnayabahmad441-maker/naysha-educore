@@ -93,6 +93,7 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
           <Link href="/parent/attendance" className={linkStyle("/parent/attendance")}>Attendance</Link>
           <Link href="/parent/fees" className={linkStyle("/parent/fees")}>Fees</Link>
           <Link href="/parent/results" className={linkStyle("/parent/results")}>Results</Link>
+          <Link href="/parent/homework" className={linkStyle("/parent/homework")}>Homework</Link>
         </nav>
 
         <button

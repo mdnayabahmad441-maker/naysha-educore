@@ -47,7 +47,7 @@ export default function AdmissionEnquiryForm({ schoolId, schoolName }: Admission
           phone: phone.trim(),
           email: email.trim(),
           address: address.trim(),
-          schoolId
+          schoolId,
         })
       })
 

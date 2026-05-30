@@ -21,16 +21,19 @@ export async function GET(request: NextRequest) {
 
   try {
     const metadataRole = user.user_metadata?.active_role || user.user_metadata?.role
-    const preferredRole: AccountRole | null =
-      metadataRole === "admin" || metadataRole === "teacher" || metadataRole === "parent"
+    const metadataPreferredRole: AccountRole | null =
+      metadataRole === "admin" ||
+      metadataRole === "teacher" ||
+      metadataRole === "parent" ||
+      metadataRole === "super_admin"
         ? (metadataRole as AccountRole)
         : null
 
-    let access = preferredRole ? await resolveUserAccess(user, preferredRole) : null
+    let access = metadataPreferredRole ? await resolveUserAccess(user, metadataPreferredRole) : null
 
     if (!access) {
-      for (const role of ["parent", "teacher", "admin"] as AccountRole[]) {
-        if (role === preferredRole) continue
+      for (const role of ["super_admin", "parent", "teacher", "admin"] as AccountRole[]) {
+        if (role === metadataPreferredRole) continue
         access = await resolveUserAccess(user, role)
         if (access) break
       }

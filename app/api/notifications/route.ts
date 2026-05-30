@@ -48,6 +48,7 @@ export async function POST(req: Request) {
             message: `${school?.name || "School"}: ${title}\n${message}`,
             templateName: "school_notice",
             variables: [message],
+            schoolId,                 // use school's own number if connected
           }),
         })
 

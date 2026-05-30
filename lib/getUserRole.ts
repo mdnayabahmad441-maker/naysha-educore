@@ -1,6 +1,6 @@
 import { supabase } from "./supabase"
 
-type UserRole = "admin" | "teacher" | "parent"
+type UserRole = "admin" | "teacher" | "parent" | "super_admin"
 
 export type AuthSessionContext = {
   userId: string
@@ -8,7 +8,7 @@ export type AuthSessionContext = {
   role: UserRole
   schoolId: string
   subdomain: string
-  next: "/admin" | "/teacher" | "/parent"
+  next: "/admin" | "/teacher" | "/parent" | "/super-admin"
   studentIds: string[]
   school_id: string
 }
@@ -39,7 +39,7 @@ export async function getAuthSessionContext(): Promise<AuthSessionContext | null
           role: data.role as UserRole,
           schoolId: String(data.schoolId),
           subdomain: String(data.subdomain || ""),
-          next: data.next as "/admin" | "/teacher" | "/parent",
+          next: data.next as "/admin" | "/teacher" | "/parent" | "/super-admin",
           studentIds: Array.isArray(data.studentIds) ? data.studentIds : [],
           school_id: String(data.schoolId),
         }
@@ -79,18 +79,33 @@ async function buildFallbackContext(user: any): Promise<AuthSessionContext | nul
   }
 
   const effectiveRole =
-    metadataActiveRole === "admin" || metadataActiveRole === "teacher" || metadataActiveRole === "parent"
+    metadataActiveRole === "admin" ||
+    metadataActiveRole === "teacher" ||
+    metadataActiveRole === "parent" ||
+    metadataActiveRole === "super_admin"
       ? metadataActiveRole
       : metadataRole
 
-  if (effectiveRole === "admin" || effectiveRole === "teacher") {
+  if (
+    metadataActiveRole === "admin" ||
+    metadataActiveRole === "teacher" ||
+    metadataActiveRole === "parent" ||
+    metadataActiveRole === "super_admin"
+  ) {
     return {
       userId: String(user.id),
       email,
       role: effectiveRole,
       schoolId: metadataSchoolId,
       subdomain: "",
-      next: effectiveRole === "admin" ? "/admin" : "/teacher",
+      next:
+        effectiveRole === "admin"
+          ? "/admin"
+          : effectiveRole === "teacher"
+          ? "/teacher"
+          : effectiveRole === "super_admin"
+          ? "/super-admin"
+          : "/parent",
       studentIds: [],
       school_id: metadataSchoolId,
     }

@@ -29,6 +29,7 @@ const ICONS = {
   exams:      "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",
   marks:      "M12 20h9 M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z",
   paper:      "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+  homework:   "M12 6v6m0 0v6m0-6h6m-6 0H6 M4 6h16M4 10h16M4 14h16M4 18h16",
   logout:     "M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4 M16 17l5-5-5-5 M21 12H9",
 }
 
@@ -41,6 +42,7 @@ const NAV_ITEMS = [
   { href: "/teacher/exams",       label: "Exams",            icon: "exams" },
   { href: "/teacher/marks",       label: "Enter Marks",      icon: "marks" },
   { href: "/teacher/question-paper", label: "Question Paper", icon: "paper" },
+  { href: "/teacher/homework",       label: "Homework",       icon: "homework" },
 ]
 
 const BOTTOM_NAV = [

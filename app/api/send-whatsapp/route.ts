@@ -11,11 +11,15 @@ export async function GET(req: Request) {
     if ("response" in auth) return auth.response
   }
 
-  const status = await getWhatsAppCloudStatus()
+  const url = new URL(req.url)
+  const schoolId = url.searchParams.get("schoolId") ?? undefined
+
+  const status = await getWhatsAppCloudStatus(schoolId)
   return NextResponse.json({
     success: true,
     provider: "whatsapp-cloud-api",
     configured: status.configured,
+    source: status.source,
     missing: status.missing,
     apiVersion: status.apiVersion,
   })
@@ -29,36 +33,34 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const phone = String(body?.phone || body?.to || "").trim()
-    const message = String(body?.message || "").trim()
+    const phone      = String(body?.phone || body?.to || "").trim()
+    const message    = String(body?.message || "").trim()
+    const schoolId   = body?.schoolId ? String(body.schoolId) : undefined
 
     if (!phone || !message) {
       return NextResponse.json({ error: "Missing phone or message" }, { status: 400 })
     }
 
-    const status = await getWhatsAppCloudStatus()
+    const status = await getWhatsAppCloudStatus(schoolId)
     if (!status.configured) {
       return NextResponse.json(
-        { error: `WhatsApp not configured. Missing: ${status.missing.join(", ")}` },
+        {
+          error: schoolId
+            ? "WhatsApp not connected for this school. Go to Settings → WhatsApp to connect your own number."
+            : `WhatsApp not configured. Missing: ${status.missing.join(", ")}`,
+        },
         { status: 503 }
       )
     }
 
-    // If caller provides explicit variables, send them directly to the template
-    // (avoids param-count mismatch when template has fewer/more than 4 params)
-    const variables = Array.isArray(body?.variables)
-      ? (body.variables as string[]).map(String)
-      : null
-
-    const templateName = String(
-      body?.templateName || process.env.WHATSAPP_TEMPLATE_NAME || "school_notice"
-    ).trim()
+    const variables    = Array.isArray(body?.variables) ? (body.variables as string[]).map(String) : null
+    const templateName = String(body?.templateName || process.env.WHATSAPP_TEMPLATE_NAME || "school_notice").trim()
 
     const result = variables
-      ? await sendWhatsAppTemplateMessage({ phone, templateName, variables })
-      : await sendWhatsAppCloudMessage({ phone, message })
+      ? await sendWhatsAppTemplateMessage({ phone, templateName, variables, schoolId })
+      : await sendWhatsAppCloudMessage({ phone, message, schoolId })
 
-    return NextResponse.json({ success: true, provider: "whatsapp-cloud-api", to: result.to })
+    return NextResponse.json({ success: true, provider: "whatsapp-cloud-api", to: result.to, source: "source" in result ? result.source : undefined })
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : "Internal error"
     console.error("[send-whatsapp] Error:", errMsg)
@@ -69,9 +71,6 @@ export async function POST(req: Request) {
       errMsg.includes("Meta WhatsApp") ||
       errMsg.includes("OAuthException")
 
-    return NextResponse.json(
-      { success: false, error: errMsg },
-      { status: isApiError ? 200 : 500 }
-    )
+    return NextResponse.json({ success: false, error: errMsg }, { status: isApiError ? 200 : 500 })
   }
 }

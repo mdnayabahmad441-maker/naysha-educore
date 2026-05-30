@@ -63,7 +63,7 @@ export default function SuperAdmin(){
                 </td>
 
                 <td className="border p-2">
-                  {s.slug}.erp.naysha.online
+                  {(s.subdomain || s.slug) ? `${s.subdomain || s.slug}.erp.naysha.online` : "Not set"}
                 </td>
 
                 <td className="border p-2">

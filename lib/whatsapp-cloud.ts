@@ -1,20 +1,98 @@
+import { supabaseAdmin } from "@/lib/supabase-admin"
+
 const META_API_VERSION = "v19.0"
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
-const TEMPLATE_NAME = process.env.WHATSAPP_TEMPLATE_NAME || "school_notice"
 
-function getMetaConfig() {
+// ── Config resolution ──────────────────────────────────────────────────────────
+// Priority: school's own credentials (school_whatsapp table) → centralized env vars
+
+type MetaConfig = {
+  token: string
+  phoneNumberId: string
+  source: "school" | "central"
+}
+
+async function getMetaConfig(schoolId?: string): Promise<MetaConfig | null> {
+  if (schoolId) {
+    const { data } = await supabaseAdmin
+      .from("school_whatsapp")
+      .select("access_token, phone_number_id")
+      .eq("school_id", schoolId)
+      .maybeSingle()
+
+    if (data?.access_token && data?.phone_number_id) {
+      return { token: data.access_token, phoneNumberId: data.phone_number_id, source: "school" }
+    }
+  }
+
+  const token = process.env.META_WHATSAPP_TOKEN || null
+  const phoneNumberId = process.env.META_PHONE_NUMBER_ID || null
+  if (!token || !phoneNumberId) return null
+
+  return { token, phoneNumberId, source: "central" }
+}
+
+// ── Status check ───────────────────────────────────────────────────────────────
+
+export async function getWhatsAppCloudStatus(schoolId?: string) {
+  if (schoolId) {
+    const { data } = await supabaseAdmin
+      .from("school_whatsapp")
+      .select("phone_number_id, phone_number, display_name, connected_at, business_account_id, last_webhook_event_at, last_webhook_status")
+      .eq("school_id", schoolId)
+      .maybeSingle()
+
+    if (data?.phone_number_id) {
+      return {
+        configured: true,
+        missing: [] as string[],
+        source: "school" as const,
+        phoneNumberId: data.phone_number_id,
+        phoneNumber: data.phone_number ?? null,
+        displayName: data.display_name ?? null,
+        connectedAt: data.connected_at ?? null,
+        businessAccountId: data.business_account_id ?? null,
+        lastWebhookAt: data.last_webhook_event_at ?? null,
+        lastWebhookStatus: data.last_webhook_status ?? null,
+        provider: "meta-cloud-api",
+        apiVersion: META_API_VERSION,
+      }
+    }
+  }
+
+  // Fall back: check centralized env vars
+  const missing: string[] = []
+  if (!process.env.META_WHATSAPP_TOKEN) missing.push("META_WHATSAPP_TOKEN")
+  if (!process.env.META_PHONE_NUMBER_ID) missing.push("META_PHONE_NUMBER_ID")
+
   return {
-    token: process.env.META_WHATSAPP_TOKEN || null,
-    phoneNumberId: process.env.META_PHONE_NUMBER_ID || null,
+    configured: missing.length === 0,
+    missing,
+    source: "central" as const,
+    phoneNumberId: process.env.META_PHONE_NUMBER_ID ?? null,
+    phoneNumber: null,
+    displayName: "EduCore Shared Number",
+    connectedAt: null,
+    businessAccountId: process.env.META_BUSINESS_ACCOUNT_ID ?? null,
+    lastWebhookAt: null,
+    lastWebhookStatus: null,
+    provider: "meta-cloud-api",
+    apiVersion: META_API_VERSION,
   }
 }
+
+export async function isWhatsAppCloudConfigured(schoolId?: string) {
+  const status = await getWhatsAppCloudStatus(schoolId)
+  return status.configured
+}
+
+// ── Phone normalisation ────────────────────────────────────────────────────────
 
 function parsePhone(phone: string): string | null {
   let n = String(phone || "").trim().replace(/\s+/g, "").replace(/^whatsapp:/i, "")
   if (n.startsWith("+")) n = n.slice(1)
   n = n.replace(/\D/g, "")
   if (n.startsWith("0")) n = n.slice(1)
-
   if (n.length === 10) return `91${n}`
   if (n.length === 12 && n.startsWith("91")) return n
   if (n.length > 10) return n
@@ -24,44 +102,29 @@ function parsePhone(phone: string): string | null {
 const sanitize = (s: string) =>
   String(s).replace(/[\t\n\r]/g, " ").replace(/ {3,}/g, "  ").trim()
 
-export async function getWhatsAppCloudStatus(_schoolId?: string) {
-  const { token, phoneNumberId } = getMetaConfig()
-  const missing: string[] = []
-  if (!token) missing.push("META_WHATSAPP_TOKEN")
-  if (!phoneNumberId) missing.push("META_PHONE_NUMBER_ID")
-
-  return {
-    configured: missing.length === 0,
-    missing,
-    provider: "meta-cloud-api",
-    phoneNumberId: phoneNumberId || null,
-    businessAccountId: null,
-    phoneNumber: null,
-    displayName: null,
-    apiVersion: META_API_VERSION,
-  }
-}
-
-export async function isWhatsAppCloudConfigured(_schoolId?: string) {
-  const status = await getWhatsAppCloudStatus()
-  return status.configured
-}
+// ── Sending ────────────────────────────────────────────────────────────────────
 
 export async function sendWhatsAppTemplateMessage({
   phone,
   templateName,
   variables,
   languageCode = "en",
+  schoolId,
 }: {
   phone: string
   templateName: string
   variables: string[]
   languageCode?: string
-}): Promise<{ to: string; messageId: string | null }> {
-  const { token, phoneNumberId } = getMetaConfig()
+  schoolId?: string
+}): Promise<{ to: string; messageId: string | null; source: "school" | "central" }> {
+  const config = await getMetaConfig(schoolId)
 
-  if (!token || !phoneNumberId) {
-    throw new Error("Meta WhatsApp Cloud API is not configured. Set META_WHATSAPP_TOKEN and META_PHONE_NUMBER_ID.")
+  if (!config) {
+    throw new Error(
+      schoolId
+        ? "No WhatsApp configured for this school and no centralized fallback found. Connect a WhatsApp number in Settings."
+        : "Meta WhatsApp Cloud API is not configured. Set META_WHATSAPP_TOKEN and META_PHONE_NUMBER_ID."
+    )
   }
 
   const to = parsePhone(phone)
@@ -75,30 +138,22 @@ export async function sendWhatsAppTemplateMessage({
       name: templateName,
       language: { code: languageCode },
       components: variables.length > 0
-        ? [
-            {
-              type: "body",
-              parameters: variables.map((v) => ({
-                type: "text",
-                text: sanitize(v),
-              })),
-            },
-          ]
+        ? [{ type: "body", parameters: variables.map(v => ({ type: "text", text: sanitize(v) })) }]
         : [],
     },
   }
 
-  const response = await fetch(`${META_API_BASE}/${phoneNumberId}/messages`, {
+  const response = await fetch(`${META_API_BASE}/${config.phoneNumberId}/messages`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${config.token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   })
 
   const data = await response.json()
-  console.log("[Meta WhatsApp] API response:", JSON.stringify(data))
+  console.log(`[Meta WhatsApp][${config.source}] response:`, JSON.stringify(data))
 
   if (!response.ok) {
     const errObj = data?.error || {}
@@ -107,17 +162,13 @@ export async function sendWhatsAppTemplateMessage({
     throw new Error(`${code}${msg}`)
   }
 
-  return {
-    to,
-    messageId: data?.messages?.[0]?.id ?? null,
-  }
+  return { to, messageId: data?.messages?.[0]?.id ?? null, source: config.source }
 }
 
-// General-purpose wrapper — uses school_notice template: "Dear Parent this is to inform you that {{1}}."
-// {{1}} = full message text
 export async function sendWhatsAppCloudMessage({
   phone,
   message,
+  schoolId,
 }: {
   schoolId?: string
   phone: string
@@ -125,10 +176,12 @@ export async function sendWhatsAppCloudMessage({
   schoolName?: string
   parentName?: string
 }) {
+  const templateName = process.env.WHATSAPP_TEMPLATE_NAME || "school_notice"
   const result = await sendWhatsAppTemplateMessage({
     phone,
-    templateName: TEMPLATE_NAME,
+    templateName,
     variables: [sanitize(message)],
+    schoolId,
   })
-  return { to: result.to, data: { messageId: result.messageId } }
+  return { to: result.to, data: { messageId: result.messageId }, source: result.source }
 }

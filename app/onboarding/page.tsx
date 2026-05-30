@@ -49,55 +49,58 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#020c1b] text-white">
-      <div className="w-[420px] rounded-xl bg-[#0b1a33] p-8">
-        <h2 className="mb-6 text-center text-xl font-semibold">
-          Create Your School
-        </h2>
+    <div className="flex min-h-screen items-center justify-center bg-[#020c1b] px-6 text-white">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b1a33] p-8 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cyan-300">
+          NaySha EduCore
+        </p>
+        <h1 className="mt-3 text-2xl font-semibold">Create Your School</h1>
 
-        <input
-          placeholder="School Name"
-          value={schoolName}
-          onChange={(event) => setSchoolName(event.target.value)}
-          className="input"
-        />
+        <div className="mt-6 space-y-3">
+          <input
+            placeholder="School Name"
+            value={schoolName}
+            onChange={(event) => setSchoolName(event.target.value)}
+            className="input"
+          />
 
-        <input
-          placeholder="Subdomain (example: abc)"
-          value={subdomain}
-          onChange={(event) => setSubdomain(event.target.value)}
-          className="input"
-        />
+          <input
+            placeholder="Subdomain (example: abc)"
+            value={subdomain}
+            onChange={(event) => setSubdomain(event.target.value)}
+            className="input"
+          />
 
-        <input
-          placeholder="Email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="input"
-        />
+          <input
+            placeholder="Email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="input"
+          />
 
-        <input
-          placeholder="Phone"
-          value={phone}
-          onChange={(event) => setPhone(event.target.value)}
-          className="input"
-        />
+          <input
+            placeholder="Phone"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            className="input"
+          />
 
-        <button
-          type="button"
-          onClick={createSchool}
-          className="mt-4 w-full rounded-lg bg-green-600 py-3"
-        >
-          {loading ? "Sending OTP..." : "Create School"}
-        </button>
+          <button
+            type="button"
+            onClick={createSchool}
+            disabled={loading}
+            className="w-full rounded-xl bg-cyan-600 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {loading ? "Sending OTP..." : "Create School"}
+          </button>
+        </div>
       </div>
 
       <style jsx>{`
         .input {
           width: 100%;
-          margin-bottom: 12px;
           padding: 12px;
-          border-radius: 8px;
+          border-radius: 12px;
           background: #020c1b;
           border: 1px solid rgba(255, 255, 255, 0.1);
           outline: none;

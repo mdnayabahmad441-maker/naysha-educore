@@ -1,7 +1,7 @@
 import { User } from "@supabase/supabase-js"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
-export type AccountRole = "admin" | "teacher" | "parent"
+export type AccountRole = "admin" | "teacher" | "parent" | "super_admin"
 
 export type ResolvedUserAccess = {
   userId: string
@@ -9,7 +9,7 @@ export type ResolvedUserAccess = {
   role: AccountRole
   schoolId: string
   subdomain: string
-  next: "/admin" | "/teacher" | "/parent"
+  next: "/admin" | "/teacher" | "/parent" | "/super-admin"
   studentIds: string[]
   school_id: string
 }
@@ -64,6 +64,12 @@ async function resolveParentSchool(parentRows: ParentRow[]) {
   return (data || []).map(s => s.school_id).find(Boolean) || null
 }
 
+function isSuperAdminUser(user: User) {
+  const metadataRole = user.user_metadata?.role
+  const metadataActiveRole = user.user_metadata?.active_role
+  return metadataRole === "super_admin" || metadataActiveRole === "super_admin"
+}
+
 async function persistResolvedAccess(user: User, access: ResolvedUserAccess) {
   await Promise.all([
     supabaseAdmin.from("profiles").upsert({
@@ -89,6 +95,23 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
   const allowParent = preferredRole === "parent" || !preferredRole
   const allowTeacher = preferredRole === "teacher"
   const allowAdmin = preferredRole === "admin"
+  const allowSuperAdmin = preferredRole === "super_admin" || isSuperAdminUser(user)
+
+  if (allowSuperAdmin && isSuperAdminUser(user)) {
+    const access: ResolvedUserAccess = {
+      userId: user.id,
+      email,
+      role: "super_admin",
+      schoolId: "",
+      subdomain: "",
+      next: "/super-admin",
+      studentIds: [],
+      school_id: "",
+    }
+
+    await persistResolvedAccess(user, access)
+    return access
+  }
 
   if (allowParent) {
     const parentRows = await resolveParentRows(user.id, email)
@@ -242,6 +265,26 @@ export async function resolveIdentifierToAccount(identifier: string) {
 
   if (school?.id) {
     return { email, role: "admin" as const, loginMethod: "password" as const }
+  }
+
+  const { data: userList, error: userListError } = await supabaseAdmin.auth.admin.listUsers({
+    page: 1,
+    perPage: 100,
+  })
+
+  if (userListError) {
+    console.error("[resolveIdentifierToAccount] super admin lookup error:", userListError)
+  } else {
+    const exactMatch = (userList?.users || []).find(
+      (user) => String(user.email || "").trim().toLowerCase() === email
+    )
+
+    if (exactMatch) {
+      const metadataRole = exactMatch.user_metadata?.role
+      if (metadataRole === "super_admin") {
+        return { email, role: "super_admin" as const, loginMethod: "password" as const }
+      }
+    }
   }
 
   return null

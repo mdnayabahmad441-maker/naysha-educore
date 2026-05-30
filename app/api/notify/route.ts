@@ -120,6 +120,7 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             phone: parent.phone,
             message: `${school?.name || "School"}: Payment Received\n\nStudent: ${student?.name}\nClass: ${className}\nRoll: ${roll}\nAmount: Rs.${payment.amount}\n\nThank you`,
+            schoolId: payment.school_id,   // use school's own WhatsApp number if connected
           }),
         })
 
