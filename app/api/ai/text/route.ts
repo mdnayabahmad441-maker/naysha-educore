@@ -6,6 +6,9 @@ import type Anthropic from "@anthropic-ai/sdk"
 
 type AiTask = "certificate_text" | "notice_draft" | "enquiry_reply" | "report_card_remark"
 
+const NOTICE_MIN_WORDS = 30
+const NOTICE_MAX_WORDS = 40
+
 const taskToolMap: Record<AiTask, Anthropic.Tool> = {
   certificate_text: {
     name: "certificate_text",
@@ -79,7 +82,8 @@ Topic: ${String(input.topic || "")}
 Important details: ${String(input.details || "")}
 Tone: professional, parent-friendly, school ERP notice.
 
-Return a clear title and a message suitable for email/WhatsApp/ERP notice delivery.`
+Return a clear title and one message suitable for email/WhatsApp/ERP notice delivery.
+The message must be ${NOTICE_MIN_WORDS}-${NOTICE_MAX_WORDS} words total. Do not exceed ${NOTICE_MAX_WORDS} words.`
   }
 
   if (task === "report_card_remark") {
@@ -108,6 +112,24 @@ Address: ${String(input.address || "")}
 Status: ${String(input.status || "new")}
 
 Write a helpful admissions follow-up that sounds warm, clear, and professional.`
+}
+
+function trimNoticeMessageToLimit(result: unknown) {
+  if (!result || typeof result !== "object") return result
+
+  const notice = result as { message?: unknown }
+  if (typeof notice.message !== "string") return result
+
+  const words = notice.message.trim().split(/\s+/).filter(Boolean)
+  if (words.length <= NOTICE_MAX_WORDS) return result
+
+  notice.message = words
+    .slice(0, NOTICE_MAX_WORDS)
+    .join(" ")
+    .replace(/[,\s;:]+$/, "")
+    .replace(/[.!?]?$/, ".")
+
+  return notice
 }
 
 export async function POST(req: Request) {
@@ -152,7 +174,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Claude returned no structured output" }, { status: 502 })
     }
 
-    return NextResponse.json({ success: true, data: result })
+    return NextResponse.json({
+      success: true,
+      data: task === "notice_draft" ? trimNoticeMessageToLimit(result) : result
+    })
   } catch (error) {
     console.error("AI text route error:", error)
     return NextResponse.json(

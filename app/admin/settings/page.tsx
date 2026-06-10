@@ -559,6 +559,7 @@ For ID cards use labels exactly as: Name, Father's Name, Course, Er. No., Mobile
 For class values write "Class 01", "Class 02", etc.
 Admission enquiry replies should be warm and short.
 Notices should use this format: Title, Date, Message, Principal.
+Notice messages must be 30-40 words only.
 Never invent data that is not provided.`}
               />
               <div className="mt-4 flex justify-end">
