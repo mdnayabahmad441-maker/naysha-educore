@@ -2,7 +2,8 @@
 
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import Card from "@/components/ui/Card"
 import Button from "@/components/ui/Button"
 import { getTeachers } from "@/services/teachers.service"
@@ -21,6 +22,7 @@ export default function TeachersPage(){
   const [editingTeacher,setEditingTeacher] = useState<any>(null)
 
   const [loading,setLoading] = useState(false)
+  const formScrollRef = useRef<HTMLDivElement | null>(null)
 
   const [form,setForm] = useState({
     name:"",
@@ -63,6 +65,14 @@ export default function TeachersPage(){
   useEffect(()=>{
     load()
   },[])
+
+  useEffect(()=>{
+    if(!showForm) return
+
+    requestAnimationFrame(()=>{
+      formScrollRef.current?.scrollTo({ top: 0 })
+    })
+  },[showForm, editingTeacher])
 
   const handleChange = (key:string,val:any)=>{
     setForm(prev=>({...prev,[key]:val}))
@@ -314,118 +324,134 @@ export default function TeachersPage(){
     })
   }
 
+  const canUsePortal = typeof document !== "undefined"
+
   return(
-    <div className="p-10 text-white max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="mx-auto max-w-7xl space-y-6 text-white">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Teachers</h1>
         <Button onClick={()=>setShowForm(true)} disabled={loading}>+ Add Teacher</Button>
       </div>
 
       <Card>
-        <table className="w-full text-sm">
-          <thead className="bg-white/10">
-            <tr>
-              <th className="p-3 text-left">Name</th>
-              <th className="p-3 text-left">Email</th>
-              <th className="p-3 text-left">Subjects</th>
-            </tr>
-          </thead>
-          <tbody>
-            {teachers.map((t)=>(
-              <tr key={t.id}
-                onClick={()=>setSelectedTeacher(t)}
-                className="border-t cursor-pointer hover:bg-white/5">
-                <td className="p-3">{t.name}</td>
-                <td className="p-3">{t.email}</td>
-                <td className="p-3">{getTeacherSubjects(t.id)}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[680px] table-fixed text-sm">
+            <thead className="bg-white/10">
+              <tr>
+                <th className="w-1/4 p-3 text-left">Name</th>
+                <th className="w-1/3 p-3 text-left">Email</th>
+                <th className="p-3 text-left">Subjects</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {teachers.map((t)=>(
+                <tr key={t.id}
+                  onClick={()=>setSelectedTeacher(t)}
+                  className="border-t cursor-pointer hover:bg-white/5">
+                  <td className="p-3 font-medium text-white break-words">{t.name}</td>
+                  <td className="p-3 text-gray-300 break-all">{t.email}</td>
+                  <td className="p-3 text-gray-300 break-words">{getTeacherSubjects(t.id)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
-      {selectedTeacher && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-[#020c1b] p-6 rounded-xl w-125 space-y-4 border border-white/10">
-            <h2 className="text-xl font-bold">{selectedTeacher.name}</h2>
-            <p className="text-gray-300">Email: {selectedTeacher.email}</p>
-            <p className="text-gray-300">Phone: {selectedTeacher.phone || "-"}</p>
-            <p className="text-gray-300">Qualification: {selectedTeacher.qualification || "-"}</p>
-            <p className="text-gray-300">Experience: {selectedTeacher.experience_years || 0} years</p>
-            <p className="text-gray-300">Subjects: {getTeacherSubjects(selectedTeacher.id)}</p>
+      {canUsePortal && selectedTeacher && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-white/10 bg-[#020c1b] p-5 sm:p-6">
+            <div className="space-y-4 overflow-hidden">
+              <h2 className="text-xl font-bold break-words">{selectedTeacher.name}</h2>
+              <p className="text-gray-300 break-all">Email: {selectedTeacher.email}</p>
+              <p className="text-gray-300 break-words">Phone: {selectedTeacher.phone || "-"}</p>
+              <p className="text-gray-300 break-words">Qualification: {selectedTeacher.qualification || "-"}</p>
+              <p className="text-gray-300">Experience: {selectedTeacher.experience_years || 0} years</p>
+              <p className="text-gray-300 break-words">Subjects: {getTeacherSubjects(selectedTeacher.id)}</p>
+            </div>
 
-            <div className="flex justify-between gap-3 pt-4">
+            <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-between">
               <Button onClick={()=>openEdit(selectedTeacher)}>Edit</Button>
               <Button color="red" onClick={()=>deleteTeacher(selectedTeacher.id)}>Delete</Button>
               <Button onClick={()=>setSelectedTeacher(null)}>Close</Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {showForm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-[#020c1b] p-6 rounded-xl w-150 space-y-4 border border-white/10 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold">{editingTeacher ? "Edit Teacher" : "Add Teacher"}</h2>
+      {canUsePortal && showForm && createPortal(
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 px-3 py-4 sm:px-4">
+          <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#020c1b] shadow-2xl">
+            <div className="shrink-0 border-b border-white/10 p-5 sm:p-6">
+              <h2 className="text-xl font-bold">{editingTeacher ? "Edit Teacher" : "Add Teacher"}</h2>
+            </div>
 
-            <input placeholder="Name *" value={form.name}
-              onChange={e=>handleChange("name",e.target.value)}
-              className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none"/>
+            <div ref={formScrollRef} className="min-h-0 flex-1 scroll-smooth space-y-4 overflow-y-auto p-5 sm:p-6">
+              <input placeholder="Name *" value={form.name}
+                onChange={e=>handleChange("name",e.target.value)}
+                className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none"/>
 
-            <input placeholder="Email *" value={form.email}
-              disabled={!!editingTeacher}
-              onChange={e=>handleChange("email",e.target.value)}
-              className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none disabled:opacity-50"/>
+              <input placeholder="Email *" value={form.email}
+                disabled={!!editingTeacher}
+                onChange={e=>handleChange("email",e.target.value)}
+                className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none disabled:opacity-50"/>
 
-            <input placeholder="Phone" value={form.phone}
-              onChange={e=>handleChange("phone",e.target.value)}
-              className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none"/>
+              <input placeholder="Phone" value={form.phone}
+                onChange={e=>handleChange("phone",e.target.value)}
+                className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none"/>
 
-            <input placeholder="Qualification" value={form.qualification}
-              onChange={e=>handleChange("qualification",e.target.value)}
-              className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none"/>
+              <input placeholder="Qualification" value={form.qualification}
+                onChange={e=>handleChange("qualification",e.target.value)}
+                className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none"/>
 
-            <input placeholder="Experience (years)" type="number" value={form.experience_years}
-              onChange={e=>handleChange("experience_years",e.target.value)}
-              className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none"/>
+              <input placeholder="Experience (years)" type="number" value={form.experience_years}
+                onChange={e=>handleChange("experience_years",e.target.value)}
+                className="bg-white/10 p-2 rounded w-full border border-white/20 focus:border-blue-500 outline-none"/>
 
-            <div>
-              <p className="mb-2 font-semibold">Classes</p>
-              <div className="flex gap-2 flex-wrap">
-                {classes.map(c=>(
-                  <button key={c.id} type="button"
-                    onClick={()=>toggleClass(c.id)}
-                    className={`px-3 py-1 rounded-full text-sm transition ${form.selectedClasses.includes(c.id) ? "bg-blue-500 text-white" : "bg-white/10 text-gray-300 hover:bg-white/20"}`}>
-                    {c.name}
-                  </button>
-                ))}
+              <div>
+                <p className="mb-2 font-semibold">Classes</p>
+                <div className="flex max-h-52 flex-wrap gap-2 overflow-y-auto rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  {classes.map(c=>(
+                    <button key={c.id} type="button"
+                      onClick={()=>toggleClass(c.id)}
+                      className={`max-w-full truncate px-3 py-1 rounded-full text-sm transition ${form.selectedClasses.includes(c.id) ? "bg-blue-500 text-white" : "bg-white/10 text-gray-300 hover:bg-white/20"}`}
+                      title={c.name}>
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 font-semibold">Subjects</p>
+                <div className="flex max-h-52 flex-wrap gap-2 overflow-y-auto rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  {filteredSubjects.map(s=>(
+                    <button key={s.id} type="button"
+                      onClick={()=>toggleSubject(s.id)}
+                      className={`max-w-full truncate px-3 py-1 rounded-full text-sm transition ${form.selectedSubjects.includes(s.id) ? "bg-green-500 text-white" : "bg-white/10 text-gray-300 hover:bg-white/20"}`}
+                      title={s.name}>
+                      {s.name}
+                    </button>
+                  ))}
+                  {filteredSubjects.length === 0 && (
+                    <p className="text-sm text-gray-400">
+                      {form.selectedClasses.length > 0 ? "No subjects found for selected classes" : "Select classes to show subjects"}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div>
-              <p className="mb-2 font-semibold">Subjects</p>
-              <div className="flex gap-2 flex-wrap">
-                {filteredSubjects.map(s=>(
-                  <button key={s.id} type="button"
-                    onClick={()=>toggleSubject(s.id)}
-                    className={`px-3 py-1 rounded-full text-sm transition ${form.selectedSubjects.includes(s.id) ? "bg-green-500 text-white" : "bg-white/10 text-gray-300 hover:bg-white/20"}`}>
-                    {s.name}
-                  </button>
-                ))}
-              </div>
-              {filteredSubjects.length === 0 && form.selectedClasses.length > 0 && (
-                <p className="text-yellow-400 text-sm mt-2">No subjects found for selected classes</p>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
+            <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-white/10 bg-[#020c1b] p-5 sm:flex-row sm:justify-end sm:p-6">
               <Button onClick={resetForm}>Cancel</Button>
               <Button onClick={editingTeacher ? updateTeacher : submit} disabled={loading}>
                 {loading ? "Processing..." : (editingTeacher ? "Update" : "Create")}
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
