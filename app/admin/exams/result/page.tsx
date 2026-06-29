@@ -113,7 +113,7 @@ export default function ResultPage(){
 
       const subjectIds = (examSubData || []).map((s: any) => s.subject_id).filter(Boolean)
 
-      let subjectNameMap: Record<string, string> = {}
+      const subjectNameMap: Record<string, string> = {}
       if (subjectIds.length > 0) {
         const { data: subjectRows } = await supabase
           .from("subjects")

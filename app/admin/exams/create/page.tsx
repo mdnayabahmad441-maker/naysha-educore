@@ -146,6 +146,16 @@ export default function CreateExamPage(){
       }
     }
 
+    if(!isAllClasses && !selectedClass){
+      alert("Select class")
+      return
+    }
+
+    if(selectedSubjects.length === 0){
+      alert("Select at least one subject")
+      return
+    }
+
     // ❌ BLOCK PAST CREATION
     if(isPastDate(date) && !editingId){
       alert("❌ Cannot create exam in past date")

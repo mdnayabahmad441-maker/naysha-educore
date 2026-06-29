@@ -25,6 +25,7 @@ type Props = {
   interactionMode?: "drag" | "place"
   showGrid?: boolean
   snapToGrid?: boolean
+  hideTemplateFields?: boolean
   zoom?: number
   className?: string
 }
@@ -69,6 +70,7 @@ export default function DocumentCanvas({
   interactionMode = "drag",
   showGrid = false,
   snapToGrid = false,
+  hideTemplateFields = true,
   zoom = 1,
   className = ""
 }: Props) {
@@ -151,7 +153,7 @@ export default function DocumentCanvas({
       window.removeEventListener("mousemove", handleMove)
       window.removeEventListener("mouseup", handleUp)
     }
-  }, [editable, onFieldChange])
+  }, [editable, onFieldChange, snapToGrid])
 
   const beginDrag = (field: DocumentField, event: ReactMouseEvent<HTMLDivElement>) => {
     if (!editable || !onFieldChange || !containerRef.current) return
@@ -233,19 +235,28 @@ export default function DocumentCanvas({
     }
   }
 
+  const previewFrameClass = editable
+    ? "rounded-[28px] border border-white/10 shadow-[0_22px_44px_rgba(15,23,42,0.22)]"
+    : ""
+
   return (
-    <div className={`overflow-auto rounded-[28px] ${className}`}>
+    <div className={`overflow-auto ${editable ? "rounded-[28px]" : ""} ${className}`}>
       <div
         ref={containerRef}
         tabIndex={editable ? 0 : -1}
         onClick={handleCanvasClick}
         onKeyDown={handleKeyDown}
-        className="relative mx-auto overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-[0_22px_44px_rgba(15,23,42,0.22)]"
+        className={`relative mx-auto overflow-hidden bg-white ${previewFrameClass}`}
         style={{ aspectRatio: `${layout.width} / ${layout.height}`, width: `${Math.max(zoom * 100, 100)}%` }}
       >
         {backgroundUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={backgroundUrl} alt="Document template" className="absolute inset-0 h-full w-full object-fill bg-white" />
+          <img
+            src={backgroundUrl}
+            alt="Document template"
+            crossOrigin="anonymous"
+            className="absolute inset-0 h-full w-full object-fill bg-white"
+          />
         ) : (
           <div className="absolute inset-0 bg-[linear-gradient(145deg,#eff6ff_0%,#ffffff_42%,#e2e8f0_100%)]" />
         )}
@@ -261,13 +272,15 @@ export default function DocumentCanvas({
           />
         ) : null}
 
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/2 top-0 h-full w-px bg-cyan-400/35" />
-          <div className="absolute left-0 top-1/2 h-px w-full bg-cyan-400/35" />
-        </div>
+        {editable ? (
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute left-1/2 top-0 h-full w-px bg-cyan-400/35" />
+            <div className="absolute left-0 top-1/2 h-px w-full bg-cyan-400/35" />
+          </div>
+        ) : null}
 
         <div className="absolute inset-0">
-          {layout.fields.filter((field) => !(backgroundUrl && field.templateHide)).map((field) => {
+          {layout.fields.filter((field) => !(backgroundUrl && hideTemplateFields && field.templateHide)).map((field) => {
             const background = toRgba(field.bgColor, field.bgOpacity)
             const isSelected = editable && selectedFieldId === field.id
 
@@ -358,6 +371,7 @@ function FieldRenderer({
           <img
             src={activeImage}
             alt={field.id === "schoolLogo" ? "School logo" : "Student"}
+            crossOrigin="anonymous"
             className={`h-full w-full ${field.id === "schoolLogo" ? "object-contain p-1.5" : "object-cover"}`}
           />
         ) : (

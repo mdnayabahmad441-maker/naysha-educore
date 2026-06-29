@@ -24,6 +24,9 @@ type TodayRecord = {
   status: string
 } | null
 
+const TARGET_GPS_ACCURACY_METERS = 50
+const MAX_GPS_ACCURACY_METERS = 250
+
 function fmt(iso: string | null) {
   if (!iso) return "--"
   return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
@@ -37,6 +40,80 @@ const STATUS_COLORS: Record<string, string> = {
   present: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
   late:    "text-amber-400 bg-amber-400/10 border-amber-400/20",
   absent:  "text-red-400 bg-red-400/10 border-red-400/20",
+}
+
+function getGpsErrorMessage(error?: GeolocationPositionError) {
+  if (typeof window !== "undefined" && !window.isSecureContext) {
+    return "Location needs HTTPS. Localhost works for testing, but the live app must use HTTPS."
+  }
+
+  if (!error) return "Unable to get location. Please try again."
+
+  if (error.code === error.PERMISSION_DENIED) {
+    return "Location permission is blocked. Click the site icon in the address bar and allow Location, then try again."
+  }
+  if (error.code === error.POSITION_UNAVAILABLE) {
+    return "Your device could not find a location. Turn on device location/GPS and try again."
+  }
+  if (error.code === error.TIMEOUT) {
+    return "Location request timed out. Move near a window or try again."
+  }
+
+  return error.message || "Unable to get location. Try again."
+}
+
+function getBestLocation(
+  onSuccess: (coords: { lat: number; lng: number; accuracy: number }) => void,
+  onError: (message: string) => void
+) {
+  if (!navigator.geolocation) {
+    onError("GPS not supported on this device")
+    return
+  }
+
+  let best: GeolocationPosition | null = null
+  let settled = false
+  let watchId: number | null = null
+
+  const finish = () => {
+    if (settled) return
+    settled = true
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId)
+
+    if (!best) {
+      onError("Unable to get location. Please try again.")
+      return
+    }
+
+    onSuccess({
+      lat: best.coords.latitude,
+      lng: best.coords.longitude,
+      accuracy: Math.round(best.coords.accuracy),
+    })
+  }
+
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      if (!best || pos.coords.accuracy < best.coords.accuracy) {
+        best = pos
+      }
+      if (pos.coords.accuracy <= TARGET_GPS_ACCURACY_METERS) {
+        finish()
+      }
+    },
+    (err) => {
+      if (best) {
+        finish()
+      } else {
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId)
+        settled = true
+        onError(getGpsErrorMessage(err))
+      }
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+  )
+
+  window.setTimeout(finish, 12000)
 }
 
 export default function TeacherMyAttendancePage() {
@@ -79,29 +156,19 @@ export default function TeacherMyAttendancePage() {
   useEffect(() => { loadRecords() }, [loadRecords])
 
   const getLocation = () => {
-    if (!navigator.geolocation) {
-      setGps({ status: "error", message: "GPS not supported on this device" })
-      return
-    }
     setGps({ status: "loading" })
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGps({
-          status: "ready",
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: Math.round(pos.coords.accuracy),
-        })
+    getBestLocation(
+      ({ lat, lng, accuracy }) => {
+        if (accuracy > MAX_GPS_ACCURACY_METERS) {
+          setGps({
+            status: "error",
+            message: `Location accuracy is too low (±${accuracy}m). Turn on precise location/GPS or try from a phone, then try again.`,
+          })
+          return
+        }
+        setGps({ status: "ready", lat, lng, accuracy })
       },
-      (err) => {
-        setGps({
-          status: "error",
-          message: err.code === 1
-            ? "Location permission denied. Please allow location access."
-            : "Unable to get location. Try again.",
-        })
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      (message) => setGps({ status: "error", message })
     )
   }
 
@@ -112,7 +179,7 @@ export default function TeacherMyAttendancePage() {
       const res = await apiFetch("/api/teacher-attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, latitude: gps.lat, longitude: gps.lng }),
+        body: JSON.stringify({ action, latitude: gps.lat, longitude: gps.lng, accuracy: gps.accuracy }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -199,7 +266,7 @@ export default function TeacherMyAttendancePage() {
           disabled={gps.status === "loading"}
           className="w-full rounded-xl border border-cyan-400/20 bg-cyan-500/10 py-3 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-500/20 disabled:opacity-60"
         >
-          {gps.status === "loading" ? "Getting Location..." : "Get My Location"}
+          {gps.status === "loading" ? "Getting Best GPS..." : "Get My Location"}
         </button>
 
         {gps.status === "error" && (

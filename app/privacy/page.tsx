@@ -22,7 +22,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">1. Who We Are</h2>
             <p>
-              NaySha EduCore is a school management platform developed and operated by NaySha Technologies.
+              NaySha EduCore is a school management platform developed and operated by Groenics.
               We provide school administration tools including student records, attendance tracking, fee management,
               examination results, notices, and WhatsApp/email communication services.
             </p>
@@ -145,7 +145,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">11. Contact Us</h2>
             <p>
-              NaySha Technologies<br />
+              Groenics<br />
               Email:{" "}
               <a href="mailto:nayabshahin1914@gmail.com" className="text-cyan-400 hover:underline">
                 nayabshahin1914@gmail.com
@@ -153,6 +153,12 @@ export default function PrivacyPage() {
             </p>
           </section>
 
+        </div>
+
+        <div className="mt-12 rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-slate-400">
+          <p>
+            NaySha EduCore is a product of <span className="font-semibold text-white">Groenics</span>.
+          </p>
         </div>
 
         <div className="mt-16 pt-8 border-t border-white/10 flex gap-6 text-xs text-slate-600">

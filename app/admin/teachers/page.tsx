@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import { useSearchParams } from "next/navigation"
 import Card from "@/components/ui/Card"
 import Button from "@/components/ui/Button"
 import { getTeachers } from "@/services/teachers.service"
@@ -11,6 +12,7 @@ import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 
 export default function TeachersPage(){
+  const searchParams = useSearchParams()
 
   const [teachers,setTeachers] = useState<any[]>([])
   const [classes,setClasses] = useState<any[]>([])
@@ -65,6 +67,14 @@ export default function TeachersPage(){
   useEffect(()=>{
     load()
   },[])
+
+  useEffect(()=>{
+    if(searchParams.get("add") === "teacher"){
+      setSelectedTeacher(null)
+      setEditingTeacher(null)
+      setShowForm(true)
+    }
+  },[searchParams])
 
   useEffect(()=>{
     if(!showForm) return

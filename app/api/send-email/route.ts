@@ -60,13 +60,13 @@ function buildHtmlContent({
       <br/>
 
       <p style="font-size:13px;color:#475569">
-        This is an automated message from NaySha ERP.
+        This is an automated message from NaySha EduCore, a product of Groenics.
       </p>
 
       <hr style="margin-top:20px"/>
 
       <p style="font-size:12px;color:#94a3b8">
-        &copy; ${new Date().getFullYear()} NaySha Technologies
+        &copy; ${new Date().getFullYear()} Groenics
       </p>
     </div>
   `

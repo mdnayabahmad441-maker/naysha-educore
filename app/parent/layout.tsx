@@ -68,6 +68,14 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
     window.location.href = "/login"
   }
 
+  const navItems = [
+    { href: "/parent", label: "Dashboard" },
+    { href: "/parent/attendance", label: "Attendance" },
+    { href: "/parent/fees", label: "Fees" },
+    { href: "/parent/results", label: "Results" },
+    { href: "/parent/homework", label: "Homework" },
+  ]
+
   const linkStyle = (path: string) =>
     `flex items-center gap-3 rounded-2xl px-3 py-3 transition ${
       pathname.startsWith(path)
@@ -84,16 +92,14 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="flex h-screen flex-col bg-[#020c1b] text-white md:flex-row">
-      <aside className="w-64 bg-[#0b1a33] p-6 hidden md:block">
+    <div className="flex h-screen min-w-0 flex-col overflow-hidden bg-[#020c1b] text-white md:flex-row">
+      <aside className="hidden w-64 shrink-0 bg-[#0b1a33] p-6 md:block">
         <h1 className="mb-6 text-xl font-bold">Parent Panel</h1>
 
         <nav className="flex flex-col gap-2">
-          <Link href="/parent" className={linkStyle("/parent")}>Dashboard</Link>
-          <Link href="/parent/attendance" className={linkStyle("/parent/attendance")}>Attendance</Link>
-          <Link href="/parent/fees" className={linkStyle("/parent/fees")}>Fees</Link>
-          <Link href="/parent/results" className={linkStyle("/parent/results")}>Results</Link>
-          <Link href="/parent/homework" className={linkStyle("/parent/homework")}>Homework</Link>
+          {navItems.map((item) => (
+            <Link key={item.href} href={item.href} className={linkStyle(item.href)}>{item.label}</Link>
+          ))}
         </nav>
 
         <button
@@ -102,14 +108,45 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         >
           Sign Out
         </button>
+
+        <div className="mt-6 border-t border-white/10 pt-4 text-xs text-slate-400">
+          <p>NaySha EduCore</p>
+          <p className="mt-1">Powered by <span className="font-semibold text-white/80">Groenics</span></p>
+        </div>
       </aside>
 
-      <div className="flex flex-1 flex-col">
-        <header className="border-b border-white/10 bg-[#0b1a33] px-6 py-4">
-          <h2 className="text-lg font-semibold">Parent Dashboard</h2>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="shrink-0 border-b border-white/10 bg-[#0b1a33] px-4 py-4 md:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="min-w-0 truncate text-lg font-semibold">Parent Dashboard</h2>
+            <button
+              onClick={logout}
+              className="shrink-0 rounded-lg bg-red-500 px-3 py-2 text-sm md:hidden"
+            >
+              Sign Out
+            </button>
+          </div>
+          <nav className="-mx-1 mt-4 flex gap-2 overflow-x-auto pb-1 md:hidden">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`shrink-0 rounded-full px-3 py-2 text-sm ${
+                  pathname === item.href || pathname.startsWith(item.href + "/")
+                    ? "bg-white/20 text-white"
+                    : "bg-white/5 text-gray-300"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+          <p className="mt-3 text-xs text-slate-400 md:hidden">
+            Powered by <span className="font-semibold text-white/80">Groenics</span>
+          </p>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {children}
         </main>
       </div>

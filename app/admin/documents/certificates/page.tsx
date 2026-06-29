@@ -227,16 +227,12 @@ export default function CertificatesPage() {
       schoolAddress: school?.address || "",
       certificateTitle: aiDraft?.title ?? certLabels[certType],
       certificateBody: aiDraft?.body ?? defaultBody,
-      studentName: selectedStudent.name,
-      fatherName: hasTemplate
-        ? (selectedStudent.father_name || "")
-        : `S/O ${selectedStudent.father_name || "Parent Name"}`,
-      className: hasTemplate ? className : `Class: ${className}`,
-      studentCode: hasTemplate
-        ? (selectedStudent.student_code || "")
-        : `Admission No: ${selectedStudent.student_code || "N/A"}`,
-      issueDate: hasTemplate ? issueDateLabel : `Date: ${issueDateLabel}`,
-      principalSign: "Principal"
+      studentName: `Student's Name: ${selectedStudent.name}`,
+      fatherName: `Father's Name: ${selectedStudent.father_name || "Parent Name"}`,
+      className: `Class: ${className}`,
+      studentCode: `Admission No: ${selectedStudent.student_code || "N/A"}`,
+      issueDate: `Date: ${issueDateLabel}`,
+      principalSign: "Principal / Director"
     }
   }, [selectedStudent, certType, classMap, school, issueDateLabel, aiDraft, defaultBody, templateUrl])
 
@@ -528,6 +524,7 @@ export default function CertificatesPage() {
                 backgroundUrl={templateUrl || null}
                 values={canvasValues}
                 logoUrl={school?.logo_url || null}
+                hideTemplateFields={false}
                 editable={editMode}
                 selectedFieldId={editMode ? selectedFieldId : null}
                 onSelectField={editMode ? setSelectedFieldId : undefined}

@@ -3,21 +3,101 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
+import { apiFetch } from "@/lib/api-client"
 
 type Row = {
   id: string
+  teacher_id: string
   date: string
   status: string
   check_in_time: string | null
   check_out_time: string | null
   distance_meters: number | null
-  teachers: { name: string; email: string }[] | null
+  teacher_name?: string | null
+  teacher_email?: string | null
 }
 
 const STATUS_COLORS: Record<string, string> = {
   present: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
   late:    "text-amber-400  bg-amber-400/10  border-amber-400/20",
   absent:  "text-red-400    bg-red-400/10    border-red-400/20",
+}
+
+const TARGET_GPS_ACCURACY_METERS = 50
+const MAX_SCHOOL_GPS_ACCURACY_METERS = 100
+
+function getGpsErrorMessage(error?: GeolocationPositionError) {
+  if (typeof window !== "undefined" && !window.isSecureContext) {
+    return "Location needs HTTPS. Localhost works for testing, but the live app must use HTTPS."
+  }
+
+  if (!error) return "Could not get location. Please try again."
+
+  if (error.code === error.PERMISSION_DENIED) {
+    return "Location permission is blocked. Click the site icon in the address bar and allow Location, then try again."
+  }
+  if (error.code === error.POSITION_UNAVAILABLE) {
+    return "Your device could not find a location. Turn on device location/GPS and try again."
+  }
+  if (error.code === error.TIMEOUT) {
+    return "Location request timed out. Move near a window or try again."
+  }
+
+  return error.message || "Could not get location. Please try again."
+}
+
+function getBestLocation(
+  onSuccess: (coords: { lat: number; lng: number; accuracy: number }) => void,
+  onError: (message: string) => void
+) {
+  if (!navigator.geolocation) {
+    onError("GPS is not supported on this browser or device.")
+    return
+  }
+
+  let best: GeolocationPosition | null = null
+  let settled = false
+  let watchId: number | null = null
+
+  const finish = () => {
+    if (settled) return
+    settled = true
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId)
+
+    if (!best) {
+      onError("Could not get location. Please try again.")
+      return
+    }
+
+    onSuccess({
+      lat: best.coords.latitude,
+      lng: best.coords.longitude,
+      accuracy: Math.round(best.coords.accuracy),
+    })
+  }
+
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      if (!best || pos.coords.accuracy < best.coords.accuracy) {
+        best = pos
+      }
+      if (pos.coords.accuracy <= TARGET_GPS_ACCURACY_METERS) {
+        finish()
+      }
+    },
+    (error) => {
+      if (best) {
+        finish()
+      } else {
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId)
+        settled = true
+        onError(getGpsErrorMessage(error))
+      }
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+  )
+
+  window.setTimeout(finish, 12000)
 }
 
 function fmt(iso: string | null) {
@@ -51,6 +131,9 @@ export default function AdminTeacherAttendancePage() {
   const [savingLocation, setSavingLocation] = useState(false)
   const [locationSaved, setLocationSaved] = useState(false)
   const [gettingGps, setGettingGps] = useState(false)
+  const [gpsError, setGpsError] = useState("")
+  const [setupError, setSetupError] = useState("")
+  const [recordsError, setRecordsError] = useState("")
 
   useEffect(() => {
     loadSchoolSettings()
@@ -61,13 +144,24 @@ export default function AdminTeacherAttendancePage() {
   }, [viewMode, selectedDate, selectedMonth])
 
   async function loadSchoolSettings() {
+    setSetupError("")
     const schoolId = await getSchoolId()
     if (!schoolId) return
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("schools")
       .select("latitude, longitude, check_in_start, check_in_end, late_after")
       .eq("id", schoolId)
       .maybeSingle()
+
+    if (error) {
+      setSetupError(
+        error.message.includes("latitude") || error.message.includes("schema cache")
+          ? "Teacher attendance setup is not installed yet. Run teacher_attendance_schema.sql in Supabase SQL Editor."
+          : error.message
+      )
+      return
+    }
+
     if (data) {
       setSchoolLat(data.latitude?.toString() ?? "")
       setSchoolLng(data.longitude?.toString() ?? "")
@@ -79,40 +173,47 @@ export default function AdminTeacherAttendancePage() {
 
   async function loadRecords() {
     setLoading(true)
-    const schoolId = await getSchoolId()
-    if (!schoolId) { setLoading(false); return }
+    setRecordsError("")
 
-    let query = supabase
-      .from("teacher_attendance")
-      .select("id, date, status, check_in_time, check_out_time, distance_meters, teachers(name, email)")
-      .eq("school_id", schoolId)
-      .order("date", { ascending: false })
-      .order("check_in_time", { ascending: true })
+    const params = new URLSearchParams({
+      view: viewMode,
+      date: selectedDate,
+      month: selectedMonth,
+    })
 
-    if (viewMode === "day") {
-      query = query.eq("date", selectedDate)
-    } else {
-      query = query
-        .gte("date", monthStart(selectedMonth))
-        .lte("date", monthEnd(selectedMonth))
+    const response = await apiFetch(`/api/admin/teacher-attendance?${params.toString()}`)
+    const result = await response.json().catch(() => ({}))
+
+    if (!response.ok || !result.success) {
+      setRecordsError(result.error || "Could not load teacher attendance records.")
+      setRecords([])
+      setLoading(false)
+      return
     }
 
-    const { data } = await query
-    setRecords((data as Row[]) || [])
+    setRecords((result.records as Row[]) || [])
     setLoading(false)
   }
 
   const getSchoolGps = () => {
-    if (!navigator.geolocation) { alert("GPS not supported"); return }
+    setGpsError("")
     setGettingGps(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setSchoolLat(pos.coords.latitude.toFixed(8))
-        setSchoolLng(pos.coords.longitude.toFixed(8))
+    getBestLocation(
+      ({ lat, lng, accuracy }) => {
+        if (accuracy > MAX_SCHOOL_GPS_ACCURACY_METERS) {
+          setGpsError(`School GPS accuracy is too low (±${accuracy}m). Use a phone at the school location or enter the exact coordinates manually.`)
+          setGettingGps(false)
+          return
+        }
+        setSchoolLat(lat.toFixed(8))
+        setSchoolLng(lng.toFixed(8))
+        setGpsError("")
         setGettingGps(false)
       },
-      () => { alert("Could not get location"); setGettingGps(false) },
-      { enableHighAccuracy: true, timeout: 15000 }
+      (message) => {
+        setGpsError(message)
+        setGettingGps(false)
+      }
     )
   }
 
@@ -137,8 +238,16 @@ export default function AdminTeacherAttendancePage() {
       .eq("id", schoolId)
 
     setSavingLocation(false)
-    if (error) { alert(error.message); return }
+    if (error) {
+      setSetupError(
+        error.message.includes("latitude") || error.message.includes("schema cache")
+          ? "Teacher attendance setup is not installed yet. Run teacher_attendance_schema.sql in Supabase SQL Editor."
+          : error.message
+      )
+      return
+    }
     setLocationSaved(true)
+    setGpsError("")
     setTimeout(() => setLocationSaved(false), 3000)
   }
 
@@ -156,6 +265,13 @@ export default function AdminTeacherAttendancePage() {
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">School Location &amp; Timing</h2>
         <p className="text-xs text-slate-500">Set the school GPS coordinates so teachers can verify their location within 100m.</p>
+
+        {setupError && (
+          <div className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+            <p className="font-semibold">Setup required</p>
+            <p className="mt-1">{setupError}</p>
+          </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
@@ -199,7 +315,7 @@ export default function AdminTeacherAttendancePage() {
             disabled={gettingGps}
             className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-5 py-2.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-60"
           >
-            {gettingGps ? "Getting GPS..." : "Use My Current Location"}
+            {gettingGps ? "Getting Best GPS..." : "Use My Current Location"}
           </button>
           <button
             onClick={saveSchoolLocation}
@@ -209,6 +325,12 @@ export default function AdminTeacherAttendancePage() {
             {savingLocation ? "Saving..." : locationSaved ? "Saved!" : "Save Settings"}
           </button>
         </div>
+
+        {gpsError && !(schoolLat && schoolLng) && (
+          <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+            {gpsError}
+          </div>
+        )}
       </div>
 
       {/* View Controls */}
@@ -254,7 +376,9 @@ export default function AdminTeacherAttendancePage() {
         {loading ? (
           <div className="p-8 text-center text-sm text-slate-500">Loading...</div>
         ) : records.length === 0 ? (
-          <div className="p-8 text-center text-sm text-slate-500">No attendance records for this period.</div>
+          <div className="p-8 text-center text-sm text-slate-500">
+            {recordsError || "No attendance records for this period."}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -272,8 +396,8 @@ export default function AdminTeacherAttendancePage() {
                 {records.map(r => (
                   <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition">
                     <td className="px-5 py-3">
-                      <p className="font-medium text-white">{r.teachers?.[0]?.name ?? "—"}</p>
-                      <p className="text-xs text-slate-400">{r.teachers?.[0]?.email ?? ""}</p>
+                      <p className="font-medium text-white">{r.teacher_name ?? "—"}</p>
+                      <p className="text-xs text-slate-400">{r.teacher_email ?? ""}</p>
                     </td>
                     {viewMode === "month" && (
                       <td className="px-5 py-3 text-slate-300">

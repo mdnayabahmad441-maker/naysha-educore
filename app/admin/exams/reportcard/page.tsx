@@ -15,10 +15,40 @@ import html2canvas from "html2canvas"
 import JSZip from "jszip"
 import { saveAs } from "file-saver"
 
+const unsupportedCanvasColor = /(oklab|oklch|color-mix|lab\(|lch\()/i
+
+function safeCssValue(value: string, fallback: string) {
+  return unsupportedCanvasColor.test(value) ? fallback : value
+}
+
+function prepareForHtml2Canvas(root: HTMLElement) {
+  const elements = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))]
+
+  elements.forEach((element) => {
+    const style = window.getComputedStyle(element)
+
+    element.style.color = safeCssValue(style.color, "#111827")
+    element.style.backgroundColor = safeCssValue(style.backgroundColor, "transparent")
+    element.style.borderTopColor = safeCssValue(style.borderTopColor, "rgba(148, 163, 184, 0.55)")
+    element.style.borderRightColor = safeCssValue(style.borderRightColor, "rgba(148, 163, 184, 0.55)")
+    element.style.borderBottomColor = safeCssValue(style.borderBottomColor, "rgba(148, 163, 184, 0.55)")
+    element.style.borderLeftColor = safeCssValue(style.borderLeftColor, "rgba(148, 163, 184, 0.55)")
+    element.style.outlineColor = safeCssValue(style.outlineColor, "transparent")
+    element.style.textDecorationColor = safeCssValue(style.textDecorationColor, "currentColor")
+
+    if (unsupportedCanvasColor.test(style.boxShadow)) {
+      element.style.boxShadow = "none"
+    }
+
+    if (unsupportedCanvasColor.test(style.backgroundImage)) {
+      element.style.backgroundImage = "none"
+    }
+  })
+}
+
 export default function ReportCardPage(){
 
   const [classes,setClasses] = useState<any[]>([])
-  const [students,setStudents] = useState<any[]>([])
   const [subjects,setSubjects] = useState<any[]>([])
   const [exams,setExams] = useState<any[]>([])
   const [school,setSchool] = useState<any>(null)
@@ -138,7 +168,7 @@ export default function ReportCardPage(){
 
       // Fetch father_name from parents table
       const studentIds = classStudents.map((s) => s.id)
-      let parentMap = new Map<string, string>()
+      const parentMap = new Map<string, string>()
       if (studentIds.length > 0) {
         const { data: parentData } = await supabase
           .from("parents")
@@ -284,31 +314,55 @@ export default function ReportCardPage(){
   const createPDFBlob = async (element:HTMLElement)=>{
 
     const clone = element.cloneNode(true) as HTMLElement
+    const sourceWidth = Math.max(element.getBoundingClientRect().width, element.scrollWidth, 794)
 
-    clone.style.position = "fixed"
-    clone.style.left = "0"
-    clone.style.top = "0"
-    clone.style.width = `${element.offsetWidth}px`
-    clone.style.zIndex = "-1"
+    const captureHost = document.createElement("div")
+    captureHost.style.position = "fixed"
+    captureHost.style.left = "0"
+    captureHost.style.top = "0"
+    captureHost.style.width = `${sourceWidth}px`
+    captureHost.style.background = "#ffffff"
+    captureHost.style.zIndex = "2147483647"
+    captureHost.style.pointerEvents = "none"
 
-    document.body.appendChild(clone)
+    clone.style.width = `${sourceWidth}px`
+    clone.style.maxWidth = "none"
+    clone.style.background = "#ffffff"
 
-    const canvas = await html2canvas(clone,{
-      scale:2,
-      backgroundColor:"#fff"
-    })
+    captureHost.appendChild(clone)
+    document.body.appendChild(captureHost)
+    prepareForHtml2Canvas(clone)
 
-    document.body.removeChild(clone)
+    try {
+      const canvas = await html2canvas(clone,{
+        scale:2,
+        backgroundColor:"#ffffff",
+        useCORS:true,
+        allowTaint:false,
+        logging:false,
+        windowWidth:sourceWidth,
+        width:sourceWidth,
+        height:clone.scrollHeight
+      })
 
-    const img = canvas.toDataURL("image/png")
+      const img = canvas.toDataURL("image/png")
+      const orientation = canvas.width > canvas.height ? "landscape" : "portrait"
+      const pdf = new jsPDF({
+        orientation,
+        unit:"mm",
+        format:"a4"
+      })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const imgH = (canvas.height * pageW) / canvas.width
+      const renderH = Math.min(imgH, pageH)
 
-    const pdf = new jsPDF()
-    const w = 210
-    const h = (canvas.height * w) / canvas.width
+      pdf.addImage(img,"PNG",0,0,pageW,renderH)
 
-    pdf.addImage(img,"PNG",0,0,w,h)
-
-    return pdf.output("blob")
+      return pdf.output("blob")
+    } finally {
+      document.body.removeChild(captureHost)
+    }
   }
 
   // ==========================
@@ -323,18 +377,26 @@ export default function ReportCardPage(){
 
     setDownloading(true)
 
-    const zip = new JSZip()
-    const cards = document.querySelectorAll(".report-card")
+    try {
+      const zip = new JSZip()
+      const cards = document.querySelectorAll(".report-card")
 
-    for(let i=0;i<cards.length;i++){
-      const blob = await createPDFBlob(cards[i] as HTMLElement)
-      zip.file(`report-${i+1}.pdf`, blob)
+      for(let i=0;i<cards.length;i++){
+        const blob = await createPDFBlob(cards[i] as HTMLElement)
+        const studentName = reports[i]?.student?.name
+          ? String(reports[i].student.name).replace(/[^a-z0-9]+/gi, "_")
+          : `report_${i+1}`
+        zip.file(`${studentName}.pdf`, blob)
+      }
+
+      const content = await zip.generateAsync({ type:"blob" })
+      saveAs(content, "report-cards.zip")
+    } catch (error) {
+      console.error("Report card download error:", error)
+      alert(error instanceof Error ? error.message : "Failed to download report cards")
+    } finally {
+      setDownloading(false)
     }
-
-    const content = await zip.generateAsync({ type:"blob" })
-    saveAs(content, "report-cards.zip")
-
-    setDownloading(false)
   }
 
   // ==========================

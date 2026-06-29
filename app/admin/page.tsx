@@ -207,48 +207,48 @@ loadDashboard()
 
 return(
 
-<div className="p-6 md:p-10 text-white max-w-7xl mx-auto space-y-10">
+<div className="mx-auto max-w-7xl space-y-8 text-white sm:space-y-10">
 
 {/* HEADER */}
-<div className="animate-fade-in flex items-start justify-between gap-4">
-<div>
-<h1 className="text-3xl font-bold">
+<div className="animate-fade-in flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+<div className="min-w-0">
+<h1 className="text-2xl font-bold leading-tight sm:text-3xl">
 {role === "teacher" ? "Teacher Dashboard" : `${schoolName} Dashboard`}
 </h1>
-<p className="text-gray-400 text-sm mt-1">
+<p className="mt-1 max-w-2xl text-sm text-gray-400">
 {today} {academicYear ? `• Academic Year ${academicYear.name}` : ""}
 </p>
 </div>
 <button
   onClick={()=>router.push("/admin/ai-assistant")}
-  className="shrink-0 flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-600/30 transition"
+  className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-600/30 sm:w-auto sm:shrink-0"
 >
   <span>✦</span> AI Assistant
 </button>
 </div>
 
 {/* STATS */}
-<div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
 
-<div className="stat-card animate-slide-up stagger-1 bg-blue-600/20 border border-blue-500/20 rounded-xl p-6">
+<div className="stat-card animate-slide-up stagger-1 rounded-xl border border-blue-500/20 bg-blue-600/20 p-5 sm:p-6">
 <p className="text-gray-400 text-sm">Students</p>
 <p className="text-3xl font-bold">{students}</p>
 </div>
 
 {role !== "teacher" && (
-<div className="stat-card animate-slide-up stagger-2 bg-purple-600/20 border border-purple-500/20 rounded-xl p-6">
+<div className="stat-card animate-slide-up stagger-2 rounded-xl border border-purple-500/20 bg-purple-600/20 p-5 sm:p-6">
 <p className="text-gray-400 text-sm">Teachers</p>
 <p className="text-3xl font-bold">{teachers}</p>
 </div>
 )}
 
-<div className="stat-card animate-slide-up stagger-3 bg-green-600/20 border border-green-500/20 rounded-xl p-6">
+<div className="stat-card animate-slide-up stagger-3 rounded-xl border border-green-500/20 bg-green-600/20 p-5 sm:p-6">
 <p className="text-gray-400 text-sm">Classes</p>
 <p className="text-3xl font-bold">{classes}</p>
 </div>
 
 {role !== "teacher" && (
-<div className="stat-card animate-slide-up stagger-4 bg-yellow-600/20 border border-yellow-500/20 rounded-xl p-6">
+<div className="stat-card animate-slide-up stagger-4 rounded-xl border border-yellow-500/20 bg-yellow-600/20 p-5 sm:p-6">
 <p className="text-gray-400 text-sm">Fees</p>
 <p className="text-3xl font-bold">₹{fees}</p>
 </div>
@@ -296,12 +296,12 @@ style={{ width: `${c.percent}%` }}
 </div>
 
 {/* QUICK ACTIONS */}
-<div className="animate-slide-up stagger-4 grid grid-cols-2 md:grid-cols-4 gap-6">
+<div className="animate-slide-up stagger-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
 
 <button onClick={()=>router.push("/admin/students/create")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition">Add Student</button>
 
 {role !== "teacher" && (
-<button onClick={()=>router.push("/admin/teachers/add")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition">Add Teacher</button>
+<button onClick={()=>router.push("/admin/teachers?add=teacher")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition">Add Teacher</button>
 )}
 
 <button onClick={()=>router.push("/admin/classes")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition">Manage Classes</button>

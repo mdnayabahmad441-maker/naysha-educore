@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android",
+    "android:build": "cd android && gradlew.bat bundleRelease"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
@@ -32,6 +35,9 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
     "@tailwindcss/postcss": "^4.2.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/file-saver": "^2.0.7",

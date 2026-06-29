@@ -36,6 +36,9 @@ export default function DataDeletionPage() {
               delete all personal data associated with your account, please
               follow the steps below.
             </p>
+            <p className="mt-3">
+              NaySha EduCore is a product of <span className="font-semibold text-white">Groenics</span>.
+            </p>
           </section>
 
           <section>
@@ -111,6 +114,12 @@ export default function DataDeletionPage() {
               .
             </p>
           </section>
+        </div>
+
+        <div className="mt-12 rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-slate-400">
+          <p>
+            NaySha EduCore is a product of <span className="font-semibold text-white">Groenics</span>.
+          </p>
         </div>
 
         <div className="mt-12 flex gap-6 text-sm text-slate-500">

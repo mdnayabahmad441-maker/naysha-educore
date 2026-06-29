@@ -29,11 +29,12 @@ export default function ParentFees() {
   }, [])
 
   return (
-    <div className="bg-white/10 p-6 rounded-xl">
+    <div className="rounded-xl bg-white/10 p-4 sm:p-6">
 
       <h1 className="text-xl mb-4">Fees & Payments</h1>
 
-      <table className="w-full border border-white/10">
+      <div className="overflow-x-auto">
+      <table className="min-w-full border border-white/10 text-sm">
 
         <thead>
           <tr>
@@ -52,6 +53,7 @@ export default function ParentFees() {
         </tbody>
 
       </table>
+      </div>
 
     </div>
   )

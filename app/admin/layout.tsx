@@ -75,22 +75,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const linkStyle = (path: string) =>
-    `flex items-center gap-3 rounded-lg px-4 py-2 transition-all duration-200 ${
+    `flex min-w-0 items-center gap-3 rounded-lg px-4 py-2 transition-all duration-200 ${
       pathname === path || pathname.startsWith(path + "/")
         ? "nav-link-active"
         : "nav-link-inactive"
     }`
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-(--bg-main) text-(--text-main) md:flex-row">
+    <div className="flex h-screen min-w-0 flex-col overflow-hidden bg-(--bg-main) text-(--text-main) md:flex-row">
       <div
         className={`fixed inset-0 z-30 bg-black/60 transition-opacity duration-200 md:hidden ${sidebarOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
         onClick={closeSidebar}
       />
 
-      <aside className={`fixed inset-y-0 left-0 z-40 flex h-full w-full max-w-[320px] flex-col overflow-hidden border-r border-white/10 bg-(--bg-card) p-6 transition-transform duration-200 md:static md:translate-x-0 md:w-64 md:max-w-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`fixed inset-y-0 left-0 z-40 flex h-full w-full max-w-[320px] shrink-0 flex-col overflow-hidden border-r border-white/10 bg-(--bg-card) p-5 transition-transform duration-200 sm:p-6 md:static md:translate-x-0 md:w-64 md:max-w-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between gap-4 md:block">
-          <h1 className="mb-6 bg-linear-to-r from-(--color-accent) to-(--color-accent-2) bg-clip-text text-xl font-bold text-transparent">
+          <h1 className="mb-6 break-words bg-linear-to-r from-(--color-accent) to-(--color-accent-2) bg-clip-text text-xl font-bold leading-tight text-transparent">
             {school?.name || "NaySha EduCore"}
           </h1>
           <button type="button" className="rounded-lg border border-white/10 px-3 py-2 text-sm text-white hover:bg-white/5 md:hidden" onClick={closeSidebar}>
@@ -148,9 +148,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             Sign Out
           </button>
         </div>
+
+        <div className="border-t border-white/10 pt-4 text-xs text-gray-500">
+          <p>NaySha EduCore</p>
+          <p className="mt-1">Powered by <span className="font-semibold text-gray-300">Groenics</span></p>
+        </div>
       </aside>
 
-      <div className="flex min-h-0 flex-1 flex-col md:ml-64">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="border-b border-white/10 bg-(--bg-card) px-4 py-4 md:px-8">
           <div className="flex items-center justify-between md:hidden">
             <h2 className="text-base font-semibold text-white truncate">
@@ -166,9 +171,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="mt-4 hidden items-center justify-between gap-4 md:flex">
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-semibold text-white">Admin Panel</h2>
-              <p className="text-xs text-gray-400">{school?.subdomain ? `${school.subdomain}.naysha.online` : ""}</p>
+              <p className="truncate text-xs text-gray-400">{school?.subdomain ? `${school.subdomain}.naysha.online` : ""}</p>
             </div>
 
             <button
@@ -180,8 +185,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-(--bg-main) p-4 md:p-10">
-          <div className="page-enter">{children}</div>
+        <main className="flex-1 overflow-y-auto bg-(--bg-main) p-4 md:p-8">
+          <div className="page-enter min-w-0">{children}</div>
         </main>
       </div>
     </div>

@@ -251,6 +251,9 @@ export default function LoginPage() {
             <p className="mt-4 max-w-xl text-base leading-7 text-slate-300">
               Sign in to your school workspace or create a new school account.
             </p>
+            <p className="mt-3 text-sm font-medium text-slate-500">
+              A product of <span className="text-slate-300">Groenics</span>
+            </p>
           </div>
 
           <div className="max-w-xl rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -488,6 +491,10 @@ export default function LoginPage() {
               <a href="/onboarding" className="font-semibold text-cyan-300">
                 Create account
               </a>
+            </div>
+
+            <div className="mt-5 border-t border-white/10 pt-4 text-center text-xs text-slate-500">
+              NaySha EduCore is a product of <span className="font-semibold text-slate-300">Groenics</span>
             </div>
           </div>
         </section>

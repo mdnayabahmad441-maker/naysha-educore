@@ -44,7 +44,7 @@ async function getImageDimensions(file: File) {
 }
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<"school" | "exam" | "fees" | "academic" | "whatsapp">("school")
+  const [tab, setTab] = useState<"school" | "exam" | "fees" | "academic" | "whatsapp" | "about">("school")
   const [schoolId, setSchoolId] = useState<string | null>(null)
 
   const [school, setSchool] = useState<any>({})
@@ -419,6 +419,9 @@ export default function SettingsPage() {
         <button onClick={() => setTab("whatsapp")} className="block w-full text-left">
           WhatsApp
         </button>
+        <button onClick={() => setTab("about")} className="block w-full text-left">
+          About
+        </button>
       </div>
 
       <div className="flex-1 p-10">
@@ -664,6 +667,34 @@ Never invent data that is not provided.`}
         {tab === "whatsapp" && (
           <div className="py-2">
             <WhatsAppConnect />
+          </div>
+        )}
+
+        {tab === "about" && (
+          <div className="max-w-2xl space-y-6">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+                About
+              </p>
+              <h1 className="mt-2 text-3xl font-bold">NaySha EduCore</h1>
+              <p className="mt-3 text-sm leading-6 text-slate-300">
+                NaySha EduCore is a school ERP platform for academic, administrative,
+                attendance, examination, fee, and parent communication workflows.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <p className="text-sm text-slate-400">Product company</p>
+              <p className="mt-1 text-xl font-semibold text-white">Groenics</p>
+              <p className="mt-3 text-sm leading-6 text-slate-300">
+                NaySha EduCore is a product of Groenics.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <p className="text-sm text-slate-400">Version</p>
+              <p className="mt-1 text-lg font-semibold text-white">1.0</p>
+            </div>
           </div>
         )}
 

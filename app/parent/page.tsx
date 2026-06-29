@@ -142,15 +142,15 @@ export default function ParentDashboard(){
   },[])
 
   if(loading){
-    return <div className="p-10 text-white">Loading...</div>
+    return <div className="p-4 text-white sm:p-6">Loading...</div>
   }
 
   if(children.length === 0){
-    return <div className="p-10 text-white">No children linked to this parent account.</div>
+    return <div className="p-4 text-white sm:p-6">No children linked to this parent account.</div>
   }
 
   return(
-    <div className="p-6 md:p-10 text-white max-w-6xl mx-auto space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6 text-white">
       <h1 className="text-2xl font-semibold">Parent Dashboard</h1>
 
       {children.map(({ student, attendance, payments, results })=>{
@@ -167,7 +167,7 @@ export default function ParentDashboard(){
         const lastResult = results[0]
 
         return(
-          <div key={student.id} className="space-y-6 rounded-xl border border-white/10 bg-white/10 p-6">
+          <div key={student.id} className="space-y-6 rounded-xl border border-white/10 bg-white/10 p-4 sm:p-6">
 
             <div>
               <h2 className="text-2xl font-semibold">{student.name}</h2>
@@ -176,18 +176,18 @@ export default function ParentDashboard(){
               </p>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="bg-white/10 p-6 rounded-xl text-center">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+              <div className="rounded-xl bg-white/10 p-4 text-center sm:p-6">
                 <p className="text-gray-400 text-sm">Attendance</p>
                 <h3 className="text-2xl font-bold">{attendancePercent}%</h3>
               </div>
 
-              <div className="bg-white/10 p-6 rounded-xl text-center">
+              <div className="rounded-xl bg-white/10 p-4 text-center sm:p-6">
                 <p className="text-gray-400 text-sm">Fees Paid</p>
                 <h3 className="text-2xl font-bold">Rs. {totalFees}</h3>
               </div>
 
-              <div className="bg-white/10 p-6 rounded-xl text-center">
+              <div className="rounded-xl bg-white/10 p-4 text-center sm:p-6">
                 <p className="text-gray-400 text-sm">Last Result</p>
                 <h3 className="text-2xl font-bold">
                   {lastResult
@@ -198,20 +198,20 @@ export default function ParentDashboard(){
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-white/10 p-6 rounded-xl">
+              <div className="rounded-xl bg-white/10 p-4 sm:p-6">
                 <h3 className="mb-4">Recent Attendance</h3>
                 {attendance.slice(0,5).map((item)=>(
-                  <div key={item.id} className="flex justify-between border-b border-white/10 py-2">
+                  <div key={item.id} className="flex flex-wrap justify-between gap-2 border-b border-white/10 py-2">
                     <p>{item.date}</p>
                     <p>{item.status === "present" ? "Present" : "Absent"}</p>
                   </div>
                 ))}
               </div>
 
-              <div className="bg-white/10 p-6 rounded-xl">
+              <div className="rounded-xl bg-white/10 p-4 sm:p-6">
                 <h3 className="mb-4">Recent Payments</h3>
                 {payments.slice(0,5).map((item)=>(
-                  <div key={item.id} className="flex justify-between border-b border-white/10 py-2">
+                  <div key={item.id} className="flex flex-wrap justify-between gap-2 border-b border-white/10 py-2">
                     <p>Rs. {item.amount}</p>
                     <p>{item.date}</p>
                   </div>

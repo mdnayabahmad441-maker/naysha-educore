@@ -37,6 +37,7 @@ export default function TermsPage() {
               NaySha EduCore is a school management platform that provides tools for managing student records,
               attendance, examinations, fee collection, notices, and parent communication via WhatsApp and email.
               The Platform is offered as a software-as-a-service (SaaS) product to educational institutions.
+              NaySha EduCore is a product of Groenics.
             </p>
           </section>
 
@@ -69,7 +70,7 @@ export default function TermsPage() {
             <h2 className="text-lg font-semibold text-white mb-3">5. Data Ownership</h2>
             <p>
               All student, parent, and school data you enter into the Platform remains your property.
-              NaySha Technologies does not claim ownership of your data.
+              Groenics does not claim ownership of your data.
             </p>
             <p className="mt-2">
               You grant us a limited licence to store, process, and transmit your data solely for the purpose
@@ -99,7 +100,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">8. Limitation of Liability</h2>
             <p>
-              To the maximum extent permitted by law, NaySha Technologies shall not be liable for any indirect,
+              To the maximum extent permitted by law, Groenics shall not be liable for any indirect,
               incidental, special, or consequential damages arising from your use of the Platform, including but
               not limited to loss of data, loss of revenue, or reputational damage.
             </p>
@@ -153,7 +154,7 @@ export default function TermsPage() {
               For any questions about these Terms, please contact:
             </p>
             <p className="mt-2">
-              NaySha Technologies<br />
+              Groenics<br />
               Email:{" "}
               <a href="mailto:nayabshahin1914@gmail.com" className="text-cyan-400 hover:underline">
                 nayabshahin1914@gmail.com
@@ -161,6 +162,12 @@ export default function TermsPage() {
             </p>
           </section>
 
+        </div>
+
+        <div className="mt-12 rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-slate-400">
+          <p>
+            NaySha EduCore is a product of <span className="font-semibold text-white">Groenics</span>.
+          </p>
         </div>
 
         <div className="mt-16 pt-8 border-t border-white/10 flex gap-6 text-xs text-slate-600">

@@ -116,14 +116,14 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-(--bg-main) text-(--text-main)">
+    <div className="flex h-screen min-w-0 overflow-hidden bg-(--bg-main) text-(--text-main)">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* ── Sidebar ── */}
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-(--border) bg-(--bg-card) transition-transform duration-250 md:static md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 max-w-[85vw] shrink-0 flex-col border-r border-(--border) bg-(--bg-card) transition-transform duration-250 md:static md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
 
         {/* School name */}
         <div className="flex items-center justify-between px-5 py-5">
@@ -153,14 +153,14 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
                 key={item.href}
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                className={`flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
                   active
                     ? "nav-link-active"
                     : "text-(--text-muted) hover:bg-white/5 hover:text-white"
                 }`}
               >
-                <Icon d={ICONS[item.icon as keyof typeof ICONS]} size={17} />
-                {item.label}
+                <span className="shrink-0"><Icon d={ICONS[item.icon as keyof typeof ICONS]} size={17} /></span>
+                <span className="min-w-0 truncate">{item.label}</span>
               </Link>
             )
           })}
@@ -175,16 +175,20 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
             <Icon d={ICONS.logout} size={17} />
             Sign Out
           </button>
+          <div className="mt-4 border-t border-(--border) pt-4 text-xs text-(--text-muted)">
+            <p>NaySha EduCore</p>
+            <p className="mt-1">Powered by <span className="font-semibold text-white/80">Groenics</span></p>
+          </div>
         </div>
       </aside>
 
       {/* ── Main area ── */}
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
 
         {/* Header */}
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-(--border) bg-(--bg-card) px-4 md:px-6">
           {/* Mobile: menu button + school name */}
-          <div className="flex items-center gap-3 md:hidden">
+          <div className="min-w-0 flex items-center gap-3 md:hidden">
             <button
               onClick={() => setSidebarOpen(true)}
               className="rounded-lg border border-(--border) p-2 text-(--text-muted) hover:bg-white/5"
@@ -193,7 +197,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
                 <path d="M3 12h18M3 6h18M3 18h18"/>
               </svg>
             </button>
-            <span className="text-sm font-semibold text-white truncate">{school?.name || "Teacher Panel"}</span>
+            <span className="min-w-0 truncate text-sm font-semibold text-white">{school?.name || "Teacher Panel"}</span>
           </div>
 
           {/* Desktop: greeting */}

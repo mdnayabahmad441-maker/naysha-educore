@@ -28,19 +28,19 @@ export default function ReportCard({
   const values = {
     schoolName: school?.name || "School Name",
     reportTitle: `${exam?.name || "Exam"} Result`,
-    studentName: `Name: ${student?.name || "-"}`,
+    studentName: `Student's Name: ${student?.name || "-"}`,
     className: `Class: ${classData?.name || "-"}`,
     rollNumber: `Roll No: ${student?.roll_number || "-"}`,
-    fatherName: `Father: ${student?.father_name || "-"}`,
+    fatherName: `Father's Name: ${student?.father_name || "-"}`,
     examName: `Exam: ${exam?.name || "-"}`,
     grade: `Grade: ${report.grade}`,
     percentage: `Percentage: ${report.percentage.toFixed(2)}%`,
-    result: report.finalResult,
+    result: `Result: ${report.finalResult}`,
     totalMarks: `Total Marks: ${report.totalMarks}`,
     obtainedMarks: `Obtained Marks: ${report.obtainedMarks}`,
-    remark: report.remark || "",
-    classTeacherSign: "Class Teacher",
-    principalSign: "Principal"
+    remark: `Teacher's Remarks: ${report.remark || ""}`,
+    classTeacherSign: "Class Teacher's Signature",
+    principalSign: "Principal / Director's Signature"
   }
 
   return (

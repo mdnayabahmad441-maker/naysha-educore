@@ -57,6 +57,44 @@ export async function getSchoolId() {
           return refreshedId
         }
       } catch {}
+
+      const email = user.email?.trim().toLowerCase()
+
+      const { data: teacher, error: teacherError } = await supabase
+        .from("teachers")
+        .select("school_id")
+        .or(`auth_id.eq.${user.id}${email ? `,email.eq.${email}` : ""}`)
+        .limit(1)
+        .maybeSingle<{ school_id: string | null }>()
+
+      if (teacherError) {
+        console.error("School teacher fetch error:", teacherError)
+      }
+
+      if (typeof teacher?.school_id === "string" && teacher.school_id) {
+        cachedSchoolId = teacher.school_id
+        cachedUserId = user.id
+        return teacher.school_id
+      }
+
+      if (email) {
+        const { data: parent, error: parentError } = await supabase
+          .from("parents")
+          .select("school_id")
+          .or(`auth_id.eq.${user.id},email.eq.${email}`)
+          .limit(1)
+          .maybeSingle<{ school_id: string | null }>()
+
+        if (parentError) {
+          console.error("School parent fetch error:", parentError)
+        }
+
+        if (typeof parent?.school_id === "string" && parent.school_id) {
+          cachedSchoolId = parent.school_id
+          cachedUserId = user.id
+          return parent.school_id
+        }
+      }
     }
 
     return null

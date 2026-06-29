@@ -277,7 +277,7 @@ export default function DashboardPage() {
 
   return(
 
-    <div className="p-6 md:p-10 space-y-10 text-white">
+    <div className="space-y-8 text-white sm:space-y-10">
 
       {/* 🔥 HEADER (SaaS STYLE) */}
       <div className="space-y-2">
@@ -286,7 +286,7 @@ export default function DashboardPage() {
           Academic Year {year?.name || ""}
         </p>
 
-        <h1 className="text-3xl font-bold">
+        <h1 className="text-2xl font-bold leading-tight sm:text-3xl">
           Welcome back, Admin 👋
         </h1>
 
@@ -298,7 +298,7 @@ export default function DashboardPage() {
 
       {/* AI DAILY DIGEST */}
       <Card className="border border-cyan-500/20 bg-cyan-500/5 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <span className="text-cyan-400 text-lg">✦</span>
             <h2 className="font-semibold text-cyan-100">AI Daily Digest</h2>
@@ -306,7 +306,7 @@ export default function DashboardPage() {
           <button
             onClick={fetchAiDigest}
             disabled={digestLoading}
-            className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
+            className="w-full rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50 sm:w-auto"
           >
             {digestLoading ? "Analysing..." : aiDigest ? "Refresh" : "Generate Digest"}
           </button>
@@ -443,9 +443,9 @@ export default function DashboardPage() {
         ) : (
           <div className="space-y-3">
             {admissionEnquiries.map((enquiry) => (
-              <div key={enquiry.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
+            <div key={enquiry.id} className="flex flex-col gap-3 rounded-lg bg-white/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-sm">{enquiry.student_name}</span>
                     <span className="text-xs text-gray-400">({enquiry.father_name})</span>
                   </div>
@@ -453,7 +453,7 @@ export default function DashboardPage() {
                     Class: {enquiry.class_wanted} • {enquiry.phone}
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-left sm:text-right">
                   <div className={`text-xs px-2 py-1 rounded-full ${
                     enquiry.status === 'new'
                       ? 'bg-green-500/20 text-green-400'

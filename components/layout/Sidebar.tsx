@@ -24,7 +24,7 @@ export default function Sidebar() {
         <h3 className="mt-4 text-sm opacity-70">Examinations</h3>
         <Link href="/admin/exams">Create Exam</Link>
         <Link href="/admin/exams/marks">Marks Entry</Link>
-        <Link href="/admin/exams/results">Results</Link>
+        <Link href="/admin/exams/result">Results</Link>
 
         <h3 className="mt-4 text-sm opacity-70">Finance</h3>
         <Link href="/admin/fees">Fees</Link>
