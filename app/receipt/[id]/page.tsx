@@ -67,7 +67,7 @@ export default function ReceiptPage() {
   }
 
   return (
-    <div className="p-6 bg-[#020617] min-h-screen">
+    <div className="min-h-screen bg-[#020617] p-3 sm:p-6">
       <FeeReceipt
         student={data.student}
         fee={data.fee}

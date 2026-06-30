@@ -1,6 +1,9 @@
 "use client"
 
 import { buildFeeBreakdown } from "@/lib/payment-receipts"
+import html2canvas from "html2canvas"
+import jsPDF from "jspdf"
+import { useRef, useState } from "react"
 
 type FeeReceiptProps = {
   student?: {
@@ -54,7 +57,8 @@ function formatDate(value?: string | null) {
 }
 
 export default function FeeReceipt({ student, fee, payment, school, showActions = true }: FeeReceiptProps) {
-  const print = () => window.print()
+  const receiptRef = useRef<HTMLDivElement | null>(null)
+  const [downloading, setDownloading] = useState(false)
   const breakdown = buildFeeBreakdown(fee)
   const total = breakdown.reduce((sum, item) => sum + item.value, 0)
   const paidAmount = Number(payment?.amount ?? total)
@@ -62,8 +66,38 @@ export default function FeeReceipt({ student, fee, payment, school, showActions 
   const outstanding = Math.max(total - paidAmount, 0)
   const issueDate = formatDate(payment?.date)
 
+  const downloadPdf = async () => {
+    if (!receiptRef.current) return
+
+    setDownloading(true)
+
+    try {
+      const canvas = await html2canvas(receiptRef.current, {
+        scale: 1.2,
+        useCORS: true,
+        backgroundColor: "#f4efe6"
+      })
+      const img = canvas.toDataURL("image/jpeg", 0.82)
+      const pdf = new jsPDF("p", "mm", "a4")
+      const maxWidth = 190
+      const maxHeight = 281
+      let width = maxWidth
+      let height = (canvas.height * width) / canvas.width
+
+      if (height > maxHeight) {
+        height = maxHeight
+        width = (canvas.width * height) / canvas.height
+      }
+
+      pdf.addImage(img, "JPEG", (210 - width) / 2, 8, width, height, undefined, "FAST")
+      pdf.save(`receipt-${receiptNumber}.pdf`)
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
-    <div className="mx-auto w-full max-w-3xl print:max-w-none print:bg-white" style={{ backgroundColor: "#f4efe6", color: "#0f172a" }}>
+    <div ref={receiptRef} className="mx-auto w-full max-w-3xl print:max-w-none print:bg-white" style={{ backgroundColor: "#f4efe6", color: "#0f172a" }}>
       <div
         className="overflow-visible rounded-2xl print:rounded-none print:border-0 print:bg-white print:shadow-none"
         style={{
@@ -74,7 +108,7 @@ export default function FeeReceipt({ student, fee, payment, school, showActions 
       >
         <div className="h-2 bg-[linear-gradient(90deg,#8b6a2f_0%,#d4af63_45%,#7f5c1f_100%)]" />
 
-        <div className="p-5 sm:p-6 print:p-5">
+        <div className="p-3 sm:p-6 print:p-5">
           <div className="flex flex-col gap-4 pb-5 sm:flex-row sm:items-start sm:justify-between" style={{ borderBottom: "1px solid #d7c9ad" }}>
             <div className="flex min-w-0 gap-4">
               {school?.logo_url ? (
@@ -106,7 +140,7 @@ export default function FeeReceipt({ student, fee, payment, school, showActions 
             </div>
 
             <div
-              className="grid min-w-[235px] gap-2 rounded-2xl p-4 text-xs"
+              className="grid w-full min-w-0 gap-2 rounded-2xl p-3 text-[11px] sm:w-auto sm:min-w-[235px] sm:p-4 sm:text-xs"
               style={{ border: "1px solid #d7c9ad", backgroundColor: "rgba(255,255,255,0.8)", boxShadow: "0 12px 32px rgba(15,23,42,0.06)" }}
             >
               <div className="flex items-center justify-between gap-4">
@@ -132,30 +166,30 @@ export default function FeeReceipt({ student, fee, payment, school, showActions 
                 <h2 className="text-base font-semibold" style={{ color: "#020617" }}>Student Billing Details</h2>
               </div>
 
-              <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em]" style={{ color: "#64748b" }}>Student Name</p>
-                  <p className="mt-1 text-sm font-semibold" style={{ color: "#0f172a" }}>{student?.name || "N/A"}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.12em] sm:text-xs sm:tracking-[0.18em]" style={{ color: "#64748b" }}>Student Name</p>
+                  <p className="mt-1 break-words text-xs font-semibold sm:text-sm" style={{ color: "#0f172a" }}>{student?.name || "N/A"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em]" style={{ color: "#64748b" }}>Student ID</p>
-                  <p className="mt-1 text-sm font-semibold" style={{ color: "#0f172a" }}>{student?.student_code || "N/A"}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.12em] sm:text-xs sm:tracking-[0.18em]" style={{ color: "#64748b" }}>Class</p>
+                  <p className="mt-1 break-words text-xs font-semibold sm:text-sm" style={{ color: "#0f172a" }}>{student?.class_name || "N/A"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em]" style={{ color: "#64748b" }}>Class</p>
-                  <p className="mt-1 text-sm font-semibold" style={{ color: "#0f172a" }}>{student?.class_name || "N/A"}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.12em] sm:text-xs sm:tracking-[0.18em]" style={{ color: "#64748b" }}>Roll Number</p>
+                  <p className="mt-1 break-words text-xs font-semibold sm:text-sm" style={{ color: "#0f172a" }}>{student?.roll_number || "N/A"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em]" style={{ color: "#64748b" }}>Roll Number</p>
-                  <p className="mt-1 text-sm font-semibold" style={{ color: "#0f172a" }}>{student?.roll_number || "N/A"}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.12em] sm:text-xs sm:tracking-[0.18em]" style={{ color: "#64748b" }}>Student ID</p>
+                  <p className="mt-1 break-words text-xs font-semibold sm:text-sm" style={{ color: "#0f172a" }}>{student?.student_code || "N/A"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em]" style={{ color: "#64748b" }}>Parent / Guardian</p>
-                  <p className="mt-1 text-sm font-semibold" style={{ color: "#0f172a" }}>{student?.parent_name || "N/A"}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.12em] sm:text-xs sm:tracking-[0.18em]" style={{ color: "#64748b" }}>Parent / Guardian</p>
+                  <p className="mt-1 break-words text-xs font-semibold sm:text-sm" style={{ color: "#0f172a" }}>{student?.parent_name || "N/A"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em]" style={{ color: "#64748b" }}>Contact Number</p>
-                  <p className="mt-1 text-sm font-semibold" style={{ color: "#0f172a" }}>{student?.parent_phone || "N/A"}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.12em] sm:text-xs sm:tracking-[0.18em]" style={{ color: "#64748b" }}>Contact Number</p>
+                  <p className="mt-1 break-words text-xs font-semibold sm:text-sm" style={{ color: "#0f172a" }}>{student?.parent_phone || "N/A"}</p>
                 </div>
               </div>
 
@@ -193,25 +227,25 @@ export default function FeeReceipt({ student, fee, payment, school, showActions 
           </div>
 
           <div className="mt-5 overflow-hidden rounded-2xl" style={{ border: "1px solid #d7c9ad", backgroundColor: "rgba(255,255,255,0.9)", boxShadow: "0 12px 32px rgba(15,23,42,0.06)" }}>
-            <div className="grid grid-cols-[minmax(0,1fr)_150px] px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em]" style={{ backgroundColor: "#f9f1e3", color: "#334155" }}>
+            <div className="grid grid-cols-[minmax(0,1fr)_110px] px-3 py-3 text-xs font-semibold uppercase tracking-[0.14em] sm:grid-cols-[minmax(0,1fr)_150px] sm:px-4 sm:tracking-[0.18em]" style={{ backgroundColor: "#f9f1e3", color: "#334155" }}>
               <div>Fee Head</div>
               <div className="text-right">Amount</div>
             </div>
 
             <div>
               {breakdown.map((item) => (
-                <div key={item.label} className="grid grid-cols-[minmax(0,1fr)_150px] px-4 py-3 text-sm" style={{ borderTop: "1px solid #eee2ca" }}>
+                <div key={item.label} className="grid grid-cols-[minmax(0,1fr)_110px] px-3 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_150px] sm:px-4" style={{ borderTop: "1px solid #eee2ca" }}>
                   <div className="font-medium" style={{ color: "#1e293b" }}>{item.label}</div>
                   <div className="text-right font-semibold" style={{ color: "#0f172a" }}>{formatCurrency(item.value)}</div>
                 </div>
               ))}
 
-              <div className="grid grid-cols-[minmax(0,1fr)_150px] px-4 py-3 text-sm" style={{ borderTop: "1px solid #eee2ca", backgroundColor: "#fcf7ee" }}>
+              <div className="grid grid-cols-[minmax(0,1fr)_110px] px-3 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_150px] sm:px-4" style={{ borderTop: "1px solid #eee2ca", backgroundColor: "#fcf7ee" }}>
                 <div className="font-semibold" style={{ color: "#020617" }}>Grand Total</div>
                 <div className="text-right font-semibold" style={{ color: "#020617" }}>{formatCurrency(total)}</div>
               </div>
 
-              <div className="grid grid-cols-[minmax(0,1fr)_150px] px-4 py-3 text-sm" style={{ borderTop: "1px solid #eee2ca", backgroundColor: "#fffaf2" }}>
+              <div className="grid grid-cols-[minmax(0,1fr)_110px] px-3 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_150px] sm:px-4" style={{ borderTop: "1px solid #eee2ca", backgroundColor: "#fffaf2" }}>
                 <div className="font-semibold" style={{ color: "#020617" }}>Paid Amount</div>
                 <div className="text-right text-base font-semibold" style={{ color: "#8b6a2f" }}>{formatCurrency(paidAmount)}</div>
               </div>
@@ -228,11 +262,13 @@ export default function FeeReceipt({ student, fee, payment, school, showActions 
 
             {showActions ? (
               <button
-                onClick={print}
-                className="rounded-full px-5 py-3 text-sm font-semibold text-white transition print:hidden"
+                onClick={downloadPdf}
+                disabled={downloading}
+                data-html2canvas-ignore="true"
+                className="rounded-full px-5 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70 print:hidden"
                 style={{ backgroundColor: "#020617" }}
               >
-                Print / Download
+                {downloading ? "Downloading..." : "Download PDF"}
               </button>
             ) : null}
           </div>
