@@ -88,10 +88,13 @@ export async function POST(req: Request) {
     }
 
     const baseUrl = getBaseUrl(req)
+    const receiptUrl = `${baseUrl}/receipt/${payment.id}`
     const internalHeaders = getInternalApiHeaders()
 
     let emailStatus = "skipped"
     let whatsappStatus = "skipped"
+    let emailError: string | null = null
+    let whatsappError: string | null = null
 
     if (parent?.email) {
       try {
@@ -101,37 +104,46 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             email: parent.email,
             subject: "Payment Received",
-            message: `${school?.name || "School"}\n\nPayment received for ${student?.name}\n\nClass: ${className}\nRoll: ${roll}\n\nAmount: Rs.${payment.amount}\n\nThank you`,
+            message: `${school?.name || "School"}\n\nPayment received for ${student?.name}\n\nClass: ${className}\nRoll: ${roll}\n\nAmount: Rs.${payment.amount}\nReceipt: ${receiptUrl}\n\nThank you`,
           }),
         })
 
-        emailStatus = res.ok ? "sent" : "failed"
+        const json = await res.json().catch(() => null)
+        emailStatus = res.ok && json?.success !== false ? "sent" : "failed"
+        emailError = emailStatus === "sent" ? null : json?.error || res.statusText
       } catch (err) {
         console.error("Email error:", err)
         emailStatus = "error"
+        emailError = err instanceof Error ? err.message : "Email error"
       }
     }
 
     if (parent?.phone) {
       try {
+        const whatsappMessage = `${school?.name || "School"}: Payment received for ${student?.name}. Class: ${className}. Roll: ${roll}. Amount: Rs.${payment.amount}. Receipt: ${receiptUrl}`
         const res = await fetch(`${baseUrl}/api/send-whatsapp`, {
           method: "POST",
           headers: internalHeaders,
           body: JSON.stringify({
             phone: parent.phone,
-            message: `${school?.name || "School"}: Payment Received\n\nStudent: ${student?.name}\nClass: ${className}\nRoll: ${roll}\nAmount: Rs.${payment.amount}\n\nThank you`,
+            message: whatsappMessage,
+            templateName: "school_notice",
+            variables: [whatsappMessage],
             schoolId: payment.school_id,   // use school's own WhatsApp number if connected
           }),
         })
 
-        whatsappStatus = res.ok ? "sent" : "failed"
+        const json = await res.json().catch(() => null)
+        whatsappStatus = res.ok && json?.success !== false ? "sent" : "failed"
+        whatsappError = whatsappStatus === "sent" ? null : json?.error || res.statusText
       } catch (err) {
         console.error("WhatsApp error:", err)
         whatsappStatus = "error"
+        whatsappError = err instanceof Error ? err.message : "WhatsApp error"
       }
     }
 
-    await supabaseAdmin.from("notifications_log").insert({
+    const { error: logError } = await supabaseAdmin.from("notifications_log").insert({
       type: "payment",
       ref_id: payment.id,
       student_id: payment.student_id,
@@ -142,10 +154,16 @@ export async function POST(req: Request) {
       whatsapp_status: whatsappStatus,
     })
 
+    if (logError) {
+      console.warn("Notification log skipped:", logError.message)
+    }
+
     return NextResponse.json({
       success: true,
       emailStatus,
       whatsappStatus,
+      emailError,
+      whatsappError,
     })
   } catch (err) {
     console.error("SERVER ERROR:", err)

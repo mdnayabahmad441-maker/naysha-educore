@@ -108,13 +108,20 @@ export default function ReceiptHistoryPage() {
       await new Promise(requestAnimationFrame)
       await new Promise((resolve) => setTimeout(resolve, 120))
 
-      const canvas = await html2canvas(container, { scale: 2, useCORS: true })
-      const img = canvas.toDataURL("image/png")
+      const canvas = await html2canvas(container, { scale: 1.15, useCORS: true })
+      const img = canvas.toDataURL("image/jpeg", 0.82)
       const pdf = new jsPDF("p", "mm", "a4")
-      const width = 190
-      const height = (canvas.height * width) / canvas.width
+      const maxWidth = 190
+      const maxHeight = 281
+      let width = maxWidth
+      let height = (canvas.height * width) / canvas.width
 
-      pdf.addImage(img, "PNG", 10, 10, width, height)
+      if (height > maxHeight) {
+        height = maxHeight
+        width = (canvas.width * height) / canvas.height
+      }
+
+      pdf.addImage(img, "JPEG", (210 - width) / 2, 8, width, height, undefined, "FAST")
       pdf.save(`receipt-${receiptData.payment.receipt_number}.pdf`)
     } catch (err) {
       console.error(err)

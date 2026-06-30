@@ -13,6 +13,7 @@ type ReceiptPayment = {
 }
 
 type FeeBreakdownInput = {
+  month?: string | null
   total_amount?: number | string | null
   tuition_fee?: number | string | null
   transport_fee?: number | string | null
@@ -28,7 +29,7 @@ export function buildFeeBreakdown(fee: FeeBreakdownInput) {
 
   return rows.length
     ? rows
-    : [{ label: "Fee", value: Number(fee?.total_amount ?? 0) }]
+    : [{ label: fee?.month || "Fee", value: Number(fee?.total_amount ?? 0) }]
 }
 
 async function findPayment(paymentId: string): Promise<ReceiptPayment | null> {
@@ -105,7 +106,7 @@ export async function fetchReceiptByPaymentId(paymentId: string) {
 
         supabase
           .from("schools")
-          .select("name,address,phone")
+          .select("name,address,phone,logo_url")
           .eq("id", payment.school_id)
           .maybeSingle(),
 
@@ -158,6 +159,7 @@ export async function fetchReceiptByPaymentId(paymentId: string) {
       },
 
       fee: {
+        month: fee?.month || "Fee",
         total_amount: Number(fee?.total_amount ?? payment.amount ?? 0),
         tuition_fee: Number(fee?.tuition_fee ?? 0),
         transport_fee: Number(fee?.transport_fee ?? 0),
@@ -178,7 +180,8 @@ export async function fetchReceiptByPaymentId(paymentId: string) {
       school: {
         name: school?.name || "School",
         address: school?.address || "",
-        phone: school?.phone || ""
+        phone: school?.phone || "",
+        logo_url: school?.logo_url || ""
       }
     }
   } catch (err) {

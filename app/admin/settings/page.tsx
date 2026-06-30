@@ -52,6 +52,7 @@ export default function SettingsPage() {
   const [fees, setFees] = useState<any>({})
   const [classes, setClasses] = useState<any[]>([])
   const [classFees, setClassFees] = useState<any>({})
+  const [classFeeLoadError, setClassFeeLoadError] = useState("")
   const [years, setYears] = useState<any[]>([])
   const [yearName, setYearName] = useState("")
   const [reportCardTemplateUrl, setReportCardTemplateUrl] = useState("")
@@ -74,7 +75,20 @@ export default function SettingsPage() {
     const load = async () => {
       setLoading(true)
 
-      const [{ data: schoolData }, examSettings, feeSettings, reportTemplate, certificateTemplate, aiText, idCardLayout, { data: cls }, { data: classFeeData }, { data: yrs }] =
+      setClassFeeLoadError("")
+
+      const [
+        { data: schoolData },
+        examSettings,
+        feeSettings,
+        reportTemplate,
+        certificateTemplate,
+        aiText,
+        idCardLayout,
+        classResult,
+        classFeeResult,
+        { data: yrs }
+      ] =
         await Promise.all([
           supabase.from("schools").select("*").eq("id", schoolId).single(),
           getSettings("exam"),
@@ -83,10 +97,23 @@ export default function SettingsPage() {
           getSettings("certificate_template"),
           getSettings("ai_system_instructions"),
           getSettings("id_card_layout"),
-          supabase.from("classes").select("*").eq("school_id", schoolId),
+          supabase.from("classes").select("id,name").eq("school_id", schoolId).order("name"),
           supabase.from("class_fee_settings").select("*").eq("school_id", schoolId),
           supabase.from("academic_years").select("*").eq("school_id", schoolId).order("created_at", { ascending: false }),
         ])
+
+      if (classResult.error) {
+        console.error("Failed to load classes for fee settings:", classResult.error)
+        setClassFeeLoadError(classResult.error.message)
+      }
+
+      if (classFeeResult.error) {
+        console.error("Failed to load class fee settings:", classFeeResult.error)
+        setClassFeeLoadError(classFeeResult.error.message)
+      }
+
+      const loadedClasses = classResult.error ? [] : classResult.data || []
+      const loadedClassFees = classFeeResult.error ? [] : classFeeResult.data || []
 
       setSchool(schoolData || {})
       setExam(examSettings || { passing: 33, grading: "percentage" })
@@ -104,13 +131,13 @@ export default function SettingsPage() {
       setAiInstructions(typeof aiText === "string" ? aiText : "")
       const matchedPreset = ID_CARD_PRESETS.find((preset) => JSON.stringify(preset.layout) === JSON.stringify(idCardLayout))
       setSelectedIdCardPreset(matchedPreset?.id || ID_CARD_PRESETS[0].id)
-      setClasses(cls || [])
+      setClasses(loadedClasses)
       setYears(yrs || [])
 
       const feeMap: any = {}
 
-      ;(cls || []).forEach((schoolClass: any) => {
-        const existing = (classFeeData || []).find((item: any) => item.class_id === schoolClass.id)
+      loadedClasses.forEach((schoolClass: any) => {
+        const existing = loadedClassFees.find((item: any) => item.class_id === schoolClass.id)
 
         feeMap[schoolClass.id] = {
           tuition: existing?.tuition_fee || 0,
@@ -284,9 +311,60 @@ export default function SettingsPage() {
     alert("Saved")
   }
 
+  const persistClassFees = async () => {
+    if (!schoolId) {
+      alert("School not loaded")
+      return false
+    }
+
+    if (classes.length === 0) {
+      alert("Classes are not loaded. Please refresh before saving class fees.")
+      return false
+    }
+
+    const { error: deleteError } = await supabase
+      .from("class_fee_settings")
+      .delete()
+      .eq("school_id", schoolId)
+
+    if (deleteError) {
+      console.error(deleteError)
+      alert(deleteError.message)
+      return false
+    }
+
+    const rows = Object.entries(classFees).map(([classId, value]: [string, any]) => ({
+      class_id: classId,
+      school_id: schoolId,
+      tuition_fee: Number(value.tuition || 0),
+      transport_fee: Number(value.transport || 0),
+      hostel_fee: Number(value.hostel || 0),
+    }))
+
+    if (rows.length === 0) {
+      return true
+    }
+
+    const { error: insertError } = await supabase
+      .from("class_fee_settings")
+      .insert(rows)
+
+    if (insertError) {
+      console.error(insertError)
+      alert(insertError.message)
+      return false
+    }
+
+    return true
+  }
+
   const saveFees = async () => {
     await updateSettings("fees", fees)
-    alert("Saved")
+
+    const classFeesSaved = await persistClassFees()
+    if (!classFeesSaved) return
+
+    alert("Fee settings saved")
   }
 
   const saveAiInstructions = async () => {
@@ -306,24 +384,8 @@ export default function SettingsPage() {
   }
 
   const saveClassFees = async () => {
-    await supabase.from("class_fee_settings").delete().eq("school_id", schoolId)
-
-    const rows = Object.entries(classFees).map(([classId, value]: [string, any]) => ({
-      class_id: classId,
-      school_id: schoolId,
-      tuition_fee: Number(value.tuition || 0),
-      transport_fee: Number(value.transport || 0),
-      hostel_fee: Number(value.hostel || 0),
-    }))
-
-    if (rows.length > 0) {
-      const { error } = await supabase.from("class_fee_settings").insert(rows)
-      if (error) {
-        console.error(error)
-        alert(error.message)
-        return
-      }
-    }
+    const classFeesSaved = await persistClassFees()
+    if (!classFeesSaved) return
 
     alert("Class fees saved")
   }
@@ -612,6 +674,16 @@ Never invent data that is not provided.`}
 
             <div className="space-y-4">
               <h3 className="text-lg">Class Fees</h3>
+              {classFeeLoadError && (
+                <div className="rounded-xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
+                  Could not load classes: {classFeeLoadError}
+                </div>
+              )}
+              {!classFeeLoadError && classes.length === 0 && (
+                <div className="rounded-xl border border-yellow-400/20 bg-yellow-500/10 p-4 text-sm text-yellow-100">
+                  No classes found for this school yet. Add classes first, then come back to set class fees.
+                </div>
+              )}
               {classes.map((schoolClass) => (
                 <div key={schoolClass.id} className="grid grid-cols-3 gap-2">
                   <input

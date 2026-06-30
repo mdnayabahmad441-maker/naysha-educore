@@ -50,6 +50,21 @@ type ClassFeeSetting = {
   hostel_fee: number | null
 }
 
+const MONTH_OPTIONS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December"
+]
+
 const UNKNOWN_STUDENT: Student = {
   id: "",
   name: "Unknown",
@@ -230,7 +245,7 @@ export default function FeesPage() {
         await Promise.all([
           supabase
             .from("schools")
-            .select("name,address,phone")
+            .select("name,address,phone,logo_url")
             .eq("id", schoolId)
             .maybeSingle(),
 
@@ -323,17 +338,24 @@ export default function FeesPage() {
       await new Promise((resolve) => setTimeout(resolve, 120))
 
       const canvas = await html2canvas(container, {
-        scale: 2,
+        scale: 1.15,
         useCORS: true
       })
 
-      const img = canvas.toDataURL("image/png")
+      const img = canvas.toDataURL("image/jpeg", 0.82)
       const pdf = new jsPDF("p", "mm", "a4")
 
-      const width = 210
-      const height = (canvas.height * width) / canvas.width
+      const maxWidth = 190
+      const maxHeight = 281
+      let width = maxWidth
+      let height = (canvas.height * width) / canvas.width
 
-      pdf.addImage(img, "PNG", 0, 0, width, height)
+      if (height > maxHeight) {
+        height = maxHeight
+        width = (canvas.width * height) / canvas.height
+      }
+
+      pdf.addImage(img, "JPEG", (210 - width) / 2, 8, width, height, undefined, "FAST")
       pdf.save(`receipt-${fee.id}.pdf`)
     } catch (error) {
       console.error(error)
@@ -554,10 +576,9 @@ export default function FeesPage() {
           className="input"
         >
           <option value="">Month</option>
-          <option>January</option>
-          <option>February</option>
-          <option>March</option>
-          <option>April</option>
+          {MONTH_OPTIONS.map((month) => (
+            <option key={month}>{month}</option>
+          ))}
         </select>
 
         <button onClick={generateFees} className="btn bg-blue-600">

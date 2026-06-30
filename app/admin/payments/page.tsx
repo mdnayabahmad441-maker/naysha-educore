@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import Button from "@/components/ui/Button"
+import { apiFetch } from "@/lib/api-client"
 
 export default function PaymentsPage(){
 
@@ -18,6 +19,7 @@ export default function PaymentsPage(){
   const [studentId,setStudentId] = useState("")
   const [feeId,setFeeId] = useState("")
   const [amount,setAmount] = useState("")
+  const [showManualBilling,setShowManualBilling] = useState(false)
 
   const [loading,setLoading] = useState(false)
   const createReceiptNumber = () => `RCPT-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
@@ -42,6 +44,15 @@ export default function PaymentsPage(){
     })
     return initialAmounts
   })
+
+  const resetManualFeeAmounts = () => {
+    setManualFeeAmounts(
+      manualFeeTypes.reduce((acc, type) => {
+        acc[type] = ""
+        return acc
+      }, {} as Record<string, string>)
+    )
+  }
 
   // LOAD SCHOOL
   useEffect(()=>{
@@ -113,6 +124,36 @@ export default function PaymentsPage(){
     if (!studentSearch) return true
     return student.name.toLowerCase().includes(studentSearch.toLowerCase())
   })
+
+  const manualTotal = Object.values(manualFeeAmounts).reduce(
+    (sum, value) => sum + (Number(value) || 0),
+    0
+  )
+
+  const notifyPayment = async (paymentId: string) => {
+    try {
+      const res = await apiFetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "payment", refId: paymentId })
+      })
+
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        return data?.error || res.statusText
+      }
+
+      if (data?.whatsappStatus && data.whatsappStatus !== "sent") {
+        return data.whatsappError || `WhatsApp ${data.whatsappStatus}`
+      }
+
+      return null
+    } catch (error) {
+      console.warn("Payment notification failed:", error)
+      return error instanceof Error ? error.message : "Notification failed"
+    }
+  }
 
   // SAVE PAYMENT
   const save = async () => {
@@ -190,66 +231,65 @@ export default function PaymentsPage(){
           return
         }
 
-        alert("Payment successful ✅")
+        const notificationError = await notifyPayment(paymentId)
+        alert(notificationError ? `Payment successful, but WhatsApp was not sent: ${notificationError}` : "Payment successful")
       } else {
-        for (const [manualType, manualAmountValue] of manualEntries) {
-          const payAmount = Number(manualAmountValue)
-          const newFeeId = crypto.randomUUID()
+        const totalManualAmount = manualEntries.reduce(
+          (sum, [, manualAmountValue]) => sum + Number(manualAmountValue),
+          0
+        )
+        const newFeeId = crypto.randomUUID()
 
-          const { error: manualFeeError } = await supabase
-            .from("fees")
-            .insert({
-              id: newFeeId,
-              student_id: studentId,
-              school_id: schoolId,
-              class_id: selectedClass || null,
-              month: manualType,
-              total_amount: payAmount,
-              paid_amount: payAmount,
-              status: "paid",
-              tuition_fee: 0,
-              transport_fee: 0,
-              hostel_fee: 0
-            })
+        const { error: manualFeeError } = await supabase
+          .from("fees")
+          .insert({
+            id: newFeeId,
+            student_id: studentId,
+            school_id: schoolId,
+            class_id: selectedClass || null,
+            month: "Manual Billing",
+            total_amount: totalManualAmount,
+            paid_amount: totalManualAmount,
+            status: "paid",
+            tuition_fee: 0,
+            transport_fee: 0,
+            hostel_fee: 0
+          })
 
-          if (manualFeeError) {
-            alert(manualFeeError.message)
-            setLoading(false)
-            return
-          }
-
-          const paymentId = crypto.randomUUID()
-          const { error: paymentError } = await supabase
-            .from("payments")
-            .insert({
-              id: paymentId,
-              student_id: studentId,
-              fee_id: newFeeId,
-              amount: payAmount,
-              school_id: schoolId,
-              receipt_number: createReceiptNumber(),
-              date: new Date().toISOString()
-            })
-
-          if (paymentError) {
-            alert(paymentError.message)
-            setLoading(false)
-            return
-          }
+        if (manualFeeError) {
+          alert(manualFeeError.message)
+          setLoading(false)
+          return
         }
 
-        alert("Manual payment successful ✅")
+        const paymentId = crypto.randomUUID()
+        const { error: paymentError } = await supabase
+          .from("payments")
+          .insert({
+            id: paymentId,
+            student_id: studentId,
+            fee_id: newFeeId,
+            amount: totalManualAmount,
+            school_id: schoolId,
+            receipt_number: createReceiptNumber(),
+            date: new Date().toISOString()
+          })
+
+        if (paymentError) {
+          alert(paymentError.message)
+          setLoading(false)
+          return
+        }
+
+        const notificationError = await notifyPayment(paymentId)
+        alert(notificationError ? `Manual payment successful, but WhatsApp was not sent: ${notificationError}` : "Manual payment successful")
       }
 
       // RESET
       setAmount("")
       setFeeId("")
-      setManualFeeAmounts(
-        manualFeeTypes.reduce((acc, type) => {
-          acc[type] = ""
-          return acc
-        }, {} as Record<string, string>)
-      )
+      setShowManualBilling(false)
+      resetManualFeeAmounts()
 
       // RELOAD FEES
       const { data } = await supabase
@@ -283,7 +323,10 @@ export default function PaymentsPage(){
             setSelectedClass(e.target.value)
             setStudentId("")
             setFeeId("")
+            setAmount("")
             setStudentSearch("")
+            setShowManualBilling(false)
+            resetManualFeeAmounts()
           }}
           className="bg-[#0b1220] px-4 py-3 rounded-xl"
         >
@@ -309,6 +352,9 @@ export default function PaymentsPage(){
           onChange={(e) => {
             setStudentId(e.target.value)
             setFeeId("")
+            setAmount("")
+            setShowManualBilling(false)
+            resetManualFeeAmounts()
           }}
           disabled={!selectedClass}
           className="bg-[#0b1220] px-4 py-3 rounded-xl"
@@ -326,15 +372,17 @@ export default function PaymentsPage(){
           value={feeId}
           onChange={(e) => {
             setFeeId(e.target.value)
+            setShowManualBilling(false)
+            resetManualFeeAmounts()
           }}
-          disabled={!studentId}
+          disabled={!studentId || showManualBilling}
           className="bg-[#0b1220] px-4 py-3 rounded-xl"
           style={{ minWidth: "220px" }}
         >
           <option value="">Select Existing Fee</option>
           {fees.map((f) => (
             <option key={f.id} value={f.id}>
-              ₹{f.total_amount} ({f.status})
+              Rs. {f.total_amount} ({f.status})
             </option>
           ))}
         </select>
@@ -348,8 +396,31 @@ export default function PaymentsPage(){
           style={{ minWidth: "220px" }}
         />
 
+        <button
+          type="button"
+          onClick={() => {
+            const next = !showManualBilling
+            setShowManualBilling(next)
+            if (next) {
+              setFeeId("")
+              setAmount("")
+            } else {
+              resetManualFeeAmounts()
+            }
+          }}
+          disabled={!studentId}
+          className={`rounded-xl px-4 py-3 font-medium ${
+            showManualBilling
+              ? "bg-emerald-600 text-white"
+              : "bg-white/10 text-white hover:bg-white/15"
+          } disabled:cursor-not-allowed disabled:opacity-50`}
+        >
+          {showManualBilling ? "Close Manual Payment" : "Manual Payment"}
+        </button>
+
       </div>
 
+      {showManualBilling && (
       <div className="bg-white/10 p-6 rounded-xl">
         <div className="text-lg font-medium mb-4">Manual Fee Amounts</div>
         <div className="overflow-x-auto">
@@ -366,7 +437,7 @@ export default function PaymentsPage(){
                   <td className="px-4 py-3">{type}</td>
                   <td className="px-4 py-3 w-40">
                     <div className="flex items-center gap-2">
-                      <span>₹</span>
+                      <span>Rs.</span>
                       <input
                         type="number"
                         min="0"
@@ -388,9 +459,10 @@ export default function PaymentsPage(){
           </table>
         </div>
         <div className="mt-4 text-right text-sm text-slate-300">
-          Total manual bill: ₹{Object.values(manualFeeAmounts).reduce((sum, value) => sum + (Number(value) || 0), 0)}
+          Total manual bill: Rs. {manualTotal}
         </div>
       </div>
+      )}
 
       <div className="flex justify-end">
         <Button color="green" onClick={save} disabled={loading}>
