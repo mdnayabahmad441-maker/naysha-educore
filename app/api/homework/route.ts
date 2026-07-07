@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   const auth = await requireAuthorizedProfile(req, ["admin", "teacher", "parent"])
   if ("response" in auth) return auth.response
 
-  const { schoolId, userId } = auth.profile
+  const { schoolId } = auth.profile
   if (!schoolId) return NextResponse.json({ error: "No school linked" }, { status: 400 })
 
   const url      = new URL(req.url)

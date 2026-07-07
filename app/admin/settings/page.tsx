@@ -7,8 +7,13 @@ import { getSettings, updateSettings } from "@/lib/settings"
 import { apiFetch } from "@/lib/api-client"
 import { ID_CARD_PRESETS } from "@/lib/document-layouts"
 import WhatsAppConnect from "./WhatsAppConnect"
+import BulkImportPage from "../import/page"
+import ThemePage from "./appearance/page"
+import AiAssistantPage from "../ai-assistant/page"
 
 type UploadKind = "logo" | "report-card-template" | "certificate-template"
+type SettingsTab = "school" | "exam" | "fees" | "academic" | "whatsapp" | "bulk" | "theme" | "ai" | "about"
+const validSettingsTabs: SettingsTab[] = ["school", "exam", "fees", "academic", "whatsapp", "bulk", "theme", "ai", "about"]
 
 type TemplateInfo = {
   kind: "report_card" | "certificate"
@@ -44,7 +49,7 @@ async function getImageDimensions(file: File) {
 }
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<"school" | "exam" | "fees" | "academic" | "whatsapp" | "about">("school")
+  const [tab, setTab] = useState<SettingsTab>("school")
   const [schoolId, setSchoolId] = useState<string | null>(null)
 
   const [school, setSchool] = useState<any>({})
@@ -67,6 +72,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     void getSchoolId().then(setSchoolId)
+  }, [])
+
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get("tab") as SettingsTab | null
+
+    if (requestedTab && validSettingsTabs.includes(requestedTab)) {
+      setTab(requestedTab)
+    }
   }, [])
 
   useEffect(() => {
@@ -460,35 +473,47 @@ export default function SettingsPage() {
   }
 
   if (loading) {
-    return <div className="p-10 text-white">Loading...</div>
+    return <div className="p-4 text-white sm:p-6">Loading...</div>
   }
 
+  const tabs: Array<{ id: SettingsTab; label: string }> = [
+    { id: "school", label: "School" },
+    { id: "exam", label: "Exam" },
+    { id: "fees", label: "Fees" },
+    { id: "academic", label: "Academic Year" },
+    { id: "whatsapp", label: "WhatsApp" },
+    { id: "bulk", label: "Bulk Import" },
+    { id: "theme", label: "Theme" },
+    { id: "ai", label: "AI Assistant" },
+    { id: "about", label: "About" },
+  ]
+
+  const tabButtonClass = (id: SettingsTab) =>
+    `shrink-0 rounded-xl border px-4 py-2.5 text-sm font-semibold transition md:w-full md:text-left ${
+      tab === id
+        ? "border-cyan-300/40 bg-cyan-400/15 text-cyan-100 shadow-[0_12px_30px_rgba(8,145,178,0.14)]"
+        : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+    }`
+
   return (
-    <div className="flex min-h-screen text-white">
-      <div className="w-64 space-y-3 bg-[#0b1a33] p-6">
-        <button onClick={() => setTab("school")} className="block w-full text-left">
-          School
-        </button>
-        <button onClick={() => setTab("exam")} className="block w-full text-left">
-          Exam
-        </button>
-        <button onClick={() => setTab("fees")} className="block w-full text-left">
-          Fees
-        </button>
-        <button onClick={() => setTab("academic")} className="block w-full text-left text-cyan-400">
-          Academic Year
-        </button>
-        <button onClick={() => setTab("whatsapp")} className="block w-full text-left">
-          WhatsApp
-        </button>
-        <button onClick={() => setTab("about")} className="block w-full text-left">
-          About
-        </button>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 text-white md:flex-row md:gap-6">
+      <div className="rounded-2xl border border-white/10 bg-[#0b1a33]/90 p-3 md:sticky md:top-4 md:h-fit md:w-64 md:shrink-0 md:p-4">
+        <div className="mb-3 px-1 md:px-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Settings</p>
+          <h1 className="mt-1 text-lg font-bold text-white">Settings</h1>
+        </div>
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
+          {tabs.map((item) => (
+            <button key={item.id} type="button" onClick={() => setTab(item.id)} className={tabButtonClass(item.id)}>
+              {item.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="flex-1 p-10">
+      <div className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5 md:p-8">
         {tab === "school" && (
-          <div className="max-w-5xl space-y-8">
+          <div className="space-y-6 md:space-y-8">
             <div className="space-y-4">
               <input className="input" placeholder="Name" value={school.name || ""} onChange={(e) => setSchool({ ...school, name: e.target.value })} />
               <input className="input" placeholder="Email" value={school.email || ""} onChange={(e) => setSchool({ ...school, email: e.target.value })} />
@@ -503,8 +528,8 @@ export default function SettingsPage() {
                 <p className="mt-1 text-sm text-gray-400">
                   Share this link with parents so they can submit admission enquiries directly for your school.
                 </p>
-                <div className="mt-4 flex items-center gap-3">
-                  <code className="flex-1 truncate rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-sm text-cyan-300">
+                <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                  <code className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-sm text-cyan-300">
                     {`https://erp.naysha.online/admission-enquiry?school=${school.subdomain}`}
                   </code>
                   <button
@@ -513,7 +538,7 @@ export default function SettingsPage() {
                       navigator.clipboard.writeText(`https://erp.naysha.online/admission-enquiry?school=${school.subdomain}`)
                       alert("Link copied!")
                     }}
-                    className="shrink-0 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/20"
+                    className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/20"
                   >
                     Copy
                   </button>
@@ -521,7 +546,7 @@ export default function SettingsPage() {
                     href={`/admission-enquiry?school=${school.subdomain}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-semibold text-slate-200 transition hover:bg-white/10"
                   >
                     Open
                   </a>
@@ -529,7 +554,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            <div className="grid gap-6 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <AssetUploader
                 title="School Logo"
                 helpText="Upload or remove the school logo used across admin pages and printouts."
@@ -627,7 +652,7 @@ Notices should use this format: Title, Date, Message, Principal.
 Notice messages must be 30-40 words only.
 Never invent data that is not provided.`}
               />
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex">
                 <button onClick={saveAiInstructions} className="btn bg-blue-600">
                   Save AI Instructions
                 </button>
@@ -639,7 +664,7 @@ Never invent data that is not provided.`}
               <p className="mt-2 text-sm text-red-100/80">
                 Delete this login account if you want to remove access for the current signed-in user. School ERP data stays in the database, but this account and its profile will be removed.
               </p>
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex">
                 <button
                   type="button"
                   onClick={() => void deleteAccount()}
@@ -685,7 +710,7 @@ Never invent data that is not provided.`}
                 </div>
               )}
               {classes.map((schoolClass) => (
-                <div key={schoolClass.id} className="grid grid-cols-3 gap-2">
+                <div key={schoolClass.id} className="grid gap-2 sm:grid-cols-3">
                   <input
                     className="input"
                     value={classFees[schoolClass.id]?.tuition || ""}
@@ -715,19 +740,19 @@ Never invent data that is not provided.`}
           <div className="max-w-lg space-y-6">
             <h2 className="text-xl font-semibold">Academic Year</h2>
 
-            <div className="flex gap-3">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
               <input placeholder="2024-2025" value={yearName} onChange={(e) => setYearName(e.target.value)} className="input" />
               <button onClick={addYear} className="btn bg-green-600">Add</button>
             </div>
 
             {years.map((year) => (
-              <div key={year.id} className="flex justify-between rounded-xl bg-white/5 p-4">
+              <div key={year.id} className="grid gap-4 rounded-xl bg-white/5 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                 <div>
                   <p>{year.name}</p>
                   {year.is_active && <span className="text-sm text-green-400">Active</span>}
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                   {!year.is_active && <button onClick={() => void setActiveYear(year.id)}>Active</button>}
                   <button onClick={() => void deleteYear(year.id)}>Delete</button>
                 </div>
@@ -767,6 +792,24 @@ Never invent data that is not provided.`}
               <p className="text-sm text-slate-400">Version</p>
               <p className="mt-1 text-lg font-semibold text-white">1.0</p>
             </div>
+          </div>
+        )}
+
+        {tab === "bulk" && (
+          <div className="-m-4 sm:-m-5 md:-m-8">
+            <BulkImportPage />
+          </div>
+        )}
+
+        {tab === "theme" && (
+          <div className="pb-4">
+            <ThemePage />
+          </div>
+        )}
+
+        {tab === "ai" && (
+          <div className="-m-4 sm:-m-5 md:-m-8">
+            <AiAssistantPage />
           </div>
         )}
 

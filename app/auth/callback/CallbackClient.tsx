@@ -4,14 +4,16 @@ import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { waitForSession } from "@/lib/auth-session"
+import { isSuperAdminEmail } from "@/lib/super-admin"
 
-type KnownRole = "admin" | "teacher" | "parent"
+type KnownRole = "admin" | "teacher" | "parent" | "super_admin"
 
 function isKnownRole(value: unknown): value is KnownRole {
-  return value === "admin" || value === "teacher" || value === "parent"
+  return value === "admin" || value === "teacher" || value === "parent" || value === "super_admin"
 }
 
 function roleToDestination(role: KnownRole): string {
+  if (role === "super_admin") return "/super-admin"
   if (role === "teacher") return "/teacher"
   if (role === "parent") return "/parent"
   return "/admin"
@@ -29,8 +31,10 @@ function readTokensFromUrl() {
 
 async function resolveRoleFromJwt(): Promise<KnownRole | null> {
   const { data } = await supabase.auth.getSession()
+  const email = data.session?.user?.email || ""
   const meta = data.session?.user?.user_metadata
   const role = meta?.active_role || meta?.role
+  if (role === "super_admin" && !isSuperAdminEmail(email)) return null
   return isKnownRole(role) ? role : null
 }
 
@@ -41,6 +45,7 @@ async function resolveRoleFromServer(accessToken: string): Promise<KnownRole | n
     })
     if (!res.ok) return null
     const data = await res.json()
+    if (data?.role === "super_admin" && !isSuperAdminEmail(data?.email)) return null
     return isKnownRole(data?.role) ? data.role : null
   } catch {
     return null
@@ -63,8 +68,9 @@ export default function CallbackClient() {
         }
         const meta = session.user?.user_metadata
         const role = meta?.active_role || meta?.role
-        window.location.href = isKnownRole(role)
-          ? roleToDestination(role)
+        const safeRole = role === "super_admin" && !isSuperAdminEmail(session.user?.email) ? null : role
+        window.location.href = isKnownRole(safeRole)
+          ? roleToDestination(safeRole)
           : "/login"
         return
       }

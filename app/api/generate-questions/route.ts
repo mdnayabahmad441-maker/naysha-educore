@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { requireAuthorizedProfile } from "@/lib/api-auth"
+import { ensureSameSchool, requireAuthorizedProfile } from "@/lib/api-auth"
+import { requireAiEnabled } from "@/lib/ai-access"
 import { createClaudeMessage, extractClaudeText } from "@/lib/claude"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
@@ -288,6 +289,12 @@ export async function POST(req: Request) {
     if (isNaN(marksNum) || marksNum < 10 || marksNum > 100) {
       return NextResponse.json({ error: "Marks must be between 10 and 100" }, { status: 400 })
     }
+
+    const schoolMismatch = ensureSameSchool(auth.profile, schoolId)
+    if (schoolMismatch) return schoolMismatch
+
+    const aiBlocked = await requireAiEnabled(schoolId)
+    if (aiBlocked) return aiBlocked
 
     const { content, answerKey } = await generateQuestionPaper({
       class: cls, subject, chapter, topic, difficulty, marks: marksNum, schoolId,

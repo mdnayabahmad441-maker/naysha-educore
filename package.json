@@ -9,7 +9,7 @@
     "lint": "eslint",
     "android:sync": "cap sync android",
     "android:open": "cap open android",
-    "android:build": "cd android && gradlew.bat bundleRelease"
+    "android:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/android-build.ps1"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

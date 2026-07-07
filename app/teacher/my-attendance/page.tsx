@@ -259,6 +259,11 @@ export default function TeacherMyAttendancePage() {
       {/* GPS + Action */}
       <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">Mark Attendance</h2>
+        <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-xs leading-6 text-cyan-50">
+          NaySha EduCore collects your current GPS latitude, longitude, accuracy, and attendance
+          time when you tap Get My Location. This is used only to verify that you are within the
+          allowed school attendance radius and is not collected in the background.
+        </div>
 
         {/* Step 1 — Get location */}
         <button

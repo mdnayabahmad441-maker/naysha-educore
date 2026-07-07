@@ -180,7 +180,7 @@ export default function StudentProfile() {
 
         // Resolve exam names without relying on FK join
         const examIds = [...new Set(rawReports.map(r => r.exam_id).filter(Boolean))] as string[]
-        let examNameMap: Record<string, string> = {}
+        const examNameMap: Record<string, string> = {}
         if (examIds.length > 0) {
           const { data: examRows } = await supabase
             .from("exams")

@@ -287,7 +287,7 @@ export default function TeacherHomeworkPage() {
       ) : homework.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-[#0b1220] py-12 text-center text-slate-400">
           <p className="text-lg font-medium">No homework assigned yet</p>
-          <p className="mt-1 text-sm">Click "+ Assign Homework" to add the first one</p>
+          <p className="mt-1 text-sm">Click &quot;+ Assign Homework&quot; to add the first one</p>
         </div>
       ) : (
         Object.entries(grouped).map(([className, items]) => (

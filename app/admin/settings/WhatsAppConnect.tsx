@@ -127,8 +127,8 @@ export default function WhatsAppConnect() {
       <div>
         <h2 className="text-2xl font-semibold text-white">WhatsApp Business</h2>
         <p className="mt-1.5 text-sm leading-6 text-slate-400">
-          Connect your school's own WhatsApp Business number so notifications are sent from your name and number.
-          If you don't connect one, the shared EduCore number is used as a fallback.
+          Connect your school&apos;s own WhatsApp Business number so notifications are sent from your name and number.
+          If you don&apos;t connect one, the shared EduCore number is used as a fallback.
         </p>
       </div>
 
@@ -173,7 +173,7 @@ export default function WhatsAppConnect() {
 
           <p className="text-xs text-slate-500 leading-5">
             All notifications (attendance, fees, reports) for your school are sent from <strong className="text-slate-400">{status.displayName || "your number"}</strong>.
-            Parents will see your school's name in WhatsApp.
+            Parents will see your school&apos;s name in WhatsApp.
           </p>
         </div>
       )}
@@ -186,7 +186,7 @@ export default function WhatsAppConnect() {
             <span className="text-sm font-semibold text-amber-300">Using Shared EduCore Number</span>
           </div>
           <p className="text-sm text-slate-300 leading-6">
-            Notifications are being sent from the shared EduCore number. Parents will see <em>"EduCore"</em> as the sender, not your school's name.
+            Notifications are being sent from the shared EduCore number. Parents will see <em>&quot;EduCore&quot;</em> as the sender, not your school&apos;s name.
             Connect your own WhatsApp number below to fix this.
           </p>
         </div>
@@ -207,9 +207,9 @@ export default function WhatsAppConnect() {
       {!isSchoolOwn && (
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-5">
           <div>
-            <h3 className="font-semibold text-white">Connect Your School's WhatsApp Number</h3>
+            <h3 className="font-semibold text-white">Connect Your School&apos;s WhatsApp Number</h3>
             <p className="mt-1 text-sm text-slate-400 leading-6">
-              Click below to link your school's WhatsApp Business number via Meta. Parents will receive messages from your school's name and number directly.
+              Click below to link your school&apos;s WhatsApp Business number via Meta. Parents will receive messages from your school&apos;s name and number directly.
             </p>
           </div>
 
@@ -262,8 +262,8 @@ export default function WhatsAppConnect() {
       <div className="rounded-2xl border border-white/6 bg-white/3 px-5 py-4 text-xs leading-6 text-slate-500 space-y-1.5">
         <p className="font-semibold text-slate-400">How billing works</p>
         <p>
-          When you connect your school's number, the WhatsApp Business Account (WABA) is linked under <strong className="text-slate-400">EduCore's Meta Business Portfolio</strong>.
-          All conversation costs are billed to EduCore — schools don't need a Meta billing account.
+          When you connect your school&apos;s number, the WhatsApp Business Account (WABA) is linked under <strong className="text-slate-400">EduCore&apos;s Meta Business Portfolio</strong>.
+          All conversation costs are billed to EduCore — schools don&apos;t need a Meta billing account.
           Each school still gets their own phone number, display name, and profile logo visible to parents.
         </p>
       </div>

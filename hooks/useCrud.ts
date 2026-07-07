@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { getAll, createItem } from "@/services/base.service"
 
 export function useCrud(table: string) {
@@ -8,12 +8,12 @@ export function useCrud(table: string) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true)
     const result = await getAll(table)
     setData(result || [])
     setLoading(false)
-  }
+  }, [table])
 
   async function create(data: any) {
     await createItem(table, data)
@@ -22,7 +22,7 @@ export function useCrud(table: string) {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [loadData])
 
   return {
     data,

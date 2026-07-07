@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { apiFetch } from "@/lib/api-client"
 import { getSchoolId } from "@/lib/school"
 import { useSchool } from "@/context/SchoolContext"
@@ -193,7 +193,6 @@ export default function QuestionPaperPage() {
   const subjects = SUBJECTS_BY_CLASS[cls] ?? []
 
   useEffect(() => { getSchoolId().then(setSchoolId) }, [])
-  useEffect(() => { if (tab === "history" && schoolId) loadHistory() }, [tab, schoolId])
 
   // Reset subject and examType when class changes
   useEffect(() => {
@@ -201,12 +200,14 @@ export default function QuestionPaperPage() {
     if (!["11", "12"].includes(cls)) setExamType("CBSE")
   }, [cls])
 
-  async function loadHistory() {
+  const loadHistory = useCallback(async () => {
     if (!schoolId) return
     const res = await apiFetch(`/api/generate-questions?schoolId=${schoolId}`)
     const data = await res.json()
     if (data.success) setSavedPapers(data.papers)
-  }
+  }, [schoolId])
+
+  useEffect(() => { if (tab === "history" && schoolId) loadHistory() }, [tab, schoolId, loadHistory])
 
   async function generate(save = false) {
     if (!subject || !chapter.trim()) { alert("Fill in subject and chapter"); return }

@@ -6,6 +6,7 @@ import { getSchoolId } from "@/lib/school"
 import { useRouter } from "next/navigation"
 import { getUserRole } from "@/lib/getUserRole"
 import { getActiveAcademicYear } from "@/lib/academic"
+import { apiFetch } from "@/lib/api-client"
 
 import {
   BarChart,
@@ -50,6 +51,11 @@ class_id: string | null
 type SchoolClass = {
 id: string
 name: string
+}
+
+type ChatMessage = {
+role: "user" | "assistant"
+content: string
 }
 
 useEffect(()=>{
@@ -205,6 +211,70 @@ loadDashboard()
 
 },[])
 
+const [assistantOpen,setAssistantOpen] = useState(false)
+const [assistantPrompt,setAssistantPrompt] = useState("")
+const [assistantSending,setAssistantSending] = useState(false)
+const [assistantMessages,setAssistantMessages] = useState<ChatMessage[]>([
+{
+role: "assistant",
+content: "Ask me about students, fees, attendance, admissions, notices, or anything you need for today."
+}
+])
+
+const sendAssistantMessage = async(seed?: string)=>{
+const content = (seed || assistantPrompt).trim()
+if(!content || assistantSending) return
+
+setAssistantSending(true)
+setAssistantPrompt("")
+
+const nextMessages: ChatMessage[] = [
+...assistantMessages,
+{ role: "user", content }
+]
+
+setAssistantMessages(nextMessages)
+
+try{
+const schoolId = await getSchoolId()
+
+const response = await apiFetch("/api/ai/chat",{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+body:JSON.stringify({
+schoolId,
+schoolName: schoolName || "School",
+messages: nextMessages
+})
+})
+
+const result = await response.json()
+
+if(!response.ok){
+throw new Error(result?.error || "AI assistant is not available right now.")
+}
+
+setAssistantMessages((current)=>[
+...current,
+{ role:"assistant", content: result.message || "I could not generate a reply." }
+])
+}catch(error){
+setAssistantMessages((current)=>[
+...current,
+{ role:"assistant", content: error instanceof Error ? error.message : "Failed to get AI reply." }
+])
+}finally{
+setAssistantSending(false)
+}
+}
+
+const handleAssistantKey = (event: React.KeyboardEvent<HTMLTextAreaElement>)=>{
+if(event.key === "Enter" && !event.shiftKey){
+event.preventDefault()
+void sendAssistantMessage()
+}
+}
+
 return(
 
 <div className="mx-auto max-w-7xl space-y-8 text-white sm:space-y-10">
@@ -220,12 +290,84 @@ return(
 </p>
 </div>
 <button
-  onClick={()=>router.push("/admin/ai-assistant")}
-  className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-600/30 sm:w-auto sm:shrink-0"
+  onClick={()=>setAssistantOpen(true)}
+  className="hidden items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-600/30 sm:flex sm:w-auto sm:shrink-0"
 >
   <span>✦</span> AI Assistant
 </button>
 </div>
+
+<button
+  type="button"
+  onClick={()=>setAssistantOpen(true)}
+  className="fixed right-4 top-20 z-30 flex items-center gap-2 rounded-full border border-cyan-300/30 bg-[linear-gradient(135deg,#2563eb,#0891b2)] px-4 py-2.5 text-sm font-bold text-white shadow-[0_18px_42px_rgba(8,145,178,0.35)] transition active:scale-95 sm:hidden"
+  aria-label="Open AI Assistant"
+>
+  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/18 text-base">✦</span>
+  <span>AI Assistant</span>
+</button>
+
+{assistantOpen && (
+<div className="fixed inset-x-3 top-20 z-40 rounded-2xl border border-cyan-300/20 bg-[#07111f] text-white shadow-[0_22px_70px_rgba(2,8,23,0.65)] sm:left-auto sm:right-8 sm:top-24 sm:w-[420px]">
+<div className="flex items-center justify-between gap-3 border-b border-white/10 p-4">
+<div>
+<p className="text-sm font-bold text-cyan-100">AI Assistant</p>
+<p className="text-xs text-slate-400">Answers here on the dashboard</p>
+</div>
+<button
+type="button"
+onClick={()=>setAssistantOpen(false)}
+className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/10"
+>
+Close
+</button>
+</div>
+
+<div className="max-h-[48vh] min-h-[260px] space-y-3 overflow-y-auto p-4">
+{assistantMessages.map((message,index)=>(
+<div
+key={index}
+className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
+message.role === "assistant"
+? "mr-6 bg-white/7 text-slate-100"
+: "ml-6 bg-blue-600/25 text-blue-50"
+}`}
+>
+<p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+{message.role === "assistant" ? "AI" : "You"}
+</p>
+<p className="whitespace-pre-wrap">{message.content}</p>
+</div>
+))}
+{assistantSending && (
+<div className="mr-6 rounded-2xl bg-white/7 px-4 py-3 text-sm text-slate-400">
+Thinking...
+</div>
+)}
+</div>
+
+<div className="border-t border-white/10 p-3">
+<div className="flex gap-2">
+<textarea
+value={assistantPrompt}
+onChange={(event)=>setAssistantPrompt(event.target.value)}
+onKeyDown={handleAssistantKey}
+rows={2}
+placeholder="Ask here..."
+className="min-h-12 flex-1 resize-none rounded-xl border border-white/10 bg-[#0b1220] p-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400/50"
+/>
+<button
+type="button"
+onClick={()=>void sendAssistantMessage()}
+disabled={assistantSending || !assistantPrompt.trim()}
+className="self-end rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+>
+Send
+</button>
+</div>
+</div>
+</div>
+)}
 
 {/* STATS */}
 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 export const maxDuration = 60
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminProfile } from "@/lib/api-auth"
+import { generateCompactStudentCode, getNextClassRollNumber } from "@/lib/student-code"
 
 type ImportRequest = {
   type: "students" | "teachers" | "classes"
@@ -130,6 +131,27 @@ async function importStudents(
   const studentRows: object[] = []
   const enrollmentRows: object[] = []
   const parentRows: object[] = []
+  const reservedStudentCodes: string[] = []
+  const reservedRollsByClass = new Map<string, Array<number | null>>()
+
+  if (yearId) {
+    const { data: existingEnrollments, error: rollError } = await supabaseAdmin
+      .from("student_enrollments")
+      .select("class_id, roll_number")
+      .eq("school_id", schoolId)
+      .eq("academic_year_id", yearId)
+
+    if (rollError) {
+      errors.push(`Could not read existing roll numbers: ${rollError.message}`)
+    }
+
+    for (const enrollment of ((existingEnrollments || []) as { class_id: string | null; roll_number: number | null }[])) {
+      if (!enrollment.class_id) continue
+      const rolls = reservedRollsByClass.get(enrollment.class_id) || []
+      rolls.push(enrollment.roll_number)
+      reservedRollsByClass.set(enrollment.class_id, rolls)
+    }
+  }
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
@@ -143,9 +165,6 @@ async function importStudents(
       continue
     }
 
-    const rollRaw = r["roll_number"] || r["roll"] || ""
-    const rollNumber = rollRaw ? parseInt(rollRaw) || null : null
-
     const rawType = r["student_type"] || r["type"] || "day_scholar"
     const studentType = VALID_STUDENT_TYPES.includes(rawType) ? rawType : "day_scholar"
 
@@ -154,9 +173,22 @@ async function importStudents(
 
     const className = (r["class"] || r["class_name"] || "").trim().toLowerCase()
     const classId = className ? (classMap.get(className) ?? null) : null
+    const rollRaw = r["roll_number"] || r["roll"] || ""
+    let rollNumber = rollRaw ? parseInt(rollRaw) || null : null
+
+    if (!rollNumber && classId && yearId) {
+      const rolls = reservedRollsByClass.get(classId) || []
+      rollNumber = getNextClassRollNumber(rolls)
+      rolls.push(rollNumber)
+      reservedRollsByClass.set(classId, rolls)
+    }
 
     const studentId = crypto.randomUUID()
-    const studentCode = `ST${Date.now()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+    let studentCode = generateCompactStudentCode()
+    while (reservedStudentCodes.includes(studentCode)) {
+      studentCode = generateCompactStudentCode()
+    }
+    reservedStudentCodes.push(studentCode)
 
     studentRows.push({
       id: studentId,

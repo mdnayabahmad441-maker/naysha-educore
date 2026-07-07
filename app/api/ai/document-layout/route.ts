@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { ensureSameSchool, requireAdminProfile } from "@/lib/api-auth"
+import { requireAiEnabled } from "@/lib/ai-access"
 import { createClaudeMessage, extractClaudeToolInput, getClaudeConfig } from "@/lib/claude"
 import { getDefaultDocumentLayout, normalizeDocumentLayout, type DocumentKind } from "@/lib/document-layouts"
 import { getAiTenantContext } from "@/lib/server-settings"
@@ -63,6 +65,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const authResult = await requireAdminProfile(req)
+  if ("response" in authResult) return authResult.response
+
   try {
     const body = await req.json()
     const kind = body?.kind as DocumentKind
@@ -70,6 +75,12 @@ export async function POST(req: Request) {
     const schoolId = String(body?.schoolId || "").trim()
     const sourceWidth = Number(body?.sourceWidth || 0)
     const sourceHeight = Number(body?.sourceHeight || 0)
+
+    const schoolMismatch = ensureSameSchool(authResult.profile, schoolId)
+    if (schoolMismatch) return schoolMismatch
+
+    const aiBlocked = await requireAiEnabled(schoolId)
+    if (aiBlocked) return aiBlocked
 
     if (!kind || !["id_card", "report_card", "certificate"].includes(kind)) {
       return NextResponse.json({ error: "Valid document kind is required" }, { status: 400 })

@@ -39,9 +39,6 @@ export default function NewAdmissionPage() {
   const sanitizeSegment = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, "-")
 
   const uploadDocument = async (file: File, schoolId: string) => {
-    const extension = file.name.includes(".")
-      ? file.name.split(".").pop()?.toLowerCase() || "bin"
-      : "bin"
     const filePath = `${schoolId}/admissions/${Date.now()}-${sanitizeSegment(file.name)}`
 
     const { error: uploadError } = await supabase.storage
@@ -174,7 +171,7 @@ export default function NewAdmissionPage() {
           {/* Father + Mother */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-300">Father's Name</label>
+              <label className="mb-1.5 block text-sm font-medium text-slate-300">Father&apos;s Name</label>
               <input
                 type="text"
                 value={form.father_name || ""}
@@ -183,7 +180,7 @@ export default function NewAdmissionPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-300">Mother's Name</label>
+              <label className="mb-1.5 block text-sm font-medium text-slate-300">Mother&apos;s Name</label>
               <input
                 type="text"
                 value={form.mother_name || ""}

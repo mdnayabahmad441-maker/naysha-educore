@@ -18,46 +18,6 @@ export async function resolveAuthDestination(
   preferredRole?: "admin" | "teacher" | "parent" | "super_admin"
 ): Promise<AuthDestination> {
   const normalizedEmail = email.trim().toLowerCase()
-  const userId = user.id
-
-  // Handle first-time school creation (onboarding flow)
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem("onboardingData")
-
-    if (stored) {
-      const data = JSON.parse(stored)
-
-      const { data: newSchool, error } = await supabase
-        .from("schools")
-        .insert({
-          name: data.schoolName,
-          subdomain: data.subdomain.toLowerCase().trim(),
-          email: data.email,
-          phone: data.phone,
-        })
-        .select()
-        .single()
-
-      if (error || !newSchool) {
-        throw new Error(error?.message || "School creation failed")
-      }
-
-      await Promise.all([
-        supabase.from("profiles").upsert({
-          id: userId,
-          school_id: newSchool.id,
-          role: "admin",
-        }),
-        supabase.auth.updateUser({
-          data: { school_id: newSchool.id, role: "admin", active_role: "admin" },
-        }),
-      ])
-
-      localStorage.removeItem("onboardingData")
-
-      return { subdomain: newSchool.subdomain, next: "/admin" }
-    }
-  }
 
   // Wait for an active session — retry with a refresh if the first pass fails
   let session = await waitForSession(10, 200)

@@ -45,7 +45,7 @@ export default function ResetPasswordPage() {
         }
 
         setSessionReady(true)
-      } catch (err) {
+      } catch {
         setErrorMsg("Something went wrong. Try again.")
       }
     }

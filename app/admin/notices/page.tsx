@@ -66,6 +66,7 @@ export default function NoticesPage() {
 
   const [sending, setSending] = useState(false)
   const [drafting, setDrafting] = useState(false)
+  const [upgradePopupOpen, setUpgradePopupOpen] = useState(false)
 
   useEffect(() => {
     void getSchoolId().then(setSchoolId)
@@ -318,6 +319,11 @@ export default function NoticesPage() {
 
       const result = await response.json()
 
+      if (response.status === 402) {
+        setUpgradePopupOpen(true)
+        return
+      }
+
       if (!response.ok || !result?.data) {
         throw new Error(result?.error || "Failed to draft notice")
       }
@@ -326,7 +332,12 @@ export default function NoticesPage() {
       setMessage(result.data.message)
     } catch (error) {
       console.error(error)
-      alert(error instanceof Error ? error.message : "Failed to draft notice")
+      const messageText = error instanceof Error ? error.message : "Failed to draft notice"
+      if (messageText.toLowerCase().includes("upgrade") || messageText.toLowerCase().includes("premium")) {
+        setUpgradePopupOpen(true)
+      } else {
+        alert(messageText)
+      }
     } finally {
       setDrafting(false)
     }
@@ -334,6 +345,27 @@ export default function NoticesPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6 text-white md:p-10">
+      {upgradePopupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-purple-400/20 bg-[#08111f] p-6 text-center shadow-2xl">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/20 text-xl font-bold text-purple-100">
+              AI
+            </div>
+            <h2 className="text-xl font-semibold text-white">Upgrade Required</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Please upgrade to use AI features.
+            </p>
+            <button
+              type="button"
+              onClick={() => setUpgradePopupOpen(false)}
+              className="mt-6 rounded-xl bg-purple-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-purple-500"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       <h1 className="text-2xl font-semibold">Notices</h1>
 
       <div className="space-y-4 rounded-xl bg-white/10 p-6">

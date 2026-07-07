@@ -1,7 +1,5 @@
 import { supabase } from "./supabase"
 
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
 /* =========================
    PARENT ACCESS
 ========================= */

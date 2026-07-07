@@ -426,7 +426,7 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* � ADMISSION ENQUIRIES */}
+      {/* Admission enquiries */}
       <Card className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Recent Admission Enquiries</h2>
@@ -478,7 +478,7 @@ export default function DashboardPage() {
         )}
       </Card>
 
-      {/* �💰 FEES */}
+      {/* Fees */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         <Card className="bg-green-500/10 border border-green-500/20">

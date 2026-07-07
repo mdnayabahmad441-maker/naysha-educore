@@ -22,7 +22,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">1. Acceptance of Terms</h2>
             <p>
-              By accessing or using NaySha EduCore ("the Platform"), you agree to be bound by these Terms of Service.
+              By accessing or using NaySha EduCore (&quot;the Platform&quot;), you agree to be bound by these Terms of Service.
               If you are using the Platform on behalf of a school or organisation, you represent that you have the
               authority to bind that organisation to these terms.
             </p>
@@ -74,7 +74,7 @@ export default function TermsPage() {
             </p>
             <p className="mt-2">
               You grant us a limited licence to store, process, and transmit your data solely for the purpose
-              of operating and providing the Platform's features. We do not use your data for any other purpose.
+              of operating and providing the Platform&apos;s features. We do not use your data for any other purpose.
             </p>
           </section>
 
@@ -82,7 +82,7 @@ export default function TermsPage() {
             <h2 className="text-lg font-semibold text-white mb-3">6. WhatsApp Integration</h2>
             <p>
               The WhatsApp messaging feature uses the Meta WhatsApp Cloud API. By connecting your WhatsApp
-              Business Account, you agree to Meta's Business Terms of Service and WhatsApp Business Policy.
+              Business Account, you agree to Meta&apos;s Business Terms of Service and WhatsApp Business Policy.
               You are responsible for ensuring that your use of WhatsApp messaging complies with applicable
               regulations, including obtaining necessary consent from parents to receive WhatsApp messages.
             </p>

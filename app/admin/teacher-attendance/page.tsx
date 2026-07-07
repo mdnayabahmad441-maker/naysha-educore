@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { getSchoolId } from "@/lib/school"
 import { apiFetch } from "@/lib/api-client"
@@ -15,6 +15,12 @@ type Row = {
   distance_meters: number | null
   teacher_name?: string | null
   teacher_email?: string | null
+}
+
+type Teacher = {
+  id: string
+  name: string | null
+  email: string | null
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -109,18 +115,20 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function monthStart(m: string) { return `${m}-01` }
-function monthEnd(m: string) {
-  const [y, mo] = m.split("-").map(Number)
-  return new Date(y, mo, 0).toISOString().slice(0, 10)
-}
-
 export default function AdminTeacherAttendancePage() {
   const [records, setRecords] = useState<Row[]>([])
+  const [teachers, setTeachers] = useState<Teacher[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(today())
   const [viewMode, setViewMode] = useState<"day" | "month">("day")
   const [selectedMonth, setSelectedMonth] = useState(today().slice(0, 7))
+  const [manualTeacherId, setManualTeacherId] = useState("")
+  const [manualStatus, setManualStatus] = useState<"present" | "late" | "absent">("present")
+  const [manualCheckIn, setManualCheckIn] = useState("09:00")
+  const [manualCheckOut, setManualCheckOut] = useState("")
+  const [savingManual, setSavingManual] = useState(false)
+  const [manualMessage, setManualMessage] = useState("")
+  const [manualError, setManualError] = useState("")
 
   // School location setup
   const [schoolLat, setSchoolLat] = useState("")
@@ -135,15 +143,7 @@ export default function AdminTeacherAttendancePage() {
   const [setupError, setSetupError] = useState("")
   const [recordsError, setRecordsError] = useState("")
 
-  useEffect(() => {
-    loadSchoolSettings()
-  }, [])
-
-  useEffect(() => {
-    loadRecords()
-  }, [viewMode, selectedDate, selectedMonth])
-
-  async function loadSchoolSettings() {
+  const loadSchoolSettings = useCallback(async () => {
     setSetupError("")
     const schoolId = await getSchoolId()
     if (!schoolId) return
@@ -169,9 +169,22 @@ export default function AdminTeacherAttendancePage() {
       setCheckInEnd(data.check_in_end?.slice(0, 5) ?? "10:30")
       setLateAfter(data.late_after?.slice(0, 5) ?? "09:00")
     }
-  }
+  }, [])
 
-  async function loadRecords() {
+  const loadTeachers = useCallback(async () => {
+    const schoolId = await getSchoolId()
+    if (!schoolId) return
+
+    const { data } = await supabase
+      .from("teachers")
+      .select("id, name, email")
+      .eq("school_id", schoolId)
+      .order("name", { ascending: true })
+
+    setTeachers((data as Teacher[] | null) || [])
+  }, [])
+
+  const loadRecords = useCallback(async () => {
     setLoading(true)
     setRecordsError("")
 
@@ -193,7 +206,16 @@ export default function AdminTeacherAttendancePage() {
 
     setRecords((result.records as Row[]) || [])
     setLoading(false)
-  }
+  }, [selectedDate, selectedMonth, viewMode])
+
+  useEffect(() => {
+    loadSchoolSettings()
+    loadTeachers()
+  }, [loadSchoolSettings, loadTeachers])
+
+  useEffect(() => {
+    loadRecords()
+  }, [loadRecords])
 
   const getSchoolGps = () => {
     setGpsError("")
@@ -249,6 +271,44 @@ export default function AdminTeacherAttendancePage() {
     setLocationSaved(true)
     setGpsError("")
     setTimeout(() => setLocationSaved(false), 3000)
+  }
+
+  const saveManualAttendance = async () => {
+    setManualError("")
+    setManualMessage("")
+
+    if (!manualTeacherId) {
+      setManualError("Select a teacher first.")
+      return
+    }
+    if (manualStatus !== "absent" && !manualCheckIn) {
+      setManualError("Enter check-in time, or mark the teacher absent.")
+      return
+    }
+
+    setSavingManual(true)
+    const response = await apiFetch("/api/admin/teacher-attendance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        teacherId: manualTeacherId,
+        date: selectedDate,
+        status: manualStatus,
+        checkInTime: manualStatus === "absent" ? null : manualCheckIn,
+        checkOutTime: manualStatus === "absent" ? null : manualCheckOut || null,
+      }),
+    })
+    const result = await response.json().catch(() => ({}))
+    setSavingManual(false)
+
+    if (!response.ok || !result.success) {
+      setManualError(result.error || "Could not save manual attendance.")
+      return
+    }
+
+    setManualMessage("Manual attendance saved.")
+    loadRecords()
+    window.setTimeout(() => setManualMessage(""), 3000)
   }
 
   const summary = {
@@ -309,6 +369,12 @@ export default function AdminTeacherAttendancePage() {
           </div>
         </div>
 
+        <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-xs leading-6 text-cyan-50">
+          NaySha EduCore collects your current GPS latitude, longitude, and accuracy only when you
+          tap Use My Current Location. This one-time location reading is used to save the school&apos;s
+          attendance coordinates and is not collected in the background.
+        </div>
+
         <div className="flex gap-3 flex-wrap">
           <button
             onClick={getSchoolGps}
@@ -329,6 +395,108 @@ export default function AdminTeacherAttendancePage() {
         {gpsError && !(schoolLat && schoolLng) && (
           <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
             {gpsError}
+          </div>
+        )}
+      </div>
+
+      {/* Manual Attendance */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">Manual Teacher Attendance</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Use this when a teacher does not have a phone or cannot mark attendance by GPS.
+            </p>
+          </div>
+          <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-100">
+            Admin entry
+          </span>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr_0.8fr]">
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">Teacher</label>
+            <select
+              value={manualTeacherId}
+              onChange={e => setManualTeacherId(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-[#08111f] px-4 py-2.5 text-sm text-white"
+            >
+              <option value="">Select teacher</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.name || teacher.email || "Unnamed teacher"}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">Date</label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-[#08111f] px-4 py-2.5 text-sm text-white"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">Status</label>
+            <select
+              value={manualStatus}
+              onChange={e => setManualStatus(e.target.value as "present" | "late" | "absent")}
+              className="w-full rounded-xl border border-white/10 bg-[#08111f] px-4 py-2.5 text-sm text-white"
+            >
+              <option value="present">Present</option>
+              <option value="late">Late</option>
+              <option value="absent">Absent</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">Check In</label>
+            <input
+              type="time"
+              value={manualCheckIn}
+              onChange={e => setManualCheckIn(e.target.value)}
+              disabled={manualStatus === "absent"}
+              className="w-full rounded-xl border border-white/10 bg-[#08111f] px-4 py-2.5 text-sm text-white disabled:opacity-50"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">Check Out</label>
+            <input
+              type="time"
+              value={manualCheckOut}
+              onChange={e => setManualCheckOut(e.target.value)}
+              disabled={manualStatus === "absent"}
+              className="w-full rounded-xl border border-white/10 bg-[#08111f] px-4 py-2.5 text-sm text-white disabled:opacity-50"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-slate-500">
+            Saving again for the same teacher and date updates the existing record.
+          </div>
+          <button
+            onClick={saveManualAttendance}
+            disabled={savingManual || teachers.length === 0}
+            className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60"
+          >
+            {savingManual ? "Saving..." : "Save Manual Attendance"}
+          </button>
+        </div>
+
+        {manualError && (
+          <div className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+            {manualError}
+          </div>
+        )}
+        {manualMessage && (
+          <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+            {manualMessage}
           </div>
         )}
       </div>

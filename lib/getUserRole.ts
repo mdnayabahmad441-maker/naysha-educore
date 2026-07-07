@@ -1,4 +1,5 @@
 import { supabase } from "./supabase"
+import { isSuperAdminEmail } from "./super-admin"
 
 type UserRole = "admin" | "teacher" | "parent" | "super_admin"
 
@@ -32,7 +33,7 @@ export async function getAuthSessionContext(): Promise<AuthSessionContext | null
     if (response.ok) {
       const data = await response.json()
 
-      if (data?.role && data?.schoolId) {
+      if (data?.role && (data?.schoolId || data.role === "super_admin")) {
         return {
           userId: String(data.userId),
           email: String(data.email || ""),
@@ -82,15 +83,18 @@ async function buildFallbackContext(user: any): Promise<AuthSessionContext | nul
     metadataActiveRole === "admin" ||
     metadataActiveRole === "teacher" ||
     metadataActiveRole === "parent" ||
-    metadataActiveRole === "super_admin"
+    (metadataActiveRole === "super_admin" && isSuperAdminEmail(email))
       ? metadataActiveRole
+      : metadataRole === "super_admin" && !isSuperAdminEmail(email)
+      ? null
       : metadataRole
 
   if (
     metadataActiveRole === "admin" ||
     metadataActiveRole === "teacher" ||
     metadataActiveRole === "parent" ||
-    metadataActiveRole === "super_admin"
+    (metadataActiveRole === "super_admin" && isSuperAdminEmail(email)) ||
+    (metadataRole === "super_admin" && isSuperAdminEmail(email))
   ) {
     return {
       userId: String(user.id),
@@ -103,7 +107,7 @@ async function buildFallbackContext(user: any): Promise<AuthSessionContext | nul
           ? "/admin"
           : effectiveRole === "teacher"
           ? "/teacher"
-          : effectiveRole === "super_admin"
+          : effectiveRole === "super_admin" && isSuperAdminEmail(email)
           ? "/super-admin"
           : "/parent",
       studentIds: [],

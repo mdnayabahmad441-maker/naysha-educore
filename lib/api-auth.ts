@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { isSuperAdminEmail } from "@/lib/super-admin"
 
-type AllowedRole = "admin" | "teacher" | "parent"
+type AllowedRole = "admin" | "teacher" | "parent" | "super_admin"
 
 export type AuthorizedProfile = {
   userId: string
@@ -17,6 +18,33 @@ function getBearerToken(request: Request) {
   }
 
   return authHeader.slice(7).trim() || null
+}
+
+async function ensureSchoolIsActive(schoolId: string | null | undefined) {
+  if (!schoolId) return null
+
+  const { data, error } = await supabaseAdmin
+    .from("schools")
+    .select("status")
+    .eq("id", schoolId)
+    .maybeSingle()
+
+  if (error) {
+    const text = `${error.code || ""} ${error.message || ""}`.toLowerCase()
+    if (text.includes("column") || text.includes("schema cache") || error.code === "42703" || error.code === "PGRST204") {
+      return null
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  if (data?.status === "suspended") {
+    return NextResponse.json(
+      { error: "This school account is suspended. Please contact NaySha EduCore support." },
+      { status: 403 }
+    )
+  }
+
+  return null
 }
 
 export async function requireAuthorizedProfile(
@@ -42,6 +70,19 @@ export async function requireAuthorizedProfile(
   const userId = authData.user.id
   const email = (authData.user.email || "").trim().toLowerCase()
 
+  if (
+    allowedRoles.includes("super_admin") &&
+    isSuperAdminEmail(email)
+  ) {
+    return {
+      profile: {
+        userId,
+        schoolId: null,
+        role: "super_admin",
+      },
+    }
+  }
+
   // Try profiles table first
   const { data: profile } = await supabaseAdmin
     .from("profiles")
@@ -49,7 +90,16 @@ export async function requireAuthorizedProfile(
     .eq("id", userId)
     .maybeSingle()
 
+  if (profile?.role === "super_admin" && !isSuperAdminEmail(email)) {
+    return {
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    }
+  }
+
   if (profile?.role && allowedRoles.includes(profile.role as AllowedRole)) {
+    const suspended = await ensureSchoolIsActive(profile.school_id || null)
+    if (suspended) return { response: suspended }
+
     return {
       profile: {
         userId,
@@ -69,6 +119,9 @@ export async function requireAuthorizedProfile(
       .maybeSingle()
 
     if (school?.id) {
+      const suspended = await ensureSchoolIsActive(school.id)
+      if (suspended) return { response: suspended }
+
       return { profile: { userId, schoolId: school.id, role: "admin" } }
     }
   }
@@ -81,6 +134,9 @@ export async function requireAuthorizedProfile(
       .maybeSingle()
 
     if (teacher?.school_id) {
+      const suspended = await ensureSchoolIsActive(teacher.school_id)
+      if (suspended) return { response: suspended }
+
       return { profile: { userId, schoolId: teacher.school_id, role: "teacher" } }
     }
   }
@@ -94,6 +150,9 @@ export async function requireAuthorizedProfile(
 
     const schoolId = parentRows?.[0]?.school_id || null
     if (parentRows && parentRows.length > 0) {
+      const suspended = await ensureSchoolIsActive(schoolId)
+      if (suspended) return { response: suspended }
+
       return { profile: { userId, schoolId, role: "parent" } }
     }
   }

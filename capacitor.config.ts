@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from "@capacitor/cli"
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://your-domain.com"
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://erp.naysha.online"
 
 const config: CapacitorConfig = {
   appId: "com.nayshaeducore.app",

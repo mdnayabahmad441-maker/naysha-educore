@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { ensureSameSchool, requireAuthorizedProfile } from "@/lib/api-auth"
 import { createClaudeMessage, extractClaudeText } from "@/lib/claude"
 import { getAiTenantContext, getSchoolLiveData } from "@/lib/server-settings"
+import { requireAiEnabled } from "@/lib/ai-access"
 
 export async function POST(req: Request) {
   const authResult = await requireAuthorizedProfile(req, ["admin", "teacher"])
@@ -18,6 +19,9 @@ export async function POST(req: Request) {
 
     const schoolMismatch = ensureSameSchool(authResult.profile, schoolId)
     if (schoolMismatch) return schoolMismatch
+
+    const aiBlocked = await requireAiEnabled(schoolId)
+    if (aiBlocked) return aiBlocked
 
     if (!messages.length) {
       return NextResponse.json({ error: "At least one message is required" }, { status: 400 })

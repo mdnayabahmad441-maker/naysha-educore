@@ -101,7 +101,7 @@ export default function AdmissionsPage() {
             <tr>
               <th className="p-4 text-left">Adm. No.</th>
               <th className="p-4 text-left">Student Name</th>
-              <th className="p-4 text-left">Father's Name</th>
+              <th className="p-4 text-left">Father&apos;s Name</th>
               <th className="p-4 text-left">Class</th>
               <th className="p-4 text-left">Phone</th>
               <th className="p-4 text-left">Date</th>

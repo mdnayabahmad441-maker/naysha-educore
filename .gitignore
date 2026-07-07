@@ -24,6 +24,10 @@
 .DS_Store
 *.pem
 .wwebjs_auth/
+.tools/
+android/local.properties
+android/keystore.properties
+android/keystores/
 
 # debug
 npm-debug.log*
@@ -40,3 +44,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel

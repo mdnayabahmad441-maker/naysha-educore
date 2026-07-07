@@ -88,7 +88,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         onClick={closeSidebar}
       />
 
-      <aside className={`fixed inset-y-0 left-0 z-40 flex h-full w-full max-w-[320px] shrink-0 flex-col overflow-hidden border-r border-white/10 bg-(--bg-card) p-5 transition-transform duration-200 sm:p-6 md:static md:translate-x-0 md:w-64 md:max-w-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`fixed inset-y-0 left-0 z-40 flex h-full w-[88vw] max-w-[320px] shrink-0 flex-col overflow-hidden border-r border-white/10 bg-(--bg-card) p-4 transition-transform duration-200 sm:p-6 md:static md:w-64 md:max-w-none md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between gap-4 md:block">
           <h1 className="mb-6 break-words bg-linear-to-r from-(--color-accent) to-(--color-accent-2) bg-clip-text text-xl font-bold leading-tight text-transparent">
             {school?.name || "NaySha EduCore"}
@@ -133,10 +133,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/admin/events" className={`nav-link ${linkStyle("/admin/events")}`} onClick={closeSidebar}>Events</Link>
 
           <p className="mb-2 mt-6 text-xs uppercase text-gray-500">System</p>
-          <Link href="/admin/import" className={`nav-link ${linkStyle("/admin/import")}`} onClick={closeSidebar}>Bulk Import</Link>
           <Link href="/admin/settings" className={`nav-link ${linkStyle("/admin/settings")}`} onClick={closeSidebar}>Settings</Link>
-          <Link href="/admin/settings/appearance" className={`nav-link ${linkStyle("/admin/settings/appearance")}`} onClick={closeSidebar}>Appearance</Link>
-          <Link href="/admin/ai-assistant" className={`nav-link ${linkStyle("/admin/ai-assistant")}`} onClick={closeSidebar}>AI Assistant</Link>
         </nav>
 
         <div className="mt-6 border-t border-white/10 pt-5 md:hidden">

@@ -1,5 +1,6 @@
 import { User } from "@supabase/supabase-js"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { isSuperAdminEmail } from "@/lib/super-admin"
 
 export type AccountRole = "admin" | "teacher" | "parent" | "super_admin"
 
@@ -28,6 +29,28 @@ async function findSchoolSubdomain(schoolId: string) {
     .maybeSingle()
 
   return (data?.subdomain || data?.domain || "") as string
+}
+
+async function ensureSchoolIsActive(schoolId: string | null | undefined) {
+  if (!schoolId) return
+
+  const { data, error } = await supabaseAdmin
+    .from("schools")
+    .select("status")
+    .eq("id", schoolId)
+    .maybeSingle()
+
+  if (error) {
+    const text = `${error.code || ""} ${error.message || ""}`.toLowerCase()
+    if (text.includes("column") || text.includes("schema cache") || error.code === "42703" || error.code === "PGRST204") {
+      return
+    }
+    throw error
+  }
+
+  if (data?.status === "suspended") {
+    throw new Error("This school account is suspended. Please contact NaySha EduCore support.")
+  }
 }
 
 async function resolveParentRows(userId: string, email: string): Promise<ParentRow[]> {
@@ -65,9 +88,7 @@ async function resolveParentSchool(parentRows: ParentRow[]) {
 }
 
 function isSuperAdminUser(user: User) {
-  const metadataRole = user.user_metadata?.role
-  const metadataActiveRole = user.user_metadata?.active_role
-  return metadataRole === "super_admin" || metadataActiveRole === "super_admin"
+  return isSuperAdminEmail(user.email)
 }
 
 async function persistResolvedAccess(user: User, access: ResolvedUserAccess) {
@@ -95,7 +116,7 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
   const allowParent = preferredRole === "parent" || !preferredRole
   const allowTeacher = preferredRole === "teacher"
   const allowAdmin = preferredRole === "admin"
-  const allowSuperAdmin = preferredRole === "super_admin" || isSuperAdminUser(user)
+  const allowSuperAdmin = isSuperAdminUser(user)
 
   if (allowSuperAdmin && isSuperAdminUser(user)) {
     const access: ResolvedUserAccess = {
@@ -129,6 +150,8 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
         (await resolveParentSchool(parentRows)) ||
         user.user_metadata?.school_id ||
         ""
+
+      await ensureSchoolIsActive(schoolId)
 
       let subdomain = ""
 
@@ -167,6 +190,8 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
       .maybeSingle()
 
     if (teacher?.school_id) {
+      await ensureSchoolIsActive(teacher.school_id)
+
       const subdomain = await findSchoolSubdomain(teacher.school_id)
 
       const access: ResolvedUserAccess = {
@@ -194,6 +219,8 @@ export async function resolveUserAccess(user: User, preferredRole?: AccountRole 
       .maybeSingle()
 
     if (school?.id) {
+      await ensureSchoolIsActive(school.id)
+
       const subdomain = school.subdomain || school.domain || ""
 
       const access: ResolvedUserAccess = {
@@ -279,11 +306,8 @@ export async function resolveIdentifierToAccount(identifier: string) {
       (user) => String(user.email || "").trim().toLowerCase() === email
     )
 
-    if (exactMatch) {
-      const metadataRole = exactMatch.user_metadata?.role
-      if (metadataRole === "super_admin") {
-        return { email, role: "super_admin" as const, loginMethod: "password" as const }
-      }
+    if (exactMatch && isSuperAdminEmail(email)) {
+      return { email, role: "super_admin" as const, loginMethod: "password" as const }
     }
   }
 

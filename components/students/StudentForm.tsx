@@ -5,6 +5,7 @@ import { getActiveAcademicYear } from "@/lib/academic"
 import { getSchoolId } from "@/lib/school"
 import { supabase } from "@/lib/supabase"
 import { apiFetch } from "@/lib/api-client"
+import { generateCompactStudentCode, getNextClassRollNumber } from "@/lib/student-code"
 
 type StudentFormProps = {
   reload?: () => void | Promise<void>
@@ -135,15 +136,33 @@ export default function StudentForm({ reload }: StudentFormProps) {
     setParentPhone("")
   }
 
-  const generateStudentCode = async () => {
-    const now = new Date()
-    const year = String(now.getFullYear()).slice(-2)
-    const month = String(now.getMonth() + 1).padStart(2, "0")
-    const date = String(now.getDate()).padStart(2, "0")
-    const hours = String(now.getHours()).padStart(2, "0")
-    const minutes = String(now.getMinutes()).padStart(2, "0")
-    const seconds = String(now.getSeconds()).padStart(2, "0")
-    return `ST${year}${month}${date}${hours}${minutes}${seconds}`
+  const generateStudentCode = async (reservedCodes: string[] = []) => {
+    const used = new Set(reservedCodes)
+    let code = generateCompactStudentCode()
+
+    while (used.has(code)) {
+      code = generateCompactStudentCode()
+    }
+
+    return code
+  }
+
+  const generateClassRollNumber = async (classId: string, academicYearId: string) => {
+    if (!schoolId) return 1
+
+    const { data, error } = await supabase
+      .from("student_enrollments")
+      .select("roll_number")
+      .eq("school_id", schoolId)
+      .eq("class_id", classId)
+      .eq("academic_year_id", academicYearId)
+
+    if (error) {
+      console.error("Roll number lookup error:", error)
+      return 1
+    }
+
+    return getNextClassRollNumber((data || []).map((enrollment) => enrollment.roll_number))
   }
 
   const save = async () => {
@@ -165,7 +184,7 @@ export default function StudentForm({ reload }: StudentFormProps) {
     if (invalidCertificate) return
 
     const trimmedRoll = roll.trim()
-    const parsedRoll = trimmedRoll ? Number(trimmedRoll) : null
+    let parsedRoll = trimmedRoll ? Number(trimmedRoll) : null
 
     if (trimmedRoll && Number.isNaN(parsedRoll)) {
       alert("Roll number must be numeric")
@@ -184,22 +203,37 @@ export default function StudentForm({ reload }: StudentFormProps) {
       }
 
       const studentId = crypto.randomUUID()
-      const studentCode = await generateStudentCode()
+      let studentCode = ""
+      if (!parsedRoll) {
+        parsedRoll = await generateClassRollNumber(selectedClass, activeYear.id)
+      }
 
-      const { error: studentError } = await supabase.from("students").insert({
-        id: studentId,
-        school_id: schoolId,
-        name: name.trim(),
-        email: email.trim() || null,
-        photo: null,
-        aadhar_card: null,
-        tc_document: null,
-        certificates: null,
-        student_code: studentCode,
-        class_id: selectedClass,
-        roll_number: parsedRoll,
-        student_type: studentType
-      })
+      const attemptedCodes: string[] = []
+      let studentError: { message: string; code?: string } | null = null
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        studentCode = await generateStudentCode(attemptedCodes)
+        attemptedCodes.push(studentCode)
+
+        const { error } = await supabase.from("students").insert({
+          id: studentId,
+          school_id: schoolId,
+          name: name.trim(),
+          email: email.trim() || null,
+          photo: null,
+          aadhar_card: null,
+          tc_document: null,
+          certificates: null,
+          student_code: studentCode,
+          class_id: selectedClass,
+          roll_number: parsedRoll,
+          student_type: studentType
+        })
+
+        studentError = error
+        if (!error) break
+        if (error.code !== "23505") break
+      }
 
       if (studentError) {
         console.error("Student insert error:", studentError)

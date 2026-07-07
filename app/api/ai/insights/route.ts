@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { ensureSameSchool, requireAuthorizedProfile } from "@/lib/api-auth"
 import { createClaudeMessage, extractClaudeToolInput } from "@/lib/claude"
 import { getAiTenantContext } from "@/lib/server-settings"
+import { requireAiEnabled } from "@/lib/ai-access"
 import type Anthropic from "@anthropic-ai/sdk"
 
 type InsightTask =
@@ -226,6 +227,9 @@ export async function POST(req: Request) {
 
     const schoolMismatch = ensureSameSchool(authResult.profile, schoolId)
     if (schoolMismatch) return schoolMismatch
+
+    const aiBlocked = await requireAiEnabled(schoolId)
+    if (aiBlocked) return aiBlocked
 
     const tenantContext = await getAiTenantContext(schoolId)
     const tool = taskTools[task]

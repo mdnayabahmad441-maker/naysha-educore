@@ -25,7 +25,7 @@ export function SchoolProvider({ children }: any) {
     const load = async () => {
       try {
         // Try session metadata school_id first
-        let { data: sessionData } = await supabase.auth.getSession()
+        const { data: sessionData } = await supabase.auth.getSession()
         let schoolId = sessionData.session?.user?.user_metadata?.school_id
 
         // If not in metadata, refresh session and try again
