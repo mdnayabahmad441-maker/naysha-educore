@@ -65,18 +65,27 @@ export default function CreateExamPage(){
 
   // ================= FILTER =================
   useEffect(()=>{
-    if(isAllClasses){
-      setFilteredSubjects(
-        role === "teacher"
-          ? subjects.filter((subject)=>allowedClassIds.includes(subject.class_id))
-          : subjects
-      )
-    }else{
-      setFilteredSubjects(
-        subjects.filter(s=>s.class_id === selectedClass)
-      )
+    if(role === "teacher"){
+      const classScopedSubjects = selectedClass
+        ? subjects.filter((subject)=>subject.class_id === selectedClass)
+        : subjects.filter((subject)=>allowedClassIds.includes(subject.class_id))
+
+      setFilteredSubjects(classScopedSubjects)
+      return
     }
+
+    if(!isAllClasses){
+      setFilteredSubjects(selectedClass ? subjects.filter(s=>s.class_id === selectedClass) : [])
+      return
+    }
+
+    setFilteredSubjects(subjects)
   },[selectedClass,isAllClasses,subjects,role,allowedClassIds])
+
+  useEffect(()=>{
+    setSelectedSubjects([])
+    setMarksConfig({})
+  },[selectedClass,isAllClasses])
 
   useEffect(()=>{
     if(role !== "teacher") return
@@ -151,8 +160,13 @@ export default function CreateExamPage(){
       return
     }
 
+    if(!isAllClasses && !selectedClass){
+      alert("Select class before choosing subjects")
+      return
+    }
+
     if(selectedSubjects.length === 0){
-      alert("Select at least one subject")
+      alert("Select at least one subject for this exam")
       return
     }
 
@@ -307,21 +321,24 @@ export default function CreateExamPage(){
           className="w-full rounded-2xl bg-[#0b1220] p-3"
         />
 
-        <div className="grid grid-cols-2 gap-3 rounded-2xl bg-[#0b1220] p-2">
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-slate-300">Exam scope</p>
+          <div className="grid grid-cols-2 gap-3 rounded-2xl bg-[#0b1220] p-2">
           {role !== "teacher" && (
             <button
               onClick={()=>setIsAllClasses(true)}
               className={`rounded-xl px-4 py-2 text-sm font-medium ${isAllClasses ? "bg-white/15 text-white" : "text-slate-400"}`}
             >
-              All
+              All Classes
             </button>
           )}
           <button
             onClick={()=>setIsAllClasses(false)}
             className={`rounded-xl px-4 py-2 text-sm font-medium ${!isAllClasses ? "bg-white/15 text-white" : "text-slate-400"}`}
           >
-            Specific
+            Specific Class
           </button>
+          </div>
         </div>
 
         {(role === "teacher" || !isAllClasses) && (
@@ -343,11 +360,54 @@ export default function CreateExamPage(){
           </p>
         )}
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="space-y-3">
+          <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#0b1220]/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium text-white">Subjects for this exam</p>
+              <p className="mt-1 text-sm text-slate-400">
+                {!isAllClasses && !selectedClass
+                  ? "Select a class to show only that class's subjects."
+                  : selectedSubjects.length > 0
+                    ? `${selectedSubjects.length} subject${selectedSubjects.length === 1 ? "" : "s"} selected`
+                    : "Select one subject or multiple subjects."}
+              </p>
+            </div>
+
+            {filteredSubjects.length > 0 && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={()=>setSelectedSubjects(filteredSubjects.map((subject)=>subject.id))}
+                  className="rounded-xl bg-white/10 px-3 py-2 text-sm text-slate-200"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={()=>{
+                    setSelectedSubjects([])
+                    setMarksConfig({})
+                  }}
+                  className="rounded-xl bg-white/10 px-3 py-2 text-sm text-slate-200"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
+
+          {!isAllClasses && selectedClass && filteredSubjects.length === 0 && (
+            <p className="rounded-2xl border border-yellow-400/20 bg-yellow-500/10 p-4 text-sm text-yellow-100">
+              No subjects are configured for the selected class. Add class subjects first, then create the exam.
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 
           {filteredSubjects.map(s=>{
 
             const selected = selectedSubjects.includes(s.id)
+            const className = classes.find((schoolClass)=>schoolClass.id === s.class_id)?.name
 
             return(
               <div
@@ -357,7 +417,19 @@ export default function CreateExamPage(){
                   selected ? "bg-white/20" : "bg-white/5"
                 }`}
               >
-                <p>{s.name}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p>{s.name}</p>
+                    {className && (
+                      <p className="mt-1 text-xs text-slate-400">{className}</p>
+                    )}
+                  </div>
+                  {selected && (
+                    <span className="rounded-full bg-green-500/20 px-2 py-1 text-xs text-green-200">
+                      Selected
+                    </span>
+                  )}
+                </div>
 
                 {selected && (
                   <>
@@ -383,6 +455,7 @@ export default function CreateExamPage(){
             )
           })}
 
+          </div>
         </div>
 
         <div className="sticky bottom-20 z-20 -mx-1 rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,15,30,0.96),rgba(11,26,51,0.9))] p-3 shadow-[0_24px_70px_rgba(2,8,23,0.38)] md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
