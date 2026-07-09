@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { apiFetch } from "@/lib/api-client"
+import { supabase } from "@/lib/supabase"
 
 type SchoolStats = {
   students: number
@@ -308,18 +309,28 @@ export default function SuperAdmin() {
     await loadSchools()
   }
 
+  const logout = async () => {
+    await supabase.auth.signOut({ scope: "local" })
+    window.location.href = "/login"
+  }
+
   return (
     <div className="min-h-screen bg-[#07101f] text-white">
-      <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+      <div className="mx-auto max-w-7xl space-y-5 px-3 py-4 sm:space-y-6 sm:px-6 sm:py-8 lg:px-8">
+        <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300/70">NaySha EduCore</p>
-            <h1 className="mt-2 text-3xl font-bold">Super Admin Control Panel</h1>
+            <h1 className="mt-2 text-2xl font-bold leading-tight sm:text-3xl">Super Admin Control Panel</h1>
             <p className="mt-1 text-sm text-slate-400">Control tenants, school admins, subscription status, and platform-wide visibility.</p>
           </div>
-          <button onClick={openCreate} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold hover:bg-blue-500">
-            Add School
-          </button>
+          <div className="grid gap-2 sm:flex sm:shrink-0">
+            <button onClick={openCreate} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold hover:bg-blue-500">
+              Add School
+            </button>
+            <button onClick={logout} className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-100 hover:bg-red-500/20">
+              Sign Out
+            </button>
+          </div>
         </div>
 
         {(error || notice) && (
@@ -365,7 +376,85 @@ export default function SuperAdmin() {
           ) : filtered.length === 0 ? (
             <div className="p-10 text-center text-sm text-slate-500">No schools found.</div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="grid gap-3 p-3 md:hidden">
+              {filtered.map((school) => (
+                <div key={school.id} className="rounded-xl border border-white/10 bg-[#08111f] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-base font-semibold">{school.name || "Unnamed school"}</h3>
+                      <p className="mt-1 truncate text-xs text-slate-500">{school.email || "No admin email"}</p>
+                    </div>
+                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize ${
+                      (school.status || "active") === "suspended"
+                        ? "border-red-400/20 bg-red-400/10 text-red-200"
+                        : "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                    }`}>
+                      {school.status || "active"}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 space-y-3 text-xs text-slate-400">
+                    <div>
+                      <p className="uppercase tracking-widest text-slate-600">Domain</p>
+                      <p className="mt-1 break-all text-slate-200">{domainLabel(school)}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-lg bg-white/[0.04] p-2">
+                        <p className="text-slate-500">Students</p>
+                        <p className="mt-1 text-base font-semibold text-white">{school.stats.students}</p>
+                      </div>
+                      <div className="rounded-lg bg-white/[0.04] p-2">
+                        <p className="text-slate-500">Teachers</p>
+                        <p className="mt-1 text-base font-semibold text-white">{school.stats.teachers}</p>
+                      </div>
+                      <div className="rounded-lg bg-white/[0.04] p-2">
+                        <p className="text-slate-500">Parents</p>
+                        <p className="mt-1 text-base font-semibold text-white">{school.stats.parents}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                        school.ai_enabled
+                          ? "border-purple-400/20 bg-purple-400/10 text-purple-100"
+                          : "border-slate-400/20 bg-slate-400/10 text-slate-300"
+                      }`}>
+                        AI {school.ai_enabled ? "Premium" : "Off"}
+                      </span>
+                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                        school.fee_notifications_enabled !== false
+                          ? "border-amber-400/20 bg-amber-400/10 text-amber-100"
+                          : "border-slate-400/20 bg-slate-400/10 text-slate-300"
+                      }`}>
+                        Fees {school.fee_notifications_enabled !== false ? "On" : "Off"}
+                      </span>
+                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                        school.other_notifications_enabled !== false
+                          ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-100"
+                          : "border-slate-400/20 bg-slate-400/10 text-slate-300"
+                      }`}>
+                        Other {school.other_notifications_enabled !== false ? "On" : "Off"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button onClick={() => openEdit(school)} className="rounded-lg border border-white/10 px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-white/10">
+                      Manage
+                    </button>
+                    <button
+                      onClick={() => void quickStatus(school, (school.status || "active") === "suspended" ? "active" : "suspended")}
+                      disabled={saving}
+                      className="rounded-lg border border-white/10 px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-50"
+                    >
+                      {(school.status || "active") === "suspended" ? "Activate" : "Suspend"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[980px] text-sm">
                 <thead className="border-b border-white/10 text-xs uppercase tracking-widest text-slate-500">
                   <tr>
@@ -442,14 +531,15 @@ export default function SuperAdmin() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       </div>
 
       {(selected || creating) && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 p-4">
-          <div className="mx-auto flex min-h-full max-w-4xl items-center">
-            <div className="w-full rounded-2xl border border-white/10 bg-[#08111f] shadow-2xl">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 p-2 sm:p-4">
+          <div className="mx-auto flex min-h-full max-w-4xl items-start py-3 sm:items-center sm:py-0">
+            <div className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[#08111f] shadow-2xl">
               <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
                 <div>
                   <h2 className="text-xl font-bold">{creating ? "Create School" : "Manage School"}</h2>
@@ -462,7 +552,7 @@ export default function SuperAdmin() {
                 </button>
               </div>
 
-              <div className="grid gap-4 p-5 md:grid-cols-2">
+              <div className="grid max-h-[calc(100vh-190px)] gap-4 overflow-y-auto p-4 sm:p-5 md:grid-cols-2">
                 <Field label="School Name" value={form.name} onChange={(value) => updateForm("name", value)} />
                 <Field label="Admin Email" value={form.email} onChange={(value) => updateForm("email", value)} />
                 <Field label="Phone" value={form.phone} onChange={(value) => updateForm("phone", value)} />
