@@ -8,7 +8,9 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { waitForUser } from "@/lib/auth-session"
 import { useSchool } from "@/context/SchoolContext"
-import { getUserRole } from "@/lib/getUserRole"
+import { getAuthSessionContext } from "@/lib/getUserRole"
+import { redirectWithSession } from "@/lib/auth-flow"
+import { resolveTenantOrigin } from "@/lib/auth-storage"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -28,15 +30,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       for (let attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) await new Promise((r) => setTimeout(r, 600))
-        const roleData = await getUserRole()
+        const roleData = await getAuthSessionContext()
         if (roleData?.role === "admin") {
+          if (roleData.subdomain && window.location.origin !== resolveTenantOrigin(roleData.subdomain)) {
+            await redirectWithSession({
+              next: "/admin",
+              subdomain: roleData.subdomain,
+              role: "admin",
+              school_id: roleData.school_id,
+            })
+            return
+          }
           setLoading(false)
           return
         }
         if (attempt === 2) {
           await supabase.auth.refreshSession()
-          const retryRole = await getUserRole()
+          const retryRole = await getAuthSessionContext()
           if (retryRole?.role === "admin") {
+            if (retryRole.subdomain && window.location.origin !== resolveTenantOrigin(retryRole.subdomain)) {
+              await redirectWithSession({
+                next: "/admin",
+                subdomain: retryRole.subdomain,
+                role: "admin",
+                school_id: retryRole.school_id,
+              })
+              return
+            }
             setLoading(false)
             return
           }

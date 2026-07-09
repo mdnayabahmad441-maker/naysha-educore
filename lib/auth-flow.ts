@@ -3,6 +3,7 @@
 import { supabase } from "@/lib/supabase"
 import { waitForSession } from "@/lib/auth-session"
 import { sanitizeNextPath } from "@/lib/security"
+import { resolveTenantOrigin } from "@/lib/auth-storage"
 
 export type AuthDestination = {
   next: "/admin" | "/teacher" | "/parent" | "/super-admin"
@@ -94,5 +95,10 @@ export async function redirectWithSession(destination: AuthDestination) {
 
   // Always complete auth on the current domain — school pages resolve
   // school context via session school_id, not subdomain
-  window.location.href = `/auth/callback?next=${encodeURIComponent(next)}#${payload.toString()}`
+  const targetOrigin =
+    destination.subdomain && destination.next !== "/super-admin"
+      ? resolveTenantOrigin(destination.subdomain)
+      : window.location.origin
+
+  window.location.href = `${targetOrigin}/auth/callback?next=${encodeURIComponent(next)}#${payload.toString()}`
 }
