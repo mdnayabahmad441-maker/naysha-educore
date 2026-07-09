@@ -377,60 +377,58 @@ export default function SuperAdmin() {
             <div className="p-10 text-center text-sm text-slate-500">No schools found.</div>
           ) : (
             <>
-            <div className="grid gap-3 p-3 md:hidden">
+            <div className="grid gap-4 p-3 md:hidden">
               {filtered.map((school) => (
-                <div key={school.id} className="rounded-xl border border-white/10 bg-[#08111f] p-4">
-                  <div className="flex items-start justify-between gap-3">
+                <div key={school.id} className="overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),linear-gradient(145deg,rgba(15,23,42,0.98),rgba(17,24,39,0.94))] shadow-[0_18px_45px_rgba(0,0,0,0.28)]">
+                  <div className="border-b border-white/10 bg-white/[0.03] p-4">
+                    <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="truncate text-base font-semibold">{school.name || "Unnamed school"}</h3>
-                      <p className="mt-1 truncate text-xs text-slate-500">{school.email || "No admin email"}</p>
+                      <h3 className="truncate text-lg font-bold">{school.name || "Unnamed school"}</h3>
+                      <p className="mt-1 truncate text-xs text-cyan-100/70">{school.email || "No admin email"}</p>
                     </div>
                     <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize ${
                       (school.status || "active") === "suspended"
-                        ? "border-red-400/20 bg-red-400/10 text-red-200"
-                        : "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                        ? "border-red-300/30 bg-red-500/20 text-red-100"
+                        : "border-emerald-300/30 bg-emerald-500/20 text-emerald-100"
                     }`}>
                       {school.status || "active"}
                     </span>
                   </div>
 
-                  <div className="mt-4 space-y-3 text-xs text-slate-400">
-                    <div>
-                      <p className="uppercase tracking-widest text-slate-600">Domain</p>
-                      <p className="mt-1 break-all text-slate-200">{domainLabel(school)}</p>
+                    <div className="mt-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Domain</p>
+                      <p className="mt-1 break-all text-xs font-medium text-slate-100">{domainLabel(school)}</p>
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 p-3">
+                    <MetricTile label="Students" value={school.stats.students} color="from-blue-500/25 to-cyan-500/15" />
+                    <MetricTile label="Teachers" value={school.stats.teachers} color="from-violet-500/25 to-fuchsia-500/15" />
+                    <MetricTile label="Parents" value={school.stats.parents} color="from-emerald-500/25 to-teal-500/15" />
+                    <MetricTile label="Classes" value={school.stats.classes} color="from-amber-500/25 to-orange-500/15" />
+                    <MetricTile label="Fees" value={school.stats.fees} color="from-rose-500/25 to-pink-500/15" />
+                    <MetricTile label="Enquiries" value={school.stats.enquiries} color="from-sky-500/25 to-indigo-500/15" />
+                  </div>
+
+                  <div className="space-y-3 px-3 pb-4">
                     <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-lg bg-white/[0.04] p-2">
-                        <p className="text-slate-500">Students</p>
-                        <p className="mt-1 text-base font-semibold text-white">{school.stats.students}</p>
-                      </div>
-                      <div className="rounded-lg bg-white/[0.04] p-2">
-                        <p className="text-slate-500">Teachers</p>
-                        <p className="mt-1 text-base font-semibold text-white">{school.stats.teachers}</p>
-                      </div>
-                      <div className="rounded-lg bg-white/[0.04] p-2">
-                        <p className="text-slate-500">Parents</p>
-                        <p className="mt-1 text-base font-semibold text-white">{school.stats.parents}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                      <span className={`rounded-xl border px-2.5 py-2 text-center text-[11px] font-semibold ${
                         school.ai_enabled
-                          ? "border-purple-400/20 bg-purple-400/10 text-purple-100"
+                          ? "border-purple-300/30 bg-purple-500/20 text-purple-100"
                           : "border-slate-400/20 bg-slate-400/10 text-slate-300"
                       }`}>
                         AI {school.ai_enabled ? "Premium" : "Off"}
                       </span>
-                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                      <span className={`rounded-xl border px-2.5 py-2 text-center text-[11px] font-semibold ${
                         school.fee_notifications_enabled !== false
-                          ? "border-amber-400/20 bg-amber-400/10 text-amber-100"
+                          ? "border-amber-300/30 bg-amber-500/20 text-amber-100"
                           : "border-slate-400/20 bg-slate-400/10 text-slate-300"
                       }`}>
                         Fees {school.fee_notifications_enabled !== false ? "On" : "Off"}
                       </span>
-                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                      <span className={`rounded-xl border px-2.5 py-2 text-center text-[11px] font-semibold ${
                         school.other_notifications_enabled !== false
-                          ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-100"
+                          ? "border-cyan-300/30 bg-cyan-500/20 text-cyan-100"
                           : "border-slate-400/20 bg-slate-400/10 text-slate-300"
                       }`}>
                         Other {school.other_notifications_enabled !== false ? "On" : "Off"}
@@ -438,14 +436,14 @@ export default function SuperAdmin() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <button onClick={() => openEdit(school)} className="rounded-lg border border-white/10 px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-white/10">
+                  <div className="grid grid-cols-2 gap-2 px-3 pb-4">
+                    <button onClick={() => openEdit(school)} className="rounded-xl bg-blue-600 px-3 py-3 text-xs font-semibold text-white shadow-[0_12px_26px_rgba(37,99,235,0.25)] hover:bg-blue-500">
                       Manage
                     </button>
                     <button
                       onClick={() => void quickStatus(school, (school.status || "active") === "suspended" ? "active" : "suspended")}
                       disabled={saving}
-                      className="rounded-lg border border-white/10 px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-50"
+                      className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-xs font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-50"
                     >
                       {(school.status || "active") === "suspended" ? "Activate" : "Suspend"}
                     </button>
@@ -704,6 +702,23 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         className="w-full rounded-xl border border-white/10 bg-[#020817] px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500"
       />
+    </div>
+  )
+}
+
+function MetricTile({
+  label,
+  value,
+  color,
+}: {
+  label: string
+  value: number
+  color: string
+}) {
+  return (
+    <div className={`rounded-xl border border-white/10 bg-linear-to-br ${color} p-3`}>
+      <p className="text-[11px] font-medium text-slate-300">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-white">{value}</p>
     </div>
   )
 }
