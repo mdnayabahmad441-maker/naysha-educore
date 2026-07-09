@@ -82,7 +82,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }`
 
   return (
-    <div className="flex h-screen min-w-0 flex-col overflow-hidden bg-(--bg-main) text-(--text-main) md:flex-row">
+    <div className="theme-dashboard flex h-screen min-w-0 flex-col overflow-hidden bg-(--bg-main) text-(--text-main) md:flex-row">
       <div
         className={`fixed inset-0 z-30 bg-black/60 transition-opacity duration-200 md:hidden ${sidebarOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
         onClick={closeSidebar}
@@ -182,7 +182,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-(--bg-main) p-4 md:p-8">
+        <main className="theme-dashboard flex-1 overflow-y-auto bg-(--bg-main) p-4 md:p-8">
           <div className="page-enter min-w-0">{children}</div>
         </main>
       </div>

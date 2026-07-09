@@ -92,7 +92,7 @@ function toForm(school: School): SchoolForm {
 
 function domainLabel(school: School) {
   const tenant = school.subdomain || school.domain
-  return tenant ? `${tenant}.erp.naysha.online` : "Not set"
+  return tenant ? `${tenant}.naysha.online` : "Not set"
 }
 
 export default function SuperAdmin() {
@@ -315,7 +315,7 @@ export default function SuperAdmin() {
   }
 
   return (
-    <div className="min-h-screen bg-[#07101f] text-white">
+    <div className="theme-dashboard min-h-screen bg-(--bg-main) text-(--text-main)">
       <div className="mx-auto max-w-7xl space-y-5 px-3 py-4 sm:space-y-6 sm:px-6 sm:py-8 lg:px-8">
         <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div className="min-w-0">
@@ -341,33 +341,37 @@ export default function SuperAdmin() {
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
           {[
-            ["Schools", totals.schools],
-            ["Students", totals.students],
-            ["Teachers", totals.teachers],
-            ["Parents", totals.parents],
-            ["Classes", totals.classes],
-            ["Enquiries", totals.enquiries],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-xs uppercase tracking-widest text-slate-500">{label}</p>
-              <p className="mt-2 text-2xl font-bold">{value}</p>
-            </div>
+            ["Schools", totals.schools, "SC", "from-blue-500/35 via-cyan-500/20 to-slate-900", "text-cyan-100"],
+            ["Students", totals.students, "ST", "from-emerald-500/35 via-teal-500/20 to-slate-900", "text-emerald-100"],
+            ["Teachers", totals.teachers, "TE", "from-violet-500/35 via-fuchsia-500/20 to-slate-900", "text-violet-100"],
+            ["Parents", totals.parents, "PA", "from-amber-500/35 via-orange-500/20 to-slate-900", "text-amber-100"],
+            ["Classes", totals.classes, "CL", "from-rose-500/35 via-pink-500/20 to-slate-900", "text-rose-100"],
+            ["Enquiries", totals.enquiries, "EN", "from-sky-500/35 via-indigo-500/20 to-slate-900", "text-sky-100"],
+          ].map(([label, value, shortLabel, color, textColor]) => (
+            <DashboardStat
+              key={label}
+              label={String(label)}
+              value={Number(value)}
+              shortLabel={String(shortLabel)}
+              color={String(color)}
+              textColor={String(textColor)}
+            />
           ))}
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04]">
-          <div className="flex flex-col gap-3 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.9),rgba(8,17,31,0.98))] shadow-[0_20px_55px_rgba(0,0,0,0.22)]">
+          <div className="flex flex-col gap-3 border-b border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold">Schools</h2>
-              <p className="text-xs text-slate-500">Open a school to manage details, status, admin access, or deletion.</p>
+              <p className="text-xs text-slate-400">Open a school to manage details, status, admin access, or deletion.</p>
             </div>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search schools..."
-              className="w-full rounded-xl border border-white/10 bg-[#08111f] px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 sm:max-w-xs"
+              className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500 sm:max-w-xs"
             />
           </div>
 
@@ -453,20 +457,20 @@ export default function SuperAdmin() {
             </div>
 
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[980px] text-sm">
-                <thead className="border-b border-white/10 text-xs uppercase tracking-widest text-slate-500">
+              <table className="w-full min-w-[1180px] text-sm">
+                <thead className="border-b border-white/10 bg-black/10 text-xs uppercase tracking-widest text-slate-400">
                   <tr>
                     <th className="px-5 py-3 text-left">School</th>
                     <th className="px-5 py-3 text-left">Domain</th>
                     <th className="px-5 py-3 text-left">Status</th>
-                    <th className="px-5 py-3 text-left">Counts</th>
+                    <th className="min-w-[300px] px-5 py-3 text-left">Dashboard</th>
                     <th className="px-5 py-3 text-left">Created</th>
                     <th className="px-5 py-3 text-right">Control</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((school) => (
-                    <tr key={school.id} className="border-b border-white/5 hover:bg-white/[0.03]">
+                    <tr key={school.id} className="border-b border-white/5 bg-white/[0.015] hover:bg-white/[0.045]">
                       <td className="px-5 py-4">
                         <p className="font-semibold">{school.name || "Unnamed school"}</p>
                         <p className="text-xs text-slate-500">{school.email || "No admin email"}</p>
@@ -504,21 +508,25 @@ export default function SuperAdmin() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-xs text-slate-400">
-                        {school.stats.students} students · {school.stats.teachers} teachers · {school.stats.parents} parents
+                      <td className="min-w-[300px] px-5 py-4">
+                        <div className="grid grid-cols-3 gap-3 text-xs">
+                          <MiniMetric label="Students" value={school.stats.students} className="border-blue-400/20 bg-blue-500/10 text-blue-100" />
+                          <MiniMetric label="Teachers" value={school.stats.teachers} className="border-violet-400/20 bg-violet-500/10 text-violet-100" />
+                          <MiniMetric label="Parents" value={school.stats.parents} className="border-emerald-400/20 bg-emerald-500/10 text-emerald-100" />
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-slate-400">
                         {school.created_at ? new Date(school.created_at).toLocaleDateString("en-IN") : "-"}
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex justify-end gap-2">
-                          <button onClick={() => openEdit(school)} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/10">
+                          <button onClick={() => openEdit(school)} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] hover:bg-blue-500">
                             Manage
                           </button>
                           <button
                             onClick={() => void quickStatus(school, (school.status || "active") === "suspended" ? "active" : "suspended")}
                             disabled={saving}
-                            className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-50"
+                            className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-50"
                           >
                             {(school.status || "active") === "suspended" ? "Activate" : "Suspend"}
                           </button>
@@ -719,6 +727,53 @@ function MetricTile({
     <div className={`rounded-xl border border-white/10 bg-linear-to-br ${color} p-3`}>
       <p className="text-[11px] font-medium text-slate-300">{label}</p>
       <p className="mt-1 text-2xl font-bold text-white">{value}</p>
+    </div>
+  )
+}
+
+function DashboardStat({
+  label,
+  value,
+  shortLabel,
+  color,
+  textColor,
+}: {
+  label: string
+  value: number
+  shortLabel: string
+  color: string
+  textColor: string
+}) {
+  return (
+    <div className={`relative min-h-[118px] overflow-hidden rounded-2xl border border-white/10 bg-linear-to-br ${color} p-4 shadow-[0_18px_42px_rgba(0,0,0,0.24)]`}>
+      <div className="absolute -right-5 -top-5 h-20 w-20 rounded-full bg-white/10" />
+      <div className="absolute -bottom-8 right-8 h-16 w-16 rounded-full bg-black/15" />
+      <div className="relative flex h-full flex-col justify-between">
+        <div className="flex items-start justify-between gap-3">
+          <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${textColor}`}>{label}</p>
+          <span className="rounded-xl border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-bold text-white/80">
+            {shortLabel}
+          </span>
+        </div>
+        <p className="mt-5 text-3xl font-black leading-none text-white sm:text-4xl">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+function MiniMetric({
+  label,
+  value,
+  className,
+}: {
+  label: string
+  value: number
+  className: string
+}) {
+  return (
+    <div className={`min-w-[82px] rounded-xl border px-3 py-2 ${className}`}>
+      <p className="whitespace-nowrap text-[10px] font-semibold leading-none opacity-75">{label}</p>
+      <p className="mt-2 text-lg font-bold leading-none">{value}</p>
     </div>
   )
 }

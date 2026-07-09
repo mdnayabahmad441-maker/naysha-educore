@@ -11,6 +11,8 @@ import { apiFetch } from "@/lib/api-client"
 import {
   BarChart,
   Bar,
+  CartesianGrid,
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
@@ -32,6 +34,13 @@ const [fees,setFees] = useState(0)
 
 const [,setAttendance] = useState(0)
 const [classAttendance,setClassAttendance] = useState<any[]>([])
+const [teacherAttendance,setTeacherAttendance] = useState({
+present: 0,
+late: 0,
+absent: 0,
+notMarked: 0,
+percent: 0,
+})
 
 const [recentStudents,setRecentStudents] = useState<any[]>([])
 const [recentPayments,setRecentPayments] = useState<any[]>([])
@@ -56,6 +65,12 @@ name: string
 type ChatMessage = {
 role: "user" | "assistant"
 content: string
+}
+
+const attendanceBarColor = (percent: number) => {
+if(percent >= 90) return "#10b981"
+if(percent >= 75) return "#f59e0b"
+return "#ef4444"
 }
 
 useEffect(()=>{
@@ -99,6 +114,7 @@ const { count:teacherCount } = await supabase
 .eq("school_id",schoolId)
 
 setTeachers(teacherCount || 0)
+const totalTeachers = teacherCount || 0
 
 /* CLASSES */
 const { count:classCount } = await supabase
@@ -173,6 +189,27 @@ setClassAttendance(formatted)
 
 const overall = total ? Math.round((totalPresent/total)*100) : 0
 setAttendance(overall)
+
+/* TEACHER ATTENDANCE */
+if(roleData?.role !== "teacher"){
+const teacherAttendanceResponse = await apiFetch(`/api/admin/teacher-attendance?view=day&date=${todayISO}`)
+const teacherAttendanceResult = await teacherAttendanceResponse.json().catch(() => ({}))
+const teacherRecords = teacherAttendanceResponse.ok && teacherAttendanceResult.success
+  ? (teacherAttendanceResult.records || [])
+  : []
+const teacherPresent = teacherRecords.filter((record:any)=>record.status === "present").length
+const teacherLate = teacherRecords.filter((record:any)=>record.status === "late").length
+const teacherAbsent = teacherRecords.filter((record:any)=>record.status === "absent").length
+const teacherMarked = teacherPresent + teacherLate + teacherAbsent
+
+setTeacherAttendance({
+  present: teacherPresent,
+  late: teacherLate,
+  absent: teacherAbsent,
+  notMarked: Math.max(totalTeachers - teacherMarked, 0),
+  percent: totalTeachers ? Math.round(((teacherPresent + teacherLate) / totalTeachers) * 100) : 0,
+})
+}
 
 /* ✅ FIXED RECENT STUDENTS (USE ENROLLMENTS) */
 const { data:studentsList } = await supabase
@@ -277,10 +314,10 @@ void sendAssistantMessage()
 
 return(
 
-<div className="mx-auto max-w-7xl space-y-8 text-white sm:space-y-10">
+<div className="mx-auto max-w-7xl space-y-4 text-white">
 
 {/* HEADER */}
-<div className="animate-fade-in flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+<div className="animate-fade-in flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 <div className="min-w-0">
 <h1 className="text-2xl font-bold leading-tight sm:text-3xl">
 {role === "teacher" ? "Teacher Dashboard" : `${schoolName} Dashboard`}
@@ -370,114 +407,178 @@ Send
 )}
 
 {/* STATS */}
-<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+<div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
 
-<div className="stat-card animate-slide-up stagger-1 rounded-xl border border-blue-500/20 bg-blue-600/20 p-5 sm:p-6">
+<div className="stat-card animate-slide-up stagger-1 rounded-xl border border-blue-500/20 bg-blue-600/20 p-4">
 <p className="text-gray-400 text-sm">Students</p>
-<p className="text-3xl font-bold">{students}</p>
+<p className="text-2xl font-bold">{students}</p>
 </div>
 
 {role !== "teacher" && (
-<div className="stat-card animate-slide-up stagger-2 rounded-xl border border-purple-500/20 bg-purple-600/20 p-5 sm:p-6">
+<div className="stat-card animate-slide-up stagger-2 rounded-xl border border-purple-500/20 bg-purple-600/20 p-4">
 <p className="text-gray-400 text-sm">Teachers</p>
-<p className="text-3xl font-bold">{teachers}</p>
+<p className="text-2xl font-bold">{teachers}</p>
 </div>
 )}
 
-<div className="stat-card animate-slide-up stagger-3 rounded-xl border border-green-500/20 bg-green-600/20 p-5 sm:p-6">
+<div className="stat-card animate-slide-up stagger-3 rounded-xl border border-green-500/20 bg-green-600/20 p-4">
 <p className="text-gray-400 text-sm">Classes</p>
-<p className="text-3xl font-bold">{classes}</p>
+<p className="text-2xl font-bold">{classes}</p>
 </div>
 
 {role !== "teacher" && (
-<div className="stat-card animate-slide-up stagger-4 rounded-xl border border-yellow-500/20 bg-yellow-600/20 p-5 sm:p-6">
+<div className="stat-card animate-slide-up stagger-4 rounded-xl border border-yellow-500/20 bg-yellow-600/20 p-4">
 <p className="text-gray-400 text-sm">Fees</p>
-<p className="text-3xl font-bold">₹{fees}</p>
+<p className="text-2xl font-bold">₹{fees}</p>
+</div>
+)}
+
+{role !== "teacher" && (
+<div className="stat-card animate-slide-up stagger-5 rounded-xl border border-cyan-500/20 bg-cyan-600/20 p-4">
+<p className="text-gray-400 text-sm">Teacher Attendance</p>
+<p className="text-2xl font-bold">{teacherAttendance.percent}%</p>
+<p className="mt-2 text-xs text-gray-400">
+{teacherAttendance.present} present &middot; {teacherAttendance.late} late &middot; {teacherAttendance.absent} absent
+</p>
 </div>
 )}
 
 </div>
 
 {/* ATTENDANCE */}
-<div className="animate-slide-up stagger-2 bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+<div className="animate-slide-up stagger-2 grid gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
+<div className="rounded-xl border border-white/10 bg-white/5 p-4">
+<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+<div>
 <h2 className="text-lg font-semibold">Today&apos;s Attendance</h2>
-
-{classAttendance.map((c:any,i:number)=>(
-<div key={i}>
-<div className="flex justify-between text-sm text-gray-400 mb-1">
-<span>{c.name}</span>
-<span>{c.percent}%</span>
+<p className="mt-1 text-sm text-gray-400">Class-wise percentage view for quick scanning.</p>
+</div>
+<span className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Students</span>
 </div>
 
-<div className="w-full bg-white/10 rounded-full h-2">
-<div
-className={`h-2 rounded-full ${
-c.percent > 90 ? "bg-green-400" :
-c.percent > 75 ? "bg-yellow-400" :
-"bg-red-400"
-}`}
-style={{ width: `${c.percent}%` }}
+{classAttendance.length === 0 ? (
+<p className="py-12 text-center text-sm text-gray-400">No attendance marked today</p>
+) : (
+<div className="mt-3 h-44 min-w-0">
+<ResponsiveContainer width="100%" height="100%">
+<BarChart data={classAttendance} margin={{ top: 18, right: 8, left: -18, bottom: 6 }}>
+<CartesianGrid stroke="rgba(148,163,184,0.16)" vertical={false} />
+<XAxis
+dataKey="name"
+stroke="var(--text-muted)"
+tick={{ fill: "var(--text-muted)", fontSize: 12 }}
+tickLine={false}
+axisLine={{ stroke: "rgba(148,163,184,0.22)" }}
+interval={0}
 />
-</div>
-</div>
+<YAxis
+domain={[0, 100]}
+stroke="var(--text-muted)"
+tick={{ fill: "var(--text-muted)", fontSize: 12 }}
+tickFormatter={(value)=>`${value}%`}
+tickLine={false}
+axisLine={false}
+/>
+<Tooltip
+cursor={{ fill: "rgba(148,163,184,0.08)" }}
+contentStyle={{
+  background: "var(--bg-card)",
+  border: "1px solid var(--border)",
+  borderRadius: 12,
+  color: "var(--text-main)",
+}}
+formatter={(value)=>[`${value}%`, "Attendance"]}
+/>
+<Bar dataKey="percent" radius={[6,6,0,0]} barSize={34}>
+{classAttendance.map((entry:any,index:number)=>(
+<Cell key={`attendance-${index}`} fill={attendanceBarColor(Number(entry.percent) || 0)} />
 ))}
-</div>
-
-{/* CHART */}
-<div className="animate-slide-up stagger-3 bg-white/5 border border-white/10 rounded-xl p-6">
-<h2 className="mb-4 font-semibold">Attendance Overview</h2>
-
-<ResponsiveContainer width="100%" height={250}>
-<BarChart data={classAttendance}>
-<XAxis dataKey="name" stroke="#888"/>
-<YAxis stroke="#888"/>
-<Tooltip />
-<Bar dataKey="percent" fill="#3b82f6" />
+</Bar>
 </BarChart>
 </ResponsiveContainer>
 </div>
+)}
+</div>
+
+{role !== "teacher" && (
+<div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3">
+<div className="flex items-start justify-between gap-3">
+<div>
+<h2 className="text-lg font-semibold">Teacher Attendance</h2>
+<p className="mt-1 text-sm text-gray-400">Staff status for today.</p>
+</div>
+<button
+type="button"
+onClick={()=>router.push("/admin/teacher-attendance")}
+className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20"
+>
+Manage
+</button>
+</div>
+
+<div className="mt-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-3 text-center">
+<p className="text-sm text-gray-400">Overall Staff Attendance</p>
+<p className="mt-1 text-3xl font-black text-cyan-100">{teacherAttendance.percent}%</p>
+</div>
+
+<div className="mt-2 grid grid-cols-2 gap-2">
+{[
+["Present", teacherAttendance.present, "text-emerald-300", "border-emerald-400/20 bg-emerald-400/10"],
+["Late", teacherAttendance.late, "text-amber-300", "border-amber-400/20 bg-amber-400/10"],
+["Absent", teacherAttendance.absent, "text-red-300", "border-red-400/20 bg-red-400/10"],
+["Not marked", teacherAttendance.notMarked, "text-slate-300", "border-slate-400/20 bg-slate-400/10"],
+].map(([label,value,color,boxClass])=>(
+<div key={String(label)} className={`rounded-xl border p-2 ${boxClass}`}>
+<p className="text-xs text-gray-400">{label}</p>
+<p className={`mt-1 text-xl font-bold ${color}`}>{value}</p>
+</div>
+))}
+</div>
+</div>
+)}
+</div>
 
 {/* QUICK ACTIONS */}
-<div className="animate-slide-up stagger-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+<div className="animate-slide-up stagger-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
 
-<button onClick={()=>router.push("/admin/students/create")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition">Add Student</button>
+<button onClick={()=>router.push("/admin/students/create")} className="rounded-xl border border-blue-400/20 bg-blue-500/10 p-3 text-sm font-semibold text-blue-100 transition hover:bg-blue-500/20">Add Student</button>
 
 {role !== "teacher" && (
-<button onClick={()=>router.push("/admin/teachers?add=teacher")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition">Add Teacher</button>
+<button onClick={()=>router.push("/admin/teachers?add=teacher")} className="rounded-xl border border-purple-400/20 bg-purple-500/10 p-3 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/20">Add Teacher</button>
 )}
 
-<button onClick={()=>router.push("/admin/classes")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition">Manage Classes</button>
+<button onClick={()=>router.push("/admin/classes")} className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/20">Manage Classes</button>
 
 {role !== "teacher" && (
-<button onClick={()=>router.push("/admin/fees")} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition">Collect Fees</button>
+<button onClick={()=>router.push("/admin/fees")} className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-500/20">Collect Fees</button>
 )}
 
 </div>
 
 {/* LOWER */}
-<div className="animate-slide-up stagger-5 grid md:grid-cols-2 gap-6">
+<div className="animate-slide-up stagger-5 grid gap-3 lg:grid-cols-2">
 
-<div className="bg-white/5 border border-white/10 p-6 rounded-xl">
-<h2 className="text-lg mb-4">Recent Students</h2>
+<div className="rounded-xl border border-white/10 bg-white/5 p-3">
+<h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Recent Students</h2>
 
-{recentStudents.map(s=>(
-<div key={s.id} className="flex justify-between border-b border-white/10 pb-2 mb-2">
-<span>{s.name}</span>
+{recentStudents.slice(0,3).map(s=>(
+<div key={s.id} className="flex items-center justify-between gap-3 border-b border-white/10 py-1.5 last:border-b-0">
+<span className="min-w-0 truncate text-sm">{s.name}</span>
 {role !== "teacher" && (
-<button onClick={()=>router.push(`/admin/students/${s.id}`)} className="text-blue-400 text-sm">View</button>
+<button onClick={()=>router.push(`/admin/students/${s.id}`)} className="text-sm font-semibold text-blue-300">View</button>
 )}
 </div>
 ))}
 </div>
 
 {role !== "teacher" && (
-<div className="bg-white/5 border border-white/10 p-6 rounded-xl">
-<h2 className="text-lg mb-4">Recent Payments</h2>
+<div className="rounded-xl border border-white/10 bg-white/5 p-3">
+<h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Recent Payments</h2>
 
-{recentPayments.map(p=>(
-<div key={p.id} className="flex justify-between border-b border-white/10 pb-2 mb-2">
+{recentPayments.slice(0,3).map(p=>(
+<div key={p.id} className="flex items-center justify-between gap-3 border-b border-white/10 py-1.5 last:border-b-0">
 <span>₹{p.amount}</span>
-<span className="text-gray-400 text-sm">{p.date}</span>
+<span className="text-xs text-gray-400">{p.date}</span>
 </div>
 ))}
 </div>

@@ -12,6 +12,8 @@ import { useSchool } from "@/context/SchoolContext"
 import {
   BarChart,
   Bar,
+  CartesianGrid,
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
@@ -22,6 +24,12 @@ type AiDigest = {
   summary: string
   highlights: string[]
   alerts: string[]
+}
+
+const attendanceBarColor = (percent: number) => {
+  if (percent >= 90) return "#10b981"
+  if (percent >= 75) return "#f59e0b"
+  return "#ef4444"
 }
 
 export default function DashboardPage() {
@@ -36,6 +44,13 @@ export default function DashboardPage() {
   const [attendance,setAttendance] = useState(0)
   const [classAttendance,setClassAttendance] = useState<any[]>([])
   const [absentCount,setAbsentCount] = useState(0)
+  const [teacherAttendance,setTeacherAttendance] = useState({
+    present: 0,
+    late: 0,
+    absent: 0,
+    notMarked: 0,
+    percent: 0,
+  })
 
   const [collected,setCollected] = useState(0)
   const [pending,setPending] = useState(0)
@@ -116,6 +131,7 @@ export default function DashboardPage() {
         setStudents(studentsCount || 0)
         setTeachers(teachersCount || 0)
         setClasses(classesCount || 0)
+        const totalTeachers = teachersCount || 0
 
         // ================= ATTENDANCE =================
         const todayISO = new Date().toISOString().split("T")[0]
@@ -174,6 +190,25 @@ export default function DashboardPage() {
         setAttendance(overall)
         setClassAttendance(formatted)
         setAbsentCount(total - totalPresent)
+
+        // ================= TEACHER ATTENDANCE =================
+        const teacherAttendanceResponse = await apiFetch(`/api/admin/teacher-attendance?view=day&date=${todayISO}`)
+        const teacherAttendanceResult = await teacherAttendanceResponse.json().catch(() => ({}))
+        const teacherRecords = teacherAttendanceResponse.ok && teacherAttendanceResult.success
+          ? (teacherAttendanceResult.records || [])
+          : []
+        const teacherPresent = teacherRecords.filter((record:any) => record.status === "present").length
+        const teacherLate = teacherRecords.filter((record:any) => record.status === "late").length
+        const teacherAbsent = teacherRecords.filter((record:any) => record.status === "absent").length
+        const teacherMarked = teacherPresent + teacherLate + teacherAbsent
+
+        setTeacherAttendance({
+          present: teacherPresent,
+          late: teacherLate,
+          absent: teacherAbsent,
+          notMarked: Math.max(totalTeachers - teacherMarked, 0),
+          percent: totalTeachers ? Math.round(((teacherPresent + teacherLate) / totalTeachers) * 100) : 0,
+        })
 
         // ================= FEES =================
         const { data: fees } = await supabase
@@ -252,7 +287,8 @@ export default function DashboardPage() {
             collected,
             pending,
             newEnquiries: newEnquiriesCount,
-            absentCount
+            absentCount,
+            teacherAttendance: teacherAttendance.percent
           }
         })
       })
@@ -277,7 +313,7 @@ export default function DashboardPage() {
 
   return(
 
-    <div className="space-y-8 text-white sm:space-y-10">
+    <div className="space-y-5 text-white">
 
       {/* 🔥 HEADER (SaaS STYLE) */}
       <div className="space-y-2">
@@ -297,7 +333,7 @@ export default function DashboardPage() {
       </div>
 
       {/* AI DAILY DIGEST */}
-      <Card className="border border-cyan-500/20 bg-cyan-500/5 space-y-4">
+      <Card className="border border-cyan-500/20 bg-cyan-500/5 space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <span className="text-cyan-400 text-lg">✦</span>
@@ -353,7 +389,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* 🔥 CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
 
         <Card className="hover:scale-[1.02] transition">
           <p className="text-gray-400 text-sm">Students</p>
@@ -375,53 +411,109 @@ export default function DashboardPage() {
           <p className="text-3xl font-bold mt-2">{attendance}%</p>
         </Card>
 
+        <Card className="border border-cyan-500/20 bg-cyan-500/10 hover:scale-[1.02] transition">
+          <p className="text-gray-400 text-sm">Teacher Attendance</p>
+          <p className="text-3xl font-bold mt-2">{teacherAttendance.percent}%</p>
+          <p className="mt-2 text-xs text-gray-400">
+            {teacherAttendance.present} present &middot; {teacherAttendance.late} late &middot; {teacherAttendance.absent} absent
+          </p>
+        </Card>
+
       </div>
 
       {/* 🔥 MAIN GRID */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
 
         {/* 📊 ATTENDANCE */}
-        <Card className="lg:col-span-2 space-y-4">
+        <Card className="space-y-5">
 
-          <h2 className="text-lg font-semibold">Today&apos;s Attendance</h2>
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Today&apos;s Attendance</h2>
+              <p className="mt-1 text-sm text-gray-400">Class-wise percentage view for quick scanning.</p>
+            </div>
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Students</span>
+          </div>
 
           {classAttendance.length === 0 ? (
-            <p className="text-sm text-gray-400">No attendance marked today</p>
+            <p className="py-12 text-center text-sm text-gray-400">No attendance marked today</p>
           ) : (
-            classAttendance.map((c,i)=>(
-              <div key={i}>
-
-                <div className="flex justify-between text-sm text-gray-400">
-                  <span>{c.name}</span>
-                  <span>{c.percent}%</span>
-                </div>
-
-                <div className="h-2 bg-white/10 rounded-full mt-1">
-                  <div
-                    className={`h-2 rounded-full ${
-                      c.percent > 90 ? "bg-green-400" :
-                      c.percent > 75 ? "bg-yellow-400" :
-                      "bg-red-400"
-                    }`}
-                    style={{ width: `${c.percent}%` }}
+            <div className="h-60 min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={classAttendance} margin={{ top: 18, right: 8, left: -18, bottom: 6 }}>
+                  <CartesianGrid stroke="rgba(148,163,184,0.16)" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    stroke="var(--text-muted)"
+                    tick={{ fill: "var(--text-muted)", fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={{ stroke: "rgba(148,163,184,0.22)" }}
+                    interval={0}
                   />
-                </div>
-
-              </div>
-            ))
+                  <YAxis
+                    domain={[0, 100]}
+                    stroke="var(--text-muted)"
+                    tick={{ fill: "var(--text-muted)", fontSize: 12 }}
+                    tickFormatter={(value) => `${value}%`}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "rgba(148,163,184,0.08)" }}
+                    contentStyle={{
+                      background: "var(--bg-card)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 12,
+                      color: "var(--text-main)",
+                    }}
+                    formatter={(value) => [`${value}%`, "Attendance"]}
+                  />
+                  <Bar dataKey="percent" radius={[6, 6, 0, 0]} barSize={34}>
+                    {classAttendance.map((entry:any, index:number) => (
+                      <Cell key={`attendance-${index}`} fill={attendanceBarColor(Number(entry.percent) || 0)} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           )}
 
         </Card>
 
         {/* 📅 EVENTS (READY FOR DB) */}
-        <Card className="space-y-4">
+        <Card className="border border-cyan-500/20 bg-cyan-500/10 space-y-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Teacher Attendance</h2>
+              <p className="mt-1 text-sm text-gray-400">Staff status for today.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/admin/teacher-attendance")}
+              className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20"
+            >
+              Manage
+            </button>
+          </div>
 
-          <h2 className="text-lg font-semibold">Upcoming Events</h2>
+          <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 text-center">
+            <p className="text-sm text-gray-400">Overall Staff Attendance</p>
+            <p className="mt-1 text-4xl font-black text-cyan-100">{teacherAttendance.percent}%</p>
+          </div>
 
-          <p className="text-sm text-gray-400">
-            Connect events table to show here
-          </p>
-
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              ["Present", teacherAttendance.present, "text-emerald-300", "border-emerald-400/20 bg-emerald-400/10"],
+              ["Late", teacherAttendance.late, "text-amber-300", "border-amber-400/20 bg-amber-400/10"],
+              ["Absent", teacherAttendance.absent, "text-red-300", "border-red-400/20 bg-red-400/10"],
+              ["Not marked", teacherAttendance.notMarked, "text-slate-300", "border-slate-400/20 bg-slate-400/10"],
+            ].map(([label, value, color, boxClass]) => (
+              <div key={String(label)} className={`rounded-xl border p-3 ${boxClass}`}>
+                <p className="text-xs text-gray-400">{label}</p>
+                <p className={`mt-1 text-2xl font-bold ${color}`}>{value}</p>
+              </div>
+            ))}
+          </div>
         </Card>
 
       </div>
@@ -479,7 +571,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Fees */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
         <Card className="bg-green-500/10 border border-green-500/20">
           <p className="text-sm text-gray-400">Collected</p>

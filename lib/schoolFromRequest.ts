@@ -9,9 +9,11 @@ export async function getSchoolFromRequest(req: Request) {
     // example: patna.naysha.online
     const subdomain = parts[0]
 
-    // ignore main domain
+    // ignore platform/root domains
     if (
+      host === "naysha.online" ||
       subdomain === "erp" ||
+      subdomain === "naysha" ||
       subdomain === "www" ||
       host.includes("localhost") ||
       host.includes("127.0.0.1")

@@ -530,12 +530,12 @@ export default function SettingsPage() {
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
                   <code className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-sm text-cyan-300">
-                    {`https://erp.naysha.online/admission-enquiry?school=${school.subdomain}`}
+                    {`https://${school.subdomain}.naysha.online/admission-enquiry`}
                   </code>
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(`https://erp.naysha.online/admission-enquiry?school=${school.subdomain}`)
+                      navigator.clipboard.writeText(`https://${school.subdomain}.naysha.online/admission-enquiry`)
                       alert("Link copied!")
                     }}
                     className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/20"

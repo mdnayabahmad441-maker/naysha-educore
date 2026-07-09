@@ -85,15 +85,15 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#020c1b] text-white">
+      <div className="flex min-h-screen items-center justify-center bg-(--bg-main) text-(--text-main)">
         Loading...
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen min-w-0 flex-col overflow-hidden bg-[#020c1b] text-white md:flex-row">
-      <aside className="hidden w-64 shrink-0 bg-[#0b1a33] p-6 md:block">
+    <div className="theme-dashboard flex h-screen min-w-0 flex-col overflow-hidden bg-(--bg-main) text-(--text-main) md:flex-row">
+      <aside className="hidden w-64 shrink-0 bg-(--bg-card) p-6 md:block">
         <h1 className="mb-6 text-xl font-bold">Parent Panel</h1>
 
         <nav className="flex flex-col gap-2">
@@ -116,7 +116,7 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="shrink-0 border-b border-white/10 bg-[#0b1a33] px-4 py-4 md:px-6">
+        <header className="shrink-0 border-b border-(--border) bg-(--bg-card) px-4 py-4 md:px-6">
           <div className="flex items-center justify-between gap-3">
             <h2 className="min-w-0 truncate text-lg font-semibold">Parent Dashboard</h2>
             <button

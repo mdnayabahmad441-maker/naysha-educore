@@ -116,7 +116,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
   }
 
   return (
-    <div className="flex h-screen min-w-0 overflow-hidden bg-(--bg-main) text-(--text-main)">
+    <div className="theme-dashboard flex h-screen min-w-0 overflow-hidden bg-(--bg-main) text-(--text-main)">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={() => setSidebarOpen(false)} />
@@ -225,7 +225,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-8">
+        <main className="theme-dashboard flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-8">
           {children}
         </main>
 
