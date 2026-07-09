@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server"
 import { requireAuthorizedProfile } from "@/lib/api-auth"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import {
+  getNotificationControlsMap,
+  mergeNotificationControls,
+  saveNotificationControls,
+  type NotificationControls,
+} from "@/lib/notification-controls"
 
 type SchoolRow = {
   id: string
@@ -15,11 +21,22 @@ type SchoolRow = {
   subscription_status?: string | null
   subscription_ends_at?: string | null
   ai_enabled?: boolean | null
+  fee_notifications_enabled?: boolean | null
+  other_notifications_enabled?: boolean | null
   notes?: string | null
   created_at?: string | null
 }
 
-const optionalSchoolFields = ["status", "plan", "subscription_status", "subscription_ends_at", "ai_enabled", "notes"]
+const optionalSchoolFields = [
+  "status",
+  "plan",
+  "subscription_status",
+  "subscription_ends_at",
+  "ai_enabled",
+  "fee_notifications_enabled",
+  "other_notifications_enabled",
+  "notes",
+]
 
 function isSchemaColumnError(error: { code?: string; message?: string; details?: string } | null) {
   const text = `${error?.code || ""} ${error?.message || ""} ${error?.details || ""}`.toLowerCase()
@@ -243,9 +260,14 @@ async function updateSchool(schoolId: string, updates: Record<string, unknown>) 
     throw new Error("School name, email, and subdomain are required")
   }
 
+  const notificationControls: NotificationControls = {
+    fee_notifications_enabled: Boolean(updates.fee_notifications_enabled),
+    other_notifications_enabled: Boolean(updates.other_notifications_enabled),
+  }
+
   const fullUpdate: Record<string, unknown> = { ...coreUpdate }
   for (const field of optionalSchoolFields) {
-    if (field === "ai_enabled" && field in updates) {
+    if ((field === "ai_enabled" || field === "fee_notifications_enabled" || field === "other_notifications_enabled") && field in updates) {
       fullUpdate[field] = Boolean(updates[field])
     } else if (field in updates) {
       fullUpdate[field] = normalizeNullableText(updates[field])
@@ -260,7 +282,8 @@ async function updateSchool(schoolId: string, updates: Record<string, unknown>) 
     .single()
 
   if (!first.error) {
-    return { school: first.data as SchoolRow, warning: "" }
+    await saveNotificationControls(schoolId, notificationControls)
+    return { school: mergeNotificationControls(first.data as SchoolRow, notificationControls), warning: "" }
   }
 
   if (!isSchemaColumnError(first.error)) {
@@ -276,9 +299,11 @@ async function updateSchool(schoolId: string, updates: Record<string, unknown>) 
 
   if (fallback.error) throw fallback.error
 
+  await saveNotificationControls(schoolId, notificationControls)
+
   return {
-    school: fallback.data as SchoolRow,
-    warning: "Saved core school details. Run super_admin_control_schema.sql to enable status, plan, and notes fields.",
+    school: mergeNotificationControls(fallback.data as SchoolRow, notificationControls),
+    warning: "Saved school details. Run super_admin_control_schema.sql to store optional controls directly on schools.",
   }
 }
 
@@ -293,9 +318,11 @@ export async function GET(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  const rows = (data || []) as SchoolRow[]
+  const controls = await getNotificationControlsMap(rows.map((school) => school.id))
   const schools = await Promise.all(
-    ((data || []) as SchoolRow[]).map(async (school) => ({
-      ...school,
+    rows.map(async (school) => ({
+      ...mergeNotificationControls(school, controls.get(school.id) || null),
       stats: await getSchoolStats(school.id),
     }))
   )
@@ -347,7 +374,14 @@ export async function POST(req: Request) {
       subscription_status: normalizeNullableText(body.subscription_status) || "trial",
       subscription_ends_at: normalizeNullableText(body.subscription_ends_at),
       ai_enabled: Boolean(body.ai_enabled),
+      fee_notifications_enabled: Boolean(body.fee_notifications_enabled),
+      other_notifications_enabled: Boolean(body.other_notifications_enabled),
       notes: normalizeNullableText(body.notes),
+    }
+
+    const notificationControls: NotificationControls = {
+      fee_notifications_enabled: Boolean(body.fee_notifications_enabled),
+      other_notifications_enabled: Boolean(body.other_notifications_enabled),
     }
 
     let created = await supabaseAdmin.from("schools").insert(insertPayload).select("*").single()
@@ -362,11 +396,16 @@ export async function POST(req: Request) {
 
     if (created.error) throw created.error
 
+    await saveNotificationControls((created.data as SchoolRow).id, notificationControls)
+
     if (body.adminPassword) {
       await ensureSchoolAdminAccount(created.data as SchoolRow, String(body.adminPassword || ""))
     }
 
-    return NextResponse.json({ success: true, school: created.data })
+    return NextResponse.json({
+      success: true,
+      school: mergeNotificationControls(created.data as SchoolRow, notificationControls),
+    })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Could not create school" },

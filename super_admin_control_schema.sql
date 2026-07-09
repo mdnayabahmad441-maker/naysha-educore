@@ -6,6 +6,8 @@ ALTER TABLE public.schools
   ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial',
   ADD COLUMN IF NOT EXISTS subscription_ends_at DATE,
   ADD COLUMN IF NOT EXISTS ai_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS fee_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  ADD COLUMN IF NOT EXISTS other_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
   ADD COLUMN IF NOT EXISTS notes TEXT;
 
 DO $$
@@ -34,5 +36,7 @@ END $$;
 CREATE INDEX IF NOT EXISTS schools_status_idx ON public.schools(status);
 CREATE INDEX IF NOT EXISTS schools_subscription_status_idx ON public.schools(subscription_status);
 CREATE INDEX IF NOT EXISTS schools_ai_enabled_idx ON public.schools(ai_enabled);
+CREATE INDEX IF NOT EXISTS schools_fee_notifications_enabled_idx ON public.schools(fee_notifications_enabled);
+CREATE INDEX IF NOT EXISTS schools_other_notifications_enabled_idx ON public.schools(other_notifications_enabled);
 
 NOTIFY pgrst, 'reload schema';

@@ -26,6 +26,8 @@ type School = {
   subscription_status?: string | null
   subscription_ends_at?: string | null
   ai_enabled?: boolean | null
+  fee_notifications_enabled?: boolean | null
+  other_notifications_enabled?: boolean | null
   notes?: string | null
   created_at?: string | null
   stats: SchoolStats
@@ -43,6 +45,8 @@ type SchoolForm = {
   subscription_status: string
   subscription_ends_at: string
   ai_enabled: boolean
+  fee_notifications_enabled: boolean
+  other_notifications_enabled: boolean
   notes: string
   adminPassword: string
 }
@@ -59,6 +63,8 @@ const blankForm: SchoolForm = {
   subscription_status: "trial",
   subscription_ends_at: "",
   ai_enabled: false,
+  fee_notifications_enabled: true,
+  other_notifications_enabled: true,
   notes: "",
   adminPassword: "",
 }
@@ -76,6 +82,8 @@ function toForm(school: School): SchoolForm {
     subscription_status: school.subscription_status || "trial",
     subscription_ends_at: school.subscription_ends_at?.slice(0, 10) || "",
     ai_enabled: Boolean(school.ai_enabled),
+    fee_notifications_enabled: school.fee_notifications_enabled !== false,
+    other_notifications_enabled: school.other_notifications_enabled !== false,
     notes: school.notes || "",
     adminPassword: "",
   }
@@ -108,11 +116,13 @@ export default function SuperAdmin() {
       setError(result.error || "Could not load Super Admin control panel.")
       setSchools([])
       setLoading(false)
-      return
+      return []
     }
 
-    setSchools((result.schools as School[]) || [])
+    const nextSchools = (result.schools as School[]) || []
+    setSchools(nextSchools)
     setLoading(false)
+    return nextSchools
   }
 
   useEffect(() => {
@@ -196,9 +206,19 @@ export default function SuperAdmin() {
       return
     }
 
+    const savedSchool = result.school as School | undefined
     setNotice(result.warning || (creating ? "School created." : "School updated."))
-    await loadSchools()
-    if (creating) closePanel()
+    const nextSchools = await loadSchools()
+    if (creating) {
+      closePanel()
+      return
+    }
+
+    const refreshedSchool = nextSchools.find((school) => school.id === selected?.id) || savedSchool
+    if (refreshedSchool) {
+      setSelected(refreshedSchool)
+      setForm(toForm(refreshedSchool))
+    }
   }
 
   const setAdminPassword = async () => {
@@ -253,7 +273,14 @@ export default function SuperAdmin() {
     }
 
     setNotice(result.warning || `School ${status === "active" ? "activated" : "suspended"}.`)
-    await loadSchools()
+    const nextSchools = await loadSchools()
+    if (selected?.id === school.id) {
+      const refreshedSchool = nextSchools.find((item) => item.id === school.id)
+      if (refreshedSchool) {
+        setSelected(refreshedSchool)
+        setForm(toForm(refreshedSchool))
+      }
+    }
   }
 
   const deleteSchool = async () => {
@@ -374,6 +401,20 @@ export default function SuperAdmin() {
                           }`}>
                             AI {school.ai_enabled ? "Premium" : "Off"}
                           </span>
+                          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                            school.fee_notifications_enabled !== false
+                              ? "border-amber-400/20 bg-amber-400/10 text-amber-100"
+                              : "border-slate-400/20 bg-slate-400/10 text-slate-300"
+                          }`}>
+                            Fees {school.fee_notifications_enabled !== false ? "On" : "Off"}
+                          </span>
+                          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                            school.other_notifications_enabled !== false
+                              ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-100"
+                              : "border-slate-400/20 bg-slate-400/10 text-slate-300"
+                          }`}>
+                            Other {school.other_notifications_enabled !== false ? "On" : "Off"}
+                          </span>
                         </div>
                       </td>
                       <td className="px-5 py-4 text-xs text-slate-400">
@@ -469,6 +510,32 @@ export default function SuperAdmin() {
                     checked={form.ai_enabled}
                     onChange={(event) => updateBooleanForm("ai_enabled", event.target.checked)}
                     className="h-5 w-5 accent-purple-500"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between gap-4 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-amber-100">Fee Notifications</p>
+                    <p className="mt-1 text-xs text-amber-100/70">Allow this school to send fee-related notifications.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={form.fee_notifications_enabled}
+                    onChange={(event) => updateBooleanForm("fee_notifications_enabled", event.target.checked)}
+                    className="h-5 w-5 accent-amber-500"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between gap-4 rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-cyan-100">Other Notifications</p>
+                    <p className="mt-1 text-xs text-cyan-100/70">Allow this school to send general notices and other non-fee alerts.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={form.other_notifications_enabled}
+                    onChange={(event) => updateBooleanForm("other_notifications_enabled", event.target.checked)}
+                    className="h-5 w-5 accent-cyan-500"
                   />
                 </label>
 

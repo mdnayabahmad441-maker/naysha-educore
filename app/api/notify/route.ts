@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getBaseUrl, getInternalApiHeaders } from "@/lib/internal-api"
 import { ensureSameSchool, isInternalRequest, requireAdminProfile } from "@/lib/api-auth"
+import { requireNotificationEnabled } from "@/lib/notification-access"
 
 export async function POST(req: Request) {
   try {
@@ -36,6 +37,9 @@ export async function POST(req: Request) {
     if (adminSchoolId && adminSchoolId !== payment.school_id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
+
+    const permissionCheck = await requireNotificationEnabled(payment.school_id, "fee")
+    if (permissionCheck) return permissionCheck
 
     const { data: student } = await supabaseAdmin
       .from("students")

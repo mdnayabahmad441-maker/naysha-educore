@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { isInternalRequest, requireAuthorizedProfile } from "@/lib/api-auth"
 import { getBaseUrl, getInternalApiHeaders } from "@/lib/internal-api"
+import { requireNotificationEnabled } from "@/lib/notification-access"
 
 export async function POST(req: Request) {
   try {
@@ -21,6 +22,9 @@ export async function POST(req: Request) {
     if (!schoolId || !student_id || !title || !message) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
+
+    const permissionCheck = await requireNotificationEnabled(schoolId, "general")
+    if (permissionCheck) return permissionCheck
 
     const { error: dbError } = await supabaseAdmin
       .from("notifications")
