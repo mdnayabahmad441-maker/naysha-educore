@@ -328,24 +328,12 @@ return(
 </div>
 <button
   onClick={()=>setAssistantOpen(true)}
-  className="hidden items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-600/30 sm:flex sm:w-auto sm:shrink-0"
+  className="flex w-auto shrink-0 items-center justify-center gap-1.5 self-start rounded-xl border border-blue-500/30 bg-blue-600/20 px-3 py-2 text-xs font-semibold text-blue-200 transition hover:bg-blue-600/30 sm:gap-2 sm:px-4 sm:text-sm"
+  aria-label="Open Atlas"
 >
   <span>✦</span> Atlas
 </button>
 </div>
-
-{!assistantOpen && (
-<button
-  type="button"
-  onClick={()=>setAssistantOpen(true)}
-  className="fixed right-3 z-30 flex h-10 items-center gap-1.5 rounded-full border border-cyan-300/30 bg-[linear-gradient(135deg,#2563eb,#0891b2)] px-3 text-xs font-bold text-white shadow-[0_12px_28px_rgba(8,145,178,0.3)] transition active:scale-95 sm:hidden"
-  style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
-  aria-label="Open Atlas"
->
-  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/18 text-sm">✦</span>
-  <span>Atlas</span>
-</button>
-)}
 
 {assistantOpen && (
 <div className="fixed inset-x-3 bottom-3 top-20 z-40 flex flex-col overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#07111f] text-white shadow-[0_22px_70px_rgba(2,8,23,0.65)] sm:bottom-auto sm:left-auto sm:right-8 sm:top-24 sm:max-h-[calc(100dvh-7rem)] sm:w-[420px]">
