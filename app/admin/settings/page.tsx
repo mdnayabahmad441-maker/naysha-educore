@@ -484,7 +484,7 @@ export default function SettingsPage() {
     { id: "whatsapp", label: "WhatsApp" },
     { id: "bulk", label: "Bulk Import" },
     { id: "theme", label: "Theme" },
-    { id: "ai", label: "AI Assistant" },
+    { id: "ai", label: "Atlas" },
     { id: "about", label: "About" },
   ]
 

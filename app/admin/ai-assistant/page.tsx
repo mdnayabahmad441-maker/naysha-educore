@@ -79,7 +79,7 @@ export default function AdminAiAssistantPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6 text-white md:p-10">
       <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-        <h1 className="text-3xl font-bold">AI Assistant</h1>
+        <h1 className="text-3xl font-bold">Atlas</h1>
         <p className="mt-1 text-sm text-gray-400">
           Powered by live school data. Ask about reports, fees, attendance, or get AI to draft notices and messages.
         </p>
@@ -115,14 +115,14 @@ export default function AdminAiAssistantPage() {
                 }`}
               >
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-500">
-                  {msg.role === "assistant" ? "✦ AI" : "You"}
+                  {msg.role === "assistant" ? "✦ Atlas" : "You"}
                 </p>
                 <p className="whitespace-pre-wrap">{msg.content}</p>
               </div>
             ))}
             {sending && (
               <div className="mr-10 rounded-xl bg-white/5 px-4 py-3 text-sm text-gray-400">
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-500">✦ AI</p>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-500">✦ Atlas</p>
                 <span className="animate-pulse">Thinking...</span>
               </div>
             )}

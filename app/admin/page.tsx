@@ -330,25 +330,28 @@ return(
   onClick={()=>setAssistantOpen(true)}
   className="hidden items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-600/30 sm:flex sm:w-auto sm:shrink-0"
 >
-  <span>✦</span> AI Assistant
+  <span>✦</span> Atlas
 </button>
 </div>
 
+{!assistantOpen && (
 <button
   type="button"
   onClick={()=>setAssistantOpen(true)}
-  className="fixed right-4 top-20 z-30 flex items-center gap-2 rounded-full border border-cyan-300/30 bg-[linear-gradient(135deg,#2563eb,#0891b2)] px-4 py-2.5 text-sm font-bold text-white shadow-[0_18px_42px_rgba(8,145,178,0.35)] transition active:scale-95 sm:hidden"
-  aria-label="Open AI Assistant"
+  className="fixed right-3 z-30 flex h-10 items-center gap-1.5 rounded-full border border-cyan-300/30 bg-[linear-gradient(135deg,#2563eb,#0891b2)] px-3 text-xs font-bold text-white shadow-[0_12px_28px_rgba(8,145,178,0.3)] transition active:scale-95 sm:hidden"
+  style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
+  aria-label="Open Atlas"
 >
-  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/18 text-base">✦</span>
-  <span>AI Assistant</span>
+  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/18 text-sm">✦</span>
+  <span>Atlas</span>
 </button>
+)}
 
 {assistantOpen && (
-<div className="fixed inset-x-3 top-20 z-40 rounded-2xl border border-cyan-300/20 bg-[#07111f] text-white shadow-[0_22px_70px_rgba(2,8,23,0.65)] sm:left-auto sm:right-8 sm:top-24 sm:w-[420px]">
+<div className="fixed inset-x-3 bottom-3 top-20 z-40 flex flex-col overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#07111f] text-white shadow-[0_22px_70px_rgba(2,8,23,0.65)] sm:bottom-auto sm:left-auto sm:right-8 sm:top-24 sm:max-h-[calc(100dvh-7rem)] sm:w-[420px]">
 <div className="flex items-center justify-between gap-3 border-b border-white/10 p-4">
 <div>
-<p className="text-sm font-bold text-cyan-100">AI Assistant</p>
+<p className="text-sm font-bold text-cyan-100">Atlas</p>
 <p className="text-xs text-slate-400">Answers here on the dashboard</p>
 </div>
 <button
@@ -360,7 +363,7 @@ Close
 </button>
 </div>
 
-<div className="max-h-[48vh] min-h-[260px] space-y-3 overflow-y-auto p-4">
+<div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 sm:min-h-[260px]">
 {assistantMessages.map((message,index)=>(
 <div
 key={index}
@@ -371,7 +374,7 @@ message.role === "assistant"
 }`}
 >
 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-{message.role === "assistant" ? "AI" : "You"}
+{message.role === "assistant" ? "Atlas" : "You"}
 </p>
 <p className="whitespace-pre-wrap">{message.content}</p>
 </div>

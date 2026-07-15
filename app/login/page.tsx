@@ -239,32 +239,7 @@ export default function LoginPage() {
 
   return (
     <div className={`${bodyFont.className} min-h-screen bg-[#050b14] text-white`}>
-      <main className="mx-auto grid min-h-screen max-w-6xl gap-8 px-5 py-8 lg:grid-cols-[1fr_440px] lg:items-center lg:px-8">
-        <section className="space-y-8">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cyan-300">
-              NaySha EduCore
-            </p>
-            <h1 className={`${headingFont.className} mt-4 max-w-2xl text-4xl font-bold leading-tight md:text-5xl`}>
-              School ERP for daily academic and admin work.
-            </h1>
-            <p className="mt-4 max-w-xl text-base leading-7 text-slate-300">
-              Sign in to your school workspace.
-            </p>
-            <p className="mt-3 text-sm font-medium text-slate-500">
-              A product of <span className="text-slate-300">Groenics</span>
-            </p>
-          </div>
-
-          <div className="max-w-xl rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm font-semibold text-white">Need a school workspace?</p>
-            <p className="mt-2 text-sm leading-6 text-slate-300">
-              School workspaces are created by the Super Admin. Contact the platform owner
-              if your school has not been added yet.
-            </p>
-          </div>
-        </section>
-
+      <main className="mx-auto flex min-h-screen max-w-md items-center px-4 py-6 sm:px-6">
         <section className="w-full">
           <div className="rounded-2xl border border-white/10 bg-[#0b1424] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:p-6">
             <div className="mb-6">
@@ -479,24 +454,6 @@ export default function LoginPage() {
               </div>
             ) : null}
 
-            <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-slate-400 lg:hidden">
-              New school? Contact the Super Admin to create your workspace.
-            </div>
-
-            <div className="mt-5 border-t border-white/10 pt-4 text-center text-xs text-slate-500">
-              NaySha EduCore is a product of <span className="font-semibold text-slate-300">Groenics</span>
-            </div>
-            <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-slate-500">
-              <a href="/privacy" className="transition hover:text-slate-200">
-                Privacy Policy
-              </a>
-              <a href="/terms" className="transition hover:text-slate-200">
-                Terms
-              </a>
-              <a href="/data-deletion" className="transition hover:text-slate-200">
-                Data Deletion
-              </a>
-            </div>
           </div>
         </section>
       </main>
