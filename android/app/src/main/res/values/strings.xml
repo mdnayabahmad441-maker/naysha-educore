@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">NaySha EduCore</string>
-    <string name="title_activity_main">NaySha EduCore</string>
+    <string name="app_name">EduCore ERP</string>
+    <string name="title_activity_main">EduCore ERP</string>
     <string name="package_name">com.nayshaeducore.app</string>
     <string name="custom_url_scheme">com.nayshaeducore.app</string>
 </resources>

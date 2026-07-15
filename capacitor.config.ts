@@ -4,11 +4,12 @@ const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://erp.naysha.online"
 
 const config: CapacitorConfig = {
   appId: "com.nayshaeducore.app",
-  appName: "NaySha EduCore",
+  appName: "EduCore ERP",
   webDir: "public",
   server: {
     url: appUrl,
     cleartext: false,
+    allowNavigation: ["naysha.online", "*.naysha.online"],
   },
   android: {
     buildOptions: {
