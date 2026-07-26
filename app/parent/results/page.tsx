@@ -1,66 +1,86 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { getCurrentParentStudentIds } from "@/lib/role-access"
+import { useEffect,useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default function ParentResults() {
+export default function ParentResults(){
 
-  const [results, setResults] = useState<any[]>([])
+const [results,setResults] = useState<any[]>([])
+const [student,setStudent] = useState<any>(null)
 
-  useEffect(() => {
+useEffect(()=>{
+loadResults()
+},[])
 
-    const load = async () => {
+async function loadResults(){
 
-      const studentIds = await getCurrentParentStudentIds()
-      if (studentIds.length === 0) return
+const { data:userData } = await supabase.auth.getUser()
 
-      const { data } = await supabase
-        .from("results")
-        .select("*")
-        .in("student_id", studentIds)
-        .order("created_at", { ascending: false })
+const email = userData.user?.email
 
-      setResults(data || [])
-    }
+if(!email) return
 
-    load()
 
-  }, [])
+const { data:studentData } =
+await supabase
+.from("students")
+.select("*")
+.eq("parent_email",email)
+.single()
 
-  return (
-    <div className="rounded-xl bg-white/10 p-4 sm:p-6">
+if(!studentData) return
 
-      <h1 className="text-xl mb-4">Results</h1>
+setStudent(studentData)
 
-      <div className="overflow-x-auto">
-      <table className="min-w-full border border-white/10 text-sm">
 
-        <thead>
-          <tr>
-            <th className="p-2 border">Exam</th>
-            <th className="p-2 border">Total</th>
-            <th className="p-2 border">%</th>
-            <th className="p-2 border">Grade</th>
-          </tr>
-        </thead>
+const { data } =
+await supabase
+.from("results")
+.select("*")
+.eq("student_id",studentData.id)
 
-        <tbody>
-          {results.map((r) => (
-            <tr key={r.id}>
-              <td className="p-2 border">{r.exam_id}</td>
-              <td className="p-2 border">{r.total}</td>
-              <td className="p-2 border">
-                {r.percentage ? r.percentage.toFixed(1) : 0}%
-              </td>
-              <td className="p-2 border">{r.grade}</td>
-            </tr>
-          ))}
-        </tbody>
+setResults(data || [])
 
-      </table>
-      </div>
+}
 
-    </div>
-  )
+return(
+
+<div className="p-10 text-white">
+
+<h1 className="text-3xl font-bold mb-8">
+Exam Results
+</h1>
+
+<table className="w-full">
+
+<thead>
+
+<tr className="border-b border-white/20">
+
+<th className="text-left py-2">Subject</th>
+<th>Marks</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{results.map((r)=>(
+<tr key={r.id} className="border-b border-white/10">
+
+<td className="py-2">{r.subject}</td>
+<td>{r.marks}</td>
+
+</tr>
+))}
+
+</tbody>
+
+</table>
+
+</div>
+
+)
+
 }

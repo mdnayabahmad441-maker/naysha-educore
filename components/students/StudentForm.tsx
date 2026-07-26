@@ -407,35 +407,6 @@ export default function StudentForm({ reload }: StudentFormProps) {
 
           const schoolName = school?.name || "Our School"
 
-          const welcomeMessage = `
-Welcome to ${schoolName}!
-
-Dear Parent,
-
-We are delighted to welcome your child ${name.trim()} to our school family.
-
-Thank you for choosing ${schoolName}.
-
-Best regards,
-${schoolName} Team
-          `.trim()
-
-          if (parentEmail) {
-            try {
-              await apiFetch("/api/send-email", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  email: parentEmail.trim(),
-                  subject: `Welcome to ${schoolName}`,
-                  message: welcomeMessage
-                })
-              })
-            } catch (err) {
-              console.error("Welcome email failed:", err)
-            }
-          }
-
           if (parentPhone) {
             try {
               await apiFetch("/api/send-whatsapp", {
