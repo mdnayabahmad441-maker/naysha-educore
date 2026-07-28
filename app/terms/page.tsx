@@ -62,7 +62,7 @@ export default function TermsPage() {
               <li>Attempt to access data belonging to other schools or users</li>
               <li>Reverse engineer, decompile, or attempt to extract the source code of the Platform</li>
               <li>Use the Platform in any way that violates applicable Indian or international laws</li>
-              <li>Misuse the WhatsApp communication feature for purposes other than school notifications</li>
+              <li>Misuse the WhatsApp or email communication features for purposes other than school notifications</li>
             </ul>
           </section>
 

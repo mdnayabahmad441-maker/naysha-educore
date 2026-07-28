@@ -81,7 +81,7 @@ export default function PrivacyPage() {
               <li>Supabase for authentication, database, storage, and backend services.</li>
               <li>Hosting and infrastructure providers used to run the web app and APIs.</li>
               <li>Meta WhatsApp Cloud API for WhatsApp Business messaging requested by schools.</li>
-              <li>Resend for authentication email delivery.</li>
+              <li>Resend or configured SMTP providers for email delivery.</li>
               <li>Anthropic when authorized users use AI features for text, insights, or document layout assistance.</li>
               <li>Legal, regulatory, or safety authorities when required by applicable law.</li>
             </ul>

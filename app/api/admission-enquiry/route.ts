@@ -61,6 +61,33 @@ export async function POST(req: Request) {
     const baseUrl = getBaseUrl(req)
     const internalHeaders = getInternalApiHeaders()
 
+    const welcomeMessage = `
+Thank you for your interest in ${schoolName}!
+
+Dear ${fatherName},
+
+We have received your admission enquiry for ${studentName} in ${classWanted}.
+
+Our team will contact you soon to discuss the admission process.
+
+Best regards,
+${schoolName} Admissions Team
+    `.trim()
+
+    try {
+      await fetch(`${baseUrl}/api/send-email`, {
+        method: "POST",
+        headers: internalHeaders,
+        body: JSON.stringify({
+          email: email.trim(),
+          subject: `Admission Enquiry Received - ${schoolName}`,
+          message: welcomeMessage,
+        }),
+      })
+    } catch (err) {
+      console.error("Welcome email failed:", err)
+    }
+
     try {
       await fetch(`${baseUrl}/api/send-whatsapp`, {
         method: "POST",
@@ -72,6 +99,52 @@ export async function POST(req: Request) {
       })
     } catch (err) {
       console.error("Welcome WhatsApp failed:", err)
+    }
+
+    const { data: admins } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("school_id", school.id)
+      .eq("role", "admin")
+
+    if (admins && admins.length > 0) {
+      const adminMessage = `
+New Admission Enquiry Received!
+
+Student: ${studentName}
+Father: ${fatherName}
+Class: ${classWanted}
+Phone: ${phone}
+Email: ${email}
+
+Please review and follow up.
+      `.trim()
+
+      const { data: adminUsers } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 500,
+      })
+
+      const adminEmails = adminUsers.users
+        .filter((user) => admins.some((admin) => admin.id === user.id))
+        .map((user) => user.email)
+        .filter((value): value is string => Boolean(value))
+
+      for (const adminEmail of adminEmails) {
+        try {
+          await fetch(`${baseUrl}/api/send-email`, {
+            method: "POST",
+            headers: internalHeaders,
+            body: JSON.stringify({
+              email: adminEmail,
+              subject: `New Admission Enquiry - ${studentName}`,
+              message: adminMessage,
+            }),
+          })
+        } catch (err) {
+          console.error("Admin notification email failed:", err)
+        }
+      }
     }
 
     return NextResponse.json({
