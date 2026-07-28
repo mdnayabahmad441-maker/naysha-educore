@@ -80,7 +80,7 @@ export default function StudentIdCardsPage() {
           const { data: parentData, error: parentError } = await supabase
             .from("parents")
             .select("student_id,father_name,phone")
-            .in("student_id", studentIds)
+            .eq("school_id", schoolId)
 
           if (parentError) {
             console.error("Parent fetch error:", parentError)

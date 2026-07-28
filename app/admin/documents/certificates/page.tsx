@@ -93,7 +93,7 @@ export default function CertificatesPage() {
         const { data: parentData, error: parentError } = await supabase
           .from("parents")
           .select("student_id,father_name")
-          .in("student_id", studentIds)
+          .eq("school_id", schoolId)
 
         if (parentError) {
           console.error("Certificate parent load error:", parentError)
