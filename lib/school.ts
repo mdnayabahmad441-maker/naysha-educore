@@ -2,14 +2,15 @@ import { supabase } from "./supabase"
 
 let cachedSchoolId: string | null = null
 let cachedUserId: string | null = null
+let schoolIdRequest: Promise<string | null> | null = null
 
-export async function getSchoolId() {
+async function resolveSchoolId() {
   try {
-    const { data: userData, error: userError } = await supabase.auth.getUser()
-    const user = userData?.user
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    const user = sessionData.session?.user
 
-    if (userError) {
-      console.error("School user fetch error:", userError)
+    if (sessionError) {
+      console.error("School session fetch error:", sessionError)
     }
 
     if (cachedSchoolId && cachedUserId && cachedUserId === user?.id) {
@@ -47,17 +48,6 @@ export async function getSchoolId() {
       }
 
       // Profile had no school_id — try a session refresh in case metadata was recently updated
-      try {
-        await supabase.auth.refreshSession()
-        const { data: refreshed } = await supabase.auth.getUser()
-        const refreshedId = refreshed?.user?.user_metadata?.school_id
-        if (typeof refreshedId === "string" && refreshedId) {
-          cachedSchoolId = refreshedId
-          cachedUserId = refreshed?.user?.id || null
-          return refreshedId
-        }
-      } catch {}
-
       const email = user.email?.trim().toLowerCase()
 
       const { data: teacher, error: teacherError } = await supabase
@@ -102,4 +92,14 @@ export async function getSchoolId() {
     console.error("School error:", err)
     return null
   }
+}
+
+export function getSchoolId() {
+  if (!schoolIdRequest) {
+    schoolIdRequest = resolveSchoolId().finally(() => {
+      schoolIdRequest = null
+    })
+  }
+
+  return schoolIdRequest
 }

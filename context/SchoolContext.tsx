@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { getSchoolId } from "@/lib/school"
 
 type School = {
   id: string
@@ -24,26 +25,7 @@ export function SchoolProvider({ children }: any) {
   useEffect(() => {
     const load = async () => {
       try {
-        // Try session metadata school_id first
-        const { data: sessionData } = await supabase.auth.getSession()
-        let schoolId = sessionData.session?.user?.user_metadata?.school_id
-
-        // If not in metadata, refresh session and try again
-        if (!schoolId) {
-          await supabase.auth.refreshSession()
-          const { data: refreshed } = await supabase.auth.getSession()
-          schoolId = refreshed.session?.user?.user_metadata?.school_id
-        }
-
-        // If still not found, check profiles table
-        if (!schoolId && sessionData.session?.user?.id) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("school_id")
-            .eq("id", sessionData.session.user.id)
-            .maybeSingle()
-          schoolId = profile?.school_id
-        }
+        const schoolId = await getSchoolId()
 
         if (schoolId) {
           const { data: schoolData, error: schoolError } = await supabase
