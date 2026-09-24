@@ -28,11 +28,13 @@ async function graphGet(path: string, token: string, fields?: string) {
 async function exchangeCode(code: string) {
   const appId = process.env.META_APP_ID
   const appSecret = process.env.META_APP_SECRET
-  const redirectUri = process.env.META_REDIRECT_URI || process.env.META_WHATSAPP_REDIRECT_URI
-  if (!appId || !appSecret || !redirectUri) throw new Error("WhatsApp server configuration is incomplete")
+  if (!appId || !appSecret) throw new Error("WhatsApp server configuration is incomplete")
   const url = new URL(`${GRAPH}/oauth/access_token`)
   url.searchParams.set("client_id", appId); url.searchParams.set("client_secret", appSecret)
-  url.searchParams.set("redirect_uri", redirectUri); url.searchParams.set("code", code)
+  // Embedded Signup returns this code to the JavaScript SDK callback, rather
+  // than to a browser redirect URI. Supplying a different redirect URI only
+  // at token exchange makes the authorization-code grant inconsistent.
+  url.searchParams.set("code", code)
   const response = await fetch(url, { cache: "no-store" })
   const data = await response.json()
   if (!response.ok || !data?.access_token) throw new Error(data?.error?.message || "Meta authorization code exchange failed")
