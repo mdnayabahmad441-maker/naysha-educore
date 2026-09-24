@@ -95,6 +95,7 @@ ${schoolName} Admissions Team
         body: JSON.stringify({
           phone: phone.trim(),
           message: `${schoolName || "School"}: Thank you for your admission enquiry!\n\nWe received your enquiry for ${studentName} in ${classWanted}.\n\nOur team will contact you soon.`,
+          schoolId: school.id,
         }),
       })
     } catch (err) {

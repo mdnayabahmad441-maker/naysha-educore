@@ -1,173 +1,78 @@
 import { NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { requireAdminProfile } from "@/lib/api-auth"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
-const META_APP_ID = process.env.META_APP_ID!
-const META_APP_SECRET = process.env.META_APP_SECRET!
 const API_VERSION = process.env.WHATSAPP_CLOUD_API_VERSION || "v23.0"
 const GRAPH = `https://graph.facebook.com/${API_VERSION}`
+const STATE_COOKIE = "wa_embedded_signup"
+type SignupState = { schoolId?: string; nonce?: string }
 
-async function graphGet(path: string, token: string, extra: Record<string, string> = {}) {
+function clientError(error: unknown) {
+  const message = error instanceof Error ? error.message : "WhatsApp connection could not be completed."
+  console.error("[WhatsApp embedded signup]", message)
+  if (/phone number/i.test(message)) return "No WhatsApp phone number was selected in Meta."
+  if (/business account|waba/i.test(message)) return "No WhatsApp Business Account was selected in Meta."
+  if (/code|token|oauth/i.test(message)) return "Meta could not authorize this connection. Please start again."
+  return "WhatsApp connection could not be completed. Please try again or contact support."
+}
+
+async function graphGet(path: string, token: string, fields?: string) {
   const url = new URL(`${GRAPH}${path}`)
-  url.searchParams.set("access_token", token)
-  for (const [k, v] of Object.entries(extra)) url.searchParams.set(k, v)
-
-  const res = await fetch(url.toString())
-  const data = await res.json()
-
-  if (!res.ok) {
-    const msg = data?.error?.message || `Graph API error on ${path}`
-    console.error("[WhatsApp callback] Graph error:", msg, data)
-    throw new Error(msg)
-  }
-
-  return data
-}
-
-async function exchangeCodeForToken(code: string, redirectUri: string): Promise<string> {
-  const url = new URL(`${GRAPH}/oauth/access_token`)
-  url.searchParams.set("client_id", META_APP_ID)
-  url.searchParams.set("client_secret", META_APP_SECRET)
-  url.searchParams.set("redirect_uri", redirectUri)
-  url.searchParams.set("code", code)
-
-  const res = await fetch(url.toString())
-  const data = await res.json()
-
-  if (!res.ok || !data.access_token) {
-    throw new Error(data?.error?.message || "Failed to exchange code for access token")
-  }
-
-  return data.access_token
-}
-
-async function extendToLongLivedToken(shortToken: string): Promise<string> {
-  const url = new URL(`${GRAPH}/oauth/access_token`)
-  url.searchParams.set("grant_type", "fb_exchange_token")
-  url.searchParams.set("client_id", META_APP_ID)
-  url.searchParams.set("client_secret", META_APP_SECRET)
-  url.searchParams.set("fb_exchange_token", shortToken)
-
-  const res = await fetch(url.toString())
-  const data = await res.json()
-
-  return data.access_token || shortToken
-}
-
-async function subscribeAppToWaba(wabaId: string, accessToken: string) {
-  const response = await fetch(`https://graph.facebook.com/${API_VERSION}/${wabaId}/subscribed_apps`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      override_callback_uri: process.env.META_WHATSAPP_WEBHOOK_CALLBACK_URL || undefined,
-      verify_token: process.env.WHATSAPP_VERIFY_TOKEN || undefined,
-    }),
-  })
-
+  if (fields) url.searchParams.set("fields", fields)
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
   const data = await response.json()
-
-  if (!response.ok) {
-    throw new Error(data?.error?.message || "Failed to subscribe app to WhatsApp Business Account")
-  }
-
+  if (!response.ok) throw new Error(data?.error?.message || `Meta API request failed for ${path}`)
   return data
 }
 
-export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
-  const redirectUri = process.env.META_WHATSAPP_REDIRECT_URI || `${origin}/api/whatsapp/callback`
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
+async function exchangeCode(code: string) {
+  const appId = process.env.META_APP_ID
+  const appSecret = process.env.META_APP_SECRET
+  const redirectUri = process.env.META_REDIRECT_URI || process.env.META_WHATSAPP_REDIRECT_URI
+  if (!appId || !appSecret || !redirectUri) throw new Error("WhatsApp server configuration is incomplete")
+  const url = new URL(`${GRAPH}/oauth/access_token`)
+  url.searchParams.set("client_id", appId); url.searchParams.set("client_secret", appSecret)
+  url.searchParams.set("redirect_uri", redirectUri); url.searchParams.set("code", code)
+  const response = await fetch(url, { cache: "no-store" })
+  const data = await response.json()
+  if (!response.ok || !data?.access_token) throw new Error(data?.error?.message || "Meta authorization code exchange failed")
+  return String(data.access_token)
+}
 
-  const cookieStore = await cookies()
-  // Redirect back to the school subdomain that initiated the OAuth flow
-  const returnOrigin = cookieStore.get("wa_return_origin")?.value || origin
+async function selectedPhone(accessToken: string, suppliedWaba?: string, suppliedPhone?: string) {
+  let wabaId = suppliedWaba
+  if (!wabaId) wabaId = (await graphGet("/me/whatsapp_business_accounts", accessToken, "id,name"))?.data?.[0]?.id
+  if (!wabaId) throw new Error("No WhatsApp Business Account selected")
+  const phones = await graphGet(`/${wabaId}/phone_numbers`, accessToken, "id,display_phone_number,verified_name,status")
+  const phone = suppliedPhone ? phones?.data?.find((item: { id?: string }) => item.id === suppliedPhone) : phones?.data?.[0]
+  if (!phone?.id) throw new Error("No WhatsApp phone number selected")
+  return { wabaId: String(wabaId), phone }
+}
 
-  const fail = `${returnOrigin}/admin/settings?whatsapp=error`
-  const success = `${returnOrigin}/admin/settings?whatsapp=connected`
-
-  if (error) {
-    console.warn("[WhatsApp callback] User cancelled OAuth:", error)
-    return NextResponse.redirect(fail)
-  }
-
-  if (!code || !state) {
-    return NextResponse.redirect(`${fail}&reason=missing_params`)
-  }
-
-  const storedState = cookieStore.get("wa_oauth_state")?.value
-
-  if (!storedState || storedState !== state) {
-    console.error("[WhatsApp callback] State mismatch. stored:", storedState, "received:", state)
-    return NextResponse.redirect(`${fail}&reason=state_mismatch`)
-  }
-
-  const schoolId = state.split("::")[0]
-  if (!schoolId) {
-    return NextResponse.redirect(`${fail}&reason=invalid_state`)
-  }
-
-  cookieStore.delete("wa_oauth_state")
-
+export async function POST(request: NextRequest) {
+  const auth = await requireAdminProfile(request)
+  if ("response" in auth) return auth.response
   try {
-    const shortToken = await exchangeCodeForToken(code, redirectUri)
-    const accessToken = await extendToLongLivedToken(shortToken)
-
-    const wabaRes = await graphGet("/me/whatsapp_business_accounts", accessToken, {
-      fields: "id,name",
-    })
-    const waba = wabaRes?.data?.[0]
-
-    if (!waba) {
-      throw new Error(
-        "No WhatsApp Business Account found. Make sure you have a WhatsApp Business Account and try again."
-      )
+    const rawState = request.cookies.get(STATE_COOKIE)?.value
+    const state = rawState ? JSON.parse(rawState) as SignupState : null
+    if (!state?.schoolId || state.schoolId !== auth.profile.schoolId || !state.nonce) {
+      return NextResponse.json({ error: "This WhatsApp connection session has expired. Please start again." }, { status: 400 })
     }
-
-    const phoneRes = await graphGet(`/${waba.id}/phone_numbers`, accessToken, {
-      fields: "id,display_phone_number,verified_name,status",
-    })
-    const phone = phoneRes?.data?.[0]
-
-    if (!phone) {
-      throw new Error(
-        "No WhatsApp phone number found in your Business Account. Add a phone number and try again."
-      )
-    }
-
-    await subscribeAppToWaba(waba.id, accessToken)
-
-    const { error: dbError } = await supabaseAdmin
-      .from("school_whatsapp")
-      .upsert(
-        {
-          school_id: schoolId,
-          access_token: accessToken,
-          phone_number_id: phone.id,
-          business_account_id: waba.id,
-          phone_number: phone.display_phone_number ?? null,
-          display_name: phone.verified_name ?? waba.name ?? null,
-          last_webhook_event_at: null,
-          last_webhook_status: "subscribed",
-          connected_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "school_id" }
-      )
-
-    if (dbError) {
-      throw new Error(`Database error: ${dbError.message}`)
-    }
-
-    console.info("[WhatsApp callback] Connected school", schoolId, "-> phone", phone.display_phone_number)
-    return NextResponse.redirect(success)
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error during WhatsApp connection"
-    console.error("[WhatsApp callback] Error:", message)
-    return NextResponse.redirect(`${fail}&message=${encodeURIComponent(message)}`)
-  }
+    const body = await request.json()
+    const code = typeof body?.code === "string" ? body.code : ""
+    if (!code) return NextResponse.json({ error: "Meta did not return an authorization code. Please try again." }, { status: 400 })
+    const accessToken = await exchangeCode(code)
+    const selected = await selectedPhone(accessToken, typeof body?.wabaId === "string" ? body.wabaId : undefined, typeof body?.phoneNumberId === "string" ? body.phoneNumberId : undefined)
+    const subscription = await fetch(`${GRAPH}/${selected.wabaId}/subscribed_apps`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" } })
+    if (!subscription.ok) { const data = await subscription.json().catch(() => null); throw new Error(data?.error?.message || "Meta could not subscribe the WhatsApp account") }
+    const { error } = await supabaseAdmin.from("school_whatsapp").upsert({
+      school_id: state.schoolId, access_token: accessToken, phone_number_id: selected.phone.id, business_account_id: selected.wabaId,
+      phone_number: selected.phone.display_phone_number ?? null, display_name: selected.phone.verified_name ?? null, status: "connected",
+      last_webhook_event_at: null, last_webhook_status: "subscribed", connected_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }, { onConflict: "school_id" })
+    if (error) throw new Error(`Database error: ${error.message}`)
+    const response = NextResponse.json({ success: true })
+    response.cookies.delete(STATE_COOKIE)
+    return response
+  } catch (error) { return NextResponse.json({ error: clientError(error) }, { status: 400 }) }
 }

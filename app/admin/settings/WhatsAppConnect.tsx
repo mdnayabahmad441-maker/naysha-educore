@@ -1,284 +1,115 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import Script from "next/script"
+import { useEffect, useRef, useState } from "react"
 import { apiFetch } from "@/lib/api-client"
 
-type WaStatus =
-  | { connected: false; source?: string; missing?: string[] }
-  | {
-      connected: true
-      source: "school" | "central"
-      phoneNumber: string | null
-      displayName: string | null
-      businessAccountId: string | null
-      connectedAt: string | null
-      lastWebhookAt: string | null
-      lastWebhookStatus: string | null
-      apiVersion: string
-    }
+declare global { interface Window { FB?: { init: (options: Record<string, unknown>) => void; login: (callback: (response: { authResponse?: { code?: string } }) => void, options: Record<string, unknown>) => void } } }
 
-function fmtDate(iso: string | null) {
-  if (!iso) return "—"
-  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-}
+type WaStatus = { connected: boolean; source?: "school" | "central"; connectionStatus?: string; phoneNumber?: string | null; displayName?: string | null; businessAccountId?: string | null; connectedAt?: string | null; lastWebhookAt?: string | null; lastWebhookStatus?: string | null }
+type MetaSession = { wabaId?: string; phoneNumberId?: string }
+
+function fmtDate(value?: string | null) { return value ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—" }
 
 export default function WhatsAppConnect() {
-  const params = useSearchParams()
-
-  const [status,       setStatus]       = useState<WaStatus | null>(null)
-  const [loading,      setLoading]      = useState(true)
-  const [connecting,   setConnecting]   = useState(false)
+  const [status, setStatus] = useState<WaStatus | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
-  const [toast,        setToast]        = useState<{ type: "success" | "error"; msg: string } | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [sdkReady, setSdkReady] = useState(false)
+  const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null)
+  const session = useRef<MetaSession>({})
 
-  // Handle OAuth callback result in URL params
-  useEffect(() => {
-    const result  = params.get("whatsapp")
-    const message = params.get("message")
-    if (result === "connected") {
-      showToast("success", "WhatsApp connected successfully! Your own number is now active.")
-      clean()
-    } else if (result === "error") {
-      showToast("error", message ? decodeURIComponent(message) : "Connection failed. Please try again.")
-      clean()
-    }
-  }, [params])
-
-  useEffect(() => { fetchStatus() }, [])
-
-  function clean() {
-    const url = new URL(window.location.href)
-    url.searchParams.delete("whatsapp")
-    url.searchParams.delete("message")
-    window.history.replaceState({}, "", url.toString())
-  }
-
-  function showToast(type: "success" | "error", msg: string) {
-    setToast({ type, msg })
-    setTimeout(() => setToast(null), 6000)
-  }
-
-  async function fetchStatus() {
+  const showToast = (type: "success" | "error", msg: string) => { setToast({ type, msg }); window.setTimeout(() => setToast(null), 7000) }
+  const fetchStatus = async () => {
     setLoading(true)
-    try {
-      const res  = await apiFetch("/api/whatsapp/status")
-      const data = await res.json()
-      setStatus(res.ok && typeof data?.connected === "boolean" ? data : { connected: false })
-    } catch {
-      setStatus({ connected: false })
-    } finally {
-      setLoading(false)
+    try { const response = await apiFetch("/api/whatsapp/status"); const data = await response.json(); setStatus(response.ok ? data : { connected: false }) }
+    catch { setStatus({ connected: false }) }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { void fetchStatus() }, [])
+  useEffect(() => {
+    const listener = (event: MessageEvent) => {
+      if (event.origin !== "https://www.facebook.com" && event.origin !== "https://web.facebook.com") return
+      try {
+        const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data
+        if (data?.type !== "WA_EMBEDDED_SIGNUP") return
+        if (data.event === "FINISH" || data.event === "FINISH_ONLY_WABA") {
+          session.current = { wabaId: data.data?.waba_id, phoneNumberId: data.data?.phone_number_id }
+        } else if (data.event === "CANCEL") {
+          setConnecting(false); showToast("error", "WhatsApp connection was cancelled.")
+        } else if (data.event === "ERROR") {
+          setConnecting(false); showToast("error", "Meta could not complete WhatsApp onboarding. Please try again.")
+        }
+      } catch { /* Ignore unrelated Facebook postMessage events. */ }
     }
+    window.addEventListener("message", listener)
+    return () => window.removeEventListener("message", listener)
+  }, [])
+
+  async function completeConnection(code: string) {
+    try {
+      const response = await apiFetch("/api/whatsapp/callback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, ...session.current }) })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Connection failed")
+      showToast("success", "WhatsApp connected successfully. This school’s number is now active.")
+      await fetchStatus()
+    } catch (error) { showToast("error", error instanceof Error ? error.message : "Connection failed") }
+    finally { setConnecting(false) }
   }
 
   async function startConnect() {
-    setConnecting(true)
+    if (!window.FB || !sdkReady) { showToast("error", "Meta onboarding is still loading. Please wait a moment and try again."); return }
+    setConnecting(true); session.current = {}
     try {
-      const res  = await apiFetch("/api/whatsapp/connect")
-      const data = await res.json()
-      if (!res.ok || !data.url) {
-        showToast("error", data.error || "Could not start connection. Check META_APP_ID in Vercel.")
-        return
-      }
-      window.location.href = data.url
-    } catch (err) {
-      showToast("error", err instanceof Error ? err.message : "Network error")
-    } finally {
-      setConnecting(false)
-    }
+      const response = await apiFetch("/api/whatsapp/connect", { method: "POST" }); const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Could not start WhatsApp onboarding")
+      window.FB.init({ appId: data.appId, cookie: true, xfbml: false, version: "v23.0" })
+      window.FB.login((result) => {
+        const code = result.authResponse?.code
+        if (!code) { setConnecting(false); showToast("error", "WhatsApp connection was cancelled or not authorized."); return }
+        void completeConnection(code)
+      }, {
+        config_id: data.configId,
+        response_type: "code",
+        override_default_response_type: true,
+        extras: { setup: {} },
+      })
+    } catch (error) { setConnecting(false); showToast("error", error instanceof Error ? error.message : "Could not start WhatsApp onboarding") }
   }
 
   async function disconnect() {
-    if (!confirm("Disconnect your WhatsApp number? Notifications will fall back to the shared EduCore number.")) return
+    if (!confirm("Disconnect this school’s WhatsApp number? Its notifications will stop until it is reconnected.")) return
     setDisconnecting(true)
-    try {
-      const res  = await apiFetch("/api/whatsapp/disconnect", { method: "DELETE" })
-      const data = await res.json()
-      if (res.ok) {
-        showToast("success", "Disconnected. Falling back to shared number.")
-        await fetchStatus()
-      } else {
-        showToast("error", data.error || "Disconnect failed.")
-      }
-    } catch {
-      showToast("error", "Network error.")
-    } finally {
-      setDisconnecting(false)
-    }
+    try { const response = await apiFetch("/api/whatsapp/disconnect", { method: "DELETE" }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showToast("success", "WhatsApp number disconnected."); await fetchStatus() }
+    catch (error) { showToast("error", error instanceof Error ? error.message : "Disconnect failed") }
+    finally { setDisconnecting(false) }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center gap-3 py-8 text-slate-400 text-sm">
-        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
-        Checking WhatsApp status…
-      </div>
-    )
+  async function testConnection() {
+    setTesting(true)
+    try { const response = await apiFetch("/api/whatsapp/test", { method: "POST" }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showToast("success", `Connection verified${data.phoneNumber ? ` for ${data.phoneNumber}` : ""}.`) }
+    catch (error) { showToast("error", error instanceof Error ? error.message : "Connection test failed") }
+    finally { setTesting(false) }
   }
 
-  const isSchoolOwn  = status?.connected && status.source === "school"
-  const isCentralized = status?.connected && status.source === "central"
-
-  return (
-    <div className="max-w-2xl space-y-6">
-
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-semibold text-white">WhatsApp Business</h2>
-        <p className="mt-1.5 text-sm leading-6 text-slate-400">
-          Connect your school&apos;s own WhatsApp Business number so notifications are sent from your name and number.
-          If you don&apos;t connect one, the shared EduCore number is used as a fallback.
-        </p>
-      </div>
-
-      {/* Toast */}
-      {toast && (
-        <div className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm ${
-          toast.type === "success"
-            ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
-            : "border-red-400/20 bg-red-400/10 text-red-200"
-        }`}>
-          <span className="flex-1">{toast.msg}</span>
-          <button onClick={() => setToast(null)} className="text-slate-400 hover:text-white">✕</button>
-        </div>
-      )}
-
-      {/* ── School's own number connected ── */}
-      {isSchoolOwn && status.connected && status.source === "school" && (
-        <div className="rounded-3xl border border-emerald-400/20 bg-[linear-gradient(160deg,rgba(16,185,129,0.08),rgba(6,78,59,0.04))] p-6 space-y-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
-              <span className="text-sm font-semibold text-emerald-300">Your Number — Active</span>
-            </div>
-            <button
-              onClick={disconnect}
-              disabled={disconnecting}
-              className="rounded-xl border border-red-400/20 bg-red-400/5 px-3 py-1.5 text-xs font-semibold text-red-400 transition hover:bg-red-400/10 disabled:opacity-50"
-            >
-              {disconnecting ? "Disconnecting…" : "Disconnect"}
-            </button>
-          </div>
-
-          <div className="grid gap-2.5 text-sm">
-            <Row label="Display Name"     value={status.displayName || "—"} highlight />
-            <Row label="Phone Number"     value={status.phoneNumber  || "—"} highlight />
-            <Row label="WABA ID"          value={status.businessAccountId || "—"} mono />
-            <Row label="Connected"        value={fmtDate(status.connectedAt)} />
-            <Row label="Last Webhook"     value={fmtDate(status.lastWebhookAt)} />
-            <Row label="Webhook Status"   value={status.lastWebhookStatus || "—"} />
-            <Row label="API Version"      value={status.apiVersion} mono />
-          </div>
-
-          <p className="text-xs text-slate-500 leading-5">
-            All notifications (attendance, fees, reports) for your school are sent from <strong className="text-slate-400">{status.displayName || "your number"}</strong>.
-            Parents will see your school&apos;s name in WhatsApp.
-          </p>
-        </div>
-      )}
-
-      {/* ── Using centralized fallback ── */}
-      {isCentralized && status.connected && (
-        <div className="rounded-3xl border border-amber-400/20 bg-amber-400/5 p-6 space-y-4">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-2.5 w-2.5 rounded-full bg-amber-400" />
-            <span className="text-sm font-semibold text-amber-300">Using Shared EduCore Number</span>
-          </div>
-          <p className="text-sm text-slate-300 leading-6">
-            Notifications are being sent from the shared EduCore number. Parents will see <em>&quot;EduCore&quot;</em> as the sender, not your school&apos;s name.
-            Connect your own WhatsApp number below to fix this.
-          </p>
-        </div>
-      )}
-
-      {/* ── Not configured at all ── */}
-      {!status?.connected && (
-        <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5 space-y-3">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-2.5 w-2.5 rounded-full bg-red-400" />
-            <span className="text-sm font-semibold text-red-300">WhatsApp Not Active</span>
-          </div>
-          <p className="text-sm text-slate-400">No WhatsApp number is configured. Notifications will not be sent.</p>
-        </div>
-      )}
-
-      {/* ── Connect button (shown when not using school's own) ── */}
-      {!isSchoolOwn && (
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-5">
-          <div>
-            <h3 className="font-semibold text-white">Connect Your School&apos;s WhatsApp Number</h3>
-            <p className="mt-1 text-sm text-slate-400 leading-6">
-              Click below to link your school&apos;s WhatsApp Business number via Meta. Parents will receive messages from your school&apos;s name and number directly.
-            </p>
-          </div>
-
-          {/* Steps */}
-          <ol className="space-y-2.5 text-sm text-slate-300">
-            {[
-              'Click "Connect WhatsApp" — you\'ll be redirected to Meta/Facebook.',
-              "Log in with the Facebook account that owns your WhatsApp Business Account.",
-              "Select your WhatsApp Business Account and phone number.",
-              "You'll be brought back here and your number will be active immediately.",
-            ].map((step, i) => (
-              <li key={i} className="flex gap-3">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[11px] font-bold text-slate-400">
-                  {i + 1}
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-
-          <button
-            onClick={startConnect}
-            disabled={connecting}
-            className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-[linear-gradient(135deg,#25D366,#128C7E)] py-3.5 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 disabled:opacity-60"
-          >
-            {connecting ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                Redirecting to Meta…
-              </>
-            ) : (
-              <>
-                {/* WhatsApp icon */}
-                <svg viewBox="0 0 32 32" width="18" height="18" fill="currentColor">
-                  <path d="M16 0C7.163 0 0 7.163 0 16c0 2.835.744 5.494 2.043 7.797L0 32l8.418-2.01A15.94 15.94 0 0016 32c8.837 0 16-7.163 16-16S24.837 0 16 0zm8.322 22.573c-.35.977-2.03 1.873-2.795 1.96-.714.083-1.597.118-2.576-.16-.594-.17-1.357-.398-2.337-.78-4.115-1.592-6.8-5.623-7.001-5.886-.2-.263-1.63-2.166-1.63-4.132 0-1.965 1.033-2.932 1.399-3.33.366-.398.8-.498 1.066-.498.267 0 .534.002.767.013.246.012.577-.093.904.69.35.832 1.19 2.882 1.292 3.09.103.208.172.45.034.724-.137.274-.206.443-.41.683-.205.24-.43.537-.614.721-.205.205-.418.428-.18.84.24.413 1.064 1.753 2.283 2.84 1.569 1.398 2.892 1.83 3.304 2.034.413.205.653.172.893-.103.24-.274 1.03-1.2 1.303-1.612.274-.413.548-.344.92-.206.374.137 2.378 1.12 2.784 1.325.41.205.684.308.785.479.103.17.103.977-.247 1.953z"/>
-                </svg>
-                Connect WhatsApp Business Number
-              </>
-            )}
-          </button>
-
-          <p className="text-center text-xs text-slate-500">
-            Requires a Meta Business Account with a verified WhatsApp Business number.
-            <br />Your billing stays with EduCore — schools pay nothing directly to Meta.
-          </p>
-        </div>
-      )}
-
-      {/* Info box */}
-      <div className="rounded-2xl border border-white/6 bg-white/3 px-5 py-4 text-xs leading-6 text-slate-500 space-y-1.5">
-        <p className="font-semibold text-slate-400">How billing works</p>
-        <p>
-          When you connect your school&apos;s number, the WhatsApp Business Account (WABA) is linked under <strong className="text-slate-400">EduCore&apos;s Meta Business Portfolio</strong>.
-          All conversation costs are billed to EduCore — schools don&apos;t need a Meta billing account.
-          Each school still gets their own phone number, display name, and profile logo visible to parents.
-        </p>
-      </div>
-    </div>
-  )
+  const connected = Boolean(status?.connected && status.source === "school")
+  return <div className="max-w-2xl space-y-6">
+    <Script src="https://connect.facebook.net/en_US/sdk.js" strategy="afterInteractive" onLoad={() => setSdkReady(true)} onError={() => showToast("error", "Meta onboarding could not be loaded. Check your internet connection and try again.")} />
+    <div><h2 className="text-2xl font-semibold text-white">WhatsApp Business</h2><p className="mt-1.5 text-sm leading-6 text-slate-400">Connect this school’s WhatsApp Business number. Its notifications will be sent only from the connected school number.</p></div>
+    {toast && <div className={`rounded-2xl border px-4 py-3 text-sm ${toast.type === "success" ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : "border-red-400/20 bg-red-400/10 text-red-200"}`}>{toast.msg}</div>}
+    {loading ? <div className="py-8 text-sm text-slate-400">Checking WhatsApp status…</div> : connected ? <div className="space-y-5 rounded-3xl border border-emerald-400/20 bg-emerald-400/5 p-6">
+      <div className="flex items-center justify-between"><span className="font-semibold text-emerald-300">WhatsApp Connected ✓</span><span className="text-xs text-slate-400">{status?.connectionStatus || "connected"}</span></div>
+      <div className="grid gap-2.5 text-sm"><Row label="School WhatsApp Number" value={status?.phoneNumber || "—"} /><Row label="Display Name" value={status?.displayName || "—"} /><Row label="WhatsApp Business Account" value={status?.businessAccountId || "—"} mono /><Row label="Connected" value={fmtDate(status?.connectedAt)} /></div>
+      <div className="flex flex-wrap gap-3"><button onClick={() => void testConnection()} disabled={testing} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{testing ? "Testing…" : "Test Connection"}</button><button onClick={() => void startConnect()} disabled={connecting} className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{connecting ? "Connecting…" : "Reconnect"}</button><button onClick={() => void disconnect()} disabled={disconnecting} className="rounded-xl border border-red-400/25 px-4 py-2 text-sm font-semibold text-red-300 disabled:opacity-60">{disconnecting ? "Disconnecting…" : "Disconnect"}</button></div>
+    </div> : <div className="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-6">
+      <div><h3 className="font-semibold text-white">Connect Your School&apos;s WhatsApp Number</h3><p className="mt-1 text-sm leading-6 text-slate-400">Meta will securely guide you to select the school’s Business Portfolio, WhatsApp Business Account, and phone number.</p></div>
+      <button onClick={() => void startConnect()} disabled={connecting || !sdkReady} className="w-full rounded-2xl bg-[#25D366] py-3.5 text-sm font-semibold text-white disabled:opacity-60">{connecting ? "Waiting for Meta…" : sdkReady ? "Connect WhatsApp Business Number" : "Loading Meta…"}</button>
+      <p className="text-xs leading-5 text-slate-500">Use the Facebook account that manages this school’s Meta Business Portfolio. Cancelling Meta’s window leaves the current connection unchanged.</p>
+    </div>}
+  </div>
 }
 
-// ── Small helper row ──────────────────────────────────────────────────────────
-function Row({ label, value, highlight, mono }: { label: string; value: string; highlight?: boolean; mono?: boolean }) {
-  return (
-    <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3">
-      <span className="text-slate-400">{label}</span>
-      <span className={`max-w-[55%] truncate text-right ${mono ? "font-mono text-xs text-slate-300" : highlight ? "font-semibold text-white" : "text-slate-300"}`}>
-        {value}
-      </span>
-    </div>
-  )
-}
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) { return <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><span className="text-slate-400">{label}</span><span className={`max-w-[55%] truncate text-right text-slate-200 ${mono ? "font-mono text-xs" : "font-semibold"}`}>{value}</span></div> }

@@ -6,13 +6,16 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET(req: Request) {
+  let schoolId: string | undefined
   if (!isInternalRequest(req)) {
     const auth = await requireAuthorizedProfile(req, ["admin", "teacher"])
     if ("response" in auth) return auth.response
+    schoolId = auth.profile.schoolId ?? undefined
   }
 
   const url = new URL(req.url)
-  const schoolId = url.searchParams.get("schoolId") ?? undefined
+  schoolId = schoolId || url.searchParams.get("schoolId") || undefined
+  if (!schoolId) return NextResponse.json({ error: "School is required." }, { status: 400 })
 
   const status = await getWhatsAppCloudStatus(schoolId)
   return NextResponse.json({
@@ -27,19 +30,22 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    let authorizedSchoolId: string | undefined
     if (!isInternalRequest(req)) {
       const auth = await requireAuthorizedProfile(req, ["admin", "teacher"])
       if ("response" in auth) return auth.response
+      authorizedSchoolId = auth.profile.schoolId ?? undefined
     }
 
     const body = await req.json()
     const phone      = String(body?.phone || body?.to || "").trim()
     const message    = String(body?.message || "").trim()
-    const schoolId   = body?.schoolId ? String(body.schoolId) : undefined
+    const schoolId   = authorizedSchoolId || (body?.schoolId ? String(body.schoolId) : undefined)
 
     if (!phone || !message) {
       return NextResponse.json({ error: "Missing phone or message" }, { status: 400 })
     }
+    if (!schoolId) return NextResponse.json({ error: "School is required to send WhatsApp messages." }, { status: 400 })
 
     const status = await getWhatsAppCloudStatus(schoolId)
     if (!status.configured) {

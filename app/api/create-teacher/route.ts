@@ -133,6 +133,7 @@ export async function POST(req: Request) {
         body: JSON.stringify({
           phone,
           message: `${schoolRow?.name || "School"}: Your teacher account is ready.\nLogin: ${loginUrl}\n\nUse your email. First-time? Set your password from the login screen.`,
+          schoolId,
         }),
       })
     }

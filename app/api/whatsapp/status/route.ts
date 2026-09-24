@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     connected: true,
     source: status.source,            // "school" | "central"
+    connectionStatus: status.connectionStatus,
     provider: status.provider,
     apiVersion: status.apiVersion,
     phoneNumber: status.phoneNumber,
@@ -28,7 +29,6 @@ export async function GET(request: NextRequest) {
     connectedAt: status.connectedAt,
     lastWebhookAt: status.lastWebhookAt,
     lastWebhookStatus: status.lastWebhookStatus,
-    // centralized flag kept for backward compat
-    centralized: status.source === "central",
+    centralized: false,
   })
 }

@@ -4,12 +4,13 @@ const META_API_VERSION = "v19.0"
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
 
 // ── Config resolution ──────────────────────────────────────────────────────────
-// Priority: school's own credentials (school_whatsapp table) → centralized env vars
+// WhatsApp credentials are tenant-scoped. A school's connection is never shared
+// with another school or replaced with a global sender.
 
 type MetaConfig = {
   token: string
   phoneNumberId: string
-  source: "school" | "central"
+  source: "school"
 }
 
 async function getMetaConfig(schoolId?: string): Promise<MetaConfig | null> {
@@ -25,11 +26,7 @@ async function getMetaConfig(schoolId?: string): Promise<MetaConfig | null> {
     }
   }
 
-  const token = process.env.META_WHATSAPP_TOKEN || null
-  const phoneNumberId = process.env.META_PHONE_NUMBER_ID || null
-  if (!token || !phoneNumberId) return null
-
-  return { token, phoneNumberId, source: "central" }
+  return null
 }
 
 // ── Status check ───────────────────────────────────────────────────────────────
@@ -38,15 +35,16 @@ export async function getWhatsAppCloudStatus(schoolId?: string) {
   if (schoolId) {
     const { data } = await supabaseAdmin
       .from("school_whatsapp")
-      .select("phone_number_id, phone_number, display_name, connected_at, business_account_id, last_webhook_event_at, last_webhook_status")
+      .select("access_token, phone_number_id, phone_number, display_name, status, connected_at, business_account_id, last_webhook_event_at, last_webhook_status")
       .eq("school_id", schoolId)
       .maybeSingle()
 
-    if (data?.phone_number_id) {
+    if (data?.access_token && data.phone_number_id && data.status !== "disconnected") {
       return {
         configured: true,
         missing: [] as string[],
         source: "school" as const,
+        connectionStatus: data.status ?? "connected",
         phoneNumberId: data.phone_number_id,
         phoneNumber: data.phone_number ?? null,
         displayName: data.display_name ?? null,
@@ -60,20 +58,16 @@ export async function getWhatsAppCloudStatus(schoolId?: string) {
     }
   }
 
-  // Fall back: check centralized env vars
-  const missing: string[] = []
-  if (!process.env.META_WHATSAPP_TOKEN) missing.push("META_WHATSAPP_TOKEN")
-  if (!process.env.META_PHONE_NUMBER_ID) missing.push("META_PHONE_NUMBER_ID")
-
   return {
-    configured: missing.length === 0,
-    missing,
-    source: "central" as const,
-    phoneNumberId: process.env.META_PHONE_NUMBER_ID ?? null,
+    configured: false,
+    missing: ["SCHOOL_WHATSAPP_CONNECTION"],
+    source: "school" as const,
+    connectionStatus: "disconnected",
+    phoneNumberId: null,
     phoneNumber: null,
-    displayName: "EduCore Shared Number",
+    displayName: null,
     connectedAt: null,
-    businessAccountId: process.env.META_BUSINESS_ACCOUNT_ID ?? null,
+    businessAccountId: null,
     lastWebhookAt: null,
     lastWebhookStatus: null,
     provider: "meta-cloud-api",
@@ -122,8 +116,8 @@ export async function sendWhatsAppTemplateMessage({
   if (!config) {
     throw new Error(
       schoolId
-        ? "No WhatsApp configured for this school and no centralized fallback found. Connect a WhatsApp number in Settings."
-        : "Meta WhatsApp Cloud API is not configured. Set META_WHATSAPP_TOKEN and META_PHONE_NUMBER_ID."
+        ? "No WhatsApp number is connected for this school. Connect one in Settings."
+        : "A school WhatsApp connection is required."
     )
   }
 
