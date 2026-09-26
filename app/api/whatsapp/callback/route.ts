@@ -80,9 +80,6 @@ async function resolvePhoneNumber(
 
   // 1. If phone_number_id was supplied directly by the client (from FINISH event)
   if (suppliedPhone) {
-    phone = { id: suppliedPhone }
-    // Attempt to enrich with display number and verified name from Meta,
-    // but gracefully catch any permission errors (#200) without aborting.
     try {
       const phoneDetails = await graphGet(`/${suppliedPhone}`, accessToken)
       if (phoneDetails?.id) {
@@ -91,10 +88,17 @@ async function resolvePhoneNumber(
           display_phone_number: phoneDetails.display_phone_number,
           verified_name: phoneDetails.verified_name,
         }
-        console.log("[WhatsApp/callback] direct phone details enriched:", phone.display_phone_number)
+        console.log("[WhatsApp/callback] direct phone details verified:", phone.display_phone_number || phone.id)
       }
     } catch (err) {
-      console.warn("[WhatsApp/callback] direct phone detail query non-fatal warning:", err)
+      const message = err instanceof Error ? err.message : String(err)
+      console.error("[WhatsApp/callback] Direct phone verification failed:", message)
+      if (/missing permissions|Unsupported get request|\(#200\)/i.test(message)) {
+        throw new Error(
+          `Permission missing: The token granted by Meta does not have permission to access WhatsApp Phone Number (${suppliedPhone}). Please ensure configuration ${process.env.META_WHATSAPP_CONFIG_ID || ""} in Meta Developer Dashboard includes 'whatsapp_business_management' and 'whatsapp_business_messaging'.`
+        )
+      }
+      throw new Error(`WhatsApp Phone Number verification failed: ${message}`)
     }
   }
 

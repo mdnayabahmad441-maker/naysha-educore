@@ -82,7 +82,6 @@ export default function WhatsAppConnect() {
         config_id: data.configId,
         response_type: "code",
         override_default_response_type: true,
-        scope: "whatsapp_business_management,whatsapp_business_messaging",
         extras: { setup: {} },
       }
       if (process.env.NODE_ENV !== "production") {
@@ -95,8 +94,14 @@ export default function WhatsAppConnect() {
         })
       }
       window.FB.login((result) => {
+        console.log("[WhatsApp Embedded Signup] FB.login callback result:", result)
         const code = result.authResponse?.code
-        if (!code) { setConnecting(false); showToast("error", "WhatsApp connection was cancelled or not authorized."); return }
+        if (!code) {
+          console.error("[WhatsApp Embedded Signup] No code returned in authResponse:", result)
+          setConnecting(false)
+          showToast("error", "WhatsApp connection was cancelled or not authorized.")
+          return
+        }
         setTimeout(() => {
           void completeConnection(code)
         }, 300)
