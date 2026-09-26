@@ -81,7 +81,13 @@ async function resolvePhoneNumber(
   // 1. If phone_number_id was supplied directly by the client (from FINISH event)
   if (suppliedPhone) {
     try {
-      const phoneDetails = await graphGet(`/${suppliedPhone}`, accessToken)
+      // Request the fields explicitly; Graph API nodes do not always include
+      // their identifying fields in the default response.
+      const phoneDetails = await graphGet(
+        `/${suppliedPhone}`,
+        accessToken,
+        "id,display_phone_number,verified_name"
+      )
       if (phoneDetails?.id) {
         phone = {
           id: phoneDetails.id,
@@ -134,7 +140,11 @@ async function resolvePhoneNumber(
   if (!phone?.id && wabaId) {
     try {
       // Omit restricted fields (e.g. status) to avoid Meta (#200) field permission errors
-      const phonesRes = await graphGet(`/${wabaId}/phone_numbers`, accessToken)
+      const phonesRes = await graphGet(
+        `/${wabaId}/phone_numbers`,
+        accessToken,
+        "id,display_phone_number,verified_name"
+      )
       const phoneList = phonesRes?.data || []
       if (phoneList.length > 0) {
         phone = {
