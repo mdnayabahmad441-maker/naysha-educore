@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api-client"
 
 declare global { interface Window { FB?: { init: (options: Record<string, unknown>) => void; login: (callback: (response: { authResponse?: { code?: string } }) => void, options: Record<string, unknown>) => void } } }
 
-type WaStatus = { connected: boolean; fallbackActive?: boolean; source?: "school" | "central"; connectionStatus?: string; phoneNumber?: string | null; displayName?: string | null; businessAccountId?: string | null; connectedAt?: string | null; lastWebhookAt?: string | null; lastWebhookStatus?: string | null }
+type WaStatus = { connected: boolean; fallbackActive?: boolean; source?: "school" | "central"; connectionStatus?: string; phoneNumberId?: string | null; phoneNumber?: string | null; displayName?: string | null; businessAccountId?: string | null; connectedAt?: string | null; lastWebhookAt?: string | null; lastWebhookStatus?: string | null }
 type MetaSession = { wabaId?: string; phoneNumberId?: string }
 
 function fmtDate(value?: string | null) { return value ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—" }
@@ -137,16 +137,59 @@ export default function WhatsAppConnect() {
     <Script src="https://connect.facebook.net/en_US/sdk.js" strategy="afterInteractive" onLoad={() => setSdkReady(true)} onError={() => showToast("error", "Meta onboarding could not be loaded. Check your internet connection and try again.")} />
     <div><h2 className="text-2xl font-semibold text-white">WhatsApp Business</h2><p className="mt-1.5 text-sm leading-6 text-slate-400">Connect this school’s WhatsApp Business number. Its notifications will be sent only from the connected school number.</p></div>
     {toast && <div className={`rounded-2xl border px-4 py-3 text-sm ${toast.type === "success" ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : "border-red-400/20 bg-red-400/10 text-red-200"}`}>{toast.msg}</div>}
-    {loading ? <div className="py-8 text-sm text-slate-400">Checking WhatsApp status…</div> : connected ? <div className="space-y-5 rounded-3xl border border-emerald-400/20 bg-emerald-400/5 p-6">
-      <div className="flex items-center justify-between"><span className="font-semibold text-emerald-300">WhatsApp Connected ✓</span><span className="text-xs text-slate-400">{status?.connectionStatus || "connected"}</span></div>
-      <div className="grid gap-2.5 text-sm"><Row label="School WhatsApp Number" value={status?.phoneNumber || "—"} /><Row label="Display Name" value={status?.displayName || "—"} /><Row label="WhatsApp Business Account" value={status?.businessAccountId || "—"} mono /><Row label="Connected" value={fmtDate(status?.connectedAt)} /></div>
-      <div className="flex flex-wrap gap-3"><button onClick={() => void testConnection()} disabled={testing} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{testing ? "Testing…" : "Test Connection"}</button><button onClick={() => void startConnect()} disabled={connecting} className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{connecting ? "Connecting…" : "Reconnect"}</button><button onClick={() => void disconnect()} disabled={disconnecting} className="rounded-xl border border-red-400/25 px-4 py-2 text-sm font-semibold text-red-300 disabled:opacity-60">{disconnecting ? "Disconnecting…" : "Disconnect"}</button></div>
-    </div> : <div className="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-6">
-      <div><h3 className="font-semibold text-white">Connect Your School&apos;s WhatsApp Number</h3><p className="mt-1 text-sm leading-6 text-slate-400">Meta will securely guide you to select the school’s Business Portfolio, WhatsApp Business Account, and phone number.</p></div>
-      {status?.fallbackActive && <div className="rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-100">This school has not connected its own number yet. Notifications are currently sent through the EduCore WhatsApp number.</div>}
-      <button onClick={() => void startConnect()} disabled={connecting || !sdkReady} className="w-full rounded-2xl bg-[#25D366] py-3.5 text-sm font-semibold text-white disabled:opacity-60">{connecting ? "Waiting for Meta…" : sdkReady ? "Connect WhatsApp Business Number" : "Loading Meta…"}</button>
-      <p className="text-xs leading-5 text-slate-500">Use the Facebook account that manages this school’s Meta Business Portfolio. Cancelling Meta’s window leaves the current connection unchanged.</p>
-    </div>}
+    {loading ? (
+      <div className="py-8 text-sm text-slate-400">Checking WhatsApp status…</div>
+    ) : connected ? (
+      <div className="space-y-5 rounded-3xl border border-emerald-400/20 bg-emerald-400/5 p-6">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-emerald-300">WhatsApp Connected ✓</span>
+          <span className="text-xs text-slate-400">Active</span>
+        </div>
+        <div className="grid gap-2.5 text-sm">
+          <Row label="School WhatsApp Number" value={status?.phoneNumber || "—"} />
+          <Row label="Display Name" value={status?.displayName || "—"} />
+          <Row label="WhatsApp Business Account" value={status?.businessAccountId || "—"} mono />
+          <Row label="Connected" value={fmtDate(status?.connectedAt)} />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <button onClick={() => void testConnection()} disabled={testing} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{testing ? "Testing…" : "Test Connection"}</button>
+          <button onClick={() => void startConnect()} disabled={connecting} className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{connecting ? "Connecting…" : "Reconnect"}</button>
+          <button onClick={() => void disconnect()} disabled={disconnecting} className="rounded-xl border border-red-400/25 px-4 py-2 text-sm font-semibold text-red-300 disabled:opacity-60">{disconnecting ? "Disconnecting…" : "Disconnect"}</button>
+        </div>
+      </div>
+    ) : status?.connectionStatus === "authorization_required" ? (
+      <div className="space-y-5 rounded-3xl border border-amber-400/25 bg-amber-400/5 p-6">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-amber-300">WhatsApp Authorization Incomplete</span>
+          <span className="rounded-full bg-amber-400/10 px-2.5 py-0.5 text-xs font-medium text-amber-300 border border-amber-400/20">Permission Required</span>
+        </div>
+        <p className="text-sm leading-6 text-slate-300">
+          A Meta setup was received, but the authorization token does not have permission to manage this school&apos;s WhatsApp number. Notifications will continue to route through EduCore until re-authorized.
+        </p>
+        <div className="grid gap-2.5 text-sm">
+          <Row label="Selected Phone Number ID" value={status?.phoneNumberId || "—"} mono />
+          <Row label="Selected Business Account" value={status?.businessAccountId || "—"} mono />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <button onClick={() => void startConnect()} disabled={connecting || !sdkReady} className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{connecting ? "Waiting for Meta…" : "Reconnect WhatsApp Number"}</button>
+          <button onClick={() => void disconnect()} disabled={disconnecting} className="rounded-xl border border-red-400/25 px-4 py-2 text-sm font-semibold text-red-300 disabled:opacity-60">{disconnecting ? "Disconnecting…" : "Clear / Reset"}</button>
+        </div>
+      </div>
+    ) : (
+      <div className="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-6">
+        <div>
+          <h3 className="font-semibold text-white">Connect Your School&apos;s WhatsApp Number</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Meta will securely guide you to select the school’s Business Portfolio, WhatsApp Business Account, and phone number.</p>
+        </div>
+        {status?.fallbackActive && (
+          <div className="rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-100">
+            This school has not connected its own number yet. Notifications are currently sent through the EduCore WhatsApp number.
+          </div>
+        )}
+        <button onClick={() => void startConnect()} disabled={connecting || !sdkReady} className="w-full rounded-2xl bg-[#25D366] py-3.5 text-sm font-semibold text-white disabled:opacity-60">{connecting ? "Waiting for Meta…" : sdkReady ? "Connect WhatsApp Business Number" : "Loading Meta…"}</button>
+        <p className="text-xs leading-5 text-slate-500">Use the Facebook account that manages this school’s Meta Business Portfolio. Cancelling Meta’s window leaves the current connection unchanged.</p>
+      </div>
+    )}
   </div>
 }
 

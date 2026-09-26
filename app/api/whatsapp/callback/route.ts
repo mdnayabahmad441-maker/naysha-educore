@@ -14,12 +14,6 @@ function clientError(error: unknown): string {
   if (/server configuration/i.test(message)) {
     return "WhatsApp onboarding is not configured on this server (META_APP_ID or META_APP_SECRET missing in environment variables)."
   }
-  if (/phone number/i.test(message)) {
-    return "No WhatsApp phone number was selected or found in Meta."
-  }
-  if (/business account|waba/i.test(message)) {
-    return "No WhatsApp Business Account was selected or found in Meta."
-  }
   return message
 }
 
@@ -32,7 +26,13 @@ async function graphGet(path: string, token: string, fields?: string) {
   })
   const data = await response.json()
   if (!response.ok) {
-    throw new Error(data?.error?.message || `Meta Graph API request failed for ${path}`)
+    const err = data?.error || {}
+    const msg = err.message || `Meta Graph API request failed for ${path} (HTTP ${response.status})`
+    const errorObj = new Error(msg) as Error & { code?: number; subcode?: number; fbtrace_id?: string }
+    errorObj.code = err.code
+    errorObj.subcode = err.error_subcode
+    errorObj.fbtrace_id = err.fbtrace_id
+    throw errorObj
   }
   return data
 }
@@ -48,10 +48,6 @@ async function exchangeCode(code: string): Promise<string> {
   url.searchParams.set("client_id", appId)
   url.searchParams.set("client_secret", appSecret)
   url.searchParams.set("code", code)
-  // IMPORTANT: Do NOT pass redirect_uri here.
-  // Meta WhatsApp Embedded Signup using the Facebook JS SDK (FB.login) does not use
-  // redirect_uri. Providing a redirect_uri at code exchange causes Meta to reject
-  // the request with OAuthException 191 (domain not in app domains).
 
   const response = await fetch(url, { cache: "no-store" })
   const data = await response.json()
@@ -60,7 +56,9 @@ async function exchangeCode(code: string): Promise<string> {
     "[WhatsApp/callback] token exchange status:",
     response.status,
     "has_token:",
-    Boolean(data?.access_token)
+    Boolean(data?.access_token),
+    "token_type:",
+    data?.token_type || "unknown"
   )
 
   if (!response.ok || !data?.access_token) {
@@ -68,91 +66,6 @@ async function exchangeCode(code: string): Promise<string> {
     throw new Error(errMsg)
   }
   return String(data.access_token)
-}
-
-async function resolvePhoneNumber(
-  accessToken: string,
-  suppliedWaba?: string,
-  suppliedPhone?: string
-): Promise<{ wabaId: string; phone: { id: string; display_phone_number?: string; verified_name?: string } }> {
-  let wabaId = suppliedWaba
-  let phone: { id: string; display_phone_number?: string; verified_name?: string } | null = null
-
-  // 1. If phone_number_id was supplied directly by the client (from FINISH event)
-  if (suppliedPhone) {
-    try {
-      const phoneDetails = await graphGet(`/${suppliedPhone}`, accessToken)
-      if (phoneDetails?.id) {
-        phone = {
-          id: phoneDetails.id,
-          display_phone_number: phoneDetails.display_phone_number,
-          verified_name: phoneDetails.verified_name,
-        }
-        console.log("[WhatsApp/callback] direct phone details verified:", phone.display_phone_number || phone.id)
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      console.error("[WhatsApp/callback] Direct phone verification failed:", message)
-      if (/missing permissions|Unsupported get request|\(#200\)/i.test(message)) {
-        throw new Error(
-          `Permission missing: The token granted by Meta does not have permission to access WhatsApp Phone Number (${suppliedPhone}). Please ensure configuration ${process.env.META_WHATSAPP_CONFIG_ID || ""} in Meta Developer Dashboard includes 'whatsapp_business_management' and 'whatsapp_business_messaging'.`
-        )
-      }
-      throw new Error(`WhatsApp Phone Number verification failed: ${message}`)
-    }
-  }
-
-  // 2. If wabaId is not yet resolved, inspect debug_token using app access token
-  if (!wabaId) {
-    const appId = process.env.META_APP_ID?.trim()
-    const appSecret = process.env.META_APP_SECRET?.trim()
-    if (appId && appSecret) {
-      try {
-        const debugUrl = new URL(`${GRAPH}/debug_token`)
-        debugUrl.searchParams.set("input_token", accessToken)
-        debugUrl.searchParams.set("access_token", `${appId}|${appSecret}`)
-        const debugRes = await fetch(debugUrl, { cache: "no-store" })
-        const debugData = await debugRes.json()
-        const scopes = debugData?.data?.granular_scopes
-        if (Array.isArray(scopes)) {
-          const wabaScope = scopes.find(
-            (s: { scope?: string }) =>
-              s.scope === "whatsapp_business_management" || s.scope === "whatsapp_business_messaging"
-          )
-          if (wabaScope?.target_ids?.length) {
-            wabaId = wabaScope.target_ids[0]
-            console.log("[WhatsApp/callback] WABA resolved via debug_token:", wabaId)
-          }
-        }
-      } catch (err) {
-        console.warn("[WhatsApp/callback] debug_token lookup warning:", err)
-      }
-    }
-  }
-
-  // 3. Fallback: query WABA phone numbers list if phone was not supplied
-  if (!phone?.id && wabaId) {
-    try {
-      // Omit restricted fields (e.g. status) to avoid Meta (#200) field permission errors
-      const phonesRes = await graphGet(`/${wabaId}/phone_numbers`, accessToken)
-      const phoneList = phonesRes?.data || []
-      if (phoneList.length > 0) {
-        phone = {
-          id: phoneList[0].id,
-          display_phone_number: phoneList[0].display_phone_number,
-          verified_name: phoneList[0].verified_name,
-        }
-      }
-    } catch (err) {
-      console.warn("[WhatsApp/callback] WABA phone_numbers query warning:", err)
-    }
-  }
-
-  if (!phone?.id) {
-    throw new Error("No WhatsApp phone number was selected or found in Meta. Please try again.")
-  }
-
-  return { wabaId: String(wabaId || ""), phone }
 }
 
 export async function POST(request: NextRequest) {
@@ -191,10 +104,10 @@ export async function POST(request: NextRequest) {
     console.log(
       "[WhatsApp/callback] received — has_code:",
       Boolean(code),
-      "has_waba:",
-      Boolean(suppliedWaba),
-      "has_phone:",
-      Boolean(suppliedPhone)
+      "wabaId:",
+      suppliedWaba ? `[ID: ${suppliedWaba}]` : "none",
+      "phoneNumberId:",
+      suppliedPhone ? `[ID: ${suppliedPhone}]` : "none"
     )
 
     if (!code) {
@@ -204,12 +117,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ── Step 1: Exchange code for access token ─────────────────────────────────
+    if (!suppliedPhone) {
+      return NextResponse.json(
+        { error: "No WhatsApp phone number was selected during Meta Embedded Signup. Please try again." },
+        { status: 400 }
+      )
+    }
+
+    // ── Pipeline Step 1: Exchange code for server-side access token ───────────
     const accessToken = await exchangeCode(code)
 
-    // Inspect granted scopes (server-side diagnostic)
+    // ── Pipeline Step 2: Validate Token Scopes via debug_token ─────────────────
     const appId = process.env.META_APP_ID?.trim()
     const appSecret = process.env.META_APP_SECRET?.trim()
+    let grantedScopes: string[] = []
     if (appId && appSecret) {
       try {
         const debugUrl = new URL(`${GRAPH}/debug_token`)
@@ -217,23 +138,64 @@ export async function POST(request: NextRequest) {
         debugUrl.searchParams.set("access_token", `${appId}|${appSecret}`)
         const debugRes = await fetch(debugUrl, { cache: "no-store" })
         const debugData = await debugRes.json()
-        const scopes = debugData?.data?.scopes || []
-        console.log("[WhatsApp/callback] token scopes granted by Meta:", scopes)
-        if (!scopes.includes("whatsapp_business_management") && !scopes.includes("whatsapp_business_messaging")) {
-          console.warn("[WhatsApp/callback] WARNING: Token missing WhatsApp permissions! Granted scopes:", scopes)
-        }
-      } catch (err) {
-        console.warn("[WhatsApp/callback] debug_token scope check warning:", err)
+        grantedScopes = debugData?.data?.scopes || []
+        console.log("[WhatsApp/callback] token debug verification:", {
+          type: debugData?.data?.type,
+          is_valid: debugData?.data?.is_valid,
+          scopes: grantedScopes,
+        })
+      } catch (debugErr) {
+        console.warn("[WhatsApp/callback] debug_token non-fatal warning:", debugErr)
       }
     }
 
-    // ── Step 2: Resolve WABA ID and Phone Number ──────────────────────────────
-    const selected = await resolvePhoneNumber(accessToken, suppliedWaba, suppliedPhone)
-
-    // ── Step 3: Subscribe app to WABA webhooks (non-fatal) ─────────────────────
-    if (selected.wabaId) {
+    // ── Pipeline Step 3: Verify Token Can Access WABA ──────────────────────────
+    let verifiedWabaName: string | null = null
+    if (suppliedWaba) {
       try {
-        const subscription = await fetch(`${GRAPH}/${selected.wabaId}/subscribed_apps`, {
+        const wabaData = await graphGet(`/${suppliedWaba}`, accessToken, "id,name")
+        verifiedWabaName = wabaData?.name || null
+        console.log("[WhatsApp/callback] WABA verified successfully:", suppliedWaba, `(${verifiedWabaName})`)
+      } catch (wabaErr) {
+        const msg = wabaErr instanceof Error ? wabaErr.message : String(wabaErr)
+        console.error("[WhatsApp/callback] Step 3: WABA verification failed:", msg)
+        return NextResponse.json(
+          {
+            error: `WABA access rejected by Meta: The granted token cannot access WhatsApp Business Account (${suppliedWaba}). Reason: ${msg}. Granted scopes: [${grantedScopes.join(", ") || "none"}].`,
+          },
+          { status: 400 }
+        )
+      }
+    }
+
+    // ── Pipeline Step 4: Verify Token Can Access Phone Number ─────────────────
+    let displayPhoneNumber: string | null = null
+    let verifiedName: string | null = null
+
+    try {
+      const phoneData = await graphGet(`/${suppliedPhone}`, accessToken, "id,display_phone_number,verified_name")
+      displayPhoneNumber = phoneData?.display_phone_number || null
+      verifiedName = phoneData?.verified_name || null
+      console.log("[WhatsApp/callback] Phone number verified successfully:", {
+        id: suppliedPhone,
+        displayPhoneNumber,
+        verifiedName,
+      })
+    } catch (phoneErr) {
+      const msg = phoneErr instanceof Error ? phoneErr.message : String(phoneErr)
+      console.error("[WhatsApp/callback] Step 4: Phone verification failed:", msg)
+      return NextResponse.json(
+        {
+          error: `Phone access rejected by Meta: The granted token cannot access WhatsApp Phone Number (${suppliedPhone}). Reason: ${msg}. Granted scopes: [${grantedScopes.join(", ") || "none"}]. Please ensure configuration ${process.env.META_WHATSAPP_CONFIG_ID || ""} in Meta Developer Dashboard includes 'whatsapp_business_management' and 'whatsapp_business_messaging'.`,
+        },
+        { status: 400 }
+      )
+    }
+
+    // ── Pipeline Step 5: Subscribe App to WABA Webhooks ───────────────────────
+    if (suppliedWaba) {
+      try {
+        const subscription = await fetch(`${GRAPH}/${suppliedWaba}/subscribed_apps`, {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
           cache: "no-store",
@@ -242,16 +204,15 @@ export async function POST(request: NextRequest) {
           const subData = await subscription.json().catch(() => null)
           console.warn("[WhatsApp/callback] subscribed_apps non-fatal warning:", subData?.error?.message)
         } else {
-          console.log("[WhatsApp/callback] subscribed_apps OK for WABA:", selected.wabaId)
+          console.log("[WhatsApp/callback] subscribed_apps OK for WABA:", suppliedWaba)
         }
       } catch (subErr) {
         console.warn("[WhatsApp/callback] subscribed_apps network warning:", subErr)
       }
     }
 
-    // ── Step 4: Persist connection to database ─────────────────────────────────
-    // Query existing record to handle update vs insert safely without relying on a
-    // specific unique constraint name on school_id. Only existing columns are used.
+    // ── Pipeline Step 6: ONLY NOW Save Validated Connection to Database ────────
+    // If we reached this point, the token was fully proven to access both the WABA and the Phone Number.
     const { data: existing, error: selectError } = await supabaseAdmin
       .from("school_whatsapp")
       .select("id")
@@ -264,10 +225,10 @@ export async function POST(request: NextRequest) {
 
     const payload = {
       access_token: accessToken,
-      phone_number_id: selected.phone.id,
-      business_account_id: selected.wabaId || null,
-      phone_number: selected.phone.display_phone_number ?? null,
-      display_name: selected.phone.verified_name ?? null,
+      phone_number_id: suppliedPhone,
+      business_account_id: suppliedWaba || null,
+      phone_number: displayPhoneNumber,
+      display_name: verifiedName || verifiedWabaName || "WhatsApp Business",
     }
 
     if (existing?.id) {
@@ -295,13 +256,18 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(
-      "[WhatsApp/callback] successfully connected school:",
+      "[WhatsApp/callback] successfully connected and verified school:",
       schoolId,
       "phone:",
-      selected.phone.display_phone_number || selected.phone.id
+      displayPhoneNumber
     )
 
-    const response = NextResponse.json({ success: true })
+    const response = NextResponse.json({
+      success: true,
+      phoneNumber: displayPhoneNumber,
+      displayName: verifiedName || verifiedWabaName,
+    })
+
     response.cookies.set(STATE_COOKIE, "", {
       maxAge: 0,
       path: "/api/whatsapp",
@@ -309,6 +275,7 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
     })
+
     return response
   } catch (error) {
     return NextResponse.json({ error: clientError(error) }, { status: 400 })
