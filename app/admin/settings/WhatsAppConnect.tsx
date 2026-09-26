@@ -82,6 +82,7 @@ export default function WhatsAppConnect() {
         config_id: data.configId,
         response_type: "code",
         override_default_response_type: true,
+        scope: "whatsapp_business_management,whatsapp_business_messaging",
         extras: { setup: {} },
       }
       if (process.env.NODE_ENV !== "production") {

@@ -24,9 +24,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Query phone number details without restricted fields (avoiding 'status' which requires Advanced Access)
+    // Query WhatsApp Cloud API for the registered phone number details
     const url = new URL(`https://graph.facebook.com/${API_VERSION}/${data.phone_number_id}`)
     url.searchParams.set("fields", "id,display_phone_number,verified_name")
+
+    console.log("[WhatsApp test] verifying phone_number_id:", data.phone_number_id, "endpoint:", url.pathname)
 
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${data.access_token}` },
@@ -34,13 +36,29 @@ export async function POST(request: NextRequest) {
     })
     const result = await response.json()
 
+    console.log("[WhatsApp test] Meta response status:", response.status)
+
     if (!response.ok) {
-      const errMsg = result?.error?.message || "Meta rejected the connection test"
-      console.error("[WhatsApp test] Meta error:", errMsg)
-      throw new Error(errMsg)
+      const err = result?.error || {}
+      console.error("[WhatsApp test] Meta error response:", {
+        status: response.status,
+        code: err.code,
+        subcode: err.error_subcode,
+        type: err.type,
+        message: err.message,
+        fbtrace_id: err.fbtrace_id,
+      })
+
+      if (err.error_subcode === 33 || /missing permissions|Unsupported get request/i.test(err.message || "")) {
+        throw new Error(
+          `Permission missing: The stored token does not have permission to access WhatsApp Phone Number (${data.phone_number_id}). Please click Reconnect to re-authorize with WhatsApp permissions.`
+        )
+      }
+
+      throw new Error(err.message || "Meta rejected the connection test")
     }
 
-    // Update display fields if found (only existing columns in DB)
+    // Update display fields in database (only existing columns)
     if (result.display_phone_number || result.verified_name) {
       await supabaseAdmin
         .from("school_whatsapp")
@@ -54,10 +72,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       phoneNumber: result.display_phone_number ?? data.phone_number_id,
+      displayName: result.verified_name ?? null,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : "The connected WhatsApp number could not be verified."
-    console.error("[WhatsApp test] failure:", message)
+    console.error("[WhatsApp test] failed:", message)
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }

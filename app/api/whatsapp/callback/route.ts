@@ -203,6 +203,26 @@ export async function POST(request: NextRequest) {
     // ── Step 1: Exchange code for access token ─────────────────────────────────
     const accessToken = await exchangeCode(code)
 
+    // Inspect granted scopes (server-side diagnostic)
+    const appId = process.env.META_APP_ID?.trim()
+    const appSecret = process.env.META_APP_SECRET?.trim()
+    if (appId && appSecret) {
+      try {
+        const debugUrl = new URL(`${GRAPH}/debug_token`)
+        debugUrl.searchParams.set("input_token", accessToken)
+        debugUrl.searchParams.set("access_token", `${appId}|${appSecret}`)
+        const debugRes = await fetch(debugUrl, { cache: "no-store" })
+        const debugData = await debugRes.json()
+        const scopes = debugData?.data?.scopes || []
+        console.log("[WhatsApp/callback] token scopes granted by Meta:", scopes)
+        if (!scopes.includes("whatsapp_business_management") && !scopes.includes("whatsapp_business_messaging")) {
+          console.warn("[WhatsApp/callback] WARNING: Token missing WhatsApp permissions! Granted scopes:", scopes)
+        }
+      } catch (err) {
+        console.warn("[WhatsApp/callback] debug_token scope check warning:", err)
+      }
+    }
+
     // ── Step 2: Resolve WABA ID and Phone Number ──────────────────────────────
     const selected = await resolvePhoneNumber(accessToken, suppliedWaba, suppliedPhone)
 
