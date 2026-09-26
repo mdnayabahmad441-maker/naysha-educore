@@ -59,6 +59,8 @@ export async function POST(req: Request) {
       )
     }
 
+    console.info(`[send-whatsapp] using ${status.source} sender for school ${schoolId}`)
+
     const variables    = Array.isArray(body?.variables) ? (body.variables as string[]).map(String) : null
     const templateName = String(body?.templateName || process.env.WHATSAPP_TEMPLATE_NAME || "school_notice").trim()
 

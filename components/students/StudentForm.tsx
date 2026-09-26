@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState } from "react"
 import { getActiveAcademicYear } from "@/lib/academic"
@@ -398,7 +398,7 @@ export default function StudentForm({ reload }: StudentFormProps) {
       }
 
       const sendNotifications = async () => {
-        if (parentEmail || parentPhone) {
+        if (parentPhone) {
           const { data: school } = await supabase
             .from("schools")
             .select("name")
@@ -407,51 +407,20 @@ export default function StudentForm({ reload }: StudentFormProps) {
 
           const schoolName = school?.name || "Our School"
 
-          const welcomeMessage = `
-Welcome to ${schoolName}!
-
-Dear Parent,
-
-We are delighted to welcome your child ${name.trim()} to our school family.
-
-Thank you for choosing ${schoolName}.
-
-Best regards,
-${schoolName} Team
-          `.trim()
-
-          if (parentEmail) {
-            try {
-              await apiFetch("/api/send-email", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  email: parentEmail.trim(),
-                  subject: `Welcome to ${schoolName}`,
-                  message: welcomeMessage
-                })
+          try {
+            await apiFetch("/api/send-whatsapp", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                phone: parentPhone.trim(),
+                templateName: "school_notice",
+                variables: [
+                  `Welcome! Your child  has been successfully enrolled at .`,
+                ],
               })
-            } catch (err) {
-              console.error("Welcome email failed:", err)
-            }
-          }
-
-          if (parentPhone) {
-            try {
-              await apiFetch("/api/send-whatsapp", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  phone: parentPhone.trim(),
-                  templateName: "school_notice",
-                  variables: [
-                    `Welcome! Your child ${name.trim()} has been successfully enrolled at ${schoolName || "our school"}.`,
-                  ],
-                })
-              })
-            } catch (err) {
-              console.error("Welcome WhatsApp failed:", err)
-            }
+            })
+          } catch (err) {
+            console.error("Welcome WhatsApp failed:", err)
           }
         }
       }

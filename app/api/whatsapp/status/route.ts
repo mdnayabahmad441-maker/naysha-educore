@@ -12,13 +12,15 @@ export async function GET(request: NextRequest) {
   if (!status.configured) {
     return NextResponse.json({
       connected: false,
+      fallbackActive: false,
       source: status.source,
       missing: status.missing,
     })
   }
 
   return NextResponse.json({
-    connected: true,
+    connected: status.source === "school",
+    fallbackActive: status.source === "central",
     source: status.source,            // "school" | "central"
     connectionStatus: status.connectionStatus,
     provider: status.provider,
@@ -29,6 +31,6 @@ export async function GET(request: NextRequest) {
     connectedAt: status.connectedAt,
     lastWebhookAt: status.lastWebhookAt,
     lastWebhookStatus: status.lastWebhookStatus,
-    centralized: false,
+    centralized: status.source === "central",
   })
 }

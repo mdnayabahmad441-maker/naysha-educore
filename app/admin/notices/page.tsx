@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState } from "react"
 import { sendNotification } from "@/lib/notifications"
@@ -245,23 +245,6 @@ export default function NoticesPage() {
           message: message.trim(),
           type: "notice"
         })
-
-        const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
-        if (parent.email && EMAIL_RE.test(String(parent.email).trim())) {
-          try {
-            await apiFetch("/api/send-email", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                email: parent.email,
-                subject: title.trim(),
-                message: message.trim()
-              })
-            })
-          } catch {
-            console.log("Email failed:", parent.email)
-          }
-        }
 
         successCount++
       }

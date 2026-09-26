@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api-client"
 
 declare global { interface Window { FB?: { init: (options: Record<string, unknown>) => void; login: (callback: (response: { authResponse?: { code?: string } }) => void, options: Record<string, unknown>) => void } } }
 
-type WaStatus = { connected: boolean; source?: "school" | "central"; connectionStatus?: string; phoneNumber?: string | null; displayName?: string | null; businessAccountId?: string | null; connectedAt?: string | null; lastWebhookAt?: string | null; lastWebhookStatus?: string | null }
+type WaStatus = { connected: boolean; fallbackActive?: boolean; source?: "school" | "central"; connectionStatus?: string; phoneNumber?: string | null; displayName?: string | null; businessAccountId?: string | null; connectedAt?: string | null; lastWebhookAt?: string | null; lastWebhookStatus?: string | null }
 type MetaSession = { wabaId?: string; phoneNumberId?: string }
 
 function fmtDate(value?: string | null) { return value ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—" }
@@ -67,16 +67,31 @@ export default function WhatsAppConnect() {
       const response = await apiFetch("/api/whatsapp/connect", { method: "POST" }); const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Could not start WhatsApp onboarding")
       window.FB.init({ appId: data.appId, cookie: true, xfbml: false, version: "v23.0" })
-      window.FB.login((result) => {
-        const code = result.authResponse?.code
-        if (!code) { setConnecting(false); showToast("error", "WhatsApp connection was cancelled or not authorized."); return }
-        void completeConnection(code)
-      }, {
+      const loginOptions = {
         config_id: data.configId,
         response_type: "code",
         override_default_response_type: true,
         extras: { setup: {} },
-      })
+      }
+      if (process.env.NODE_ENV !== "production") {
+        // This records the SDK inputs only. It deliberately excludes the app
+        // secret, login result, authorization code, and access token.
+        console.info("[WhatsApp Embedded Signup] FB.login launch", {
+          app_id: data.appId,
+          config_id: data.configId,
+          response_type: loginOptions.response_type,
+          override_default_response_type: loginOptions.override_default_response_type,
+          extras: loginOptions.extras,
+          redirect_uri: "not passed; managed by the Facebook JS SDK",
+          state: "not passed; server session uses an HttpOnly nonce cookie",
+          scope: "not passed",
+        })
+      }
+      window.FB.login((result) => {
+        const code = result.authResponse?.code
+        if (!code) { setConnecting(false); showToast("error", "WhatsApp connection was cancelled or not authorized."); return }
+        void completeConnection(code)
+      }, loginOptions)
     } catch (error) { setConnecting(false); showToast("error", error instanceof Error ? error.message : "Could not start WhatsApp onboarding") }
   }
 
@@ -106,6 +121,7 @@ export default function WhatsAppConnect() {
       <div className="flex flex-wrap gap-3"><button onClick={() => void testConnection()} disabled={testing} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{testing ? "Testing…" : "Test Connection"}</button><button onClick={() => void startConnect()} disabled={connecting} className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{connecting ? "Connecting…" : "Reconnect"}</button><button onClick={() => void disconnect()} disabled={disconnecting} className="rounded-xl border border-red-400/25 px-4 py-2 text-sm font-semibold text-red-300 disabled:opacity-60">{disconnecting ? "Disconnecting…" : "Disconnect"}</button></div>
     </div> : <div className="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-6">
       <div><h3 className="font-semibold text-white">Connect Your School&apos;s WhatsApp Number</h3><p className="mt-1 text-sm leading-6 text-slate-400">Meta will securely guide you to select the school’s Business Portfolio, WhatsApp Business Account, and phone number.</p></div>
+      {status?.fallbackActive && <div className="rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-100">This school has not connected its own number yet. Notifications are currently sent through the EduCore WhatsApp number.</div>}
       <button onClick={() => void startConnect()} disabled={connecting || !sdkReady} className="w-full rounded-2xl bg-[#25D366] py-3.5 text-sm font-semibold text-white disabled:opacity-60">{connecting ? "Waiting for Meta…" : sdkReady ? "Connect WhatsApp Business Number" : "Loading Meta…"}</button>
       <p className="text-xs leading-5 text-slate-500">Use the Facebook account that manages this school’s Meta Business Portfolio. Cancelling Meta’s window leaves the current connection unchanged.</p>
     </div>}

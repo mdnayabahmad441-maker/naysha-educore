@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
@@ -273,23 +273,6 @@ export default function AttendancePage({ restrictToClassTeacher = false }: Atten
               type: "attendance",
             }).catch((err: any) => console.error("DB notification error:", err))
           )
-
-
-          // Email — only if address passes basic validation
-          const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
-          if(parent?.email && EMAIL_RE.test(String(parent.email).trim())){
-            jobs.push(
-              apiFetch("/api/send-email", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  email: String(parent.email).trim(),
-                  subject: "Attendance Update",
-                  message: `${s.name} is ${status} on ${dateLabel}`,
-                }),
-              }).catch((err: any) => console.error("Email error:", err))
-            )
-          }
 
           return jobs
         })

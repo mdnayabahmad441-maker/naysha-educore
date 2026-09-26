@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getBaseUrl, getInternalApiHeaders } from "@/lib/internal-api"
 import { requireAdminProfile } from "@/lib/api-auth"
@@ -109,16 +109,6 @@ export async function POST(req: Request) {
     const baseUrl = getBaseUrl(req)
     const internalHeaders = getInternalApiHeaders()
     const loginUrl = `${baseUrl}/login`
-
-    await fetch(`${baseUrl}/api/send-email`, {
-      method: "POST",
-      headers: internalHeaders,
-      body: JSON.stringify({
-        email: normalizedEmail,
-        subject: "Your Teacher Account Created",
-        message: `Hello ${name},<br/><br/>Your teacher account has been created.<br/><br/>Open the login page and enter your email.<br/>If this is your first login, choose the account setup option to create your password.<br/><br/><a href="${loginUrl}">Open Login</a>`,
-      }),
-    })
 
     if (phone) {
       const { data: schoolRow } = await supabaseAdmin

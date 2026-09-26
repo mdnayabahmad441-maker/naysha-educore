@@ -95,32 +95,8 @@ export async function POST(req: Request) {
     const receiptUrl = `${baseUrl}/receipt/${payment.id}`
     const internalHeaders = getInternalApiHeaders()
 
-    let emailStatus = "skipped"
     let whatsappStatus = "skipped"
-    let emailError: string | null = null
     let whatsappError: string | null = null
-
-    if (parent?.email) {
-      try {
-        const res = await fetch(`${baseUrl}/api/send-email`, {
-          method: "POST",
-          headers: internalHeaders,
-          body: JSON.stringify({
-            email: parent.email,
-            subject: "Payment Received",
-            message: `${school?.name || "School"}\n\nPayment received for ${student?.name}\n\nClass: ${className}\nRoll: ${roll}\n\nAmount: Rs.${payment.amount}\nReceipt: ${receiptUrl}\n\nThank you`,
-          }),
-        })
-
-        const json = await res.json().catch(() => null)
-        emailStatus = res.ok && json?.success !== false ? "sent" : "failed"
-        emailError = emailStatus === "sent" ? null : json?.error || res.statusText
-      } catch (err) {
-        console.error("Email error:", err)
-        emailStatus = "error"
-        emailError = err instanceof Error ? err.message : "Email error"
-      }
-    }
 
     if (parent?.phone) {
       try {
@@ -152,9 +128,7 @@ export async function POST(req: Request) {
       ref_id: payment.id,
       student_id: payment.student_id,
       school_id: payment.school_id,
-      email: parent?.email || null,
       phone: parent?.phone || null,
-      email_status: emailStatus,
       whatsapp_status: whatsappStatus,
     })
 
@@ -164,9 +138,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      emailStatus,
       whatsappStatus,
-      emailError,
       whatsappError,
     })
   } catch (err) {

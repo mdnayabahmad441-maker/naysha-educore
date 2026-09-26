@@ -4,27 +4,32 @@ const META_API_VERSION = "v19.0"
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
 
 // ── Config resolution ──────────────────────────────────────────────────────────
-// WhatsApp credentials are tenant-scoped. A school's connection is never shared
-// with another school or replaced with a global sender.
+// A school's own WhatsApp credentials always take priority. Schools that have
+// not onboarded a number use the EduCore sender configured on the server.
+// The fallback is sender-only: credentials are never copied between schools.
 
 type MetaConfig = {
   token: string
   phoneNumberId: string
-  source: "school"
+  source: "school" | "central"
 }
 
 async function getMetaConfig(schoolId?: string): Promise<MetaConfig | null> {
   if (schoolId) {
     const { data } = await supabaseAdmin
       .from("school_whatsapp")
-      .select("access_token, phone_number_id")
+      .select("access_token, phone_number_id, status")
       .eq("school_id", schoolId)
       .maybeSingle()
 
-    if (data?.access_token && data?.phone_number_id) {
+    if (data?.access_token && data?.phone_number_id && data.status !== "disconnected") {
       return { token: data.access_token, phoneNumberId: data.phone_number_id, source: "school" }
     }
   }
+
+  const token = process.env.META_WHATSAPP_TOKEN
+  const phoneNumberId = process.env.META_PHONE_NUMBER_ID
+  if (token && phoneNumberId) return { token, phoneNumberId, source: "central" }
 
   return null
 }
@@ -58,10 +63,30 @@ export async function getWhatsAppCloudStatus(schoolId?: string) {
     }
   }
 
+  const centralToken = process.env.META_WHATSAPP_TOKEN
+  const centralPhoneNumberId = process.env.META_PHONE_NUMBER_ID
+  if (centralToken && centralPhoneNumberId) {
+    return {
+      configured: true,
+      missing: [] as string[],
+      source: "central" as const,
+      connectionStatus: "fallback",
+      phoneNumberId: centralPhoneNumberId,
+      phoneNumber: null,
+      displayName: "EduCore WhatsApp",
+      connectedAt: null,
+      businessAccountId: null,
+      lastWebhookAt: null,
+      lastWebhookStatus: null,
+      provider: "meta-cloud-api",
+      apiVersion: META_API_VERSION,
+    }
+  }
+
   return {
     configured: false,
-    missing: ["SCHOOL_WHATSAPP_CONNECTION"],
-    source: "school" as const,
+    missing: ["SCHOOL_WHATSAPP_CONNECTION", "META_WHATSAPP_TOKEN", "META_PHONE_NUMBER_ID"],
+    source: "central" as const,
     connectionStatus: "disconnected",
     phoneNumberId: null,
     phoneNumber: null,
@@ -114,11 +139,7 @@ export async function sendWhatsAppTemplateMessage({
   const config = await getMetaConfig(schoolId)
 
   if (!config) {
-    throw new Error(
-      schoolId
-        ? "No WhatsApp number is connected for this school. Connect one in Settings."
-        : "A school WhatsApp connection is required."
-    )
+    throw new Error("WhatsApp is not configured. Connect the school’s number or configure the EduCore fallback sender.")
   }
 
   const to = parsePhone(phone)
