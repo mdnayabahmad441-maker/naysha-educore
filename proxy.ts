@@ -14,8 +14,11 @@ const SECURITY_HEADERS: Record<string, string> = {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.facebook.com https://web.facebook.com https://graph.facebook.com",
-    "frame-src 'self' https://www.facebook.com https://web.facebook.com",
+    // connect.facebook.net is needed because the FB JS SDK makes XHR/fetch
+    // requests back to that origin at runtime (e.g. app_config/json/ calls).
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://connect.facebook.net https://www.facebook.com https://web.facebook.com https://graph.facebook.com https://business.facebook.com",
+    // business.facebook.com hosts the Embedded Signup iframe.
+    "frame-src 'self' https://www.facebook.com https://web.facebook.com https://business.facebook.com",
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
