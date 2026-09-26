@@ -12,12 +12,9 @@ export async function GET(request: NextRequest) {
   if (!status.configured) {
     return NextResponse.json({
       connected: false,
-      fallbackActive: status.source === "central",
+      fallbackActive: false,
       source: status.source,
-      connectionStatus: status.connectionStatus,
       missing: status.missing,
-      phoneNumberId: status.phoneNumberId ?? null,
-      businessAccountId: status.businessAccountId ?? null,
     })
   }
 
