@@ -113,9 +113,17 @@ export default function WhatsAppConnect() {
 
   async function testConnection() {
     setTesting(true)
-    try { const response = await apiFetch("/api/whatsapp/test", { method: "POST" }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showToast("success", `Connection verified${data.phoneNumber ? ` for ${data.phoneNumber}` : ""}.`) }
-    catch (error) { showToast("error", error instanceof Error ? error.message : "Connection test failed") }
-    finally { setTesting(false) }
+    try {
+      const response = await apiFetch("/api/whatsapp/test", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      showToast("success", `Connection verified${data.phoneNumber ? ` for ${data.phoneNumber}` : ""}.`)
+      await fetchStatus()
+    } catch (error) {
+      showToast("error", error instanceof Error ? error.message : "Connection test failed")
+    } finally {
+      setTesting(false)
+    }
   }
 
   const connected = Boolean(status?.connected && status.source === "school")
