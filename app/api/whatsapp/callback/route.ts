@@ -14,10 +14,12 @@ function clientError(error: unknown): string {
   if (/server configuration/i.test(message)) {
     return "WhatsApp onboarding is not configured on this server (META_APP_ID or META_APP_SECRET missing in environment variables)."
   }
-  if (/phone number/i.test(message)) {
+  // Keep Meta's detailed phone lookup errors visible. Only use the generic
+  // message when resolution genuinely ended without a phone ID.
+  if (/^No WhatsApp phone number was selected or found in Meta\.?$/i.test(message)) {
     return "No WhatsApp phone number was selected or found in Meta."
   }
-  if (/business account|waba/i.test(message)) {
+  if (/^No WhatsApp Business Account was selected or found in Meta\.?$/i.test(message)) {
     return "No WhatsApp Business Account was selected or found in Meta."
   }
   return message
