@@ -20,6 +20,15 @@ export default function WhatsAppConnect() {
   const [sdkReady, setSdkReady] = useState(false)
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null)
   const session = useRef<MetaSession>({})
+  const authCode = useRef<string | null>(null)
+  const signupFinished = useRef(false)
+  const callbackStarted = useRef(false)
+
+  const finishConnection = () => {
+    if (!authCode.current || !signupFinished.current || callbackStarted.current) return
+    callbackStarted.current = true
+    void completeConnection(authCode.current)
+  }
 
   const showToast = (type: "success" | "error", msg: string) => { setToast({ type, msg }); window.setTimeout(() => setToast(null), 7000) }
   const fetchStatus = async () => {
@@ -42,7 +51,9 @@ export default function WhatsAppConnect() {
         if (data?.type !== "WA_EMBEDDED_SIGNUP") return
         if (data.event === "FINISH" || data.event === "FINISH_ONLY_WABA") {
           session.current = { wabaId: data.data?.waba_id, phoneNumberId: data.data?.phone_number_id }
+          signupFinished.current = true
           console.log("[WhatsApp Embedded Signup FINISH event]", session.current)
+          finishConnection()
         } else if (data.event === "CANCEL") {
           setConnecting(false); showToast("error", "WhatsApp connection was cancelled.")
         } else if (data.event === "ERROR") {
@@ -73,7 +84,7 @@ export default function WhatsAppConnect() {
 
   async function startConnect() {
     if (!window.FB || !sdkReady) { showToast("error", "Meta onboarding is still loading. Please wait a moment and try again."); return }
-    setConnecting(true); session.current = {}
+    setConnecting(true); session.current = {}; authCode.current = null; signupFinished.current = false; callbackStarted.current = false
     try {
       const response = await apiFetch("/api/whatsapp/connect", { method: "POST" }); const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Could not start WhatsApp onboarding")
@@ -102,9 +113,10 @@ export default function WhatsAppConnect() {
           showToast("error", "WhatsApp connection was cancelled or not authorized.")
           return
         }
-        setTimeout(() => {
-          void completeConnection(code)
-        }, 300)
+        authCode.current = code
+        // Meta delivers the OAuth callback and the signup FINISH postMessage
+        // independently. Wait for both so the selected WABA/phone IDs reach the API.
+        finishConnection()
       }, loginOptions)
     } catch (error) { setConnecting(false); showToast("error", error instanceof Error ? error.message : "Could not start WhatsApp onboarding") }
   }
