@@ -53,10 +53,16 @@ export default function WhatsAppConnect() {
     try {
       const response = await apiFetch("/api/whatsapp/callback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, ...session.current }) })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error || "Connection failed")
+      if (!response.ok) {
+        console.error("[WhatsApp completeConnection error]", data?.error)
+        throw new Error(data.error || "Connection failed")
+      }
       showToast("success", "WhatsApp connected successfully. This school’s number is now active.")
       await fetchStatus()
-    } catch (error) { showToast("error", error instanceof Error ? error.message : "Connection failed") }
+    } catch (error) {
+      console.error("[WhatsApp connection caught error]", error)
+      showToast("error", error instanceof Error ? error.message : "Connection failed")
+    }
     finally { setConnecting(false) }
   }
 

@@ -18,18 +18,18 @@ async function getMetaConfig(schoolId?: string): Promise<MetaConfig | null> {
   if (schoolId) {
     const { data } = await supabaseAdmin
       .from("school_whatsapp")
-      .select("access_token, phone_number_id, status")
+      .select("access_token, phone_number_id")
       .eq("school_id", schoolId)
       .maybeSingle()
 
-    if (data?.access_token && data?.phone_number_id && data.status !== "disconnected") {
-      return { token: data.access_token, phoneNumberId: data.phone_number_id, source: "school" }
+    if (data?.access_token && data?.phone_number_id) {
+      return { token: data.access_token.trim(), phoneNumberId: data.phone_number_id.trim(), source: "school" }
     }
   }
 
   const token = process.env.META_WHATSAPP_TOKEN
   const phoneNumberId = process.env.META_PHONE_NUMBER_ID
-  if (token && phoneNumberId) return { token, phoneNumberId, source: "central" }
+  if (token && phoneNumberId) return { token: token.trim(), phoneNumberId: phoneNumberId.trim(), source: "central" }
 
   return null
 }
@@ -40,23 +40,23 @@ export async function getWhatsAppCloudStatus(schoolId?: string) {
   if (schoolId) {
     const { data } = await supabaseAdmin
       .from("school_whatsapp")
-      .select("access_token, phone_number_id, phone_number, display_name, status, connected_at, business_account_id, last_webhook_event_at, last_webhook_status")
+      .select("access_token, phone_number_id, phone_number, display_name, created_at, business_account_id")
       .eq("school_id", schoolId)
       .maybeSingle()
 
-    if (data?.access_token && data.phone_number_id && data.status !== "disconnected") {
+    if (data?.access_token && data?.phone_number_id) {
       return {
         configured: true,
         missing: [] as string[],
         source: "school" as const,
-        connectionStatus: data.status ?? "connected",
+        connectionStatus: "connected",
         phoneNumberId: data.phone_number_id,
         phoneNumber: data.phone_number ?? null,
         displayName: data.display_name ?? null,
-        connectedAt: data.connected_at ?? null,
+        connectedAt: data.created_at ?? null,
         businessAccountId: data.business_account_id ?? null,
-        lastWebhookAt: data.last_webhook_event_at ?? null,
-        lastWebhookStatus: data.last_webhook_status ?? null,
+        lastWebhookAt: null,
+        lastWebhookStatus: "subscribed",
         provider: "meta-cloud-api",
         apiVersion: META_API_VERSION,
       }
