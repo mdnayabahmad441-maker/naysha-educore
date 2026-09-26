@@ -76,9 +76,30 @@ async function resolvePhoneNumber(
   suppliedPhone?: string
 ): Promise<{ wabaId: string; phone: { id: string; display_phone_number?: string; verified_name?: string } }> {
   let wabaId = suppliedWaba
+  let phone: { id: string; display_phone_number?: string; verified_name?: string } | null = null
 
+  // 1. If phone_number_id was supplied directly by the client (from FINISH event)
+  if (suppliedPhone) {
+    phone = { id: suppliedPhone }
+    // Attempt to enrich with display number and verified name from Meta,
+    // but gracefully catch any permission errors (#200) without aborting.
+    try {
+      const phoneDetails = await graphGet(`/${suppliedPhone}`, accessToken)
+      if (phoneDetails?.id) {
+        phone = {
+          id: phoneDetails.id,
+          display_phone_number: phoneDetails.display_phone_number,
+          verified_name: phoneDetails.verified_name,
+        }
+        console.log("[WhatsApp/callback] direct phone details enriched:", phone.display_phone_number)
+      }
+    } catch (err) {
+      console.warn("[WhatsApp/callback] direct phone detail query non-fatal warning:", err)
+    }
+  }
+
+  // 2. If wabaId is not yet resolved, inspect debug_token using app access token
   if (!wabaId) {
-    // Attempt 1: inspect debug_token using app access token
     const appId = process.env.META_APP_ID?.trim()
     const appSecret = process.env.META_APP_SECRET?.trim()
     if (appId && appSecret) {
@@ -100,49 +121,34 @@ async function resolvePhoneNumber(
           }
         }
       } catch (err) {
-        console.warn("[WhatsApp/callback] debug_token lookup failed:", err)
+        console.warn("[WhatsApp/callback] debug_token lookup warning:", err)
       }
     }
   }
 
-  if (!wabaId) {
-    // Attempt 2: query /me/whatsapp_business_accounts
+  // 3. Fallback: query WABA phone numbers list if phone was not supplied
+  if (!phone?.id && wabaId) {
     try {
-      const accounts = await graphGet("/me/whatsapp_business_accounts", accessToken, "id,name")
-      wabaId = accounts?.data?.[0]?.id
-      console.log("[WhatsApp/callback] WABA resolved via /me:", wabaId || "not found")
+      // Omit restricted fields (e.g. status) to avoid Meta (#200) field permission errors
+      const phonesRes = await graphGet(`/${wabaId}/phone_numbers`, accessToken)
+      const phoneList = phonesRes?.data || []
+      if (phoneList.length > 0) {
+        phone = {
+          id: phoneList[0].id,
+          display_phone_number: phoneList[0].display_phone_number,
+          verified_name: phoneList[0].verified_name,
+        }
+      }
     } catch (err) {
-      console.warn("[WhatsApp/callback] /me/whatsapp_business_accounts lookup failed:", err)
+      console.warn("[WhatsApp/callback] WABA phone_numbers query warning:", err)
     }
   }
 
-  if (!wabaId) {
-    throw new Error("No WhatsApp Business Account was selected or found in Meta.")
-  }
-
-  const phones = await graphGet(
-    `/${wabaId}/phone_numbers`,
-    accessToken,
-    "id,display_phone_number,verified_name,status"
-  )
-
-  const phoneList = phones?.data || []
-  const phone = suppliedPhone
-    ? phoneList.find((item: { id?: string }) => item.id === suppliedPhone)
-    : phoneList[0]
-
-  console.log(
-    "[WhatsApp/callback] phone resolved:",
-    phone?.id ? `id=${phone.id}` : "not found",
-    "total_numbers:",
-    phoneList.length
-  )
-
   if (!phone?.id) {
-    throw new Error("No WhatsApp phone number was found in the selected Business Account.")
+    throw new Error("No WhatsApp phone number was selected or found in Meta. Please try again.")
   }
 
-  return { wabaId: String(wabaId), phone }
+  return { wabaId: String(wabaId || ""), phone }
 }
 
 export async function POST(request: NextRequest) {
@@ -201,20 +207,22 @@ export async function POST(request: NextRequest) {
     const selected = await resolvePhoneNumber(accessToken, suppliedWaba, suppliedPhone)
 
     // ── Step 3: Subscribe app to WABA webhooks (non-fatal) ─────────────────────
-    try {
-      const subscription = await fetch(`${GRAPH}/${selected.wabaId}/subscribed_apps`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        cache: "no-store",
-      })
-      if (!subscription.ok) {
-        const subData = await subscription.json().catch(() => null)
-        console.warn("[WhatsApp/callback] subscribed_apps non-fatal warning:", subData?.error?.message)
-      } else {
-        console.log("[WhatsApp/callback] subscribed_apps OK for WABA:", selected.wabaId)
+    if (selected.wabaId) {
+      try {
+        const subscription = await fetch(`${GRAPH}/${selected.wabaId}/subscribed_apps`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          cache: "no-store",
+        })
+        if (!subscription.ok) {
+          const subData = await subscription.json().catch(() => null)
+          console.warn("[WhatsApp/callback] subscribed_apps non-fatal warning:", subData?.error?.message)
+        } else {
+          console.log("[WhatsApp/callback] subscribed_apps OK for WABA:", selected.wabaId)
+        }
+      } catch (subErr) {
+        console.warn("[WhatsApp/callback] subscribed_apps network warning:", subErr)
       }
-    } catch (subErr) {
-      console.warn("[WhatsApp/callback] subscribed_apps network warning:", subErr)
     }
 
     // ── Step 4: Persist connection to database ─────────────────────────────────
@@ -233,7 +241,7 @@ export async function POST(request: NextRequest) {
     const payload = {
       access_token: accessToken,
       phone_number_id: selected.phone.id,
-      business_account_id: selected.wabaId,
+      business_account_id: selected.wabaId || null,
       phone_number: selected.phone.display_phone_number ?? null,
       display_name: selected.phone.verified_name ?? null,
     }
@@ -266,7 +274,7 @@ export async function POST(request: NextRequest) {
       "[WhatsApp/callback] successfully connected school:",
       schoolId,
       "phone:",
-      selected.phone.display_phone_number
+      selected.phone.display_phone_number || selected.phone.id
     )
 
     const response = NextResponse.json({ success: true })

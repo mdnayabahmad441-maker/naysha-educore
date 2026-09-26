@@ -32,12 +32,17 @@ export default function WhatsAppConnect() {
   useEffect(() => { void fetchStatus() }, [])
   useEffect(() => {
     const listener = (event: MessageEvent) => {
-      if (event.origin !== "https://www.facebook.com" && event.origin !== "https://web.facebook.com") return
+      if (
+        event.origin !== "https://www.facebook.com" &&
+        event.origin !== "https://web.facebook.com" &&
+        event.origin !== "https://business.facebook.com"
+      ) return
       try {
         const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data
         if (data?.type !== "WA_EMBEDDED_SIGNUP") return
         if (data.event === "FINISH" || data.event === "FINISH_ONLY_WABA") {
           session.current = { wabaId: data.data?.waba_id, phoneNumberId: data.data?.phone_number_id }
+          console.log("[WhatsApp Embedded Signup FINISH event]", session.current)
         } else if (data.event === "CANCEL") {
           setConnecting(false); showToast("error", "WhatsApp connection was cancelled.")
         } else if (data.event === "ERROR") {
@@ -80,23 +85,20 @@ export default function WhatsAppConnect() {
         extras: { setup: {} },
       }
       if (process.env.NODE_ENV !== "production") {
-        // This records the SDK inputs only. It deliberately excludes the app
-        // secret, login result, authorization code, and access token.
         console.info("[WhatsApp Embedded Signup] FB.login launch", {
           app_id: data.appId,
           config_id: data.configId,
           response_type: loginOptions.response_type,
           override_default_response_type: loginOptions.override_default_response_type,
           extras: loginOptions.extras,
-          redirect_uri: "not passed; managed by the Facebook JS SDK",
-          state: "not passed; server session uses an HttpOnly nonce cookie",
-          scope: "not passed",
         })
       }
       window.FB.login((result) => {
         const code = result.authResponse?.code
         if (!code) { setConnecting(false); showToast("error", "WhatsApp connection was cancelled or not authorized."); return }
-        void completeConnection(code)
+        setTimeout(() => {
+          void completeConnection(code)
+        }, 300)
       }, loginOptions)
     } catch (error) { setConnecting(false); showToast("error", error instanceof Error ? error.message : "Could not start WhatsApp onboarding") }
   }
