@@ -1,0 +1,547 @@
+[
+  {
+    "endpoint": "/api/admin/teacher-attendance",
+    "file": "admin\\teacher-attendance\\route.ts",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 6961
+  },
+  {
+    "endpoint": "/api/admission-enquiry",
+    "file": "admission-enquiry\\route.ts",
+    "methods": [
+      "GET",
+      "POST",
+      "PATCH"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 5469
+  },
+  {
+    "endpoint": "/api/admissions",
+    "file": "admissions\\route.ts",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 6199
+  },
+  {
+    "endpoint": "/api/admissions/[id]",
+    "file": "admissions\\[id]\\route.ts",
+    "methods": [
+      "GET",
+      "PATCH"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 1682
+  },
+  {
+    "endpoint": "/api/ai/chat",
+    "file": "ai\\chat\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": false,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 2541
+  },
+  {
+    "endpoint": "/api/ai/document-layout",
+    "file": "ai\\document-layout\\route.ts",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "uses_supabase_admin": false,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 6830
+  },
+  {
+    "endpoint": "/api/ai/insights",
+    "file": "ai\\insights\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": false,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 9387
+  },
+  {
+    "endpoint": "/api/ai/text",
+    "file": "ai\\text\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": false,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 6313
+  },
+  {
+    "endpoint": "/api/auth/create-user",
+    "file": "auth\\create-user\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": false,
+    "has_rate_limit": false,
+    "code_len": 1117
+  },
+  {
+    "endpoint": "/api/auth/delete-account",
+    "file": "auth\\delete-account\\route.ts",
+    "methods": [
+      "DELETE"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": false,
+    "has_rate_limit": false,
+    "code_len": 1226
+  },
+  {
+    "endpoint": "/api/auth/parent-context",
+    "file": "auth\\parent-context\\route.ts",
+    "methods": [
+      "GET"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": true,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 1193
+  },
+  {
+    "endpoint": "/api/auth/parent-otp/send",
+    "file": "auth\\parent-otp\\send\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": false,
+    "has_rate_limit": false,
+    "code_len": 4078
+  },
+  {
+    "endpoint": "/api/auth/parent-otp/verify",
+    "file": "auth\\parent-otp\\verify\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": true,
+    "handles_school_id": false,
+    "has_rate_limit": false,
+    "code_len": 3264
+  },
+  {
+    "endpoint": "/api/auth/request-otp",
+    "file": "auth\\request-otp\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": false,
+    "has_rate_limit": false,
+    "code_len": 1914
+  },
+  {
+    "endpoint": "/api/auth/request-password-reset",
+    "file": "auth\\request-password-reset\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": false,
+    "has_auth_check": false,
+    "handles_school_id": false,
+    "has_rate_limit": false,
+    "code_len": 1342
+  },
+  {
+    "endpoint": "/api/auth/resolve-destination",
+    "file": "auth\\resolve-destination\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": true,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 1575
+  },
+  {
+    "endpoint": "/api/auth/resolve-identifier",
+    "file": "auth\\resolve-identifier\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": false,
+    "has_auth_check": false,
+    "handles_school_id": false,
+    "has_rate_limit": false,
+    "code_len": 1536
+  },
+  {
+    "endpoint": "/api/auth/send-parent-otp",
+    "file": "auth\\send-parent-otp\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": false,
+    "has_rate_limit": false,
+    "code_len": 2057
+  },
+  {
+    "endpoint": "/api/auth/session",
+    "file": "auth\\session\\route.ts",
+    "methods": [
+      "GET"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": true,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 1906
+  },
+  {
+    "endpoint": "/api/auth/setup-account",
+    "file": "auth\\setup-account\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": false,
+    "has_rate_limit": false,
+    "code_len": 2096
+  },
+  {
+    "endpoint": "/api/bulk-import",
+    "file": "bulk-import\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 11289
+  },
+  {
+    "endpoint": "/api/classes",
+    "file": "classes\\route.ts",
+    "methods": [
+      "GET"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 1075
+  },
+  {
+    "endpoint": "/api/create-teacher",
+    "file": "create-teacher\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 4024
+  },
+  {
+    "endpoint": "/api/generate-questions",
+    "file": "generate-questions\\route.ts",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 14697
+  },
+  {
+    "endpoint": "/api/homework",
+    "file": "homework\\route.ts",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 4882
+  },
+  {
+    "endpoint": "/api/homework/[id]",
+    "file": "homework\\[id]\\route.ts",
+    "methods": [
+      "PATCH",
+      "DELETE"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 1900
+  },
+  {
+    "endpoint": "/api/notices",
+    "file": "notices\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 1340
+  },
+  {
+    "endpoint": "/api/notifications",
+    "file": "notifications\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 3086
+  },
+  {
+    "endpoint": "/api/notify",
+    "file": "notify\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 4541
+  },
+  {
+    "endpoint": "/api/onboarding",
+    "file": "onboarding\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": false,
+    "has_auth_check": false,
+    "handles_school_id": false,
+    "has_rate_limit": false,
+    "code_len": 193
+  },
+  {
+    "endpoint": "/api/payments-history",
+    "file": "payments-history\\route.ts",
+    "methods": [
+      "GET"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 4893
+  },
+  {
+    "endpoint": "/api/retry-notification",
+    "file": "retry-notification\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 1047
+  },
+  {
+    "endpoint": "/api/school-assets/upload",
+    "file": "school-assets\\upload\\route.ts",
+    "methods": [
+      "POST",
+      "DELETE"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 7482
+  },
+  {
+    "endpoint": "/api/send-email",
+    "file": "send-email\\route.ts",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "uses_supabase_admin": false,
+    "has_auth_check": false,
+    "handles_school_id": false,
+    "has_rate_limit": false,
+    "code_len": 517
+  },
+  {
+    "endpoint": "/api/send-whatsapp",
+    "file": "send-whatsapp\\route.ts",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "uses_supabase_admin": false,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 3374
+  },
+  {
+    "endpoint": "/api/students/upload-photo",
+    "file": "students\\upload-photo\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 2864
+  },
+  {
+    "endpoint": "/api/super-admin/schools",
+    "file": "super-admin\\schools\\route.ts",
+    "methods": [
+      "GET",
+      "POST",
+      "PATCH",
+      "DELETE"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 14895
+  },
+  {
+    "endpoint": "/api/teacher-attendance",
+    "file": "teacher-attendance\\route.ts",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": true,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 10759
+  },
+  {
+    "endpoint": "/api/whatsapp/callback",
+    "file": "whatsapp\\callback\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": true,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 13096
+  },
+  {
+    "endpoint": "/api/whatsapp/connect",
+    "file": "whatsapp\\connect\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": false,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 1003
+  },
+  {
+    "endpoint": "/api/whatsapp/disconnect",
+    "file": "whatsapp\\disconnect\\route.ts",
+    "methods": [
+      "DELETE"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 880
+  },
+  {
+    "endpoint": "/api/whatsapp/status",
+    "file": "whatsapp\\status\\route.ts",
+    "methods": [
+      "GET"
+    ],
+    "uses_supabase_admin": false,
+    "has_auth_check": false,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 1357
+  },
+  {
+    "endpoint": "/api/whatsapp/test",
+    "file": "whatsapp\\test\\route.ts",
+    "methods": [
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": true,
+    "handles_school_id": true,
+    "has_rate_limit": false,
+    "code_len": 6995
+  },
+  {
+    "endpoint": "/api/whatsapp/webhook",
+    "file": "whatsapp\\webhook\\route.ts",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "uses_supabase_admin": true,
+    "has_auth_check": false,
+    "handles_school_id": false,
+    "has_rate_limit": false,
+    "code_len": 3648
+  }
+]

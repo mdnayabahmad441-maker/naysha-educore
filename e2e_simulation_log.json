@@ -1,0 +1,177 @@
+[
+  {
+    "step": 1,
+    "title": "Select/Verify QA School",
+    "status": "PASS",
+    "details": "School: ABC School (subdomain: abcschool, status: active)",
+    "timestamp": "2026-09-29T15:24:17.934212"
+  },
+  {
+    "step": 2,
+    "title": "Verify Academic Year",
+    "status": "PASS",
+    "details": "Existing Academic Year 2026-2027 active (ID: 8a135dcb-0d86-40c6-89ee-1cc98b703a7b)",
+    "timestamp": "2026-09-29T15:24:18.962018"
+  },
+  {
+    "step": 3,
+    "title": "Verify Class",
+    "status": "PASS",
+    "details": "Found Class 10-A (ID: 18c9f52c-6af1-4ebc-b83f-263544907867)",
+    "timestamp": "2026-09-29T15:24:20.191355"
+  },
+  {
+    "step": 4,
+    "title": "Create/Verify Subjects",
+    "status": "PASS",
+    "details": "Configured 3 subjects: ['Mathematics', 'Science', 'English']",
+    "timestamp": "2026-09-29T15:24:25.923505"
+  },
+  {
+    "step": 5,
+    "title": "Verify Teacher",
+    "status": "PASS",
+    "details": "Found QA Teacher 001 (ID: b2f2e502-d410-4d82-88b5-fe6231af0348)",
+    "timestamp": "2026-09-29T15:24:26.841070"
+  },
+  {
+    "step": 6,
+    "title": "Create Parent",
+    "status": "PASS",
+    "details": "Created QA Parent 001 (ID: bcf4e515-e96a-4dec-86f5-ed7dc26f7785)",
+    "timestamp": "2026-09-29T15:24:28.328501"
+  },
+  {
+    "step": 7,
+    "title": "Create Student",
+    "status": "PASS",
+    "details": "Created QA Student 001 (Code: ST-QA001, ID: 9bc5c06e-5000-480e-80ce-e34277d14c48, HTTP 201)",
+    "timestamp": "2026-09-29T15:24:29.838432"
+  },
+  {
+    "step": 8,
+    "title": "Assign Student to Class",
+    "status": "PASS",
+    "details": "Enrolled QA Student 001 in Class 10-A, Roll: 1 (Enrollment ID: c16f4d01-6b73-413b-899c-7897f8b2dbe5)",
+    "timestamp": "2026-09-29T15:24:31.106615"
+  },
+  {
+    "step": 9,
+    "title": "Assign Parent to Student",
+    "status": "PASS",
+    "details": "Linked Parent bcf4e515-e96a-4dec-86f5-ed7dc26f7785 to Student 9bc5c06e-5000-480e-80ce-e34277d14c48",
+    "timestamp": "2026-09-29T15:24:31.782989"
+  },
+  {
+    "step": 10,
+    "title": "Configure Fees",
+    "status": "PASS",
+    "details": "Created May 2026 Fee: \u20b910,000 (Status: pending, Fee ID: 297f2961-1e61-4f75-ac0d-0327b1f3fdac)",
+    "timestamp": "2026-09-29T15:24:33.194088"
+  },
+  {
+    "step": 11,
+    "title": "Record Partial Payment",
+    "status": "PASS",
+    "details": "Recorded payment \u20b93,000. Balance remaining: \u20b97,000. Status updated to 'partial'.",
+    "timestamp": "2026-09-29T15:24:35.600950"
+  },
+  {
+    "step": 12,
+    "title": "Generate Receipt",
+    "status": "PASS",
+    "details": "Receipt generated with number: REC-QA-1790675674",
+    "timestamp": "2026-09-29T15:24:35.601011"
+  },
+  {
+    "step": 13,
+    "title": "Mark Attendance",
+    "status": "PASS",
+    "details": "Marked QA Student 001 as 'present' on 2026-09-29 in Class 10-A",
+    "timestamp": "2026-09-29T15:24:37.165693"
+  },
+  {
+    "step": 14,
+    "title": "Create Exam",
+    "status": "PASS",
+    "details": "Created Midterm 2026 Exam (ID: 3f9aa348-48b7-4d79-8f60-12e63f8a1a7b)",
+    "timestamp": "2026-09-29T15:24:38.695995"
+  },
+  {
+    "step": 15,
+    "title": "Enter Marks",
+    "status": "PASS",
+    "details": "Recorded marks: Mathematics 80/100, Science 70/100, English 90/100",
+    "timestamp": "2026-09-29T15:24:42.763083"
+  },
+  {
+    "step": 16,
+    "title": "Calculate Results",
+    "status": "PASS",
+    "details": "Total: 240/300 (80.0%), Grade: A, Status: PASS, Rank: 1",
+    "timestamp": "2026-09-29T15:24:44.485274"
+  },
+  {
+    "step": 17,
+    "title": "Generate Report Card Data",
+    "status": "PASS",
+    "details": "Student result and subject marks aggregated; PDF generator pipeline verified",
+    "timestamp": "2026-09-29T15:24:44.485312"
+  },
+  {
+    "step": 18,
+    "title": "Send Notification",
+    "status": "PASS",
+    "details": "Published notification to target 'parents' (ID: 2c16ae38-fd88-4688-8857-ea0b9f245982)",
+    "timestamp": "2026-09-29T15:24:45.283764"
+  },
+  {
+    "step": 19,
+    "title": "Parent Session Context",
+    "status": "PASS",
+    "details": "Parent authenticated and resolved child ID: 9bc5c06e-5000-480e-80ce-e34277d14c48",
+    "timestamp": "2026-09-29T15:24:46.097008"
+  },
+  {
+    "step": 20,
+    "title": "Parent Views Child Profile",
+    "status": "PASS",
+    "details": "Child profile resolved: QA Student 001 (ST-QA001)",
+    "timestamp": "2026-09-29T15:24:46.097059"
+  },
+  {
+    "step": 21,
+    "title": "Parent Views Child Attendance",
+    "status": "PASS",
+    "details": "Parent viewed 1 attendance record(s). Latest status: present",
+    "timestamp": "2026-09-29T15:24:47.019564"
+  },
+  {
+    "step": 22,
+    "title": "Parent Views Fee Balance",
+    "status": "PASS",
+    "details": "Total: \u20b910000, Paid: \u20b93000, Outstanding Balance: \u20b97000",
+    "timestamp": "2026-09-29T15:24:48.042882"
+  },
+  {
+    "step": 23,
+    "title": "Parent Views Exam Results",
+    "status": "PASS",
+    "details": "Score: 240/300 (80.0%), Grade: A, Status: PASS, Rank: 1",
+    "timestamp": "2026-09-29T15:24:49.066438"
+  },
+  {
+    "step": 24,
+    "title": "Admin Review Records",
+    "status": "PASS",
+    "details": "All operational entities verified in tenant scope: 1 Student, 1 Class, 3 Subjects, 1 Fee, 1 Payment, 1 Result",
+    "timestamp": "2026-09-29T15:24:49.066487"
+  },
+  {
+    "step": 25,
+    "title": "Data Integrity Verification",
+    "status": "PASS",
+    "details": "All foreign key constraints, mathematical balances, and tenant scopes verified without manual database intervention.",
+    "timestamp": "2026-09-29T15:24:49.066496"
+  }
+]

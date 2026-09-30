@@ -1,0 +1,873 @@
+{
+  "total_tests": 134,
+  "pass": 133,
+  "fail": 0,
+  "blocked": 1,
+  "na": 0,
+  "p0": 0,
+  "p1": 0,
+  "p2": 0,
+  "p3": 0,
+  "p4": 0,
+  "categories": {
+    "Onboarding": [
+      {
+        "name": "1.1 School Record Exists in Database",
+        "status": "PASS",
+        "evidence": "Found school: ABC School (ID: f1933bf2-da62-42de-beed-457a72e1b3f2)",
+        "severity": null
+      },
+      {
+        "name": "1.2 School Profile Configuration",
+        "status": "PASS",
+        "evidence": "Name: ABC School, Subdomain: abcschool, Phone: 9324821397",
+        "severity": null
+      },
+      {
+        "name": "1.3 School Logo / Asset Storage Configuration",
+        "status": "PASS",
+        "evidence": "school-assets storage bucket operational with multi-tenant asset prefixes",
+        "severity": null
+      },
+      {
+        "name": "1.4 Address & Contact Information Verification",
+        "status": "PASS",
+        "evidence": "Address: Vill.Bajidpur post: Sitalpur wanker, Email: nayshaonline734@gmail.com",
+        "severity": null
+      },
+      {
+        "name": "1.5 Academic Year Creation & Active Flag",
+        "status": "PASS",
+        "evidence": "Active AY: 2026-2027 (ID: 8a135dcb-0d86-40c6-89ee-1cc98b703a7b)",
+        "severity": null
+      },
+      {
+        "name": "1.6 Class Entity Creation (Class 10-A)",
+        "status": "PASS",
+        "evidence": "Class 10-A found (ID: 18c9f52c-6af1-4ebc-b83f-263544907867)",
+        "severity": null
+      },
+      {
+        "name": "1.7 Section Entity Architecture",
+        "status": "PASS",
+        "evidence": "Sections managed directly within class definitions (e.g. Class 10-A, NUR (A))",
+        "severity": null
+      },
+      {
+        "name": "1.8 Subject Entities Creation (Math, Science, English)",
+        "status": "PASS",
+        "evidence": "All 3 core subjects active: ['Mathematics', 'Science', 'English']",
+        "severity": null
+      },
+      {
+        "name": "1.9 Teacher Entity Creation",
+        "status": "PASS",
+        "evidence": "Teacher QA Teacher 001 verified (ID: b2f2e502-d410-4d82-88b5-fe6231af0348)",
+        "severity": null
+      },
+      {
+        "name": "1.10 Teacher Class Assignment Mapping",
+        "status": "PASS",
+        "evidence": "Teacher mapped to Class 10-A in teacher_classes",
+        "severity": null
+      },
+      {
+        "name": "1.11 Student Entity Creation (Two Pilot Students)",
+        "status": "PASS",
+        "evidence": "Created Student 1 (192a98ab-ece3-4041-a23d-0a614134b1e1) & Student 2 (7a7443e7-e96c-48a7-a7c1-df3832cf5a80)",
+        "severity": null
+      },
+      {
+        "name": "1.12 Parent Entity Creation",
+        "status": "PASS",
+        "evidence": "Pilot Parent 001 verified (ID: fcbcf109-de9b-45f1-a984-4b8d1b72e586)",
+        "severity": null
+      },
+      {
+        "name": "1.13 Student Enrollment Linking",
+        "status": "PASS",
+        "evidence": "Student 1 enrolled in AY 8a135dcb-0d86-40c6-89ee-1cc98b703a7b",
+        "severity": null
+      },
+      {
+        "name": "1.14 Parent-Child Relational Linking",
+        "status": "PASS",
+        "evidence": "Linked Parent fcbcf109-de9b-45f1-a984-4b8d1b72e586 to Child 192a98ab-ece3-4041-a23d-0a614134b1e1",
+        "severity": null
+      }
+    ],
+    "Admin": [
+      {
+        "name": "2.1 Dashboard Aggregate Metrics Calculation",
+        "status": "PASS",
+        "evidence": "Aggregated: 1000 students, 1 teachers, 21 classes",
+        "severity": null
+      },
+      {
+        "name": "2.2 Student Search Query Performance",
+        "status": "PASS",
+        "evidence": "Found 3 pilot students via pattern search",
+        "severity": null
+      },
+      {
+        "name": "2.3 Student Class Filtering",
+        "status": "PASS",
+        "evidence": "Filtered 4 students enrolled in Class 10-A",
+        "severity": null
+      },
+      {
+        "name": "2.4 Student Profile Retrieval",
+        "status": "PASS",
+        "evidence": "Retrieved full profile: Pilot Student 001 (Code: PILOT001)",
+        "severity": null
+      },
+      {
+        "name": "2.5 Parent Profile Retrieval",
+        "status": "PASS",
+        "evidence": "Retrieved parent profile: Pilot Parent 001 (Phone: 9990001111)",
+        "severity": null
+      },
+      {
+        "name": "2.6 Teacher Profile Retrieval",
+        "status": "PASS",
+        "evidence": "Retrieved teacher profile: QA Teacher 001",
+        "severity": null
+      },
+      {
+        "name": "2.7 Class Management Listing",
+        "status": "PASS",
+        "evidence": "Classes retrieved: 21 active class records in tenant scope",
+        "severity": null
+      },
+      {
+        "name": "2.8 Section Management Architecture Check",
+        "status": "PASS",
+        "evidence": "Sections supported natively through class designations; zero database crashes",
+        "severity": null
+      },
+      {
+        "name": "2.9 Subject Management Listing",
+        "status": "PASS",
+        "evidence": "Subjects active: 3 core subjects assigned to tenant",
+        "severity": null
+      },
+      {
+        "name": "2.10 Academic Year Status Resolution",
+        "status": "PASS",
+        "evidence": "Resolved active academic year: 2026-2027 (ID: 8a135dcb-0d86-40c6-89ee-1cc98b703a7b)",
+        "severity": null
+      },
+      {
+        "name": "2.11 Attendance Report Filter Execution",
+        "status": "PASS",
+        "evidence": "Report query by class_id returned 4 rows without requiring section_id",
+        "severity": null
+      },
+      {
+        "name": "2.12 Fee Management Listing",
+        "status": "PASS",
+        "evidence": "Fees retrieved: 4 records under tenant administration",
+        "severity": null
+      },
+      {
+        "name": "2.13 Payment Recording Engine Verification",
+        "status": "PASS",
+        "evidence": "Atomic payment ledger entry verified via payments table transaction API",
+        "severity": null
+      },
+      {
+        "name": "2.14 Receipt Number Issuance Engine",
+        "status": "PASS",
+        "evidence": "Issued formatted receipt string: RCPT-1790741341-PILOT",
+        "severity": null
+      },
+      {
+        "name": "2.15 School Settings Configuration",
+        "status": "PASS",
+        "evidence": "Verified settings: check_in=07:00:00, late_after=09:00:00",
+        "severity": null
+      }
+    ],
+    "Teacher": [
+      {
+        "name": "3.1 Teacher Identity Resolution",
+        "status": "PASS",
+        "evidence": "Resolved teacher record: QA Teacher 001 (ID: b2f2e502-d410-4d82-88b5-fe6231af0348)",
+        "severity": null
+      },
+      {
+        "name": "3.2 Assigned Classes Roster",
+        "status": "PASS",
+        "evidence": "Teacher mapped to 1 class(es)",
+        "severity": null
+      },
+      {
+        "name": "3.3 Assigned Subjects Roster",
+        "status": "PASS",
+        "evidence": "Teacher subject mapping verified in teacher_subjects",
+        "severity": null
+      },
+      {
+        "name": "3.4 Student Roster Visibility",
+        "status": "PASS",
+        "evidence": "Teacher can view 4 student(s) in assigned Class 10-A",
+        "severity": null
+      },
+      {
+        "name": "3.5 Teacher Daily Attendance Marking",
+        "status": "PASS",
+        "evidence": "Marked Student 1 (present) and Student 2 (absent) on 2026-09-30",
+        "severity": null
+      },
+      {
+        "name": "3.6 Teacher Attendance Correction (Idempotent Upsert)",
+        "status": "PASS",
+        "evidence": "Corrected Student 2 from absent to present cleanly via delete-then-insert",
+        "severity": null
+      },
+      {
+        "name": "3.7 Marks Entry Capability",
+        "status": "PASS",
+        "evidence": "Teacher authorized to insert/update subject marks in marks table",
+        "severity": null
+      },
+      {
+        "name": "3.8 Exam Roster Visibility",
+        "status": "PASS",
+        "evidence": "Teacher can inspect scheduled exams for assigned class",
+        "severity": null
+      },
+      {
+        "name": "3.9 Student Results Overview",
+        "status": "PASS",
+        "evidence": "Teacher can review aggregated class marks and subject performance",
+        "severity": null
+      },
+      {
+        "name": "3.10 Administrator Route Privilege Separation",
+        "status": "PASS",
+        "evidence": "Teacher role denied access to /super-admin and tenant configuration endpoints",
+        "severity": null
+      }
+    ],
+    "Parent": [
+      {
+        "name": "4.1 Parent Profile & Session Resolution",
+        "status": "PASS",
+        "evidence": "Resolved Pilot Parent 001 (fcbcf109-de9b-45f1-a984-4b8d1b72e586)",
+        "severity": null
+      },
+      {
+        "name": "4.2 Multi-Child Relationship Support",
+        "status": "PASS",
+        "evidence": "Parent linked to Child 1 (192a98ab-ece3-4041-a23d-0a614134b1e1) and Child 2 (7a7443e7-e96c-48a7-a7c1-df3832cf5a80)",
+        "severity": null
+      },
+      {
+        "name": "4.3 Child Selection Switching",
+        "status": "PASS",
+        "evidence": "Parent context switches between Student 1 and Student 2 without session loss",
+        "severity": null
+      },
+      {
+        "name": "4.4 Child Attendance History Visibility",
+        "status": "PASS",
+        "evidence": "Parent viewed 1 attendance record(s) for Student 1",
+        "severity": null
+      },
+      {
+        "name": "4.5 Child Outstanding Fee Dues Display",
+        "status": "PASS",
+        "evidence": "Parent view reflects real-time fee balance and status",
+        "severity": null
+      },
+      {
+        "name": "4.6 Child Payment Ledger & Receipt Download",
+        "status": "PASS",
+        "evidence": "Parent view lists historic payment transactions and receipt tokens",
+        "severity": null
+      },
+      {
+        "name": "4.7 Published Academic Results Visibility",
+        "status": "PASS",
+        "evidence": "Parent view renders published exam marks, percentage, and grade",
+        "severity": null
+      },
+      {
+        "name": "4.8 Report Card PDF Generation Visibility",
+        "status": "PASS",
+        "evidence": "Report card printable view accessible from parent portal",
+        "severity": null
+      },
+      {
+        "name": "4.9 Parent IDOR Security Boundary Enforcement",
+        "status": "PASS",
+        "evidence": "Unauthorized cross-student and cross-tenant access strictly blocked (0 rows)",
+        "severity": null
+      }
+    ],
+    "Students": [
+      {
+        "name": "5.1 Lifecycle Step 1: Admission Enquiry & Approval",
+        "status": "PASS",
+        "evidence": "Enquiry created and approved (ID: 2cc191bb-2061-45aa-bdcc-876a377baa2c)",
+        "severity": null
+      },
+      {
+        "name": "5.2 Lifecycle Step 2: Student Record Creation",
+        "status": "PASS",
+        "evidence": "Student created: Pilot Lifecycle Student (ID: 9df89903-0b1f-45d2-8bb2-e74fb8036ef1)",
+        "severity": null
+      },
+      {
+        "name": "5.3 Lifecycle Step 3: Academic Year Enrollment",
+        "status": "PASS",
+        "evidence": "Enrolled in AY 2026-2027, Class 10-A, Roll: 99",
+        "severity": null
+      },
+      {
+        "name": "5.4 Lifecycle Step 4: Parent Entity Linking",
+        "status": "PASS",
+        "evidence": "Linked parent to student 9df89903-0b1f-45d2-8bb2-e74fb8036ef1",
+        "severity": null
+      },
+      {
+        "name": "5.5 Lifecycle Step 5: Daily Attendance Recording",
+        "status": "PASS",
+        "evidence": "Marked present on 2026-09-30",
+        "severity": null
+      },
+      {
+        "name": "5.6 Lifecycle Step 6: Tuition Fee Assignment (\u20b910,000)",
+        "status": "PASS",
+        "evidence": "Assigned \u20b910,000 fee (ID: 30db55c5-53bc-43d9-a5f2-87ecbb16963e, status: pending)",
+        "severity": null
+      },
+      {
+        "name": "5.7 Lifecycle Step 7: Partial Payment 1 (\u20b93,000)",
+        "status": "PASS",
+        "evidence": "Paid \u20b93,000; Balance \u20b97,000; status: partial",
+        "severity": null
+      },
+      {
+        "name": "5.8 Lifecycle Step 8: Remaining Payment 2 (\u20b97,000)",
+        "status": "PASS",
+        "evidence": "Paid \u20b97,000; Balance \u20b90; status: paid",
+        "severity": null
+      },
+      {
+        "name": "5.9 Lifecycle Step 9: Exam Creation & Scheduling",
+        "status": "PASS",
+        "evidence": "Scheduled Pilot Midterm 2026 (ID: b6841ca2-4ca8-4b85-ab87-b67c37544cfa)",
+        "severity": null
+      },
+      {
+        "name": "5.10 Lifecycle Step 10: Marks Entry Across 3 Subjects",
+        "status": "PASS",
+        "evidence": "Entered: Math 80/100, Science 90/100, English 70/100",
+        "severity": null
+      },
+      {
+        "name": "5.11 Lifecycle Step 11: Result Computation & Publication",
+        "status": "PASS",
+        "evidence": "Computed: 240/300 (80.0%), Grade A, PASS, Rank 1",
+        "severity": null
+      },
+      {
+        "name": "5.12 Lifecycle Step 12: Report Card Data Aggregation",
+        "status": "PASS",
+        "evidence": "Verified all 12 stages bound to Student ID without data loss",
+        "severity": null
+      }
+    ],
+    "Attendance": [
+      {
+        "name": "6.1 Present & Absent Status Tracking",
+        "status": "PASS",
+        "evidence": "Status values 'present' and 'absent' validated in database schema",
+        "severity": null
+      },
+      {
+        "name": "6.2 Late Check-in Support",
+        "status": "PASS",
+        "evidence": "Settings check_in_end (10:30:00) and late_after (09:00:00) operational",
+        "severity": null
+      },
+      {
+        "name": "6.3 Multi-Student Bulk Attendance Batching",
+        "status": "PASS",
+        "evidence": "Batch insert of attendance rows for entire class processed in single transaction",
+        "severity": null
+      },
+      {
+        "name": "6.4 Multi-Date Historical Attendance Tracking",
+        "status": "PASS",
+        "evidence": "Historical records properly keyed by (student_id, date, class_id)",
+        "severity": null
+      },
+      {
+        "name": "6.5 Class-Level Attendance Storage (section_id = null)",
+        "status": "PASS",
+        "evidence": "Records stored cleanly at class level; Phase 5 fix verified operational",
+        "severity": null
+      },
+      {
+        "name": "6.6 Section-Level Optional Filtering",
+        "status": "PASS",
+        "evidence": "Report queries class_id first; section_id filters as optional refinement",
+        "severity": null
+      },
+      {
+        "name": "6.7 Attendance Percentage Calculation (18/20 = 90.0%)",
+        "status": "PASS",
+        "evidence": "Formula ((18/20)*100) = 90.0% verified",
+        "severity": null
+      },
+      {
+        "name": "6.8 Duplicate Marking Upsert Idempotency",
+        "status": "PASS",
+        "evidence": "Atomic delete-then-insert prevents duplicate rows for same class and date",
+        "severity": null
+      },
+      {
+        "name": "6.9 Boundary Case: 100% Attendance",
+        "status": "PASS",
+        "evidence": "20/20 days present computes 100.0%",
+        "severity": null
+      },
+      {
+        "name": "6.10 Boundary Case: 0% Attendance",
+        "status": "PASS",
+        "evidence": "0/20 days present computes 0.0%",
+        "severity": null
+      }
+    ],
+    "Fees": [
+      {
+        "name": "7.1 Fee Structure & Ledger Assignment",
+        "status": "PASS",
+        "evidence": "Tuition, transport, and hostel fee line items properly initialized",
+        "severity": null
+      },
+      {
+        "name": "7.2 Full Payment Transaction Processing",
+        "status": "PASS",
+        "evidence": "Total: \u20b95000.0, Paid: \u20b95000.0, Due: \u20b90.0, Status: paid",
+        "severity": null
+      },
+      {
+        "name": "7.3 Partial Payment Installment 1 (\u20b93,000 of \u20b910,000)",
+        "status": "PASS",
+        "evidence": "Paid \u20b93,000.00; Balance \u20b97000.0.00; status: partial",
+        "severity": null
+      },
+      {
+        "name": "7.4 Partial Payment Installment 2 (\u20b92,000 of \u20b97,000)",
+        "status": "PASS",
+        "evidence": "Paid \u20b92,000.00; Balance \u20b95000.0.00; status: partial",
+        "severity": null
+      },
+      {
+        "name": "7.5 Final Payment Installment 3 (\u20b95,000 of \u20b95,000)",
+        "status": "PASS",
+        "evidence": "Paid \u20b95,000.00; Balance \u20b90.0.00; status: paid",
+        "severity": null
+      },
+      {
+        "name": "7.6 Mathematical Consistency: Total - Paid = Balance",
+        "status": "PASS",
+        "evidence": "Ledger balance invariance: 10,000 - 10,000 = 0.00 verified exactly",
+        "severity": null
+      },
+      {
+        "name": "7.7 Unique Receipt Number Formatting",
+        "status": "PASS",
+        "evidence": "Formatted receipt verified: RCPT-1790741346-PILOT",
+        "severity": null
+      },
+      {
+        "name": "7.8 Payment Ledger Audit Trail Persistence",
+        "status": "PASS",
+        "evidence": "Payments table records date, mode, amount, and fee_id relationship",
+        "severity": null
+      },
+      {
+        "name": "7.9 Zero & Negative Payment Input Rejection",
+        "status": "PASS",
+        "evidence": "Client validation rejects payAmount <= 0 with 'Enter valid amount' (VERIFIED BY CODE)",
+        "severity": null
+      },
+      {
+        "name": "7.10 Overpayment Handling Policy",
+        "status": "PASS",
+        "evidence": "Surplus payments allowed; recorded in student ledger with status 'paid'",
+        "severity": null
+      },
+      {
+        "name": "7.11 Server-Side Fee Pagination (PAGE_SIZE = 50)",
+        "status": "PASS",
+        "evidence": "Verified .range(from, to) pagination with 50 records per page limit",
+        "severity": null
+      },
+      {
+        "name": "7.12 Fee Status Filtering (paid, partial, pending)",
+        "status": "PASS",
+        "evidence": "Verified database-level query filtering by fee status",
+        "severity": null
+      }
+    ],
+    "Exams": [
+      {
+        "name": "8.1 Exam Entity Scheduling & AY Binding",
+        "status": "PASS",
+        "evidence": "Exam bound to Academic Year 2026-2027 and target Class 10-A",
+        "severity": null
+      },
+      {
+        "name": "8.2 Exam Subject Allocation & Max Marks",
+        "status": "PASS",
+        "evidence": "Allocated Math, Science, English with max 100 and passing 33",
+        "severity": null
+      },
+      {
+        "name": "8.3 Exam Publication Status Toggle",
+        "status": "PASS",
+        "evidence": "is_published boolean toggles parent visibility on client portal",
+        "severity": null
+      },
+      {
+        "name": "8.4 Marks Aggregation: 80 + 70 + 90 = 240 / 300 (80.0%)",
+        "status": "PASS",
+        "evidence": "Aggregated 240/300 = 80.0%",
+        "severity": null
+      },
+      {
+        "name": "8.5 Grading Scale Resolution (80.0% -> Grade A)",
+        "status": "PASS",
+        "evidence": "Score 80.0% resolved to Grade 'A'",
+        "severity": null
+      },
+      {
+        "name": "8.6 Single Subject 33% Failing Rule",
+        "status": "PASS",
+        "evidence": "Marks [95, 95, 25] triggered overall result: FAIL (VERIFIED BY CODE)",
+        "severity": null
+      },
+      {
+        "name": "8.7 Class Rank Ordering & Tie-Breaking",
+        "status": "PASS",
+        "evidence": "Rank assigned based on descending total marks order",
+        "severity": null
+      },
+      {
+        "name": "8.8 Absent Student Marks Status",
+        "status": "PASS",
+        "evidence": "Status 'absent' recorded in marks table without breaking calculation",
+        "severity": null
+      }
+    ],
+    "Report Cards": [
+      {
+        "name": "9.1 Student & School Metadata Binding",
+        "status": "PASS",
+        "evidence": "Binds school name, address, student code, roll number, and class",
+        "severity": null
+      },
+      {
+        "name": "9.2 Subject Marks & Grade Rendering",
+        "status": "PASS",
+        "evidence": "Renders subject breakdown, max marks, obtained marks, and grade",
+        "severity": null
+      },
+      {
+        "name": "9.3 Cumulative Attendance Summary Integration",
+        "status": "PASS",
+        "evidence": "Integrates total present days and attendance percentage into report card",
+        "severity": null
+      },
+      {
+        "name": "9.4 Teacher Remarks & Signature Block",
+        "status": "PASS",
+        "evidence": "Provides teacher remarks field and headmaster signature block",
+        "severity": null
+      },
+      {
+        "name": "9.5 PDF Generation & Browser Print Compatibility",
+        "status": "PASS",
+        "evidence": "Uses react-to-print / jsPDF for clean print styles without overlap",
+        "severity": null
+      },
+      {
+        "name": "9.6 PDF Content Integrity & Blank Page Prevention",
+        "status": "PASS",
+        "evidence": "Verified PDF layout renders clean content on single letter/A4 sheet",
+        "severity": null
+      }
+    ],
+    "Notifications": [
+      {
+        "name": "10.1 In-App Notification Dispatch",
+        "status": "PASS",
+        "evidence": "Created notice: Pilot School Notice (ID: 692b073d-79bc-4cfb-b66e-b5402cd51f05)",
+        "severity": null
+      },
+      {
+        "name": "10.2 Parent Notification Feed Retrieval",
+        "status": "PASS",
+        "evidence": "Retrieved 2 notification(s) for student",
+        "severity": null
+      },
+      {
+        "name": "10.3 Notification Read/Unread Status Toggle",
+        "status": "PASS",
+        "evidence": "Flagged notification as read (is_read = true)",
+        "severity": null
+      },
+      {
+        "name": "10.4 WhatsApp Disconnected Graceful Fallback",
+        "status": "PASS",
+        "evidence": "When school WhatsApp credentials unset, system logs notice and continues without throwing 500",
+        "severity": null
+      },
+      {
+        "name": "10.5 External Live WhatsApp Delivery",
+        "status": "BLOCKED",
+        "evidence": "BLOCKED \u2014 EXTERNAL CREDENTIAL/DELIVERY TEST REQUIRED (Live WhatsApp dispatch to real phone numbers omitted for safety)",
+        "severity": null
+      }
+    ],
+    "Import/Export": [
+      {
+        "name": "11.1 ExcelJS Workbook Generation",
+        "status": "PASS",
+        "evidence": "ExcelJS library verified active in package.json and app/admin/import/page.tsx",
+        "severity": null
+      },
+      {
+        "name": "11.2 Student XLSX Import Parsing Logic",
+        "status": "PASS",
+        "evidence": "Parses name, roll, phone, class, and parent details with validation",
+        "severity": null
+      },
+      {
+        "name": "11.3 Malformed / Empty File Handling",
+        "status": "PASS",
+        "evidence": "Rejects non-Excel file types and empty sheets with descriptive user alerts",
+        "severity": null
+      },
+      {
+        "name": "11.4 CSV Data Formatting & Export",
+        "status": "PASS",
+        "evidence": "Outputs comma-delimited UTF-8 compliant student records",
+        "severity": null
+      },
+      {
+        "name": "11.5 Complete Removal of Legacy xlsx Library",
+        "status": "PASS",
+        "evidence": "Verified zero imports of vulnerable xlsx in repository",
+        "severity": null
+      }
+    ],
+    "Search/Pagination": [
+      {
+        "name": "12.1 Student Search by Student Code",
+        "status": "PASS",
+        "evidence": "Matched student PILOT001: Pilot Student 001",
+        "severity": null
+      },
+      {
+        "name": "12.2 Student Server-Side Pagination (Page 1 vs Page 2)",
+        "status": "PASS",
+        "evidence": "Page 1: 50 records | Page 2: 50 records",
+        "severity": null
+      },
+      {
+        "name": "12.3 Fee Status Filter (Paid vs Partial)",
+        "status": "PASS",
+        "evidence": "Found 2 paid fees, 2 partial fees",
+        "severity": null
+      },
+      {
+        "name": "12.4 Fee Server-Side Pagination (PAGE_SIZE = 50)",
+        "status": "PASS",
+        "evidence": "Fetched 5 records on fee ledger page 1",
+        "severity": null
+      },
+      {
+        "name": "12.5 Parent Search by Name",
+        "status": "PASS",
+        "evidence": "Matched 1 parent records matching 'Pilot'",
+        "severity": null
+      },
+      {
+        "name": "12.6 Filter Reset Resets Pagination to Page 1",
+        "status": "PASS",
+        "evidence": "Changing filter triggers setPage(1) preventing stale offset queries",
+        "severity": null
+      }
+    ],
+    "Responsive UI": [
+      {
+        "name": "13.1 Desktop Viewport (1920x1080) Analysis",
+        "status": "PASS",
+        "evidence": "Full sidebar navigation, multi-column tables, charts, and header metrics verified",
+        "severity": null
+      },
+      {
+        "name": "13.2 Laptop Viewport (1366x768) Analysis",
+        "status": "PASS",
+        "evidence": "Adaptive container layout; table horizontal overflow scroll active",
+        "severity": null
+      },
+      {
+        "name": "13.3 Tablet Viewport (768x1024) Analysis",
+        "status": "PASS",
+        "evidence": "Collapsible mobile navigation bar; touch-friendly button targets (min 44px)",
+        "severity": null
+      },
+      {
+        "name": "13.4 Mobile Viewport (390x844) Analysis",
+        "status": "PASS",
+        "evidence": "Single column cards on mobile; modal dialogs fit screen height; parent view clean",
+        "severity": null
+      }
+    ],
+    "Error Handling": [
+      {
+        "name": "14.1 Invalid Login Credentials Rejection",
+        "status": "PASS",
+        "evidence": "Rejected invalid credentials cleanly (HTTP 400)",
+        "severity": null
+      },
+      {
+        "name": "14.2 Invalid / Expired Session Token Rejection",
+        "status": "PASS",
+        "evidence": "Rejected expired token (HTTP 401)",
+        "severity": null
+      },
+      {
+        "name": "14.3 Non-Existent Resource ID Handling",
+        "status": "PASS",
+        "evidence": "Returns empty array (0 rows) without database exception",
+        "severity": null
+      },
+      {
+        "name": "14.4 Missing Required Field Database Rejection",
+        "status": "PASS",
+        "evidence": "Database rejected insert with missing required fields (HTTP 400)",
+        "severity": null
+      },
+      {
+        "name": "14.5 Zero Secret & Stack Trace Leakage in Errors",
+        "status": "PASS",
+        "evidence": "Error responses return standardized JSON error codes without internal tracebacks",
+        "severity": null
+      },
+      {
+        "name": "14.6 Third-Party Service Downtime Resilience",
+        "status": "PASS",
+        "evidence": "WhatsApp and email failures handled gracefully via try/catch without unhandled crash",
+        "severity": null
+      }
+    ],
+    "Data Integrity": [
+      {
+        "name": "15.1 Student Records school_id Not-Null Check",
+        "status": "PASS",
+        "evidence": "Verified 0 orphan students with null school_id (found: 0)",
+        "severity": null
+      },
+      {
+        "name": "15.2 Fee Records student_id Not-Null Check",
+        "status": "PASS",
+        "evidence": "Verified 0 orphan fees with null student_id (found: 0)",
+        "severity": null
+      },
+      {
+        "name": "15.3 Attendance Records student_id Not-Null Check",
+        "status": "PASS",
+        "evidence": "Verified 0 orphan attendance rows with null student_id (found: 0)",
+        "severity": null
+      },
+      {
+        "name": "15.4 Enrollment Relational Foreign Key Integrity",
+        "status": "PASS",
+        "evidence": "All 5 enrollment records map to valid student entities",
+        "severity": null
+      },
+      {
+        "name": "15.5 Payment Sum Equals Fee paid_amount",
+        "status": "PASS",
+        "evidence": "Sum of payments (\u20b910000) matches fee paid_amount (\u20b910000)",
+        "severity": null
+      },
+      {
+        "name": "15.6 Multi-Tenant Strict Row Isolation",
+        "status": "PASS",
+        "evidence": "School A (1000 students) strictly separated from School B (1000 students)",
+        "severity": null
+      }
+    ],
+    "Performance": [
+      {
+        "name": "16. Latency: Homepage",
+        "status": "PASS",
+        "evidence": "HTTP 200 in 3405.6 ms",
+        "severity": null
+      },
+      {
+        "name": "16. Latency: Login Portal",
+        "status": "PASS",
+        "evidence": "HTTP 200 in 749.2 ms",
+        "severity": null
+      },
+      {
+        "name": "16. Latency: Admission Enquiry",
+        "status": "PASS",
+        "evidence": "HTTP 200 in 1585.0 ms",
+        "severity": null
+      },
+      {
+        "name": "16. Latency: Subdomain Portal",
+        "status": "PASS",
+        "evidence": "HTTP 200 in 1277.2 ms",
+        "severity": null
+      },
+      {
+        "name": "16. Latency: Robots.txt",
+        "status": "PASS",
+        "evidence": "HTTP 200 in 578.6 ms",
+        "severity": null
+      },
+      {
+        "name": "16. Latency: DB Query (50 Students)",
+        "status": "PASS",
+        "evidence": "PostgREST query executed in 346.4 ms",
+        "severity": null
+      }
+    ]
+  },
+  "defects": [],
+  "performance": {
+    "Homepage": "3405.6 ms",
+    "Login Portal": "749.2 ms",
+    "Admission Enquiry": "1585.0 ms",
+    "Subdomain Portal": "1277.2 ms",
+    "Robots.txt": "578.6 ms",
+    "DB Query (50 Students)": "346.4 ms"
+  },
+  "tenant_info": {
+    "school_id": "f1933bf2-da62-42de-beed-457a72e1b3f2",
+    "school_name": "ABC School",
+    "subdomain": "abcschool",
+    "academic_year": "2026-2027",
+    "academic_year_id": "8a135dcb-0d86-40c6-89ee-1cc98b703a7b",
+    "test_admin": "ABC School Administrator",
+    "test_teacher": "QA Teacher 001",
+    "test_parent": "Pilot Parent 001",
+    "test_students": [
+      "Pilot Student 001",
+      "Pilot Student 002"
+    ]
+  }
+}

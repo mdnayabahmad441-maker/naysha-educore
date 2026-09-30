@@ -1,0 +1,1484 @@
+{
+  "total": 117,
+  "legacy_targets": [
+    {
+      "schemaname": "public",
+      "tablename": "academic_years",
+      "policyname": "Allow all for now",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "academic_years",
+      "policyname": "allow all academic years",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "attendance",
+      "policyname": "attendance_delete",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "DELETE",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "attendance",
+      "policyname": "attendance_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "attendance",
+      "policyname": "attendance_update",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "class_fee_settings",
+      "policyname": "full_access_class_fee",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "classes",
+      "policyname": "Allow read classes",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "classes",
+      "policyname": "classes_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "exam_subjects",
+      "policyname": "all exam subjects",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "exams",
+      "policyname": "Allow select for school",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "exams",
+      "policyname": "Allow update",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "exams",
+      "policyname": "all exams",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "exams",
+      "policyname": "allow all exams",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "fees",
+      "policyname": "fees_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "marks",
+      "policyname": "allow all marks",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notifications",
+      "policyname": "notifications_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "parents",
+      "policyname": "parents_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "payments",
+      "policyname": "payments_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "results",
+      "policyname": "allow all results",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "school_whatsapp",
+      "policyname": "service role full access",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "settings",
+      "policyname": "allow all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "settings",
+      "policyname": "full_access_settings",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "students",
+      "policyname": "Students access",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "students",
+      "policyname": "allow all students",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "students",
+      "policyname": "students_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "subjects",
+      "policyname": "Allow delete subjects",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "DELETE",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "subjects",
+      "policyname": "Allow select subjects",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "subjects",
+      "policyname": "Allow update subjects",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "teacher_classes",
+      "policyname": "allow all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "teacher_subjects",
+      "policyname": "allow all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    }
+  ],
+  "hardening_policies": [
+    {
+      "schemaname": "public",
+      "tablename": "academic_years",
+      "policyname": "academic_years_admin_manage",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))",
+      "with_check": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "academic_years",
+      "policyname": "academic_years_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(school_id = current_user_school_id())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "admission_enquiries",
+      "policyname": "admission_enquiries_admin_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "admission_enquiries",
+      "policyname": "admission_enquiries_admin_update",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "UPDATE",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))",
+      "with_check": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "attendance",
+      "policyname": "attendance_admin_teacher_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = ANY (ARRAY['admin'::text, 'teacher'::text])))",
+      "with_check": "((school_id = current_user_school_id()) AND (current_user_role() = ANY (ARRAY['admin'::text, 'teacher'::text])))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "attendance",
+      "policyname": "attendance_parent_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(student_id IN ( SELECT current_user_student_ids() AS current_user_student_ids))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "class_fee_settings",
+      "policyname": "class_fee_settings_admin_manage",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))",
+      "with_check": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "class_fee_settings",
+      "policyname": "class_fee_settings_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(school_id = current_user_school_id())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "classes",
+      "policyname": "classes_admin_manage",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))",
+      "with_check": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "classes",
+      "policyname": "classes_staff_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(school_id = current_user_school_id())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "fees",
+      "policyname": "fees_admin_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text)) OR (current_user_role() = 'super_admin'::text))",
+      "with_check": "(((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text)) OR (current_user_role() = 'super_admin'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "fees",
+      "policyname": "fees_parent_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(student_id IN ( SELECT current_user_student_ids() AS current_user_student_ids))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "marks",
+      "policyname": "marks_parent_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(student_id IN ( SELECT current_user_student_ids() AS current_user_student_ids))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "marks",
+      "policyname": "marks_staff_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = ANY (ARRAY['admin'::text, 'teacher'::text])))",
+      "with_check": "((school_id = current_user_school_id()) AND (current_user_role() = ANY (ARRAY['admin'::text, 'teacher'::text])))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notifications",
+      "policyname": "notifications_admin_manage",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))",
+      "with_check": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notifications",
+      "policyname": "notifications_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "((school_id = current_user_school_id()) AND ((current_user_role() = ANY (ARRAY['admin'::text, 'teacher'::text])) OR (student_id IS NULL) OR (student_id IN ( SELECT current_user_student_ids() AS current_user_student_ids))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "parents",
+      "policyname": "parents_admin_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text)) OR (current_user_role() = 'super_admin'::text))",
+      "with_check": "(((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text)) OR (current_user_role() = 'super_admin'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "parents",
+      "policyname": "parents_teacher_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = 'teacher'::text))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "payments",
+      "policyname": "payments_admin_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text)) OR (current_user_role() = 'super_admin'::text))",
+      "with_check": "(((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text)) OR (current_user_role() = 'super_admin'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "payments",
+      "policyname": "payments_parent_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(student_id IN ( SELECT current_user_student_ids() AS current_user_student_ids))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "results",
+      "policyname": "results_parent_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(student_id IN ( SELECT current_user_student_ids() AS current_user_student_ids))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "results",
+      "policyname": "results_staff_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = ANY (ARRAY['admin'::text, 'teacher'::text])))",
+      "with_check": "((school_id = current_user_school_id()) AND (current_user_role() = ANY (ARRAY['admin'::text, 'teacher'::text])))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "school_whatsapp",
+      "policyname": "school_whatsapp_admin_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "schools",
+      "policyname": "schools_admin_update",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "UPDATE",
+      "qual": "((id = current_user_school_id()) AND (current_user_role() = 'admin'::text))",
+      "with_check": "((id = current_user_school_id()) AND (current_user_role() = 'admin'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "schools",
+      "policyname": "schools_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "schools",
+      "policyname": "schools_public_tenant_read",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "schools",
+      "policyname": "schools_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(id = ((auth.jwt() ->> 'school_id'::text))::uuid)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "schools",
+      "policyname": "schools_update",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(id = ((auth.jwt() ->> 'school_id'::text))::uuid)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "settings",
+      "policyname": "settings_admin_manage",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))",
+      "with_check": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "settings",
+      "policyname": "settings_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(school_id = current_user_school_id())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "students",
+      "policyname": "students_admin_all",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text)) OR (current_user_role() = 'super_admin'::text))",
+      "with_check": "(((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text)) OR (current_user_role() = 'super_admin'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "students",
+      "policyname": "students_parent_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(id IN ( SELECT current_user_student_ids() AS current_user_student_ids))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "students",
+      "policyname": "students_teacher_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = 'teacher'::text))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "subjects",
+      "policyname": "subjects_admin_manage",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))",
+      "with_check": "((school_id = current_user_school_id()) AND (current_user_role() = 'admin'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "subjects",
+      "policyname": "subjects_staff_select",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(school_id = current_user_school_id())",
+      "with_check": null
+    }
+  ],
+  "other_policies": [
+    {
+      "schemaname": "public",
+      "tablename": "admin_users",
+      "policyname": "admin_users_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "admission_enquiries",
+      "policyname": "Allow public insert",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "admission_enquiries",
+      "policyname": "admission_enquiries_public_insert",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "admissions",
+      "policyname": "School admins can manage their admissions",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "attendance",
+      "policyname": "attendance_insert",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "attendance",
+      "policyname": "attendance_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "class_fee_settings",
+      "policyname": "class_fee_settings_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "class_subjects",
+      "policyname": "class_subjects_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "classes",
+      "policyname": "classes_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(((school_id)::text = (auth.jwt() ->> 'school_id'::text)) OR (school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))",
+      "with_check": "(((school_id)::text = (auth.jwt() ->> 'school_id'::text)) OR (school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "events",
+      "policyname": "Events same school access",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(school_id = auth.uid())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "exam_subjects",
+      "policyname": "exam_subjects_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "exams",
+      "policyname": "Allow insert for school",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "exams",
+      "policyname": "exams_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "fee_structures",
+      "policyname": "fee_structures_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "fees",
+      "policyname": "fees_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(((school_id)::text = (auth.jwt() ->> 'school_id'::text)) OR (school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))",
+      "with_check": "(((school_id)::text = (auth.jwt() ->> 'school_id'::text)) OR (school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "homework",
+      "policyname": "School members can manage homework",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "marks",
+      "policyname": "marks_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notices",
+      "policyname": "notices_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notifications",
+      "policyname": "notifications_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "parent_otps",
+      "policyname": "service role only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "false",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "parents",
+      "policyname": "Parents can view their data",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "parents",
+      "policyname": "parents_parent_self",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "((auth_id = auth.uid()) OR (email = (( SELECT users.email\n   FROM auth.users\n  WHERE (users.id = auth.uid())))::text))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "parents",
+      "policyname": "parents_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(((school_id)::text = (auth.jwt() ->> 'school_id'::text)) OR (school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))",
+      "with_check": "(((school_id)::text = (auth.jwt() ->> 'school_id'::text)) OR (school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "payments",
+      "policyname": "payments_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(((school_id)::text = (auth.jwt() ->> 'school_id'::text)) OR (school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))",
+      "with_check": "(((school_id)::text = (auth.jwt() ->> 'school_id'::text)) OR (school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "profiles_insert_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(auth.uid() = id)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "profiles_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(id = auth.uid())",
+      "with_check": "(id = auth.uid())"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "profiles_select_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "profiles_update_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(auth.uid() = id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "receipts",
+      "policyname": "receipts_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "report_cards",
+      "policyname": "report_cards_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "results",
+      "policyname": "results_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "schools",
+      "policyname": "admin_can_update_own_school",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "schools",
+      "policyname": "admin_update_school_theme",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "schools",
+      "policyname": "schools_insert",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(auth.uid() IS NOT NULL)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "schools",
+      "policyname": "schools_owner_write",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(((auth.jwt() ->> 'school_id'::text) IS NOT NULL) AND (id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "(((auth.jwt() ->> 'school_id'::text) IS NOT NULL) AND (id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "schools",
+      "policyname": "schools_public_read",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "student_enrollments",
+      "policyname": "admins_delete_enrollments",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "DELETE",
+      "qual": "(school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "student_enrollments",
+      "policyname": "admins_insert_enrollments",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "student_enrollments",
+      "policyname": "admins_update_enrollments",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "student_enrollments",
+      "policyname": "school_members_read_enrollments",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "students",
+      "policyname": "admins_insert_students",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "students",
+      "policyname": "admins_update_students",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "students",
+      "policyname": "school_members_read_students",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "students",
+      "policyname": "students_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(((school_id)::text = (auth.jwt() ->> 'school_id'::text)) OR (school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))",
+      "with_check": "(((school_id)::text = (auth.jwt() ->> 'school_id'::text)) OR (school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "subjects",
+      "policyname": "Allow insert subjects",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "subjects",
+      "policyname": "subjects_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "teacher_attendance",
+      "policyname": "teacher_attendance_admin",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "teacher_attendance",
+      "policyname": "teacher_attendance_self",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(teacher_id IN ( SELECT teachers.id\n   FROM teachers\n  WHERE (teachers.auth_id = auth.uid())))",
+      "with_check": "(teacher_id IN ( SELECT teachers.id\n   FROM teachers\n  WHERE (teachers.auth_id = auth.uid())))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "teachers",
+      "policyname": "teachers_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(((school_id)::text = (auth.jwt() ->> 'school_id'::text)) OR (school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))",
+      "with_check": "(((school_id)::text = (auth.jwt() ->> 'school_id'::text)) OR (school_id IN ( SELECT profiles.school_id\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "user_schools",
+      "policyname": "user_schools_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "users",
+      "policyname": "Users can view their own data",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "users",
+      "policyname": "users_secure",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))",
+      "with_check": "((school_id IS NOT NULL) AND (school_id = ((auth.jwt() ->> 'school_id'::text))::uuid))"
+    }
+  ],
+  "coverage_map": {
+    "students": [
+      "students_admin_all (ALL, admin)",
+      "students_teacher_select (SELECT, teacher)",
+      "students_parent_select (SELECT, parent)"
+    ],
+    "parents": [
+      "parents_admin_all (ALL, admin)",
+      "parents_teacher_select (SELECT, teacher)",
+      "parents_parent_self (SELECT, parent)"
+    ],
+    "fees": [
+      "fees_admin_all (ALL, admin)",
+      "fees_parent_select (SELECT, parent)"
+    ],
+    "payments": [
+      "payments_admin_all (ALL, admin)",
+      "payments_parent_select (SELECT, parent)"
+    ],
+    "attendance": [
+      "attendance_admin_teacher_all (ALL, admin/teacher)",
+      "attendance_parent_select (SELECT, parent)"
+    ],
+    "marks": [
+      "marks_staff_all (ALL, admin/teacher)",
+      "marks_parent_select (SELECT, parent)"
+    ],
+    "results": [
+      "results_staff_all (ALL, admin/teacher)",
+      "results_parent_select (SELECT, parent)"
+    ],
+    "classes": [
+      "classes_staff_select (SELECT, staff)",
+      "classes_admin_manage (ALL, admin)"
+    ],
+    "subjects": [
+      "subjects_staff_select (SELECT, staff)",
+      "subjects_admin_manage (ALL, admin)"
+    ],
+    "academic_years": [
+      "academic_years_select (SELECT, staff)",
+      "academic_years_admin_manage (ALL, admin)"
+    ],
+    "settings": [
+      "settings_select (SELECT, staff)",
+      "settings_admin_manage (ALL, admin)"
+    ],
+    "class_fee_settings": [
+      "class_fee_settings_select (SELECT, staff)",
+      "class_fee_settings_admin_manage (ALL, admin)"
+    ],
+    "notifications": [
+      "notifications_select (SELECT, staff/parent)",
+      "notifications_admin_manage (ALL, admin)"
+    ],
+    "school_whatsapp": [
+      "school_whatsapp_admin_select (SELECT, admin) + service_role BYPASSRLS"
+    ],
+    "teacher_classes": [
+      "teacher_attendance_admin/self or staff queries scoped to school_id"
+    ],
+    "teacher_subjects": [
+      "teacher_subjects scoped to school_id"
+    ],
+    "exams": [
+      "exams_admin_manage, exams scoped to school_id"
+    ],
+    "exam_subjects": [
+      "exam_subjects scoped to school_id"
+    ]
+  }
+}

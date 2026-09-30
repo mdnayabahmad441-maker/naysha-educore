@@ -1,0 +1,291 @@
+{
+  "legacy_policies": {
+    "total_live": 87,
+    "legacy_before": 30,
+    "legacy_remaining": 0,
+    "remaining_list": []
+  },
+  "rls_state": {
+    "academic_years": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 2,
+      "status": "PASS"
+    },
+    "attendance": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 4,
+      "status": "PASS"
+    },
+    "class_fee_settings": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 3,
+      "status": "PASS"
+    },
+    "classes": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 3,
+      "status": "PASS"
+    },
+    "exam_subjects": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 1,
+      "status": "PASS"
+    },
+    "exams": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 2,
+      "status": "PASS"
+    },
+    "fees": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 3,
+      "status": "PASS"
+    },
+    "marks": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 3,
+      "status": "PASS"
+    },
+    "notifications": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 3,
+      "status": "PASS"
+    },
+    "parents": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 5,
+      "status": "PASS"
+    },
+    "payments": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 3,
+      "status": "PASS"
+    },
+    "results": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 3,
+      "status": "PASS"
+    },
+    "school_whatsapp": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 1,
+      "status": "PASS"
+    },
+    "settings": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 2,
+      "status": "PASS"
+    },
+    "students": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 7,
+      "status": "PASS"
+    },
+    "subjects": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 4,
+      "status": "PASS"
+    },
+    "teacher_classes": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 0,
+      "status": "PASS"
+    },
+    "teacher_subjects": {
+      "rls_enabled": true,
+      "rls_forced": true,
+      "policy_count": 0,
+      "status": "PASS"
+    }
+  },
+  "all_rls_ok": true,
+  "anon_tests": {
+    "students": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "parents": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "fees": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "payments": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "attendance": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "marks": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "results": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "settings": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "school_whatsapp": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "classes": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "subjects": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "academic_years": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "exams": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "exam_subjects": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "teacher_classes": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "teacher_subjects": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "class_fee_settings": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    },
+    "notifications": {
+      "http_status": 401,
+      "rows_returned": 0,
+      "real_data_exposed": false,
+      "verdict": "DENIED (401 Unauthorized)",
+      "passed": true
+    }
+  },
+  "all_anon_blocked": true,
+  "public_functionality": {
+    "schools_anon_select": false,
+    "admission_enquiries_select_blocked": true,
+    "admission_enquiries_insert_allowed": false
+  },
+  "storage": {
+    "student-documents": {
+      "status_code": 400,
+      "status": "HTTP 400 (NoSuchBucket/Private)",
+      "ok": true
+    },
+    "report-cards": {
+      "status_code": 400,
+      "status": "HTTP 400 (NoSuchBucket/Private)",
+      "ok": true
+    },
+    "receipts": {
+      "status_code": 400,
+      "status": "HTTP 400 (NoSuchBucket/Private)",
+      "ok": true
+    },
+    "school-logos": {
+      "status_code": 400,
+      "status": "HTTP 400 (NoSuchBucket/Private)",
+      "ok": false
+    },
+    "school-assets": {
+      "status_code": 400,
+      "status": "HTTP 400 (NoSuchBucket/Private)",
+      "ok": false
+    },
+    "students-photos": {
+      "status_code": 400,
+      "status": "HTTP 400 (NoSuchBucket/Private)",
+      "ok": false
+    },
+    "students": {
+      "status_code": 400,
+      "status": "HTTP 400 (NoSuchBucket/Private)",
+      "ok": false
+    }
+  },
+  "whatsapp_anon_blocked": true
+}

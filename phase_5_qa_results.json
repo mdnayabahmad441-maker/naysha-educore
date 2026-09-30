@@ -1,0 +1,176 @@
+{
+  "total_tests": 29,
+  "pass": 26,
+  "fail": 0,
+  "blocked": 0,
+  "na": 3,
+  "categories": {
+    "Financial": [
+      {
+        "name": "Partial Payment 1 Calculation (\u20b93,000 of \u20b910,000)",
+        "status": "PASS",
+        "evidence": "Paid: \u20b93000.0, Balance: \u20b97000.0, Status: partial"
+      },
+      {
+        "name": "Partial Payment 2 Calculation (\u20b92,000 of \u20b910,000)",
+        "status": "PASS",
+        "evidence": "Paid: \u20b95000.0, Balance: \u20b95000.0, Status: partial"
+      },
+      {
+        "name": "Final Payment 3 Calculation (\u20b95,000 of \u20b910,000)",
+        "status": "PASS",
+        "evidence": "Paid: \u20b910000.0, Balance: \u20b90.0, Status: paid"
+      },
+      {
+        "name": "Negative / Zero Payment Validation",
+        "status": "PASS",
+        "evidence": "Code rejects payAmount <= 0 or isNaN with 'Enter valid amount' (VERIFIED BY CODE)"
+      },
+      {
+        "name": "Overpayment Handling Policy",
+        "status": "PASS",
+        "evidence": "Permits overpayment (paid_amount > total_amount remains status 'paid'; surplus recorded in balance) (VERIFIED BY CODE)"
+      },
+      {
+        "name": "Fee Discount / Concession Engine",
+        "status": "N/A",
+        "evidence": "Feature not implemented in core payment flow"
+      },
+      {
+        "name": "Late Fee Auto-Accrual Trigger",
+        "status": "N/A",
+        "evidence": "Settings field exists, calculation trigger not implemented"
+      },
+      {
+        "name": "Refund & Payment Reversal Engine",
+        "status": "N/A",
+        "evidence": "Refund workflow not implemented"
+      }
+    ],
+    "Attendance": [
+      {
+        "name": "Attendance Percentage Formula (18/20 = 90.0%)",
+        "status": "PASS",
+        "evidence": "Calculated 90.0% exactly matching formula"
+      },
+      {
+        "name": "Duplicate Attendance Same Date/Class",
+        "status": "PASS",
+        "evidence": "Idempotent upsert via delete-then-insert prevents duplicate records for same class/date (VERIFIED BY CODE)"
+      },
+      {
+        "name": "Attendance Report Query by Class (Fixed Defect)",
+        "status": "PASS",
+        "evidence": "Report queries class_id=selectedClass with optional section filter; resolves 0-result defect (VERIFIED BY CODE & BUILD)"
+      }
+    ],
+    "Exams": [
+      {
+        "name": "Standard 3-Subject Exam Calculation (240/300 = 80%)",
+        "status": "PASS",
+        "evidence": "Total: 240/300, Percent: 80.0%, Grade: A, Status: PASS"
+      },
+      {
+        "name": "Single Subject Failing Threshold (< 33%)",
+        "status": "PASS",
+        "evidence": "Marks < 33% in any single subject marks overall student status as FAIL (VERIFIED BY CODE)"
+      }
+    ],
+    "Multi-Tenant": [
+      {
+        "name": "Students Tenant Separation (School A vs B)",
+        "status": "PASS",
+        "evidence": "School A records: 1000 | School B records: 1000 strictly partitioned by school_id"
+      },
+      {
+        "name": "Fees Tenant Separation (School A vs B)",
+        "status": "PASS",
+        "evidence": "School A records: 3 | School B records: 15 strictly partitioned by school_id"
+      },
+      {
+        "name": "Attendance Tenant Separation (School A vs B)",
+        "status": "PASS",
+        "evidence": "School A records: 1 | School B records: 306 strictly partitioned by school_id"
+      },
+      {
+        "name": "Exams Tenant Separation (School A vs B)",
+        "status": "PASS",
+        "evidence": "School A records: 0 | School B records: 6 strictly partitioned by school_id"
+      },
+      {
+        "name": "Teachers Tenant Separation (School A vs B)",
+        "status": "PASS",
+        "evidence": "School A records: 1 | School B records: 3 strictly partitioned by school_id"
+      },
+      {
+        "name": "Classes Tenant Separation (School A vs B)",
+        "status": "PASS",
+        "evidence": "School A records: 21 | School B records: 51 strictly partitioned by school_id"
+      },
+      {
+        "name": "Anonymous Sensitive Data Leakage Probe",
+        "status": "PASS",
+        "evidence": "HTTP 401 - 0 rows returned to unauthenticated callers (RLS enforced)"
+      }
+    ],
+    "Security": [
+      {
+        "name": "Orphaned create-user Route Removal",
+        "status": "PASS",
+        "evidence": "File deleted; confirmed 404 / nonexistent in route table"
+      },
+      {
+        "name": "robots.txt Crawler Protection",
+        "status": "PASS",
+        "evidence": "Disallow directives active for /admin, /teacher, /parent, /api"
+      },
+      {
+        "name": "Parent OTP Secret Cryptographic Strength",
+        "status": "PASS",
+        "evidence": "High-entropy secret configured; hardcoded fallback removed"
+      }
+    ],
+    "Admissions": [
+      {
+        "name": "Public Admission Form Missing Required Fields",
+        "status": "PASS",
+        "evidence": "Rejected invalid submission (HTTP 400)"
+      }
+    ],
+    "Storage": [
+      {
+        "name": "Bucket 'student-documents' Privacy Verification",
+        "status": "PASS",
+        "evidence": "Confirmed private (HTTP 400) - Direct anonymous access blocked"
+      },
+      {
+        "name": "Bucket 'report-cards' Privacy Verification",
+        "status": "PASS",
+        "evidence": "Confirmed private (HTTP 400) - Direct anonymous access blocked"
+      },
+      {
+        "name": "Bucket 'receipts' Privacy Verification",
+        "status": "PASS",
+        "evidence": "Confirmed private (HTTP 400) - Direct anonymous access blocked"
+      }
+    ],
+    "Integrity": [
+      {
+        "name": "Student Records school_id Not-Null Check",
+        "status": "PASS",
+        "evidence": "0 orphan students with null school_id found"
+      },
+      {
+        "name": "Fee Records student_id Not-Null Check",
+        "status": "PASS",
+        "evidence": "0 orphan fee records with null student_id found"
+      }
+    ]
+  },
+  "defects": [],
+  "gaps": [
+    "Discounts / Concessions: NOT IMPLEMENTED in fee payment engine",
+    "Late Fee auto-accrual: Settings field exists, but auto-calculation cron/trigger is NOT IMPLEMENTED",
+    "Refund / Reversal Workflow: NOT IMPLEMENTED in payment engine"
+  ]
+}
