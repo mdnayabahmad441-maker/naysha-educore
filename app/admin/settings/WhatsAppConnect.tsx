@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api-client"
 
 declare global { interface Window { FB?: { init: (options: Record<string, unknown>) => void; login: (callback: (response: { authResponse?: { code?: string } }) => void, options: Record<string, unknown>) => void } } }
 
-type WaStatus = { connected: boolean; fallbackActive?: boolean; source?: "school" | "central"; connectionStatus?: string; phoneNumber?: string | null; displayName?: string | null; businessAccountId?: string | null; connectedAt?: string | null; lastWebhookAt?: string | null; lastWebhookStatus?: string | null }
+type WaStatus = { connected: boolean; fallbackActive?: boolean; source?: "school" | "central"; connectionStatus?: string; phoneNumberId?: string | null; phoneNumber?: string | null; displayName?: string | null; businessAccountId?: string | null; connectedAt?: string | null; lastWebhookAt?: string | null; lastWebhookStatus?: string | null }
 type MetaSession = { wabaId?: string; phoneNumberId?: string }
 
 function fmtDate(value?: string | null) { return value ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—" }
@@ -20,15 +20,6 @@ export default function WhatsAppConnect() {
   const [sdkReady, setSdkReady] = useState(false)
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null)
   const session = useRef<MetaSession>({})
-  const authCode = useRef<string | null>(null)
-  const signupFinished = useRef(false)
-  const callbackStarted = useRef(false)
-
-  const finishConnection = () => {
-    if (!authCode.current || !signupFinished.current || callbackStarted.current) return
-    callbackStarted.current = true
-    void completeConnection(authCode.current)
-  }
 
   const showToast = (type: "success" | "error", msg: string) => { setToast({ type, msg }); window.setTimeout(() => setToast(null), 7000) }
   const fetchStatus = async () => {
@@ -51,9 +42,7 @@ export default function WhatsAppConnect() {
         if (data?.type !== "WA_EMBEDDED_SIGNUP") return
         if (data.event === "FINISH" || data.event === "FINISH_ONLY_WABA") {
           session.current = { wabaId: data.data?.waba_id, phoneNumberId: data.data?.phone_number_id }
-          signupFinished.current = true
           console.log("[WhatsApp Embedded Signup FINISH event]", session.current)
-          finishConnection()
         } else if (data.event === "CANCEL") {
           setConnecting(false); showToast("error", "WhatsApp connection was cancelled.")
         } else if (data.event === "ERROR") {
@@ -84,7 +73,7 @@ export default function WhatsAppConnect() {
 
   async function startConnect() {
     if (!window.FB || !sdkReady) { showToast("error", "Meta onboarding is still loading. Please wait a moment and try again."); return }
-    setConnecting(true); session.current = {}; authCode.current = null; signupFinished.current = false; callbackStarted.current = false
+    setConnecting(true); session.current = {}
     try {
       const response = await apiFetch("/api/whatsapp/connect", { method: "POST" }); const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Could not start WhatsApp onboarding")
@@ -93,6 +82,7 @@ export default function WhatsAppConnect() {
         config_id: data.configId,
         response_type: "code",
         override_default_response_type: true,
+        auth_type: "rerequest",
         extras: { setup: {} },
       }
       if (process.env.NODE_ENV !== "production") {
@@ -113,10 +103,9 @@ export default function WhatsAppConnect() {
           showToast("error", "WhatsApp connection was cancelled or not authorized.")
           return
         }
-        authCode.current = code
-        // Meta delivers the OAuth callback and the signup FINISH postMessage
-        // independently. Wait for both so the selected WABA/phone IDs reach the API.
-        finishConnection()
+        setTimeout(() => {
+          void completeConnection(code)
+        }, 300)
       }, loginOptions)
     } catch (error) { setConnecting(false); showToast("error", error instanceof Error ? error.message : "Could not start WhatsApp onboarding") }
   }
@@ -153,7 +142,25 @@ export default function WhatsAppConnect() {
       <div className="flex items-center justify-between"><span className="font-semibold text-emerald-300">WhatsApp Connected ✓</span><span className="text-xs text-slate-400">{status?.connectionStatus || "connected"}</span></div>
       <div className="grid gap-2.5 text-sm"><Row label="School WhatsApp Number" value={status?.phoneNumber || "—"} /><Row label="Display Name" value={status?.displayName || "—"} /><Row label="WhatsApp Business Account" value={status?.businessAccountId || "—"} mono /><Row label="Connected" value={fmtDate(status?.connectedAt)} /></div>
       <div className="flex flex-wrap gap-3"><button onClick={() => void testConnection()} disabled={testing} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{testing ? "Testing…" : "Test Connection"}</button><button onClick={() => void startConnect()} disabled={connecting} className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{connecting ? "Connecting…" : "Reconnect"}</button><button onClick={() => void disconnect()} disabled={disconnecting} className="rounded-xl border border-red-400/25 px-4 py-2 text-sm font-semibold text-red-300 disabled:opacity-60">{disconnecting ? "Disconnecting…" : "Disconnect"}</button></div>
-    </div> : <div className="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-6">
+    </div> : status?.connectionStatus === "authorization_required" ? (
+      <div className="space-y-5 rounded-3xl border border-amber-400/25 bg-amber-400/5 p-6">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-amber-300">WhatsApp Authorization Incomplete</span>
+          <span className="rounded-full bg-amber-400/10 px-2.5 py-0.5 text-xs font-medium text-amber-300 border border-amber-400/20">Permission Required</span>
+        </div>
+        <p className="text-sm leading-6 text-slate-300">
+          A Meta setup was received, but the authorization token does not have permission to manage this school&apos;s WhatsApp number. Notifications will continue to route through EduCore until re-authorized.
+        </p>
+        <div className="grid gap-2.5 text-sm">
+          <Row label="Selected Phone Number ID" value={status?.phoneNumberId || "—"} mono />
+          <Row label="Selected Business Account" value={status?.businessAccountId || "—"} mono />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <button onClick={() => void startConnect()} disabled={connecting || !sdkReady} className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{connecting ? "Waiting for Meta…" : "Reconnect WhatsApp Number"}</button>
+          <button onClick={() => void disconnect()} disabled={disconnecting} className="rounded-xl border border-red-400/25 px-4 py-2 text-sm font-semibold text-red-300 disabled:opacity-60">{disconnecting ? "Disconnecting…" : "Clear / Reset"}</button>
+        </div>
+      </div>
+    ) : <div className="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-6">
       <div><h3 className="font-semibold text-white">Connect Your School&apos;s WhatsApp Number</h3><p className="mt-1 text-sm leading-6 text-slate-400">Meta will securely guide you to select the school’s Business Portfolio, WhatsApp Business Account, and phone number.</p></div>
       {status?.fallbackActive && <div className="rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-100">This school has not connected its own number yet. Notifications are currently sent through the EduCore WhatsApp number.</div>}
       <button onClick={() => void startConnect()} disabled={connecting || !sdkReady} className="w-full rounded-2xl bg-[#25D366] py-3.5 text-sm font-semibold text-white disabled:opacity-60">{connecting ? "Waiting for Meta…" : sdkReady ? "Connect WhatsApp Business Number" : "Loading Meta…"}</button>

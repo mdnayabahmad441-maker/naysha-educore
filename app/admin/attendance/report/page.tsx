@@ -74,22 +74,28 @@ export default function AttendanceReportPage(){
   // ✅ GENERATE REPORT
   const generateReport = async ()=>{
 
-    if(!selectedSection || !fromDate || !toDate || !schoolId){
+    if(!selectedClass || !fromDate || !toDate || !schoolId){
       alert("Fill all filters")
       return
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("attendance")
       .select(`
         status,
         date,
         students(name)
       `)
-      .eq("section_id", selectedSection)
+      .eq("class_id", selectedClass)
       .eq("school_id", schoolId) // 🔥 MULTI-TENANT FIX
       .gte("date", fromDate)
       .lte("date", toDate)
+
+    if(selectedSection){
+      query = query.eq("section_id", selectedSection)
+    }
+
+    const { data, error } = await query
 
     if(error){
       console.error(error)
@@ -157,7 +163,7 @@ export default function AttendanceReportPage(){
             onChange={(e)=>setSelectedSection(e.target.value)}
             className="px-4 py-3 rounded-xl bg-[#0b1220] border border-white/10"
           >
-            <option value="">Select Section</option>
+            <option value="">All Sections (Optional)</option>
             {sections.map(s=>(
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}

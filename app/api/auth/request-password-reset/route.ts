@@ -11,7 +11,7 @@ const supabaseAuthClient = createClient(
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request.headers)
-  const limit = consumeRateLimit(`password-reset:${ip}`, 5, 15 * 60_000)
+  const limit = await consumeRateLimit(`password-reset:${ip}`, 5, 15 * 60_000)
 
   if (!limit.allowed) {
     return NextResponse.json(

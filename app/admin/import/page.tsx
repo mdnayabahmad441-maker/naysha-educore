@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react"
 import Papa from "papaparse"
+import ExcelJS from "exceljs"
 import Button from "@/components/ui/Button"
 import { apiFetch } from "@/lib/api-client"
 
@@ -59,6 +60,23 @@ export default function ImportPage() {
     return result.data as string[][]
   }
 
+  const parseExcel = async (buffer: ArrayBuffer): Promise<string[][]> => {
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(buffer)
+    const worksheet = workbook.worksheets[0]
+    if (!worksheet) return []
+    const rows: string[][] = []
+    worksheet.eachRow((row) => {
+      const rowValues = Array.isArray(row.values)
+        ? row.values.slice(1).map((val) => (val === null || val === undefined ? "" : String(val).trim()))
+        : []
+      if (rowValues.some((v) => v !== "")) {
+        rows.push(rowValues)
+      }
+    })
+    return rows
+  }
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -67,13 +85,19 @@ export default function ImportPage() {
     setStatus({ type: "info", text: "Reading file…" })
 
     try {
-      const text = await file.text()
-      const rows = parseCsv(text)
+      let rows: string[][] = []
+      if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+        const buffer = await file.arrayBuffer()
+        rows = await parseExcel(buffer)
+      } else {
+        const text = await file.text()
+        rows = parseCsv(text)
+      }
       setAllRows(rows)
       setPreview(rows.slice(0, 6))
       setStatus(null)
     } catch {
-      setStatus({ type: "error", text: "Could not read file. Make sure it is a valid CSV." })
+      setStatus({ type: "error", text: "Could not read file. Make sure it is a valid CSV or Excel file." })
     } finally {
       setLoading(false)
     }

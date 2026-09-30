@@ -1,0 +1,12 @@
+# robots.txt for NaySha EduCore
+User-agent: *
+Disallow: /admin/
+Disallow: /admin
+Disallow: /teacher/
+Disallow: /teacher
+Disallow: /parent/
+Disallow: /parent
+Disallow: /api/
+Disallow: /api
+
+Allow: /

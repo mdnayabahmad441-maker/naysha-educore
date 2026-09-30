@@ -14,6 +14,9 @@ export async function GET(request: NextRequest) {
       connected: false,
       fallbackActive: false,
       source: status.source,
+      connectionStatus: status.connectionStatus,
+      phoneNumberId: status.phoneNumberId,
+      businessAccountId: status.businessAccountId,
       missing: status.missing,
     })
   }

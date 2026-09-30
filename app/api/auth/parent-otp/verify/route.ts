@@ -5,16 +5,21 @@ import { createHash } from "crypto"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const CODE_RE = /^\d{6}$/
-const OTP_SECRET = process.env.OTP_SECRET || "naysha-otp-secret"
+const OTP_SECRET = process.env.OTP_SECRET
 
-function hashCode(code: string): string {
-  return createHash("sha256").update(`${code}:${OTP_SECRET}`).digest("hex")
+function hashCode(code: string, secret: string): string {
+  return createHash("sha256").update(`${code}:${secret}`).digest("hex")
 }
 
 export async function POST(request: NextRequest) {
+  if (!OTP_SECRET) {
+    console.error("[parent-otp/verify] Server configuration error: OTP_SECRET environment variable is missing")
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+  }
+
   const ip = getClientIp(request.headers)
   // Strict limit: 5 attempts per minute per IP to prevent brute force
-  const limit = consumeRateLimit(`parent-otp-verify:${ip}`, 5, 60_000)
+  const limit = await consumeRateLimit(`parent-otp-verify:${ip}`, 5, 60_000)
 
   if (!limit.allowed) {
     return NextResponse.json(
@@ -51,7 +56,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Code has expired. Please request a new one." }, { status: 400 })
   }
 
-  if (hashCode(code) !== otpRow.code_hash) {
+  if (hashCode(code, OTP_SECRET) !== otpRow.code_hash) {
     return NextResponse.json({ error: "Incorrect code. Please try again." }, { status: 400 })
   }
 

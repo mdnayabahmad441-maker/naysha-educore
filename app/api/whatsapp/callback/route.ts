@@ -14,12 +14,10 @@ function clientError(error: unknown): string {
   if (/server configuration/i.test(message)) {
     return "WhatsApp onboarding is not configured on this server (META_APP_ID or META_APP_SECRET missing in environment variables)."
   }
-  // Keep Meta's detailed phone lookup errors visible. Only use the generic
-  // message when resolution genuinely ended without a phone ID.
-  if (/^No WhatsApp phone number was selected or found in Meta\.?$/i.test(message)) {
+  if (/phone number/i.test(message)) {
     return "No WhatsApp phone number was selected or found in Meta."
   }
-  if (/^No WhatsApp Business Account was selected or found in Meta\.?$/i.test(message)) {
+  if (/business account|waba/i.test(message)) {
     return "No WhatsApp Business Account was selected or found in Meta."
   }
   return message
@@ -83,12 +81,10 @@ async function resolvePhoneNumber(
   // 1. If phone_number_id was supplied directly by the client (from FINISH event)
   if (suppliedPhone) {
     try {
-      // Request the fields explicitly; Graph API nodes do not always include
-      // their identifying fields in the default response.
       const phoneDetails = await graphGet(
         `/${suppliedPhone}`,
         accessToken,
-        "id,display_phone_number,verified_name"
+        "id,display_phone_number,verified_name,quality_rating"
       )
       if (phoneDetails?.id) {
         phone = {
@@ -142,11 +138,7 @@ async function resolvePhoneNumber(
   if (!phone?.id && wabaId) {
     try {
       // Omit restricted fields (e.g. status) to avoid Meta (#200) field permission errors
-      const phonesRes = await graphGet(
-        `/${wabaId}/phone_numbers`,
-        accessToken,
-        "id,display_phone_number,verified_name"
-      )
+      const phonesRes = await graphGet(`/${wabaId}/phone_numbers`, accessToken)
       const phoneList = phonesRes?.data || []
       if (phoneList.length > 0) {
         phone = {
@@ -229,10 +221,22 @@ export async function POST(request: NextRequest) {
         debugUrl.searchParams.set("access_token", `${appId}|${appSecret}`)
         const debugRes = await fetch(debugUrl, { cache: "no-store" })
         const debugData = await debugRes.json()
-        const scopes = debugData?.data?.scopes || []
-        console.log("[WhatsApp/callback] token scopes granted by Meta:", scopes)
-        if (!scopes.includes("whatsapp_business_management") && !scopes.includes("whatsapp_business_messaging")) {
-          console.warn("[WhatsApp/callback] WARNING: Token missing WhatsApp permissions! Granted scopes:", scopes)
+        const flatScopes: string[] = debugData?.data?.scopes || []
+        const granularScopes: Array<{ scope?: string; target_ids?: string[] }> = debugData?.data?.granular_scopes || []
+        const granularScopeNames = granularScopes.map(g => g.scope || "").filter(Boolean)
+        const allScopes = Array.from(new Set([...flatScopes, ...granularScopeNames]))
+
+        console.log("[WhatsApp/callback] token diagnostic from Meta:", {
+          tokenType: debugData?.data?.type,
+          isValid: debugData?.data?.is_valid,
+          flatScopes,
+          granularScopeNames,
+          allScopes,
+          granularTargets: granularScopes.map(g => ({ scope: g.scope, target_ids: g.target_ids })),
+        })
+
+        if (!allScopes.includes("whatsapp_business_management") && !allScopes.includes("whatsapp_business_messaging")) {
+          console.warn("[WhatsApp/callback] WARNING: Token missing WhatsApp permissions! Granted scopes:", allScopes)
         }
       } catch (err) {
         console.warn("[WhatsApp/callback] debug_token scope check warning:", err)

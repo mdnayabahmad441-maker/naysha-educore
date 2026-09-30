@@ -6,7 +6,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request.headers)
-  const limit = consumeRateLimit(`setup-account:${ip}`, 5, 60_000)
+  const limit = await consumeRateLimit(`setup-account:${ip}`, 5, 60_000)
 
   if (!limit.allowed) {
     return NextResponse.json(

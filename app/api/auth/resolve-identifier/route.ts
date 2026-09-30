@@ -6,7 +6,7 @@ const GENERIC_NOT_FOUND = { error: "Account not found" }
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request.headers)
-  const limit = consumeRateLimit(`resolve-identifier:${ip}`, 20, 60_000)
+  const limit = await consumeRateLimit(`resolve-identifier:${ip}`, 20, 60_000)
 
   if (!limit.allowed) {
     return NextResponse.json(

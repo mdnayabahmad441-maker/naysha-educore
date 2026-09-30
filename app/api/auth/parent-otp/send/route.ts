@@ -7,7 +7,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request.headers)
-  const limit = consumeRateLimit(`parent-otp-send:${ip}`, 3, 60_000)
+  const limit = await consumeRateLimit(`parent-otp-send:${ip}`, 3, 60_000)
 
   if (!limit.allowed) {
     return NextResponse.json(

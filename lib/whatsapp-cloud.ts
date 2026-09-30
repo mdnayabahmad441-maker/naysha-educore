@@ -18,11 +18,12 @@ async function getMetaConfig(schoolId?: string): Promise<MetaConfig | null> {
   if (schoolId) {
     const { data } = await supabaseAdmin
       .from("school_whatsapp")
-      .select("access_token, phone_number_id")
+      .select("access_token, phone_number_id, phone_number")
       .eq("school_id", schoolId)
       .maybeSingle()
 
-    if (data?.access_token && data?.phone_number_id) {
+    // Only use the school's token if it has been verified with Meta (phone_number is populated)
+    if (data?.access_token && data?.phone_number_id && data?.phone_number && !data.phone_number.startsWith("ID:")) {
       return { token: data.access_token.trim(), phoneNumberId: data.phone_number_id.trim(), source: "school" }
     }
   }
@@ -45,18 +46,19 @@ export async function getWhatsAppCloudStatus(schoolId?: string) {
       .maybeSingle()
 
     if (data?.access_token && data?.phone_number_id) {
+      const isFullyVerified = Boolean(data.phone_number && !data.phone_number.startsWith("ID:"))
       return {
-        configured: true,
-        missing: [] as string[],
+        configured: isFullyVerified,
+        missing: isFullyVerified ? [] : ["WHATSAPP_PERMISSION_VERIFICATION_REQUIRED"],
         source: "school" as const,
-        connectionStatus: "connected",
+        connectionStatus: isFullyVerified ? "connected" : "authorization_required",
         phoneNumberId: data.phone_number_id,
-        phoneNumber: data.phone_number ?? (data.phone_number_id ? `ID: ${data.phone_number_id}` : null),
-        displayName: data.display_name ?? "WhatsApp Business Account",
+        phoneNumber: data.phone_number ?? null,
+        displayName: data.display_name ?? null,
         connectedAt: data.created_at ?? null,
         businessAccountId: data.business_account_id ?? null,
         lastWebhookAt: null,
-        lastWebhookStatus: "subscribed",
+        lastWebhookStatus: isFullyVerified ? "subscribed" : "pending",
         provider: "meta-cloud-api",
         apiVersion: META_API_VERSION,
       }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import StudentForm from "@/components/students/StudentForm"
 import { getUserRole } from "@/lib/getUserRole"
 import { getSchoolId } from "@/lib/school"
@@ -15,7 +15,21 @@ type StudentListRow = {
   display_id: string
 }
 
-async function fetchStudentsForSchool(schoolId: string): Promise<StudentListRow[]> {
+const PAGE_SIZE = 50
+
+async function fetchStudentsForSchool({
+  schoolId,
+  page = 1,
+  pageSize = PAGE_SIZE,
+  search = "",
+  className = "",
+}: {
+  schoolId: string
+  page?: number
+  pageSize?: number
+  search?: string
+  className?: string
+}): Promise<{ rows: StudentListRow[]; totalCount: number }> {
   const { data: year } = await supabase
     .from("academic_years")
     .select("id")
@@ -23,74 +37,87 @@ async function fetchStudentsForSchool(schoolId: string): Promise<StudentListRow[
     .eq("is_active", true)
     .maybeSingle()
 
+  let studentQuery = supabase
+    .from("students")
+    .select("id, name, student_code", { count: "exact" })
+    .eq("school_id", schoolId)
+    .order("name", { ascending: true })
+
+  const trimmedSearch = search.trim()
+  if (trimmedSearch) {
+    studentQuery = studentQuery.or(`name.ilike.%${trimmedSearch}%,student_code.ilike.%${trimmedSearch}%`)
+  }
+
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+  studentQuery = studentQuery.range(from, to)
+
+  const { data: allStudents, error: studentsError, count } = await studentQuery
+
+  if (studentsError) {
+    console.error("Students fetch error:", studentsError)
+    return { rows: [], totalCount: 0 }
+  }
+
+  const studentList = allStudents || []
+  const totalCount = count ?? studentList.length
+
+  if (studentList.length === 0) {
+    return { rows: [], totalCount }
+  }
+
+  const studentIds = studentList.map((s) => s.id)
   let enrollmentQuery = supabase
     .from("student_enrollments")
-    .select("student_id, roll_number, students:student_id(id, name, student_code), classes:class_id(name)")
+    .select("student_id, roll_number, classes:class_id(name)")
+    .in("student_id", studentIds)
     .eq("school_id", schoolId)
 
-  if (year?.id) enrollmentQuery = enrollmentQuery.eq("academic_year_id", year.id)
+  if (year?.id) {
+    enrollmentQuery = enrollmentQuery.eq("academic_year_id", year.id)
+  }
 
   const { data: enrollments, error: enrollmentError } = await enrollmentQuery
-
   if (enrollmentError) {
     console.error("Enrollment fetch error:", enrollmentError)
   }
 
-  const enrolledRows: StudentListRow[] = ((enrollments || []) as any[])
-    .filter((enrollment) => enrollment.students?.id)
-    .map((enrollment, index) => ({
-      id: enrollment.students.id,
-      name: enrollment.students.name || "Unnamed Student",
-      roll_number: enrollment.roll_number ?? null,
-      class_name: enrollment.classes?.name || null,
-      display_id: enrollment.students.student_code || `ST${String(index + 1).padStart(2, "0")}`,
-    }))
+  const enrollmentMap = new Map<string, { roll_number: number | null; class_name: string | null }>()
+  ;((enrollments || []) as any[]).forEach((enr) => {
+    enrollmentMap.set(enr.student_id, {
+      roll_number: enr.roll_number ?? null,
+      class_name: enr.classes?.name || null,
+    })
+  })
 
-  const enrolledIds = new Set(enrolledRows.map((row) => row.id))
-
-  const { data: allStudents, error: studentsError } = await supabase
-    .from("students")
-    .select("id, name, student_code")
-    .eq("school_id", schoolId)
-    .order("name", { ascending: true })
-
-  if (studentsError) {
-    console.error("Students fetch error:", studentsError)
-  }
-
-  const unenrolledRows: StudentListRow[] = ((allStudents || []) as any[])
-    .filter((student) => !enrolledIds.has(student.id))
-    .map((student, index) => ({
+  let rows: StudentListRow[] = studentList.map((student, idx) => {
+    const enr = enrollmentMap.get(student.id)
+    return {
       id: student.id,
       name: student.name || "Unnamed Student",
-      roll_number: null,
-      class_name: null,
-      display_id: student.student_code || `ST${String(enrolledRows.length + index + 1).padStart(2, "0")}`,
-    }))
-
-  const rows = [...enrolledRows, ...unenrolledRows]
-
-  return rows.sort((a, b) => {
-    const classA = a.class_name || "zzzz"
-    const classB = b.class_name || "zzzz"
-    const classCompare = classA.localeCompare(classB)
-    if (classCompare !== 0) return classCompare
-
-    const rollA = a.roll_number ?? Number.MAX_SAFE_INTEGER
-    const rollB = b.roll_number ?? Number.MAX_SAFE_INTEGER
-    if (rollA !== rollB) return rollA - rollB
-
-    return a.name.localeCompare(b.name)
+      roll_number: enr?.roll_number ?? null,
+      class_name: enr?.class_name ?? null,
+      display_id: student.student_code || `ST${String(from + idx + 1).padStart(2, "0")}`,
+    }
   })
+
+  if (className) {
+    rows = rows.filter((r) => r.class_name === className)
+  }
+
+  return { rows, totalCount }
 }
 
 export default function StudentsPage() {
   const router = useRouter()
 
   const [students, setStudents] = useState<StudentListRow[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [classFilter, setClassFilter] = useState("")
+  const [availableClasses, setAvailableClasses] = useState<string[]>([])
   const [role, setRole] = useState<string | null>(null)
   const [schoolId, setSchoolId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -111,17 +138,48 @@ export default function StudentsPage() {
 
   useEffect(() => {
     if (!schoolId) return
+    supabase
+      .from("classes")
+      .select("name")
+      .eq("school_id", schoolId)
+      .order("name", { ascending: true })
+      .then(({ data }) => {
+        if (data) {
+          setAvailableClasses(data.map((c) => c.name).filter(Boolean))
+        }
+      })
+  }, [schoolId])
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setPage(1)
+  }, [search, classFilter])
+
+  useEffect(() => {
+    if (!schoolId) return
 
     let cancelled = false
     setLoading(true)
 
-    fetchStudentsForSchool(schoolId)
-      .then((rows) => {
-        if (!cancelled) setStudents(rows)
+    fetchStudentsForSchool({
+      schoolId,
+      page,
+      pageSize: PAGE_SIZE,
+      search,
+      className: classFilter,
+    })
+      .then(({ rows, totalCount: total }) => {
+        if (!cancelled) {
+          setStudents(rows)
+          setTotalCount(total)
+        }
       })
       .catch((err) => {
         console.error(err)
-        if (!cancelled) setStudents([])
+        if (!cancelled) {
+          setStudents([])
+          setTotalCount(0)
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -130,18 +188,26 @@ export default function StudentsPage() {
     return () => {
       cancelled = true
     }
-  }, [schoolId])
+  }, [schoolId, page, search, classFilter])
 
   const reloadStudents = async () => {
     if (!schoolId) return
     setLoading(true)
 
     try {
-      const rows = await fetchStudentsForSchool(schoolId)
+      const { rows, totalCount: total } = await fetchStudentsForSchool({
+        schoolId,
+        page,
+        pageSize: PAGE_SIZE,
+        search,
+        className: classFilter,
+      })
       setStudents(rows)
+      setTotalCount(total)
     } catch (err) {
       console.error(err)
       setStudents([])
+      setTotalCount(0)
     } finally {
       setLoading(false)
     }
@@ -155,30 +221,16 @@ export default function StudentsPage() {
     router.push(`/admin/students/${id}`)
   }
 
-  const classOptions = useMemo(
-    () => [...new Set((students.map((student) => student.class_name).filter(Boolean) as string[]))],
-    [students]
-  )
-
-  const searchTerm = search.toLowerCase()
-
-  const filteredStudents = students.filter((student) => {
-    if (classFilter && student.class_name !== classFilter) return false
-    if (!searchTerm) return true
-
-    return (
-      student.name.toLowerCase().includes(searchTerm) ||
-      student.display_id.toLowerCase().includes(searchTerm) ||
-      (student.class_name || "").toLowerCase().includes(searchTerm)
-    )
-  })
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 text-white md:p-10">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Students</h1>
-          <p className="text-sm text-gray-400">{students.length} students</p>
+          <p className="text-sm text-gray-400">
+            {totalCount} total students {students.length > 0 && `(showing page ${page} of ${totalPages})`}
+          </p>
         </div>
 
         {role === "admin" && (
@@ -208,7 +260,7 @@ export default function StudentsPage() {
             className="w-full max-w-sm rounded-lg border border-white/10 bg-[#0b1220] px-4 py-2 text-sm text-white"
           >
             <option value="">All Classes</option>
-            {classOptions.map((className) => (
+            {availableClasses.map((className) => (
               <option key={className} value={className}>
                 {className}
               </option>
@@ -216,7 +268,7 @@ export default function StudentsPage() {
           </select>
 
           <input
-            placeholder="Search by name, ID, or class..."
+            placeholder="Search by name or student ID..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="w-full rounded-lg border border-white/10 bg-[#0b1220] px-4 py-2 text-sm text-white"
@@ -235,17 +287,18 @@ export default function StudentsPage() {
         </div>
       )}
 
+      {/* Mobile Card List */}
       <div className="space-y-3 md:hidden">
         {loading ? (
           <div className="rounded-[24px] border border-white/10 bg-[#0b1220] p-6 text-center text-gray-400">
             Loading...
           </div>
-        ) : filteredStudents.length === 0 ? (
+        ) : students.length === 0 ? (
           <div className="rounded-[24px] border border-white/10 bg-[#0b1220] p-6 text-center text-gray-400">
             No students found.
           </div>
         ) : (
-          filteredStudents.map((student) => (
+          students.map((student) => (
             <div
               key={student.id}
               className="rounded-[24px] border border-white/10 bg-[#0b1220] p-4 shadow-[0_18px_48px_rgba(2,8,23,0.24)]"
@@ -278,6 +331,7 @@ export default function StudentsPage() {
         )}
       </div>
 
+      {/* Desktop Table */}
       <div className="hidden overflow-hidden rounded-xl border border-white/10 bg-[#0b1220] md:block">
         <table className="w-full text-sm">
           <thead className="border-b border-white/10 text-gray-400">
@@ -297,8 +351,14 @@ export default function StudentsPage() {
                   Loading...
                 </td>
               </tr>
+            ) : students.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="p-6 text-center text-gray-400">
+                  No students found.
+                </td>
+              </tr>
             ) : (
-              filteredStudents.map((student) => (
+              students.map((student) => (
                 <tr key={student.id} className="border-t border-white/5 hover:bg-white/5">
                   <td className="p-4 text-gray-400">{student.display_id}</td>
                   <td className="p-4">{student.name}</td>
@@ -317,6 +377,33 @@ export default function StudentsPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Server-Side Pagination Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-3 text-sm text-gray-400">
+        <p>
+          Showing {students.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1} to{" "}
+          {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount} students
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || loading}
+            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          <span className="px-2 text-xs">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => (page < totalPages ? p + 1 : p))}
+            disabled={page >= totalPages || loading}
+            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   )

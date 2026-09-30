@@ -75,14 +75,18 @@ const UNKNOWN_STUDENT: Student = {
 async function fetchFees(
   schoolId: string,
   selectedClass: string,
-  selectedMonth: string
-): Promise<FeeWithStudent[]> {
+  selectedMonth: string,
+  page: number = 1,
+  pageSize: number = 50
+): Promise<{ fees: FeeWithStudent[]; totalCount: number }> {
   let query = supabase
     .from("fees")
     .select(
-      "id,student_id,class_id,month,total_amount,paid_amount,status,created_at,tuition_fee,transport_fee,hostel_fee"
+      "id,student_id,class_id,month,total_amount,paid_amount,status,created_at,tuition_fee,transport_fee,hostel_fee",
+      { count: "exact" }
     )
     .eq("school_id", schoolId)
+    .order("created_at", { ascending: false })
 
   if (selectedClass) {
     query = query.eq("class_id", selectedClass)
@@ -92,16 +96,21 @@ async function fetchFees(
     query = query.eq("month", selectedMonth)
   }
 
-  const { data: feeData, error: feeError } = await query
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+  query = query.range(from, to)
+
+  const { data: feeData, error: feeError, count } = await query
 
   if (feeError) {
     throw feeError
   }
 
   const fees = (feeData as FeeRecord[] | null) ?? []
+  const totalCount = count ?? fees.length
 
   if (fees.length === 0) {
-    return []
+    return { fees: [], totalCount }
   }
 
   const studentIds = [...new Set(fees.map((fee) => fee.student_id))]
@@ -121,10 +130,12 @@ async function fetchFees(
     studentMap.set(student.id, student)
   })
 
-  return fees.map((fee) => ({
+  const feesWithStudent = fees.map((fee) => ({
     ...fee,
     student: studentMap.get(fee.student_id) ?? UNKNOWN_STUDENT
   }))
+
+  return { fees: feesWithStudent, totalCount }
 }
 
 type AiFeeReminder = {
@@ -145,6 +156,9 @@ export default function FeesPage() {
   const [schoolId, setSchoolId] = useState<string | null>(null)
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [fees, setFees] = useState<FeeWithStudent[]>([])
+  const PAGE_SIZE = 50
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
 
   const [selectedClass, setSelectedClass] = useState("")
   const [selectedMonth, setSelectedMonth] = useState("")
@@ -178,20 +192,28 @@ export default function FeesPage() {
       })
   }, [schoolId])
 
+  // Reset to page 1 when class or month filter changes
+  useEffect(() => {
+    setPage(1)
+  }, [selectedClass, selectedMonth])
+
   useEffect(() => {
     if (!schoolId) return
 
     let cancelled = false
+    setLoading(true)
 
-    void fetchFees(schoolId, selectedClass, selectedMonth)
+    void fetchFees(schoolId, selectedClass, selectedMonth, page, PAGE_SIZE)
       .then((result) => {
         if (cancelled) return
-        setFees(result)
+        setFees(result.fees)
+        setTotalCount(result.totalCount)
       })
       .catch((error) => {
         console.error("Failed to load fees:", error)
         if (cancelled) return
         setFees([])
+        setTotalCount(0)
       })
       .finally(() => {
         if (cancelled) return
@@ -201,7 +223,7 @@ export default function FeesPage() {
     return () => {
       cancelled = true
     }
-  }, [schoolId, selectedClass, selectedMonth])
+  }, [schoolId, selectedClass, selectedMonth, page])
 
   const refreshFees = async () => {
     if (!schoolId) return
@@ -209,11 +231,13 @@ export default function FeesPage() {
     setLoading(true)
 
     try {
-      const result = await fetchFees(schoolId, selectedClass, selectedMonth)
-      setFees(result)
+      const result = await fetchFees(schoolId, selectedClass, selectedMonth, page, PAGE_SIZE)
+      setFees(result.fees)
+      setTotalCount(result.totalCount)
     } catch (error) {
       console.error("Failed to refresh fees:", error)
       setFees([])
+      setTotalCount(0)
     } finally {
       setLoading(false)
     }
@@ -670,6 +694,33 @@ export default function FeesPage() {
           </table>
         )}
       </div>
+      {/* Pagination Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-3 text-sm text-gray-400">
+        <p>
+          Showing {fees.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1} to{" "}
+          {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount} records
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || loading}
+            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          <span className="px-2 text-xs">
+            Page {page} of {Math.max(1, Math.ceil(totalCount / PAGE_SIZE))}
+          </span>
+          <button
+            onClick={() => setPage((p) => (page < Math.ceil(totalCount / PAGE_SIZE) ? p + 1 : p))}
+            disabled={page >= Math.ceil(totalCount / PAGE_SIZE) || loading}
+            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
 
       <style jsx>{`
         .input {
