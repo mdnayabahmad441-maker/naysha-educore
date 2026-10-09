@@ -4,6 +4,7 @@ import { requireAiEnabled } from "@/lib/ai-access"
 import { createClaudeMessage, extractClaudeToolInput, getClaudeConfig } from "@/lib/claude"
 import { getDefaultDocumentLayout, normalizeDocumentLayout, type DocumentKind } from "@/lib/document-layouts"
 import { getAiTenantContext } from "@/lib/server-settings"
+import { consumeRateLimit } from "@/lib/security"
 import type Anthropic from "@anthropic-ai/sdk"
 
 const layoutTool: Anthropic.Tool = {
@@ -82,6 +83,34 @@ export async function POST(req: Request) {
     const aiBlocked = await requireAiEnabled(schoolId)
     if (aiBlocked) return aiBlocked
 
+    // User-level rate limit: max 5 layout vision requests per minute
+    const userLimit = await consumeRateLimit(`ai:layout:user:${authResult.profile.userId}`, 5, 60 * 1000)
+    if (!userLimit.allowed) {
+      return NextResponse.json(
+        { error: "Document layout generation limit reached. Please wait a moment before trying again." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.max(1, Math.ceil((userLimit.resetAt - Date.now()) / 1000))),
+          },
+        }
+      )
+    }
+
+    // School-level rate limit: max 15 layout vision requests per minute
+    const schoolLimit = await consumeRateLimit(`ai:layout:school:${schoolId}`, 15, 60 * 1000)
+    if (!schoolLimit.allowed) {
+      return NextResponse.json(
+        { error: "School-wide document layout limit reached. Please wait a moment before trying again." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.max(1, Math.ceil((schoolLimit.resetAt - Date.now()) / 1000))),
+          },
+        }
+      )
+    }
+
     if (!kind || !["id_card", "report_card", "certificate"].includes(kind)) {
       return NextResponse.json({ error: "Valid document kind is required" }, { status: 400 })
     }
@@ -150,7 +179,7 @@ Return only the tool result.`
   } catch (error) {
     console.error("AI document layout error:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to generate AI layout" },
+      { error: "Failed to generate AI layout. Please try again later." },
       { status: 500 }
     )
   }

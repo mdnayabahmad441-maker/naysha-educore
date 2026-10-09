@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminProfile } from "@/lib/api-auth"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 export async function POST(req: Request) {
   const authResult = await requireAdminProfile(req)
@@ -38,11 +39,11 @@ export async function POST(req: Request) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to create notice") }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, id: data.id })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Server error" }, { status: 500 })
+    return NextResponse.json({ error: sanitizeDatabaseError(err, "Failed to create notice") }, { status: 500 })
   }
 }

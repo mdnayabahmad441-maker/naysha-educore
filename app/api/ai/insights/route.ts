@@ -3,6 +3,7 @@ import { ensureSameSchool, requireAuthorizedProfile } from "@/lib/api-auth"
 import { createClaudeMessage, extractClaudeToolInput } from "@/lib/claude"
 import { getAiTenantContext } from "@/lib/server-settings"
 import { requireAiEnabled } from "@/lib/ai-access"
+import { consumeRateLimit } from "@/lib/security"
 import type Anthropic from "@anthropic-ai/sdk"
 
 type InsightTask =
@@ -217,7 +218,11 @@ export async function POST(req: Request) {
   if ("response" in authResult) return authResult.response
 
   try {
-    const body = await req.json()
+    const body = await req.json().catch(() => null)
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid request payload" }, { status: 400 })
+    }
+
     const task = body?.task as InsightTask
     const schoolId = String(body?.schoolId || "")
 
@@ -230,6 +235,34 @@ export async function POST(req: Request) {
 
     const aiBlocked = await requireAiEnabled(schoolId)
     if (aiBlocked) return aiBlocked
+
+    // User-level rate limit: max 10 insight requests per minute
+    const userLimit = await consumeRateLimit(`ai:insights:user:${authResult.profile.userId}`, 10, 60 * 1000)
+    if (!userLimit.allowed) {
+      return NextResponse.json(
+        { error: "AI insight limit exceeded. Please wait a moment before requesting more insights." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.max(1, Math.ceil((userLimit.resetAt - Date.now()) / 1000))),
+          },
+        }
+      )
+    }
+
+    // School-level rate limit: max 30 insight requests per minute
+    const schoolLimit = await consumeRateLimit(`ai:insights:school:${schoolId}`, 30, 60 * 1000)
+    if (!schoolLimit.allowed) {
+      return NextResponse.json(
+        { error: "School-wide AI insight limit reached. Please wait a moment before trying again." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.max(1, Math.ceil((schoolLimit.resetAt - Date.now()) / 1000))),
+          },
+        }
+      )
+    }
 
     const tenantContext = await getAiTenantContext(schoolId)
     const tool = taskTools[task]
@@ -257,7 +290,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("AI insights route error:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to generate AI insight" },
+      { error: "Failed to generate AI insight. Please try again later." },
       { status: 500 }
     )
   }

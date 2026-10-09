@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { ensureSameSchool, requireAdminProfile } from "@/lib/api-auth"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
     if (uploadError) {
       console.error("Student photo upload error:", uploadError)
       return NextResponse.json(
-        { success: false, error: uploadError.message },
+        { success: false, error: sanitizeDatabaseError(uploadError, "Failed to upload photo") },
         { status: 500 }
       )
     }
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
     if (updateError) {
       console.error("Student photo database update error:", updateError)
       return NextResponse.json(
-        { success: false, error: updateError.message },
+        { success: false, error: sanitizeDatabaseError(updateError, "Failed to update student profile photo") },
         { status: 500 }
       )
     }
@@ -93,7 +94,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     console.error("Student photo API error:", err)
     return NextResponse.json(
-      { success: false, error: err.message || "Failed to upload photo" },
+      { success: false, error: sanitizeDatabaseError(err, "Failed to upload photo") },
       { status: 500 }
     )
   }

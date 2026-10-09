@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireAuthorizedProfile } from "@/lib/api-auth"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 function monthStart(month: string) {
   return `${month}-01`
@@ -81,7 +82,7 @@ export async function GET(req: Request) {
           { status: 200 }
         )
       }
-      return NextResponse.json({ error: attendanceError.message }, { status: 500 })
+      return NextResponse.json({ error: sanitizeDatabaseError(attendanceError, "Failed to load teacher attendance records") }, { status: 500 })
     }
 
     const teacherIds = [
@@ -158,7 +159,7 @@ export async function POST(req: Request) {
       .maybeSingle()
 
     if (teacherError) {
-      return NextResponse.json({ error: teacherError.message }, { status: 500 })
+      return NextResponse.json({ error: sanitizeDatabaseError(teacherError, "Failed to verify teacher record") }, { status: 500 })
     }
     if (!teacher) {
       return NextResponse.json({ error: "Teacher not found in this school" }, { status: 404 })
@@ -191,12 +192,12 @@ export async function POST(req: Request) {
           { status: 503 }
         )
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to save teacher attendance") }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (err: any) {
     console.error("[admin teacher-attendance POST]", err)
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: sanitizeDatabaseError(err, "An error occurred while saving teacher attendance") }, { status: 500 })
   }
 }

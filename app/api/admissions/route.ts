@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminProfile } from "@/lib/api-auth"
 import { getBaseUrl, getInternalApiHeaders } from "@/lib/internal-api"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 export async function GET(req: Request) {
   const auth = await requireAdminProfile(req)
@@ -24,7 +25,10 @@ export async function GET(req: Request) {
   if (search) query = query.ilike("student_name", `%${search}%`)
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[admissions:list]", error)
+    return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to load admissions") }, { status: 500 })
+  }
 
   return NextResponse.json({ admissions: data })
 }
@@ -114,7 +118,10 @@ export async function POST(req: Request) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[admissions:create]", error)
+    return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to register admission") }, { status: 500 })
+  }
 
   // Send WhatsApp confirmation to the parent's phone for auto-approved admissions
   if (finalStatus === "approved") {

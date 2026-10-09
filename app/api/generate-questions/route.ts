@@ -3,6 +3,7 @@ import { ensureSameSchool, requireAuthorizedProfile } from "@/lib/api-auth"
 import { requireAiEnabled } from "@/lib/ai-access"
 import { createClaudeMessage, extractClaudeText } from "@/lib/claude"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { consumeRateLimit, sanitizeDatabaseError } from "@/lib/security"
 
 export interface QuestionPaperInput {
   class: string
@@ -296,6 +297,34 @@ export async function POST(req: Request) {
     const aiBlocked = await requireAiEnabled(schoolId)
     if (aiBlocked) return aiBlocked
 
+    // User-level rate limit: max 10 requests per minute
+    const userLimit = await consumeRateLimit(`ai:generate-questions:user:${auth.profile.userId}`, 10, 60 * 1000)
+    if (!userLimit.allowed) {
+      return NextResponse.json(
+        { error: "Question generator rate limit exceeded. Please wait a moment before generating more papers." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.max(1, Math.ceil((userLimit.resetAt - Date.now()) / 1000))),
+          },
+        }
+      )
+    }
+
+    // School-level rate limit: max 25 requests per minute across staff
+    const schoolLimit = await consumeRateLimit(`ai:generate-questions:school:${schoolId}`, 25, 60 * 1000)
+    if (!schoolLimit.allowed) {
+      return NextResponse.json(
+        { error: "School-wide question generation concurrency limit reached. Please retry in a few moments." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.max(1, Math.ceil((schoolLimit.resetAt - Date.now()) / 1000))),
+          },
+        }
+      )
+    }
+
     const { content, answerKey } = await generateQuestionPaper({
       class: cls, subject, chapter, topic, difficulty, marks: marksNum, schoolId,
       schoolName: schoolName || "",
@@ -309,13 +338,17 @@ export async function POST(req: Request) {
 
     // Optionally save to DB
     if (save) {
-      const { data: teacher } = await supabaseAdmin
+      const { data: teacher, error: teacherErr } = await supabaseAdmin
         .from("teachers")
         .select("id")
         .eq("auth_id", auth.profile.userId)
         .maybeSingle()
 
-      await supabaseAdmin.from("question_papers").insert({
+      if (teacherErr) {
+        console.error("[generate-questions:teacher-lookup]", teacherErr)
+      }
+
+      const { error: insertErr } = await supabaseAdmin.from("question_papers").insert({
         school_id: schoolId,
         teacher_id: teacher?.id ?? null,
         class: cls,
@@ -326,12 +359,23 @@ export async function POST(req: Request) {
         total_marks: marksNum,
         content,
       })
+
+      if (insertErr) {
+        console.error("[generate-questions:insert]", insertErr)
+        return NextResponse.json(
+          { error: sanitizeDatabaseError(insertErr, "Failed to save question paper") },
+          { status: 500 }
+        )
+      }
     }
 
     return NextResponse.json({ success: true, content, answerKey })
   } catch (err: any) {
     console.error("[generate-questions]", err)
-    return NextResponse.json({ error: err.message || "Internal error" }, { status: 500 })
+    return NextResponse.json(
+      { error: sanitizeDatabaseError(err, "Failed to generate question paper. Please try again.") },
+      { status: 500 }
+    )
   }
 }
 
@@ -345,11 +389,18 @@ export async function GET(req: Request) {
 
   if (!schoolId) return NextResponse.json({ error: "schoolId required" }, { status: 400 })
 
-  const { data: teacher } = await supabaseAdmin
+  const schoolMismatch = ensureSameSchool(auth.profile, schoolId)
+  if (schoolMismatch) return schoolMismatch
+
+  const { data: teacher, error: teacherErr } = await supabaseAdmin
     .from("teachers")
     .select("id")
     .eq("auth_id", auth.profile.userId)
     .maybeSingle()
+
+  if (teacherErr) {
+    console.error("[generate-questions:teacher-lookup]", teacherErr)
+  }
 
   const query = supabaseAdmin
     .from("question_papers")
@@ -363,7 +414,13 @@ export async function GET(req: Request) {
   }
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[generate-questions:query]", error)
+    return NextResponse.json(
+      { error: sanitizeDatabaseError(error, "Failed to fetch question papers") },
+      { status: 500 }
+    )
+  }
 
   return NextResponse.json({ success: true, papers: data || [] })
 }

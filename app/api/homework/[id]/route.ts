@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { requireAuthorizedProfile } from "@/lib/api-auth"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAuthorizedProfile(req, ["admin", "teacher"])
@@ -17,7 +18,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     .eq("id", id)
     .eq("school_id", schoolId)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[homework:delete]", error)
+    return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to delete homework assignment") }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true })
 }
@@ -46,7 +50,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     .select("*, classes:class_id(name)")
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[homework:update]", error)
+    return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to update homework assignment") }, { status: 500 })
+  }
 
   return NextResponse.json({ homework: data })
 }

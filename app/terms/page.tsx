@@ -3,6 +3,9 @@ import Link from "next/link"
 export const metadata = {
   title: "Terms of Service – NaySha EduCore",
   description: "Terms of Service for NaySha EduCore School Management Platform",
+  alternates: {
+    canonical: "https://naysha.online/terms",
+  },
 }
 
 export default function TermsPage() {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Manrope, Space_Grotesk } from "next/font/google"
@@ -92,7 +92,7 @@ function CheckCircleIcon({ className = "w-4 h-4" }: { className?: string }) {
   )
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams()
   const school = useSchool()
 
@@ -862,8 +862,22 @@ export default function LoginPage() {
           </div>
 
         </div>
-
       </div>
     </div>
   )
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#060b13] flex items-center justify-center text-slate-400 text-sm">
+          Loading login portal...
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
+  )
+}
+

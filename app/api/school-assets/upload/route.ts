@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { ensureSameSchool, requireAdminProfile } from "@/lib/api-auth"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024
 const MAX_TEMPLATE_BYTES = 10 * 1024 * 1024
@@ -63,7 +64,7 @@ async function clearAssetReference(schoolId: string, assetType: keyof typeof con
       .eq("id", schoolId)
 
     if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+      return NextResponse.json({ success: false, error: sanitizeDatabaseError(error, "Failed to remove logo") }, { status: 500 })
     }
 
     return null
@@ -77,7 +78,7 @@ async function clearAssetReference(schoolId: string, assetType: keyof typeof con
       .eq("key", config.settingsKey)
 
     if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+      return NextResponse.json({ success: false, error: sanitizeDatabaseError(error, "Failed to remove asset setting") }, { status: 500 })
     }
   }
 
@@ -159,7 +160,7 @@ export async function POST(req: Request) {
     if (uploadError) {
       console.error("School asset upload error:", uploadError)
       return NextResponse.json(
-        { success: false, error: uploadError.message },
+        { success: false, error: sanitizeDatabaseError(uploadError, "Failed to upload asset") },
         { status: 500 }
       )
     }
@@ -176,7 +177,7 @@ export async function POST(req: Request) {
       if (schoolError) {
         console.error("School logo update error:", schoolError)
         return NextResponse.json(
-          { success: false, error: schoolError.message },
+          { success: false, error: sanitizeDatabaseError(schoolError, "Failed to save school logo") },
           { status: 500 }
         )
       }
@@ -197,7 +198,7 @@ export async function POST(req: Request) {
       if (settingsError) {
         console.error("School asset settings update error:", settingsError)
         return NextResponse.json(
-          { success: false, error: settingsError.message },
+          { success: false, error: sanitizeDatabaseError(settingsError, "Failed to update asset setting") },
           { status: 500 }
         )
       }
@@ -210,7 +211,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     console.error("School asset API error:", err)
     return NextResponse.json(
-      { success: false, error: err.message || "Failed to upload asset" },
+      { success: false, error: sanitizeDatabaseError(err, "Failed to upload asset") },
       { status: 500 }
     )
   }
@@ -272,7 +273,7 @@ export async function DELETE(req: Request) {
   } catch (err: any) {
     console.error("School asset delete API error:", err)
     return NextResponse.json(
-      { success: false, error: err.message || "Failed to delete asset" },
+      { success: false, error: sanitizeDatabaseError(err, "Failed to delete asset") },
       { status: 500 }
     )
   }

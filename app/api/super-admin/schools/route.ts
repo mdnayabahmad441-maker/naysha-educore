@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireAuthorizedProfile } from "@/lib/api-auth"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { sanitizeDatabaseError } from "@/lib/security"
 import {
   getNotificationControlsMap,
   mergeNotificationControls,
@@ -316,7 +317,7 @@ export async function GET(req: Request) {
     .select("*")
     .order("created_at", { ascending: false })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to load schools") }, { status: 500 })
 
   const rows = (data || []) as SchoolRow[]
   const controls = await getNotificationControlsMap(rows.map((school) => school.id))
@@ -408,7 +409,7 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Could not create school" },
+      { error: sanitizeDatabaseError(error, "Could not create school") },
       { status: 500 }
     )
   }
@@ -427,7 +428,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ success: true, ...result })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Could not update school" },
+      { error: sanitizeDatabaseError(error, "Could not update school") },
       { status: 500 }
     )
   }
@@ -454,7 +455,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Could not delete school" },
+      { error: sanitizeDatabaseError(error, "Could not delete school") },
       { status: 500 }
     )
   }

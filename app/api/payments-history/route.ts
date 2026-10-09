@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminProfile } from "@/lib/api-auth"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 type PaymentRow = {
   id: string
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
     .order("date", { ascending: false })
 
   if (paymentsError) {
-    return NextResponse.json({ error: paymentsError.message }, { status: 500 })
+    return NextResponse.json({ error: sanitizeDatabaseError(paymentsError, "Failed to load payment history") }, { status: 500 })
   }
 
   const paymentRows = (payments as PaymentRow[] | null) ?? []
@@ -100,15 +101,15 @@ export async function GET(request: Request) {
   ])
 
   if (studentsRes.error) {
-    return NextResponse.json({ error: studentsRes.error.message }, { status: 500 })
+    return NextResponse.json({ error: sanitizeDatabaseError(studentsRes.error, "Failed to load student details") }, { status: 500 })
   }
 
   if (feesRes.error) {
-    return NextResponse.json({ error: feesRes.error.message }, { status: 500 })
+    return NextResponse.json({ error: sanitizeDatabaseError(feesRes.error, "Failed to load fee details") }, { status: 500 })
   }
 
   if (enrollmentsRes.error) {
-    return NextResponse.json({ error: enrollmentsRes.error.message }, { status: 500 })
+    return NextResponse.json({ error: sanitizeDatabaseError(enrollmentsRes.error, "Failed to load enrollment details") }, { status: 500 })
   }
 
   const students = new Map<string, StudentRow>()
@@ -150,7 +151,7 @@ export async function GET(request: Request) {
       .in("id", classIds)
 
     if (classesError) {
-      return NextResponse.json({ error: classesError.message }, { status: 500 })
+      return NextResponse.json({ error: sanitizeDatabaseError(classesError, "Failed to load class details") }, { status: 500 })
     }
 
     ;((classes as ClassRow[] | null) ?? []).forEach((schoolClass) => {

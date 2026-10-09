@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { requireAuthorizedProfile } from "@/lib/api-auth"
 import { getBaseUrl, getInternalApiHeaders } from "@/lib/internal-api"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 export async function GET(req: Request) {
   const auth = await requireAuthorizedProfile(req, ["admin", "teacher", "parent"])
@@ -24,7 +25,10 @@ export async function GET(req: Request) {
   if (upcoming === "1") query = query.gte("due_date", new Date().toISOString().slice(0, 10))
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[homework:list]", error)
+    return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to load homework assignments") }, { status: 500 })
+  }
 
   return NextResponse.json({ homework: data })
 }
@@ -66,7 +70,10 @@ export async function POST(req: Request) {
     .select("*, classes:class_id(name)")
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[homework:create]", error)
+    return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to create homework assignment") }, { status: 500 })
+  }
 
   // Non-blocking: notify parents of students in this class via WhatsApp
   if (data) {

@@ -58,15 +58,20 @@ export function proxy(request: NextRequest) {
   }
 
   // Subdomain tenant routing
-  const subdomain = host.split(".")[0]
+  const cleanHost = host.split(":")[0].trim().toLowerCase()
+  const subdomain = cleanHost.split(".")[0] || ""
   const headers = new Headers(request.headers)
+
+  // Strip any client-supplied x-tenant header to prevent untrusted tenant injection
+  headers.delete("x-tenant")
 
   if (
     subdomain &&
     subdomain !== "www" &&
     subdomain !== "naysha" &&
     subdomain !== "erp" &&
-    !host.includes("localhost")
+    !cleanHost.includes("localhost") &&
+    !cleanHost.includes("127.0.0.1")
   ) {
     headers.set("x-tenant", subdomain)
   }

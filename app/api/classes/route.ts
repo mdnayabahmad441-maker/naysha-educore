@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getSchoolFromRequest } from "@/lib/schoolFromRequest"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 export async function GET(req: Request) {
   try {
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
     if (error) {
       console.error("Fetch classes error:", error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: sanitizeDatabaseError(error, "Failed to load classes") },
         { status: 500 }
       )
     }
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
   } catch (err: any) {
     console.error("Fetch classes error:", err)
     return NextResponse.json(
-      { success: false, error: err.message },
+      { success: false, error: sanitizeDatabaseError(err, "Failed to load classes") },
       { status: 500 }
     )
   }

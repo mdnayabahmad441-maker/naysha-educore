@@ -1,4 +1,4 @@
-# robots.txt for NaySha EduCore
+# robots.txt for NaySha EduCore (https://naysha.online)
 User-agent: *
 Disallow: /admin/
 Disallow: /admin
@@ -6,7 +6,13 @@ Disallow: /teacher/
 Disallow: /teacher
 Disallow: /parent/
 Disallow: /parent
+Disallow: /super-admin/
+Disallow: /super-admin
+Disallow: /tenant/
+Disallow: /receipt/
 Disallow: /api/
 Disallow: /api
 
 Allow: /
+
+Sitemap: https://naysha.online/sitemap.xml

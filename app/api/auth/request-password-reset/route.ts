@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { consumeRateLimit, getClientIp } from "@/lib/security"
+import { consumeRateLimit, getClientIp, sanitizeDatabaseError } from "@/lib/security"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to send password reset email") }, { status: 400 })
     }
 
     return NextResponse.json({ success: true })

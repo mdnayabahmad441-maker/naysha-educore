@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { requireAuthorizedProfile } from "@/lib/api-auth"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 const RADIUS_METERS = 100
 const MAX_ALLOWED_ACCURACY_METERS = 250
@@ -97,13 +98,13 @@ export async function GET(req: Request) {
       if (isTeacherAttendanceSetupError(error.message)) {
         return NextResponse.json({ error: SETUP_ERROR_MESSAGE }, { status: 503 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to load teacher attendance records") }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, records: data || [] })
   } catch (err: any) {
     console.error("[teacher-attendance GET] Uncaught:", err)
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: sanitizeDatabaseError(err, "An error occurred while loading attendance records") }, { status: 500 })
   }
 }
 
@@ -178,7 +179,7 @@ export async function POST(req: Request) {
         { status: 503 }
       )
     }
-    return NextResponse.json({ error: schoolError.message }, { status: 500 })
+    return NextResponse.json({ error: sanitizeDatabaseError(schoolError, "Failed to load school location") }, { status: 500 })
   }
 
   if (!school?.latitude || !school?.longitude) {
@@ -231,7 +232,7 @@ export async function POST(req: Request) {
       if (isTeacherAttendanceSetupError(existingError.message)) {
         return NextResponse.json({ error: SETUP_ERROR_MESSAGE }, { status: 503 })
       }
-      return NextResponse.json({ error: existingError.message }, { status: 500 })
+      return NextResponse.json({ error: sanitizeDatabaseError(existingError, "Failed to check existing attendance") }, { status: 500 })
     }
 
     if (existing?.check_in_time) {
@@ -253,7 +254,7 @@ export async function POST(req: Request) {
       if (isTeacherAttendanceSetupError(error.message)) {
         return NextResponse.json({ error: SETUP_ERROR_MESSAGE }, { status: 503 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to record check-in") }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, action: "check_in", status, distance })
@@ -271,7 +272,7 @@ export async function POST(req: Request) {
     if (isTeacherAttendanceSetupError(recordError.message)) {
       return NextResponse.json({ error: SETUP_ERROR_MESSAGE }, { status: 503 })
     }
-    return NextResponse.json({ error: recordError.message }, { status: 500 })
+    return NextResponse.json({ error: sanitizeDatabaseError(recordError, "Failed to verify check-in record") }, { status: 500 })
   }
 
   if (!record?.check_in_time) {
@@ -294,12 +295,12 @@ export async function POST(req: Request) {
     if (isTeacherAttendanceSetupError(error.message)) {
       return NextResponse.json({ error: SETUP_ERROR_MESSAGE }, { status: 503 })
     }
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to record check-out") }, { status: 500 })
   }
 
   return NextResponse.json({ success: true, action: "check_out", distance })
   } catch (err: any) {
     console.error("[teacher-attendance POST] Uncaught:", err)
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: sanitizeDatabaseError(err, "An error occurred while recording attendance") }, { status: 500 })
   }
 }

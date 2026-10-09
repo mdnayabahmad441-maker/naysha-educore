@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireAuthorizedProfile } from "@/lib/api-auth"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 export async function DELETE(request: Request) {
   const auth = await requireAuthorizedProfile(request, ["admin", "teacher", "parent"])
@@ -25,7 +26,7 @@ export async function DELETE(request: Request) {
     const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to delete account") }, { status: 400 })
     }
 
     return NextResponse.json({
@@ -34,7 +35,7 @@ export async function DELETE(request: Request) {
     })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to delete account" },
+      { error: sanitizeDatabaseError(error, "Failed to delete account") },
       { status: 500 }
     )
   }

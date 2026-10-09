@@ -1,7 +1,8 @@
-﻿import { NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getBaseUrl, getInternalApiHeaders } from "@/lib/internal-api"
 import { requireAdminProfile } from "@/lib/api-auth"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 export async function POST(req: Request) {
   const authResult = await requireAdminProfile(req)
@@ -36,8 +37,11 @@ export async function POST(req: Request) {
     })
 
     if (authError || !authData?.user) {
+      const isDuplicate =
+        authError?.message?.toLowerCase().includes("already registered") ||
+        authError?.message?.toLowerCase().includes("already exists")
       return NextResponse.json(
-        { error: authError?.message || "Auth user not created" },
+        { error: isDuplicate ? "A user with this email address already exists." : "Failed to create authentication account." },
         { status: 400 }
       )
     }
@@ -59,7 +63,7 @@ export async function POST(req: Request) {
       })
 
     if (teacherError) {
-      return NextResponse.json({ error: teacherError.message }, { status: 400 })
+      return NextResponse.json({ error: sanitizeDatabaseError(teacherError, "Failed to create teacher record") }, { status: 400 })
     }
 
     await supabaseAdmin.from("profiles").upsert({
@@ -87,7 +91,7 @@ export async function POST(req: Request) {
       const { error: teacherClassesError } = await supabaseAdmin.from("teacher_classes").insert(rows)
 
       if (teacherClassesError) {
-        return NextResponse.json({ error: teacherClassesError.message }, { status: 400 })
+        return NextResponse.json({ error: sanitizeDatabaseError(teacherClassesError, "Failed to assign teacher classes") }, { status: 400 })
       }
     }
 
@@ -102,7 +106,7 @@ export async function POST(req: Request) {
       const { error: teacherSubjectsError } = await supabaseAdmin.from("teacher_subjects").insert(rows)
 
       if (teacherSubjectsError) {
-        return NextResponse.json({ error: teacherSubjectsError.message }, { status: 400 })
+        return NextResponse.json({ error: sanitizeDatabaseError(teacherSubjectsError, "Failed to assign teacher subjects") }, { status: 400 })
       }
     }
 
@@ -141,6 +145,6 @@ export async function POST(req: Request) {
       teacher: { id: teacherId },
     })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: sanitizeDatabaseError(err, "Failed to create teacher account") }, { status: 500 })
   }
 }

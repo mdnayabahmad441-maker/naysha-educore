@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminProfile } from "@/lib/api-auth"
+import { sanitizeDatabaseError } from "@/lib/security"
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdminProfile(req)
@@ -45,7 +46,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[admissions:update]", error)
+    return NextResponse.json({ error: sanitizeDatabaseError(error, "Failed to update admission record") }, { status: 500 })
+  }
 
   return NextResponse.json({ admission: data })
 }

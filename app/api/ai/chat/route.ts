@@ -3,6 +3,7 @@ import { ensureSameSchool, requireAuthorizedProfile } from "@/lib/api-auth"
 import { createClaudeMessage, extractClaudeText } from "@/lib/claude"
 import { getAiTenantContext, getSchoolLiveData } from "@/lib/server-settings"
 import { requireAiEnabled } from "@/lib/ai-access"
+import { consumeRateLimit } from "@/lib/security"
 
 export async function POST(req: Request) {
   const authResult = await requireAuthorizedProfile(req, ["admin", "teacher"])
@@ -12,7 +13,11 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json()
+    const body = await req.json().catch(() => null)
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid request payload" }, { status: 400 })
+    }
+
     const schoolId = String(body?.schoolId || "")
     const schoolName = String(body?.schoolName || "School")
     const messages = Array.isArray(body?.messages) ? body.messages : []
@@ -23,13 +28,48 @@ export async function POST(req: Request) {
     const aiBlocked = await requireAiEnabled(schoolId)
     if (aiBlocked) return aiBlocked
 
+    // User-level rate limit: max 15 requests per minute
+    const userLimit = await consumeRateLimit(`ai:chat:user:${authResult.profile.userId}`, 15, 60 * 1000)
+    if (!userLimit.allowed) {
+      return NextResponse.json(
+        { error: "AI chat rate limit exceeded. Please wait a moment before sending more messages." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.max(1, Math.ceil((userLimit.resetAt - Date.now()) / 1000))),
+          },
+        }
+      )
+    }
+
+    // School-level rate limit: max 45 requests per minute across staff
+    const schoolLimit = await consumeRateLimit(`ai:chat:school:${schoolId}`, 45, 60 * 1000)
+    if (!schoolLimit.allowed) {
+      return NextResponse.json(
+        { error: "School-wide AI rate limit reached. Please wait a moment before trying again." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.max(1, Math.ceil((schoolLimit.resetAt - Date.now()) / 1000))),
+          },
+        }
+      )
+    }
+
     if (!messages.length) {
       return NextResponse.json({ error: "At least one message is required" }, { status: 400 })
     }
 
+    if (messages.length > 25) {
+      return NextResponse.json({ error: "Message history exceeds maximum allowed limit" }, { status: 400 })
+    }
+
     const normalized = messages
       .filter((m: any) => m.role === "user" || m.role === "assistant")
-      .map((m: any) => ({ role: m.role as "user" | "assistant", content: String(m.content || "") }))
+      .map((m: any) => ({
+        role: m.role as "user" | "assistant",
+        content: String(m.content || "").slice(0, 3000),
+      }))
 
     while (normalized.length > 0 && normalized[0].role === "assistant") {
       normalized.shift()
@@ -61,7 +101,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("AI chat route error:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to chat with AI" },
+      { error: "Failed to generate AI response. Please try again later." },
       { status: 500 }
     )
   }

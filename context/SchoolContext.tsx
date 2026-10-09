@@ -18,16 +18,41 @@ const SchoolContext = createContext<School | null>(null)
 
 let globalSchool: School | null = null
 
+import { usePathname } from "next/navigation"
+
+const PUBLIC_ROUTES = new Set([
+  "/",
+  "/features",
+  "/for-schools",
+  "/pricing",
+  "/about",
+  "/contact",
+  "/book-demo",
+  "/security",
+  "/privacy",
+  "/terms",
+  "/data-deletion",
+])
+
 export function SchoolProvider({ children }: any) {
+  const pathname = usePathname()
+  const isPublicRoute = PUBLIC_ROUTES.has(pathname || "")
+
   const [school, setSchool] = useState<School | null>(null)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Avoid unneeded Supabase session queries on public marketing & policy pages
+    if (isPublicRoute) {
+      return
+    }
+
+    let isMounted = true
+
     const load = async () => {
       try {
         const schoolId = await getSchoolId()
 
-        if (schoolId) {
+        if (schoolId && isMounted) {
           const { data: schoolData, error: schoolError } = await supabase
             .from("schools")
             .select("id,name,subdomain,email,phone,address,logo_url")
@@ -38,33 +63,26 @@ export function SchoolProvider({ children }: any) {
             console.error("School fetch error:", schoolError)
           }
 
-          if (schoolData) {
+          if (schoolData && isMounted) {
             globalSchool = schoolData
             setSchool(schoolData)
-            setLoading(false)
             return
           }
         }
-
-        console.warn("No school found for current session")
       } catch (err) {
         console.error("Context error:", err)
-      } finally {
-        setLoading(false)
       }
     }
 
     load()
-  }, [])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#020c1b] text-white">
-        Loading...
-      </div>
-    )
-  }
+    return () => {
+      isMounted = false
+    }
+  }, [isPublicRoute])
 
+  // Non-blocking render: Authenticated layouts (admin/teacher/parent) manage their own
+  // auth spinners, while public and unauthenticated pages render instantly for SEO & users.
   return (
     <SchoolContext.Provider value={school}>
       {children}
