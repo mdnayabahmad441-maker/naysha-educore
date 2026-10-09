@@ -7,7 +7,7 @@ export const metadata = {
   description:
     "Explore the complete feature suite of NaySha EduCore: GPS teacher attendance, automated fee collection, report cards, WhatsApp alerts, and AI-powered question papers.",
   alternates: {
-    canonical: "https://naysha.online/features",
+    canonical: "https://www.naysha.online/features",
   },
 }
 

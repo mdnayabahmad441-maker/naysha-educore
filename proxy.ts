@@ -52,7 +52,10 @@ export function proxy(request: NextRequest) {
     url.pathname.startsWith("/login") ||
     url.pathname.startsWith("/verify") ||
     url.pathname.startsWith("/_next") ||
-    url.pathname.startsWith("/favicon")
+    url.pathname.startsWith("/favicon") ||
+    url.pathname === "/robots.txt" ||
+    url.pathname === "/sitemap.xml" ||
+    url.pathname.startsWith("/sitemap")
   ) {
     return applySecurityHeaders(NextResponse.next())
   }

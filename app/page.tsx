@@ -10,7 +10,7 @@ export const metadata = {
   description:
     "Cloud-native school management SaaS platform by Groenics. Real-time attendance with GPS verification, automated fee collection, report cards, and parent WhatsApp notifications.",
   alternates: {
-    canonical: "https://naysha.online",
+    canonical: "https://www.naysha.online",
   },
 }
 
@@ -41,11 +41,11 @@ export default async function Page() {
     "@graph": [
       {
         "@type": "Organization",
-        "@id": "https://naysha.online/#organization",
+        "@id": "https://www.naysha.online/#organization",
         name: "NaySha EduCore",
         legalName: "Groenics",
-        url: "https://naysha.online",
-        logo: "https://naysha.online/logo.png",
+        url: "https://www.naysha.online",
+        logo: "https://www.naysha.online/logo.png",
         contactPoint: {
           "@type": "ContactPoint",
           email: "support@naysha.online",
@@ -54,7 +54,7 @@ export default async function Page() {
       },
       {
         "@type": "SoftwareApplication",
-        "@id": "https://naysha.online/#software",
+        "@id": "https://www.naysha.online/#software",
         name: "NaySha EduCore ERP",
         applicationCategory: "EducationalApplication",
         operatingSystem: "Web, Android",
@@ -70,7 +70,7 @@ export default async function Page() {
           },
         },
         publisher: {
-          "@id": "https://naysha.online/#organization",
+          "@id": "https://www.naysha.online/#organization",
         },
       },
     ],

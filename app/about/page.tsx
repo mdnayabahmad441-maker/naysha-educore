@@ -7,7 +7,7 @@ export const metadata = {
   description:
     "Learn about NaySha EduCore, the modern school ERP platform engineered by Groenics to modernize school administration, attendance, and parent communication across India.",
   alternates: {
-    canonical: "https://naysha.online/about",
+    canonical: "https://www.naysha.online/about",
   },
 }
 

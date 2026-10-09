@@ -7,7 +7,7 @@ export const metadata = {
   description:
     "Learn about the security safeguards, multi-tenant isolation, database row-level security (RLS), and rate limiting implemented across NaySha EduCore.",
   alternates: {
-    canonical: "https://naysha.online/security",
+    canonical: "https://www.naysha.online/security",
   },
 }
 

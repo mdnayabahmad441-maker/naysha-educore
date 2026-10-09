@@ -7,7 +7,7 @@ export const metadata = {
   description:
     "Tailored school ERP solutions for School Owners, Principals, Teachers, Accountants, and Parents. Enhance operational efficiency and eliminate administrative bottlenecks.",
   alternates: {
-    canonical: "https://naysha.online/for-schools",
+    canonical: "https://www.naysha.online/for-schools",
   },
 }
 

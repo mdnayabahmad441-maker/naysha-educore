@@ -4,7 +4,7 @@ export const metadata = {
   title: "Privacy Policy - NaySha EduCore",
   description: "Privacy Policy for NaySha EduCore School Management Platform",
   alternates: {
-    canonical: "https://naysha.online/privacy",
+    canonical: "https://www.naysha.online/privacy",
   },
 }
 

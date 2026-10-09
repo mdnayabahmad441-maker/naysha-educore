@@ -4,7 +4,7 @@ import ThemeProvider from "@/components/providers/ThemeProvider"
 import type { Metadata, Viewport } from "next"
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://naysha.online"),
+  metadataBase: new URL("https://www.naysha.online"),
   title: {
     default: "NaySha EduCore — Modern Multi-School ERP & Management Platform",
     template: "%s | NaySha EduCore",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     title: "NaySha EduCore — Modern Multi-School ERP & Management Platform",
     description:
       "Cloud-native school management SaaS platform. Real-time attendance, automated fee collection, report cards, and parent WhatsApp notifications.",
-    url: "https://naysha.online",
+    url: "https://www.naysha.online",
     siteName: "NaySha EduCore",
     locale: "en_IN",
     type: "website",

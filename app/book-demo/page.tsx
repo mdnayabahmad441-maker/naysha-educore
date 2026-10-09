@@ -7,7 +7,7 @@ export const metadata = {
   description:
     "Schedule a live personalized demonstration of NaySha EduCore School ERP. Experience GPS attendance, automated fee receipts, report cards, and WhatsApp parent alerts.",
   alternates: {
-    canonical: "https://naysha.online/book-demo",
+    canonical: "https://www.naysha.online/book-demo",
   },
 }
 

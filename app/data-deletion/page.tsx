@@ -4,7 +4,7 @@ export const metadata = {
   title: "Data Deletion Instructions - NaySha EduCore",
   description: "How to request deletion of your account and personal data from NaySha EduCore",
   alternates: {
-    canonical: "https://naysha.online/data-deletion",
+    canonical: "https://www.naysha.online/data-deletion",
   },
 }
 

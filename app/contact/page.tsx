@@ -8,7 +8,7 @@ export const metadata = {
   description:
     "Get in touch with the NaySha EduCore team at Groenics. Schedule a school demonstration, request technical assistance, or discuss enterprise onboarding.",
   alternates: {
-    canonical: "https://naysha.online/contact",
+    canonical: "https://www.naysha.online/contact",
   },
 }
 

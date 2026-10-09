@@ -7,7 +7,7 @@ export const metadata = {
   description:
     "Transparent annual SaaS pricing for Indian schools at ₹180 per student/year. All core modules, updates, cloud hosting, and onboarding included. No hidden charges.",
   alternates: {
-    canonical: "https://naysha.online/pricing",
+    canonical: "https://www.naysha.online/pricing",
   },
 }
 
